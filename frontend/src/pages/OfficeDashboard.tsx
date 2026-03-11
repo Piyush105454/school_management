@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useSearchParams } from 'react-router-dom';
+import AdmissionVerification from '../components/AdmissionVerification';
 
 interface Inquiry {
     id: number;
@@ -16,23 +17,22 @@ const OfficeDashboard: React.FC = () => {
     const view = searchParams.get('view');
     
     const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-    const [loading, setLoading] = useState(true);
     const [newInquiry, setNewInquiry] = useState({
         student_name: '',
         parent_name: '',
         email: '',
         phone: '',
         applied_class: '',
-        academic_year: '2025'
+        academic_year: '2026'
     });
 
-    const showForm = view === 'inquiry';
+    const currentTab = view || 'dashboard';
 
-    const setShowForm = (show: boolean) => {
-        if (show) {
-            setSearchParams({ view: 'inquiry' });
-        } else {
+    const setTab = (tab: string) => {
+        if (tab === 'dashboard') {
             setSearchParams({});
+        } else {
+            setSearchParams({ view: tab });
         }
     };
 
@@ -46,8 +46,6 @@ const OfficeDashboard: React.FC = () => {
             setInquiries(response.data);
         } catch (err) {
             console.error(err);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -55,9 +53,9 @@ const OfficeDashboard: React.FC = () => {
         e.preventDefault();
         try {
             await api.post('admissions/inquiries/', newInquiry);
-            setShowForm(false);
+            setTab('inquiry');
             fetchInquiries();
-            setNewInquiry({ student_name: '', parent_name: '', email: '', phone: '', applied_class: '', academic_year: '2025' });
+            setNewInquiry({ student_name: '', parent_name: '', email: '', phone: '', applied_class: '', academic_year: '2026' });
         } catch (err) {
             alert('Error creating inquiry');
         }
@@ -66,23 +64,16 @@ const OfficeDashboard: React.FC = () => {
     const handleShortlist = async (id: number) => {
         try {
             const response = await api.post(`admissions/inquiries/${id}/shortlist/`);
-            alert(`Credentials Generated!\nUser: ${response.data.entry_number}\nPass: ${response.data.password}`);
+            alert(`Student Shortlisted!\nLogin: ${response.data.email}\nPass: ${response.data.password}\nAn automated email would be sent to the parent.`);
             fetchInquiries();
         } catch (err) {
-            alert('Error shortlisting student');
+            alert('Error shortlisting student: ' + (err as any).response?.data?.message || 'Unknown error');
         }
     };
 
-    return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ margin: 0 }}>Overview</h2>
-                <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-                    {showForm ? 'View Inquiries' : '+ New Inquiry'}
-                </button>
-            </div>
-
-            {showForm ? (
+    const renderView = () => {
+        if (currentTab === 'inquiry_form') {
+            return (
                 <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
                     <h3>Register New Inquiry</h3>
                     <form onSubmit={handleCreateInquiry} style={{ marginTop: '1.5rem' }}>
@@ -94,7 +85,11 @@ const OfficeDashboard: React.FC = () => {
                         <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Save Inquiry</button>
                     </form>
                 </div>
-            ) : (
+            );
+        }
+
+        if (currentTab === 'inquiry') {
+            return (
                 <div className="card">
                     <h3>Recent Inquiries</h3>
                     <div style={{ overflowX: 'auto', marginTop: '1.5rem' }}>
@@ -137,7 +132,39 @@ const OfficeDashboard: React.FC = () => {
                         </table>
                     </div>
                 </div>
-            )}
+            );
+        }
+
+        if (currentTab === 'admissions') {
+            return <AdmissionVerification />;
+        }
+
+        return (
+            <div className="card">
+                <h2>Welcome to Office Dashboard</h2>
+                <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>Select a section from the sidebar or use quick actions.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginTop: '2rem' }}>
+                    <div className="card" style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => setTab('inquiry_form')}>
+                        <h4>New Inquiry</h4>
+                    </div>
+                    <div className="card" style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => setTab('admissions')}>
+                        <h4>Admission Review</h4>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ margin: 0 }}>Office Dashboard</h2>
+                {currentTab !== 'dashboard' && (
+                    <button className="btn" onClick={() => setTab('dashboard')}>Back to Overview</button>
+                )}
+            </div>
+
+            {renderView()}
         </div>
     );
 };

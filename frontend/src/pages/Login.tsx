@@ -12,7 +12,8 @@ const Login: React.FC = () => {
         e.preventDefault();
         setError('');
         try {
-            const response = await api.post('auth/token/', { username: email, password });
+            // Backend expects 'email' as the key because USERNAME_FIELD = 'email'
+            const response = await api.post('auth/token/', { email: email, password });
             login(response.data.access);
         } catch (err: any) {
             setError('Invalid email or password');

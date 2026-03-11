@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
 interface User {
-  username: string;
+  email: string;
   role: 'OFFICE' | 'STUDENT_PARENT';
 }
 
@@ -25,8 +25,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const decoded: any = jwtDecode(token);
         console.log('Decoded token:', decoded);
-        if (decoded.username && decoded.role) {
-          setUser({ username: decoded.username, role: decoded.role });
+        if (decoded.email && decoded.role) {
+          setUser({ email: decoded.email, role: decoded.role });
         } else {
           console.error('Token missing required claims');
           localStorage.removeItem('token');
@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       localStorage.setItem('token', token);
       const decoded: any = jwtDecode(token);
-      setUser({ username: decoded.username, role: decoded.role });
+      setUser({ email: decoded.email, role: decoded.role });
     } catch (err) {
       console.error('Login decode error:', err);
     }

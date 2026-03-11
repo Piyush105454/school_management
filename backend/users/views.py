@@ -9,27 +9,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
         # Add custom claims to the JWT payload
-        token['username'] = user.username
-        token['role'] = user.role
         token['email'] = user.email
+        token['role'] = user.role
         return token
 
     def validate(self, attrs):
-        # Allow login via email or username
-        username = attrs.get("username")
-        password = attrs.get("password")
-
-        if "@" in username:
-            try:
-                user = User.objects.get(email=username)
-                attrs["username"] = user.username
-            except User.DoesNotExist:
-                pass
-
+        # The base validate() method uses USERNAME_FIELD (email) as the key in attrs
         data = super().validate(attrs)
         # Also include them in the response body for convenience
         data['role'] = self.user.role
-        data['username'] = self.user.username
         data['email'] = self.user.email
         return data
 
