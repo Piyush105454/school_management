@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { InquiriesList } from "@/features/admissions/components/InquiriesList";
