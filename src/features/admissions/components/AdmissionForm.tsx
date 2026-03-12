@@ -34,6 +34,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
   const [currentStep, setCurrentStep] = useState(maxStep > 8 ? 8 : maxStep);
   const [loading, setLoading] = useState(false);
   const methods = useForm({
+    shouldUnregister: false,
     defaultValues: initialData || {
       studentBio: {
         firstName: "", middleName: "", lastName: "", gender: "M", dob: "", age: 0,

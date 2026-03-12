@@ -15,16 +15,63 @@ import {
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+function sanitizeBioData(data: any) {
+  if (!data) return data;
+  const sanitized = { ...data };
+  
+  if (sanitized.dob) sanitized.dob = new Date(sanitized.dob);
+  
+  // Convert numeric fields from string to number or null
+  const numericFields = ["age", "heightCm", "weightKg"];
+  numericFields.forEach(field => {
+    if (sanitized[field] === "" || sanitized[field] === undefined || sanitized[field] === null) {
+      sanitized[field] = null;
+    } else if (typeof sanitized[field] === "string") {
+      const val = field === "age" ? parseInt(sanitized[field]) : parseFloat(sanitized[field]);
+      sanitized[field] = isNaN(val) ? null : val;
+    }
+  });
+
+  return sanitized;
+}
+
+function sanitizeAcademicData(data: any) {
+  if (!data) return data;
+  const sanitized = { ...data };
+  
+  const numericFields = ["marksObtained", "totalMarks", "percentage"];
+  numericFields.forEach(field => {
+    if (sanitized[field] === "" || sanitized[field] === undefined || sanitized[field] === null) {
+      sanitized[field] = null;
+    } else if (typeof sanitized[field] === "string") {
+      const val = parseFloat(sanitized[field]);
+      sanitized[field] = isNaN(val) ? null : val;
+    }
+  });
+
+  return sanitized;
+}
+
+function sanitizeSiblingData(data: any[]) {
+  if (!data) return [];
+  return data.map(s => {
+    const sanitized = { ...s };
+    if (sanitized.age === "" || sanitized.age === undefined || sanitized.age === null) {
+      sanitized.age = null;
+    } else if (typeof sanitized.age === "string") {
+      const val = parseInt(sanitized.age);
+      sanitized.age = isNaN(val) ? null : val;
+    }
+    return sanitized;
+  });
+}
+
 export async function submitFullAdmissionForm(admissionId: string, data: any, step?: number) {
   try {
     return await db.transaction(async (tx) => {
       // 1. Student Bio
       if (data.studentBio) {
-        const bioData = { ...data.studentBio };
-        if (bioData.dob) bioData.dob = new Date(bioData.dob);
-        if (bioData.age) bioData.age = parseInt(bioData.age);
-        if (bioData.heightCm) bioData.heightCm = parseFloat(bioData.heightCm);
-        if (bioData.weightKg) bioData.weightKg = parseFloat(bioData.weightKg);
+        const bioData = sanitizeBioData(data.studentBio);
 
         await tx.insert(studentBio).values({
           ...bioData,
@@ -59,10 +106,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
 
       // 4. Previous Academic
       if (data.previousAcademic) {
-        const academicData = { ...data.previousAcademic };
-        if (academicData.marksObtained) academicData.marksObtained = parseFloat(academicData.marksObtained);
-        if (academicData.totalMarks) academicData.totalMarks = parseFloat(academicData.totalMarks);
-        if (academicData.percentage) academicData.percentage = parseFloat(academicData.percentage);
+        const academicData = sanitizeAcademicData(data.previousAcademic);
 
         await tx.insert(previousAcademic).values({
           ...academicData,
@@ -77,8 +121,9 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
       if (data.siblings) {
         await tx.delete(siblingDetails).where(eq(siblingDetails.admissionId, admissionId));
         if (data.siblings.length > 0) {
+          const sanitizedSiblings = sanitizeSiblingData(data.siblings);
           await tx.insert(siblingDetails).values(
-            data.siblings.map((s: any, i: number) => ({ ...s, admissionId, siblingNumber: i + 1 }))
+            sanitizedSiblings.map((s: any, i: number) => ({ ...s, admissionId, siblingNumber: i + 1 }))
           );
         }
       }
@@ -154,11 +199,7 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
         case 1:
         case 2:
           if (data.studentBio) {
-            const bioData = { ...data.studentBio };
-            if (bioData.dob) bioData.dob = new Date(bioData.dob);
-            if (bioData.age) bioData.age = parseInt(bioData.age);
-            if (bioData.heightCm) bioData.heightCm = parseFloat(bioData.heightCm);
-            if (bioData.weightKg) bioData.weightKg = parseFloat(bioData.weightKg);
+            const bioData = sanitizeBioData(data.studentBio);
 
             await tx.insert(studentBio).values({ ...bioData, admissionId }).onConflictDoUpdate({
               target: studentBio.admissionId,
@@ -176,10 +217,7 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           break;
         case 4:
           if (data.previousAcademic) {
-            const academicData = { ...data.previousAcademic };
-            if (academicData.marksObtained) academicData.marksObtained = parseFloat(academicData.marksObtained);
-            if (academicData.totalMarks) academicData.totalMarks = parseFloat(academicData.totalMarks);
-            if (academicData.percentage) academicData.percentage = parseFloat(academicData.percentage);
+            const academicData = sanitizeAcademicData(data.previousAcademic);
 
             await tx.insert(previousAcademic).values({ ...academicData, admissionId }).onConflictDoUpdate({
               target: previousAcademic.admissionId,
@@ -191,8 +229,9 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           if (data.siblings) {
             await tx.delete(siblingDetails).where(eq(siblingDetails.admissionId, admissionId));
             if (data.siblings.length > 0) {
+              const sanitizedSiblings = sanitizeSiblingData(data.siblings);
               await tx.insert(siblingDetails).values(
-                data.siblings.map((s: any, i: number) => ({ ...s, admissionId, siblingNumber: i + 1 }))
+                sanitizedSiblings.map((s: any, i: number) => ({ ...s, admissionId, siblingNumber: i + 1 }))
               );
             }
           }
