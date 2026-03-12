@@ -38,28 +38,28 @@ export function LoginForm() {
   };
 
   return (
-    <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-2xl border border-slate-100">
+    <div className="max-w-md w-full space-y-6 md:space-y-8 bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm">
       <div className="text-center">
-        <div className="mx-auto h-16 w-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 rotate-3">
-          <GraduationCap className="h-10 w-10 -rotate-3" />
+        <div className="mx-auto h-16 w-16 bg-blue-600 rounded-xl flex items-center justify-center text-white">
+          <GraduationCap className="h-10 w-10" />
         </div>
-        <h2 className="mt-8 text-3xl font-black text-slate-900 font-outfit uppercase tracking-tight">
+        <h2 className="mt-8 text-2xl font-bold text-slate-900 uppercase">
           Welcome Back
         </h2>
-        <p className="mt-2 text-sm text-slate-400 font-bold uppercase tracking-widest">
+        <p className="mt-2 text-xs text-slate-500 font-bold uppercase tracking-wider">
           Sign in to access your dashboard
         </p>
       </div>
 
       <form className="mt-10 space-y-6" onSubmit={handleSubmit}>
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-100 flex items-center justify-center gap-2">
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold uppercase tracking-wider border border-red-100">
             ⚠️ {error}
           </div>
         )}
         <div className="space-y-4">
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
               Email Address
             </label>
             <input
@@ -67,12 +67,12 @@ export function LoginForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="block w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:bg-white transition-all font-bold"
-              placeholder="you@schoolflow.com"
+              className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-medium"
+              placeholder="Enter your email"
             />
           </div>
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
               Password
             </label>
             <input
@@ -80,7 +80,7 @@ export function LoginForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:bg-white transition-all font-bold"
+              className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-medium"
               placeholder="••••••••"
             />
           </div>
@@ -90,12 +90,12 @@ export function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-black uppercase tracking-widest rounded-2xl text-white bg-slate-950 hover:bg-black focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all shadow-xl shadow-slate-950/20 disabled:opacity-70 disabled:cursor-not-allowed active:scale-95"
+            className="w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold uppercase tracking-wider rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {loading ? (
               <Loader2 className="animate-spin h-5 w-5" />
             ) : (
-              "Sign In Now →"
+              "Sign In"
             )}
           </button>
         </div>

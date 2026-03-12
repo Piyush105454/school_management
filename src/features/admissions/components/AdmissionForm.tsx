@@ -117,67 +117,55 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 max-w-6xl mx-auto my-8">
-      <div className="grid grid-cols-1 lg:grid-cols-4 min-h-[700px]">
-        {/* Progress Sidebar */}
-        <div className="bg-slate-950 p-10 text-white space-y-12">
-          <div>
-            <h2 className="text-2xl font-black font-outfit tracking-tight">ADMISSION</h2>
-            <p className="text-slate-400 text-sm mt-2 font-medium">Academic Session 2026-27</p>
-          </div>
-          
-          <div className="space-y-6">
-            {steps.map((step) => {
-              const isActive = currentStep === step.id;
-              const isPast = maxStep > step.id || (currentStep > step.id);
-              const isUnlocked = maxStep >= step.id;
-              return (
-                <div key={step.id} 
+    <div className="max-w-4xl mx-auto my-4 md:my-8 space-y-4 md:space-y-6">
+      {/* Horizontal Stepper */}
+      <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
+          {steps.map((step, index) => {
+            const isActive = currentStep === step.id;
+            const isPast = maxStep > step.id || (currentStep > step.id);
+            const isUnlocked = maxStep >= step.id;
+            
+            return (
+              <React.Fragment key={step.id}>
+                <div 
                   className={cn(
-                    "flex items-center gap-5 group transition-all duration-200",
+                    "flex flex-col items-center gap-1.5 group transition-all duration-200",
                     isUnlocked ? "cursor-pointer" : "opacity-30 cursor-not-allowed"
                   )} 
                   onClick={() => isUnlocked && setCurrentStep(step.id)}
                 >
                   <div className={cn(
-                    "h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 border-2 relative",
-                    isActive ? "bg-blue-600 border-blue-600 scale-110 shadow-xl shadow-blue-500/40 rotate-6" : 
-                    isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-800 text-slate-700 bg-slate-900/50"
+                    "h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center transition-all duration-300 border-2",
+                    isActive ? "bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/10" : 
+                    isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-100 text-slate-400 bg-slate-50"
                   )}>
-                    <step.icon size={20} className={cn(
-                      isActive || isPast ? "text-white" : "text-slate-600"
+                    <step.icon size={16} className={cn(
+                      isActive || isPast ? "text-white" : "text-slate-400"
                     )} />
-                    {isPast && (
-                      <div className="absolute -top-2 -right-2 bg-white rounded-full p-0.5 shadow-lg">
-                        <CheckCircle size={14} className="text-emerald-500" />
-                      </div>
-                    )}
                   </div>
-                  <div className="hidden lg:block">
-                    <p className={cn(
-                      "text-[10px] font-black uppercase tracking-[0.2em]",
-                      isActive ? "text-blue-400" : "text-slate-600"
-                    )}>Step {step.id}</p>
-                    <p className={cn(
-                      "text-sm font-bold tracking-tight leading-none mt-1",
-                      isActive ? "text-white" : "text-slate-500 group-hover:text-slate-400"
-                    )}>{step.name}</p>
-                  </div>
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase tracking-widest text-center",
+                    isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400"
+                  )}>
+                    {step.name}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="pt-12 border-t border-slate-800/50">
-             <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-900/50 border border-slate-800">
-                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                <p className="text-xs text-slate-400 font-medium tracking-wide">SECURE ENCRYPTED FORM</p>
-             </div>
-          </div>
+                {index < steps.length - 1 && (
+                  <div className={cn(
+                    "h-px flex-1 mx-1 md:mx-2",
+                    isPast ? "bg-emerald-200" : "bg-slate-100"
+                  )} />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
+      </div>
 
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 mb-6">
         {/* Form Content */}
-        <div className="lg:col-span-3 p-12 flex flex-col h-full bg-slate-50/30">
+        <div className="p-4 md:p-8 flex flex-col bg-white">
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
               <div className="max-w-3xl mx-auto">
@@ -193,11 +181,11 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
             </form>
           </FormProvider>
 
-          <div className="mt-16 flex items-center justify-between pt-10 border-t border-slate-200/60 max-w-3xl mx-auto w-full">
+          <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
             <button
               onClick={prevStep}
               disabled={currentStep === 1}
-              className="group flex items-center gap-3 px-8 py-3.5 rounded-2xl text-slate-600 font-bold hover:bg-slate-200/50 transition-all duration-200 disabled:opacity-30 border border-transparent hover:border-slate-200"
+              className="w-full md:w-auto group flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl text-slate-600 font-bold hover:bg-slate-200/50 transition-all duration-200 disabled:opacity-30 border border-slate-100 md:border-transparent hover:border-slate-200"
             >
               <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
             </button>
@@ -206,7 +194,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
               <button
                 type="button"
                 onClick={nextStep}
-                className="group flex items-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all duration-200 shadow-xl shadow-slate-900/10"
+                className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all duration-200 shadow-xl shadow-slate-900/10"
               >
                 Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
               </button>
@@ -214,7 +202,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
               <button
                 onClick={methods.handleSubmit(onSubmit)}
                 disabled={loading}
-                className="flex items-center gap-3 px-12 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all duration-200 shadow-2xl shadow-blue-600/30 disabled:opacity-70"
+                className="w-full md:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all duration-200 shadow-2xl shadow-blue-600/30 disabled:opacity-70"
               >
                 {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (
                   <>SUBMIT APPLICATION <CheckCircle size={22} /></>
@@ -228,19 +216,19 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
   );
 }
 
-const inputStyles = "w-full px-5 py-3.5 rounded-2xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700";
-const labelStyles = "text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block";
+const inputStyles = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700 text-sm md:text-base";
+const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
 
 function BioStep() {
   const { register } = useFormContext();
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="space-y-2">
-        <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Basic Bio-Data</h3>
-        <p className="text-slate-500 font-medium">Step 1: Primary identification details.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Basic Bio-Data</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 1: Primary identification details.</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div className="space-y-1">
           <label className={labelStyles}>First Name*</label>
           <input {...register("studentBio.firstName", { required: true })} className={inputStyles} placeholder="John" />
@@ -291,13 +279,13 @@ function BioStep() {
 function ProfileStatsStep() {
     const { register, watch } = useFormContext();
     return (
-      <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="space-y-2">
-          <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Identity & Health</h3>
-          <p className="text-slate-500 font-medium">Step 2: ID numbers and physical metrics.</p>
+      <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-1">
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Identity & Health</h3>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Step 2: ID numbers and physical metrics.</p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-1">
                 <label className={labelStyles}>Aadhaar Number (12 Digits)</label>
                 <input {...register("studentBio.aadhaarNumber")} className={inputStyles} placeholder="0000 0000 0000" maxLength={12} />
@@ -313,7 +301,7 @@ function ProfileStatsStep() {
                     {["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"].map(bg => <option key={bg} value={bg}>{bg}</option>)}
                 </select>
             </div>
-            <div className="space-y-1 flex gap-4">
+            <div className="space-y-1 flex gap-3 md:gap-4">
                 <div className="flex-1">
                     <label className={labelStyles}>Height (cm)</label>
                     <input type="number" step="0.1" {...register("studentBio.heightCm")} className={inputStyles} placeholder="0.0" />
@@ -324,15 +312,15 @@ function ProfileStatsStep() {
                 </div>
             </div>
 
-            <div className="md:col-span-2 space-y-4 p-6 rounded-2xl bg-blue-50/50 border border-blue-100">
+            <div className="md:col-span-2 space-y-3 p-4 md:p-6 rounded-xl bg-blue-50/50 border border-blue-100">
                 <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" {...register("studentBio.cwsn")} className="h-5 w-5 rounded border-slate-300 text-blue-600" />
-                    <span className="text-sm font-bold text-slate-700">Child with Special Needs (CWSN)?</span>
+                    <input type="checkbox" {...register("studentBio.cwsn")} className="h-4 w-4 md:h-5 md:w-5 rounded border-slate-300 text-blue-600" />
+                    <span className="text-xs md:text-sm font-bold text-slate-700 uppercase">Child with Special Needs?</span>
                 </label>
                 {watch("studentBio.cwsn") && (
                     <div className="space-y-1">
-                        <label className={labelStyles}>Problem Description</label>
-                        <textarea {...register("studentBio.cwsnProblemDesc")} className={cn(inputStyles, "h-24 resize-none")} placeholder="Describe the condition..." />
+                        <label className={labelStyles}>Description</label>
+                        <textarea {...register("studentBio.cwsnProblemDesc")} className={cn(inputStyles, "h-20 resize-none")} placeholder="Describe the condition..." />
                     </div>
                 )}
             </div>
@@ -346,37 +334,37 @@ function SiblingsStep() {
     const { fields, append, remove } = useFieldArray({ control, name: "siblings" });
   
     return (
-      <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="space-y-2 flex justify-between items-end">
+      <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-2 flex justify-between items-end gap-2">
             <div>
-                <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Sibling Details</h3>
-                <p className="text-slate-500 font-medium">Step 5: Information about brothers/sisters in this school.</p>
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Siblings</h3>
+                <p className="text-xs md:text-sm text-slate-500 font-medium">Step 5: Information about brothers/sisters.</p>
             </div>
             <button 
                 type="button"
                 onClick={() => append({ name: "", age: "", gender: "M", classCurrent: "", schoolName: "This School" })}
-                className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all"
+                className="flex items-center gap-2 bg-slate-900 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-bold hover:bg-black transition-all uppercase tracking-widest"
             >
-                <Plus size={14} /> Add Sibling
+                <Plus size={14} /> Add New
             </button>
         </div>
   
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           {fields.length === 0 && (
-            <div className="p-12 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-                <p className="text-slate-400 font-medium italic">No sibling records added.</p>
+            <div className="p-8 md:p-12 text-center border-2 border-dashed border-slate-100 rounded-2xl md:rounded-3xl">
+                <p className="text-xs md:text-sm text-slate-400 font-medium italic">No sibling records added.</p>
             </div>
           )}
           {fields.map((field, index) => (
-            <div key={field.id} className="p-6 rounded-2xl bg-white border border-slate-200/60 shadow-sm relative group">
+            <div key={field.id} className="p-4 md:p-6 rounded-xl md:rounded-2xl bg-white border border-slate-100 shadow-sm relative group">
               <button 
                 type="button"
                 onClick={() => remove(index)}
-                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors"
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} />
               </button>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                 <div className="space-y-1">
                   <label className={labelStyles}>Name</label>
                   <input {...register(`siblings.${index}.name`)} className={inputStyles} />
@@ -400,13 +388,13 @@ function SiblingsStep() {
 function AddressStep() {
   const { register } = useFormContext();
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-2">
-        <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Address Details</h3>
-        <p className="text-slate-500 font-medium">Step 3: Permanent residential address.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Address</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 3: Residential address.</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-1 md:col-span-2">
           <label className={labelStyles}>House No / Street / Colony*</label>
           <input {...register("address.houseNo", { required: true })} className={inputStyles} placeholder="Building name, Street address" />
@@ -435,13 +423,13 @@ function AddressStep() {
 function AcademicStep() {
   const { register } = useFormContext();
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-2">
-        <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Academic History</h3>
-        <p className="text-slate-500 font-medium">Step 4: Details of the last school attended.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Academic</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 4: Last school attended.</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-1 md:col-span-2">
           <label className={labelStyles}>Last School Name</label>
           <input {...register("previousAcademic.schoolName")} className={inputStyles} placeholder="Enter full school name" />
@@ -471,23 +459,42 @@ function AcademicStep() {
 
 function ParentsStep() {
   const { control, register, getValues } = useFormContext();
-  const { fields } = useFieldArray({ control, name: "parentsGuardians" });
+  const { fields, append } = useFieldArray({ control, name: "parentsGuardians" });
+
+  // Auto-append Father/Mother if somehow missing
+  React.useEffect(() => {
+    if (fields.length === 0) {
+      append([
+        { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" },
+        { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" }
+      ]);
+    }
+  }, [fields, append]);
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="space-y-2">
-        <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Parent Details</h3>
-        <p className="text-slate-500 font-medium">Step 6: Father and Mother information.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-4 md:pb-6">
+      <div className="space-y-1 flex flex-col md:flex-row justify-between items-start md:items-end gap-3 md:gap-4">
+        <div>
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Parents</h3>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Step 6: Father and Mother information.</p>
+        </div>
+        <button 
+          type="button"
+          onClick={() => append({ personType: "GUARDIAN", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" })}
+          className="bg-slate-900 text-white px-3 md:px-5 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-bold hover:bg-black transition-all flex items-center gap-2 uppercase tracking-widest"
+        >
+          <Plus size={14} /> Add Guard
+        </button>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-4 md:space-y-6">
         {fields.map((field, index) => (
-          <div key={field.id} className="p-8 rounded-3xl bg-white border border-slate-200/60 shadow-sm space-y-8">
-            <h4 className="inline-flex px-4 py-1.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest leading-none">
+          <div key={field.id} className="p-4 md:p-6 rounded-xl bg-white border border-slate-100 shadow-sm space-y-4 md:space-y-6">
+            <h4 className="inline-flex px-3 py-1 rounded-full bg-slate-900 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
               {(getValues as any)(`parentsGuardians.${index}.personType`)}
             </h4>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-1">
                 <label className={labelStyles}>Full Name*</label>
                 <input {...register(`parentsGuardians.${index}.name`, { required: true })} className={inputStyles} />
@@ -515,13 +522,13 @@ function ParentsStep() {
 function BankStep() {
   const { register } = useFormContext();
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-2">
-        <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Bank Account</h3>
-        <p className="text-slate-500 font-medium">Step 7: For scholarship and Direct Benefit Transfer.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Bank</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 7: For scholarship and DBT.</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-1">
           <label className={labelStyles}>Bank Name</label>
           <input {...register("bankDetails.bankName")} className={inputStyles} />
@@ -546,26 +553,26 @@ function BankStep() {
 function DeclarationStep() {
   const { register, watch } = useFormContext();
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-2 text-center">
-        <h3 className="text-3xl font-black text-slate-900 font-outfit tracking-tight uppercase">Final Declaration</h3>
-        <p className="text-slate-500 font-medium">Step 8: Final validation and signature.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="space-y-1 text-center">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Final Declaration</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium font-bold">Step 8: validation & signature.</p>
       </div>
 
-      <div className="p-10 rounded-[40px] bg-white border border-blue-100 shadow-2xl shadow-blue-500/10 space-y-10 max-w-2xl mx-auto">
-        <p className="text-slate-600 font-medium leading-relaxed italic text-center">
+      <div className="p-6 md:p-8 rounded-2xl md:rounded-[32px] bg-white border border-blue-50 shadow-sm space-y-6 md:space-y-8 max-w-2xl mx-auto">
+        <p className="text-xs md:text-sm text-slate-600 font-medium leading-relaxed italic text-center">
             "I hereby solemnly declare that all information furnished in this application is true, complete and correct. I am aware that if any information is found incorrect, the admission will be cancelled."
         </p>
 
-        <div className="space-y-8">
-          <label className="flex items-center gap-5 p-6 rounded-3xl bg-slate-50 border border-slate-200/60 cursor-pointer group transition-all hover:bg-slate-100">
-            <input type="checkbox" {...register("declaration.declarationAccepted", { required: true })} className="h-7 w-7 rounded-lg border-2 border-slate-300 text-blue-600 cursor-pointer" />
-            <span className="text-sm font-bold text-slate-700 uppercase">I Accept All Terms</span>
+        <div className="space-y-6 md:space-y-8">
+          <label className="flex items-center gap-4 md:gap-5 p-4 md:p-6 rounded-xl md:rounded-3xl bg-slate-50 border border-slate-100 cursor-pointer group transition-all hover:bg-slate-100/50">
+            <input type="checkbox" {...register("declaration.declarationAccepted", { required: true })} className="h-6 w-6 md:h-7 md:w-7 rounded-lg border-2 border-slate-300 text-blue-600 cursor-pointer" />
+            <span className="text-[10px] md:text-xs font-bold text-slate-700 uppercase tracking-widest">I Accept All Terms</span>
           </label>
 
           <div className="space-y-1">
             <label className={cn(labelStyles, "text-center")}>Parent Signature (Full Name)*</label>
-            <input {...register("declaration.guardianName", { required: true })} className={cn(inputStyles, "text-center text-xl font-black font-outfit uppercase border-t-0 border-l-0 border-r-0 rounded-none bg-transparent")} placeholder="Sign Here" />
+            <input {...register("declaration.guardianName", { required: true })} className={cn(inputStyles, "text-center text-lg md:text-xl font-black font-outfit uppercase border-t-0 border-l-0 border-r-0 rounded-none bg-transparent")} placeholder="Sign Here" />
           </div>
         </div>
       </div>
