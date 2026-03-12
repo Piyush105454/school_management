@@ -18,7 +18,8 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { resetStudentPassword } from "../actions/inquiryActions";
@@ -116,6 +117,13 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <a
+                        href={`/office/admissions/${adm.id}`}
+                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="View Application"
+                      >
+                        <FileText size={18} />
+                      </a>
                       <button 
                         onClick={() => {
                           setSelectedAdm(adm);

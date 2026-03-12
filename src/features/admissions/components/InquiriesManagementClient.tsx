@@ -1,6 +1,5 @@
-"use client";
-
 import React, { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { InquiriesList } from "@/features/admissions/components/InquiriesList";
 import { AdmissionProcessList } from "@/features/admissions/components/AdmissionProcessList";
 import { InquiryForm } from "@/features/admissions/components/InquiryForm";
@@ -15,8 +14,18 @@ export function InquiriesManagementClient({
   allInquiries: any[], 
   allAdmissions: any[] 
 }) {
-  const [activeTab, setActiveTab] = useState<"inquiries" | "admissions">("inquiries");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  
+  const activeTab = (tabParam === "admissions") ? "admissions" : "inquiries";
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const setActiveTab = (tab: "inquiries" | "admissions") => {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", tab);
+    router.push(`/office/inquiries?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-8">

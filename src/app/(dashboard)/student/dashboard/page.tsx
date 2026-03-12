@@ -74,13 +74,47 @@ export default async function StudentDashboard() {
             <Link href="/student/admission" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black tracking-tight hover:bg-blue-50 transition-all hover:scale-105 shadow-xl shadow-black/10 text-sm uppercase">
               {profile.isFullyAdmitted ? "VIEW APPLICATION" : currentStep > 1 ? "CONTINUE ADMISSION" : "START ADMISSION"}
             </Link>
-            <button className="bg-blue-500/20 hover:bg-blue-500/30 text-white px-8 py-3.5 rounded-2xl font-bold transition-colors text-sm uppercase">
-              VIEW GUIDELINES
-            </button>
           </div>
         </div>
         <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-y-1/4 translate-x-1/4">
           <GraduationCap size={300} />
+        </div>
+      </div>
+
+      {/* Application Progress Tracker */}
+      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm overflow-hidden">
+        <h2 className="text-sm font-black text-slate-900 font-outfit uppercase tracking-widest mb-8 text-center bg-slate-50 py-2 rounded-xl">Application Progress</h2>
+        <div className="flex items-center justify-between max-w-3xl mx-auto relative px-4">
+          {/* Connector Line */}
+          <div className="absolute left-10 right-10 top-5 h-0.5 bg-slate-100 -z-0">
+             <div 
+               className="h-full bg-blue-500 transition-all duration-1000" 
+               style={{ width: profile.isFullyAdmitted ? "100%" : currentStep > 1 ? "25%" : "0%" }}
+             />
+          </div>
+
+          {[
+            { name: "Inquiry", status: "completed", icon: CheckCircle2 },
+            { name: "Form", status: profile.isFullyAdmitted ? "completed" : "pending", icon: FileText },
+            { name: "Exam", status: "waiting", icon: Clock },
+            { name: "Visit", status: "waiting", icon: Clock },
+            { name: "Final", status: "waiting", icon: GraduationCap },
+          ].map((item, i) => (
+             <div key={item.name} className="flex flex-col items-center gap-3 relative z-10">
+                <div className={cn(
+                  "h-10 w-10 rounded-full flex items-center justify-center border-2 transition-all duration-500",
+                  item.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                  item.status === "pending" ? "bg-blue-600 border-blue-600 text-white animate-pulse shadow-lg shadow-blue-500/20" :
+                  "bg-white border-slate-200 text-slate-300"
+                )}>
+                  {item.status === "completed" ? <CheckCircle2 size={16} /> : <item.icon size={16} />}
+                </div>
+                <span className={cn(
+                  "text-[10px] font-black uppercase tracking-widest",
+                  item.status === "waiting" ? "text-slate-300" : "text-slate-900"
+                )}>{item.name}</span>
+             </div>
+          ))}
         </div>
       </div>
 

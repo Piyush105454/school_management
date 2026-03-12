@@ -17,8 +17,8 @@ import { signOut } from "next-auth/react";
 
 const officeItems = [
   { name: "Dashboard", href: "/office/dashboard", icon: LayoutDashboard },
-  { name: "Inquiries", href: "/office/inquiries", icon: FileText },
-  { name: "Admissions Progress", href: "/office/inquiries", icon: UserCheck },
+  { name: "Inquiries", href: "/office/inquiries?tab=inquiries", icon: FileText, baseHref: "/office/inquiries" },
+  { name: "Admissions Progress", href: "/office/inquiries?tab=admissions", icon: UserCheck, baseHref: "/office/inquiries" },
 ];
 
 const studentItems = [
@@ -44,7 +44,14 @@ export function Sidebar({ role }: SidebarProps) {
       
       <nav className="flex-1 space-y-1 px-4 py-4">
         {items.map((item) => {
-          const isActive = pathname === item.href;
+          // Special logic for office inquiries tabs
+          let isActive = pathname === item.href;
+          if (role === "OFFICE" && (item as any).baseHref === "/office/inquiries") {
+            const currentTab = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab');
+            const targetTab = new URL(item.href, 'http://x').searchParams.get('tab');
+            isActive = pathname === (item as any).baseHref && currentTab === targetTab;
+          }
+
           return (
             <Link
               key={item.href}
