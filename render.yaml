@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: school-management-backend
+    env: python
+    buildCommand: ./backend/build.sh
+    startCommand: gunicorn --chdir backend core.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: RENDER
+        value: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: core.settings

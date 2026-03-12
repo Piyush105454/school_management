@@ -2,8 +2,10 @@
 # exit on error
 set -o errexit
 
-# Move into the backend directory
-cd backend
+# Move into the backend directory if it exists (handles different Render root directory settings)
+if [ -d "backend" ]; then
+    cd backend
+fi
 
 pip install -r requirements.txt
 
