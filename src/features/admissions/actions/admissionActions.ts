@@ -19,7 +19,12 @@ function sanitizeBioData(data: any) {
   if (!data) return data;
   const sanitized = { ...data };
   
-  if (sanitized.dob) sanitized.dob = new Date(sanitized.dob);
+  if (sanitized.dob === "" || sanitized.dob === undefined || sanitized.dob === null) {
+    sanitized.dob = null;
+  } else {
+    const d = new Date(sanitized.dob);
+    sanitized.dob = isNaN(d.getTime()) ? null : d;
+  }
   
   // Convert numeric fields from string to number or null
   const numericFields = ["age", "heightCm", "weightKg"];

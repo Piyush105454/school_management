@@ -19,39 +19,10 @@ import {
   CheckCircle2
 } from "lucide-react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { LoginForm } from "@/features/auth/components/LoginForm";
 
 export function LandingPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Invalid credentials");
-      } else {
-        router.push("/"); // Let root redirect handle it
-      }
-    } catch (err) {
-      setError("An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#fcfdff] text-slate-900 selection:bg-blue-100 selection:text-blue-900">
@@ -125,42 +96,7 @@ export function LandingPage() {
             <div className="absolute inset-0 bg-indigo-500 rounded-[3rem] -rotate-3 opacity-10 group-hover:-rotate-6 transition-transform duration-700"></div>
             
             <div className="relative bg-white/80 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]">
-              <div className="mb-8">
-                <h2 className="text-3xl font-black text-slate-900 font-outfit tracking-tighter uppercase">Student Portal</h2>
-                <p className="text-slate-500 font-medium mt-1 uppercase text-xs tracking-widest">Access your dashboard</p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-6">
-                {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-bold uppercase tracking-wider">{error}</div>}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Identifier</label>
-                  <input 
-                    type="email" 
-                    placeholder="student@dps.edu"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-400 transition-all outline-none font-bold placeholder:text-slate-300"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secure Password</label>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-400 transition-all outline-none font-bold placeholder:text-slate-300"
-                    required
-                  />
-                </div>
-                <button 
-                  disabled={loading}
-                  className="w-full bg-slate-950 text-white py-5 rounded-2xl font-black text-sm tracking-[0.2em] hover:bg-slate-800 transition-all hover:scale-[1.02] shadow-xl shadow-black/10 disabled:opacity-50 uppercase flex items-center justify-center gap-3"
-                >
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : "Validate & Log In"}
-                </button>
-              </form>
+              <LoginForm />
               
               <div className="mt-8 pt-6 border-t border-slate-100 text-center">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Are you a new student?</p>

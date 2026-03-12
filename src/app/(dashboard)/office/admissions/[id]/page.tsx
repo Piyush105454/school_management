@@ -10,11 +10,12 @@ import { getAdmissionData } from "@/features/admissions/actions/admissionActions
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-export default async function AdminAdmissionViewPage({ params }: { params: { id: string } }) {
+export default async function AdminAdmissionViewPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "OFFICE") redirect("/login");
+  if (!session || session.user.role !== "OFFICE") redirect("/");
 
-  const admissionId = params.id;
+  const { id: admissionId } = await params;
+  console.log("DEBUG: AdminAdmissionViewPage fetching ID:", admissionId);
 
   const admission = await db.query.admissionMeta.findFirst({
     where: eq(admissionMeta.id, admissionId),
@@ -24,8 +25,12 @@ export default async function AdminAdmissionViewPage({ params }: { params: { id:
     }
   });
 
-  if (!admission) notFound();
+  if (!admission) {
+    console.error("DEBUG: Admission not found for ID:", admissionId);
+    notFound();
+  }
 
+  console.log("DEBUG: Admission found, fetching full data...");
   const initialDataResult = await getAdmissionData(admissionId);
   const initialData = initialDataResult.success ? initialDataResult.data : null;
 

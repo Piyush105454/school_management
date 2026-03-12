@@ -10,7 +10,7 @@ import { getAdmissionData } from "@/features/admissions/actions/admissionActions
 
 export default async function StudentAdmissionPage() {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  if (!session) redirect("/");
 
   const profile = await db.query.studentProfiles.findFirst({
     where: eq(studentProfiles.userId, session.user.id),

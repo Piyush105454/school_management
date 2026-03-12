@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { resetStudentPassword } from "../actions/inquiryActions";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface AdmissionProcessListProps {
   admissions: any[];
@@ -117,13 +119,13 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <a
+                      <Link
                         href={`/office/admissions/${adm.id}`}
                         className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                         title="View Application"
                       >
                         <FileText size={18} />
-                      </a>
+                      </Link>
                       <button 
                         onClick={() => {
                           setSelectedAdm(adm);
@@ -207,13 +209,13 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
               >
                 Close
               </button>
-              <a 
-                href="/login" 
+              <Link 
+                href="/" 
                 target="_blank"
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 Go to Login <ExternalLink size={18} />
-              </a>
+              </Link>
             </div>
           </div>
         )}
@@ -222,6 +224,3 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   );
 }
 
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(" ");
-}

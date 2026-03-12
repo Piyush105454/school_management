@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface InquiriesListProps {
   initialInquiries: any[];
@@ -240,13 +241,13 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
               >
                 Close
               </button>
-              <a 
-                href="/login" 
+              <Link 
+                href="/" 
                 target="_blank"
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 Go to Login <ExternalLink size={18} />
-              </a>
+              </Link>
             </div>
           </div>
         )}
