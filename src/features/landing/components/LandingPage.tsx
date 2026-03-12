@@ -142,7 +142,7 @@ export function LandingPage() {
                 </div>
 
                 <div className="bg-slate-100 rounded-[3rem] aspect-square overflow-hidden shadow-2xl relative rotate-3 group overflow-hidden">
-                    <img src="/placeholder-school-vision.jpg" alt="DPS Students" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2s] grayscale hover:grayscale-0" />
+                    <img src="/images/school-vision.png" alt="DPS Students" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2s] grayscale hover:grayscale-0" />
                     <div className="absolute inset-0 bg-blue-600/20 mix-blend-overlay"></div>
                     <div className="absolute bottom-8 left-8 right-8 bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/30">
                         <p className="text-sm font-black text-slate-950 uppercase tracking-widest">Shared Responsibility</p>
