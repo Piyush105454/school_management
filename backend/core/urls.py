@@ -18,18 +18,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-
-# The following imports are likely no longer needed in this file if token views are moved to users.urls
-# from rest_framework_simplejwt.views import (
-#     TokenObtainPairView,
-#     TokenRefreshView,
-# )
-# from users.views import MyTokenObtainPairView
+from .views import health_check
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/admissions/', include('admissions.urls')),
+    path('api/health/', health_check, name='health_check'),
 ]
 
 if settings.DEBUG:
