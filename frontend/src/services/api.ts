@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+const isDevelopment = import.meta.env.MODE === 'development';
+const baseURL = isDevelopment 
+  ? 'http://localhost:8000/api/' 
+  : 'https://school-management-i29n.onrender.com/api/';
+
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/',
+  baseURL,
 });
 
 api.interceptors.request.use((config) => {
