@@ -23,7 +23,11 @@ async function check() {
         `;
         console.log("student_profiles columns:", columns.map(c => `${c.column_name} (${c.data_type})`));
     } catch (e) {
-        console.log("Error checking student_profiles:", e.message);
+        if (e instanceof Error) {
+            console.log("Error checking student_profiles:", e.message);
+        } else {
+            console.log("Error checking student_profiles:", e);
+        }
     }
 
     process.exit(0);

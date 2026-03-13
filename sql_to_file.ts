@@ -20,7 +20,11 @@ async function inspect() {
     fs.writeFileSync('generated_sql.txt', output);
     console.log("SQL written to generated_sql.txt");
   } catch (err) {
-    fs.writeFileSync('generated_sql.txt', `Failed: ${err.message}`);
+    if (err instanceof Error) {
+        fs.writeFileSync('generated_sql.txt', `Failed: ${err.message}`);
+    } else {
+        fs.writeFileSync('generated_sql.txt', `Failed: ${String(err)}`);
+    }
   }
   process.exit(0);
 }

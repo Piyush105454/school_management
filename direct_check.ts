@@ -25,7 +25,11 @@ async function check() {
         `;
         console.log(columns.map(c => `${c.column_name} (${c.data_type})`));
       } catch (e) {
-        console.log(`Error checking table ${table}: ${e.message}`);
+        if (e instanceof Error) {
+            console.log(`Error checking table ${table}: ${e.message}`);
+        } else {
+            console.log(`Error checking table ${table}:`, e);
+        }
       }
     }
 

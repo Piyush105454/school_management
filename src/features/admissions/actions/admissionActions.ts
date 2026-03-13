@@ -294,11 +294,12 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
          FROM student_documents WHERE admission_id = '${admissionId}'`
       );
       
-      const existsMap = (docRaw as any).rows?.[0] || docRaw[0] || {};
+      const rows = (docRaw as any).rows || (Array.isArray(docRaw) ? docRaw : []);
+      const existsMap = rows?.[0] || {};
       sanitizedDocs = {} as any;
       Object.keys(existsMap).forEach(key => {
         // If it exists in DB, we put a placeholder "EXISTS" to trigger the UI "DONE" state
-        (sanitizedDocs as any)[key] = existsMap[key] ? "__EXISTING__" : "";
+        (sanitizedDocs as any)[key] = (existsMap as any)[key] ? "__EXISTING__" : "";
       });
     }
 
