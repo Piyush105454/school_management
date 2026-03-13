@@ -97,7 +97,8 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                       {adm.profile?.admissionStep === 5 && <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100"><Users size={12}/> Siblings</span>}
                       {adm.profile?.admissionStep === 6 && <span className="flex items-center gap-1.5 text-xs font-bold text-pink-600 bg-pink-50 px-2.5 py-1 rounded-full border border-pink-100"><Users size={12}/> Parents</span>}
                       {adm.profile?.admissionStep === 7 && <span className="flex items-center gap-1.5 text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100"><CreditCard size={12}/> Bank</span>}
-                      {adm.profile?.admissionStep >= 8 && <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100"><CheckCircle2 size={12}/> Submitted</span>}
+                      {adm.profile?.admissionStep === 8 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100"><FileText size={12}/> Documents</span>}
+                      {adm.profile?.admissionStep >= 9 && <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100"><CheckCircle2 size={12}/> Submitted</span>}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -106,14 +107,14 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                         <div 
                           className={cn(
                             "h-full transition-all duration-1000",
-                            adm.profile?.admissionStep >= 8 ? "w-full bg-green-500" :
+                            adm.profile?.admissionStep >= 9 ? "w-full bg-green-500" :
                             `bg-blue-500`
                           )}
-                          style={{ width: `${(adm.profile?.admissionStep / 8) * 100}%` }}
+                          style={{ width: `${(adm.profile?.admissionStep / 9) * 100}%` }}
                         />
                       </div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                        {Math.round((adm.profile?.admissionStep / 8) * 100)}% Complete
+                        {Math.round((adm.profile?.admissionStep / 9) * 100)}% Complete
                       </p>
                     </div>
                   </td>
@@ -126,6 +127,20 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                       >
                         <FileText size={18} />
                       </Link>
+                      <button 
+                        onClick={async () => {
+                          if (confirm(`Are you sure you want to verify ${adm.inquiry?.studentName}'s documents?`)) {
+                             const { verifyAdmission } = await import("../actions/admissionActions");
+                             const res = await verifyAdmission(adm.id);
+                             if (res.success) alert("Verified successfully!");
+                             else alert("Error: " + res.error);
+                          }
+                        }}
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Verify Documents"
+                      >
+                        <CheckCircle2 size={18} />
+                      </button>
                       <button 
                         onClick={() => {
                           setSelectedAdm(adm);

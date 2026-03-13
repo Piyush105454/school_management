@@ -16,18 +16,26 @@ import {
   Trash2,
   UserCheck,
   Download,
-  FileText
+  FileText,
+  Eye,
+  X,
+  Verified,
+  ClipboardCheck,
+  Phone,
+  Calendar,
+  Clock,
+  MapPinned
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent } from "../actions/admissionActions";
+import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const generateAdmissionPDF = (data: any, studentName: string) => {
   const doc = new jsPDF() as any;
-  const primaryColor = [37, 99, 235]; // blue-600
+  const primaryColor = [37, 99, 235]; 
   
-  // Header
   doc.setFillColor(...primaryColor);
   doc.rect(0, 0, 210, 40, 'F');
   doc.setTextColor(255, 255, 255);
@@ -40,10 +48,7 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
   let yPos = 50;
 
   const addSection = (title: string, fields: any[]) => {
-    if (yPos > 250) {
-      doc.addPage();
-      yPos = 20;
-    }
+    if (yPos > 250) { doc.addPage(); yPos = 20; }
     doc.setTextColor(...primaryColor);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
@@ -65,7 +70,6 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
     yPos = (doc as any).lastAutoTable.finalY + 15;
   };
 
-  // Section 1: Bio Info
   const bio = data.studentBio || {};
   addSection("I. STUDENT BIO-DATA", [
     ["First Name", bio.firstName || "-"],
@@ -80,7 +84,6 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
     ["Samagra ID", bio.samagraId || "-"],
   ]);
 
-  // Section 2: Address
   const addr = data.address || {};
   addSection("II. RESIDENTIAL ADDRESS", [
     ["House/Street", addr.houseNo || "-"],
@@ -90,7 +93,6 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
     ["Pin Code", addr.pinCode || "-"],
   ]);
 
-  // Section 3: Parents
   const parents = data.parentsGuardians || [];
   const parentRows = parents.map((p: any) => [p.personType, p.name, p.mobileNumber, p.occupation]);
   addSection("III. PARENT/GUARDIAN DETAILS", [
@@ -98,7 +100,6 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
     ...parentRows
   ]);
 
-  // Section 4: Bank
   const bank = data.bankDetails || {};
   addSection("IV. BANK DETAILS", [
     ["Bank Name", bank.bankName || "-"],
@@ -107,7 +108,6 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
     ["IFSC Code", bank.ifscCode || "-"],
   ]);
 
-  // Section 5: Documents
   const docs = data.documents || {};
   addSection("V. DOCUMENTS SUBMITTED", [
     ["Birth Certificate", docs.birthCertificate ? "UPLOADED" : "NOT UPLOADED"],
@@ -119,7 +119,6 @@ const generateAdmissionPDF = (data: any, studentName: string) => {
     ["Scholarship Slip", docs.scholarshipSlip ? "UPLOADED" : "NOT UPLOADED"],
   ]);
 
-  // Footer / Declaration
   if (yPos > 240) doc.addPage();
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(10);
@@ -145,9 +144,11 @@ const steps = [
   { id: 10, name: "Complete", icon: CheckCircle },
 ];
 
-export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
+export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
   const [currentStep, setCurrentStep] = useState(maxStep > 10 ? 10 : maxStep);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
   const defaults = {
     studentBio: {
       firstName: "", middleName: "", lastName: "", gender: "M", dob: "", age: 0,
@@ -182,28 +183,15 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
     defaultValues: defaults
   });
 
-  const storageKey = `admission_draft_${admissionId}`;
+  const storageKey = `admission_draft_office_${admissionId}`;
 
-  // 1. Initial Data Loading (DB + LocalStorage)
   React.useEffect(() => {
     const loadData = () => {
       let mergedData = { ...defaults };
-
-      // Try LocalStorage first (contains most recent unsaved drafts)
-      try {
-        const localDraft = localStorage.getItem(storageKey);
-        if (localDraft) {
-          const parsed = JSON.parse(localDraft);
-          mergedData = { ...mergedData, ...parsed };
-        }
-      } catch (e) {}
-
-      // Merge with DB data (authoritative for saved steps)
       if (initialData) {
         if (initialData.studentBio?.dob) {
           initialData.studentBio.dob = new Date(initialData.studentBio.dob).toISOString().split('T')[0];
         }
-        
         Object.keys(initialData).forEach(key => {
           const val = initialData[key];
           if (val !== null && val !== undefined) {
@@ -222,10 +210,8 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
           }
         });
       }
-
       methods.reset(mergedData);
     };
-
     loadData();
   }, [initialData, methods, admissionId]);
 
@@ -247,26 +233,12 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
     }
   }, [dob, methods]);
 
-  // 2. Background Saving (Local)
-  const formValues = methods.watch();
-  React.useEffect(() => {
-    const throttleId = setTimeout(() => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(formValues));
-      } catch (e) {}
-    }, 1000);
-    return () => clearTimeout(throttleId);
-  }, [formValues, storageKey]);
-
   const onSubmit = async (data: any) => {
     setLoading(true);
     const result = await submitFullAdmissionForm(admissionId, data, 9) as any;
     setLoading(false);
-    
     if (result.success) {
-      localStorage.removeItem(storageKey);
-      alert("Application submitted successfully!");
-      window.location.reload();
+      alert("Changes saved successfully!");
     } else {
       alert("Error: " + (result.error?.message || result.error || "Unknown error"));
     }
@@ -274,83 +246,67 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
 
   const nextStep = async () => {
     const fieldsByStep: Record<number, any> = {
-      1: "studentBio",
-      2: "studentBio",
-      3: "address",
-      4: "previousAcademic",
-      5: "siblings",
-      6: "parentsGuardians",
-      7: "bankDetails",
-      8: "documents",
-      9: "declaration"
+      1: "studentBio", 2: "studentBio", 3: "address", 4: "previousAcademic",
+      5: "siblings", 6: "parentsGuardians", 7: "bankDetails", 8: "documents", 9: "declaration"
     };
-
     const currentFields = fieldsByStep[currentStep];
     const isValid = await methods.trigger(currentFields);
-    
     if (isValid) {
       setLoading(true);
-      // Optimistic move
       const prevStepVal = currentStep;
       setCurrentStep(prev => Math.min(prev + 1, steps.length));
-      
-      // Save data
       const data = methods.getValues();
       const stepData: any = { [currentFields]: data[currentFields as keyof typeof data] };
-      
       const saveRes = await saveAdmissionStep(admissionId, stepData, prevStepVal) as any;
       setLoading(false);
-      
       if (!saveRes.success) {
          console.error("saveAdmissionStep error:", saveRes.error);
-         alert("Progress could not be saved to server. Please check your connection.");
+         alert("Progress could not be saved to server.");
       }
     }
   };
 
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
+  const handleApprove = async () => {
+    if (!confirm("Are you sure you want to approve this admission?")) return;
+    setVerifying(true);
+    const res = await verifyAdmission(admissionId);
+    setVerifying(false);
+    if (res.success) {
+      alert("Documents Verified Successfully!");
+      window.location.reload();
+    } else {
+      alert("Error verifying documents: " + res.error);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto my-4 md:my-8 space-y-4 md:space-y-6">
-      {/* Horizontal Stepper */}
       <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
           {steps.map((step, index) => {
-            if (step.id === 10) return null; // Don't show step 10 in horizontal stepper
+            if (step.id === 10) return null;
             const isActive = currentStep === step.id;
-            const isPast = maxStep > step.id || (currentStep > step.id);
-            const isUnlocked = maxStep >= step.id;
+            const isPast = (currentStep > step.id);
+            const isUnlocked = true; 
             
             return (
               <React.Fragment key={step.id}>
-                <div 
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 group transition-all duration-200",
-                    isUnlocked ? "cursor-pointer" : "opacity-30 cursor-not-allowed"
-                  )} 
-                  onClick={() => isUnlocked && setCurrentStep(step.id)}
-                >
+                <div className="flex flex-col items-center gap-1.5 group transition-all duration-200 cursor-pointer" onClick={() => setCurrentStep(step.id)}>
                   <div className={cn(
                     "h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center transition-all duration-300 border-2",
                     isActive ? "bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/10" : 
                     isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-100 text-slate-400 bg-slate-50"
                   )}>
-                    <step.icon size={16} className={cn(
-                      isActive || isPast ? "text-white" : "text-slate-400"
-                    )} />
+                    <step.icon size={16} className={cn(isActive || isPast ? "text-white" : "text-slate-400")} />
                   </div>
-                  <span className={cn(
-                    "text-[9px] font-bold uppercase tracking-widest text-center",
-                    isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400"
-                  )}>
+                  <span className={cn("text-[9px] font-bold uppercase tracking-widest text-center", isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400")}>
                     {step.name}
                   </span>
                 </div>
-                {index < steps.length - 2 && ( // Changed from length - 1 to length - 2 to skip connector to step 10
-                  <div className={cn(
-                    "h-px flex-1 mx-1 md:mx-2",
-                    isPast ? "bg-emerald-200" : "bg-slate-100"
-                  )} />
+                {index < steps.length - 2 && (
+                  <div className={cn("h-px flex-1 mx-1 md:mx-2", isPast ? "bg-emerald-200" : "bg-slate-100")} />
                 )}
               </React.Fragment>
             );
@@ -359,7 +315,6 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
       </div>
 
       <div className="bg-white rounded-2xl shadow-lg border border-slate-100 mb-6">
-        {/* Form Content */}
         <div className="p-4 md:p-8 flex flex-col bg-white">
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
@@ -371,7 +326,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 {currentStep === 5 && <SiblingsStep />}
                 {currentStep === 6 && <ParentsStep />}
                 {currentStep === 7 && <BankStep />}
-                {currentStep === 8 && <DocumentsStep />}
+                {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} />}
                 {currentStep === 9 && <DeclarationStep />}
                 {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} />}
               </div>
@@ -380,37 +335,38 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
 
           {currentStep < 10 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
-              <button
-                onClick={prevStep}
-                disabled={currentStep === 1}
+              <button 
+                type="button"
+                onClick={prevStep} 
+                disabled={currentStep === 1} 
                 className="w-full md:w-auto group flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl text-slate-600 font-bold hover:bg-slate-200/50 transition-all duration-200 disabled:opacity-30 border border-slate-100 md:border-transparent hover:border-slate-200"
               >
                 <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
               </button>
               
-              {currentStep < 9 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all duration-200 shadow-xl shadow-slate-900/10"
-                >
-                  Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
-                </button>
-              ) : (
-                <button
-                  onClick={methods.handleSubmit(onSubmit)}
-                  disabled={loading}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all duration-200 shadow-2xl shadow-blue-600/30 disabled:opacity-70"
-                >
-                  {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (
-                    <>SUBMIT APPLICATION <CheckCircle size={22} /></>
-                  )}
-                </button>
-              )}
+              <div className="flex gap-3 w-full md:w-auto">
+                 {currentStep === 9 && (
+                    <button 
+                      type="button"
+                      onClick={handleApprove} 
+                      disabled={verifying}
+                      className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-emerald-600 text-white rounded-2xl font-black tracking-tight hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30"
+                    >
+                      {verifying ? <Loader2 className="animate-spin" /> : <><Verified size={22} /> VERIFY DOCUMENTS</>}
+                    </button>
+                 )}
+                 <button 
+                   type="button" 
+                   onClick={nextStep} 
+                   className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                 >
+                    Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
+                 </button>
+              </div>
             </div>
           )}
           
-          {currentStep === 9 && (
+          {(currentStep === 9 || currentStep === 10) && (
             <div className="mt-6 flex justify-center">
               <button
                 type="button"
@@ -427,6 +383,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
   );
 }
 
+// SHARED COMPONENTS - EXACT PARITY WITH STUDENT AdmissionForm.tsx
 const inputStyles = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700 text-sm md:text-base";
 const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
 
@@ -696,7 +653,6 @@ function ParentsStep() {
   const { control, register, getValues, formState: { errors } } = useFormContext();
   const { fields, append } = useFieldArray({ control, name: "parentsGuardians" });
 
-  // Auto-append Father/Mother if somehow missing
   React.useEffect(() => {
     if (fields.length === 0) {
       append([
@@ -760,49 +716,27 @@ function ParentsStep() {
 }
 
 function BankStep() {
-  const { register } = useFormContext();
-  return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-1">
-        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Bank</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 7: For scholarship and DBT.</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+    const { register } = useFormContext();
+    return (
+      <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="space-y-1">
-          <label className={labelStyles}>Bank Name</label>
-          <input {...register("bankDetails.bankName")} className={inputStyles} />
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Bank</h3>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Step 7: For scholarship and DBT.</p>
         </div>
-        <div className="space-y-1">
-          <label className={labelStyles}>IFSC Code</label>
-          <input {...register("bankDetails.ifscCode")} className={inputStyles} />
-        </div>
-        <div className="space-y-1 md:col-span-2">
-          <label className={labelStyles}>Account Holder Name</label>
-          <input {...register("bankDetails.accountHolderName")} className={inputStyles} />
-        </div>
-        <div className="space-y-1 md:col-span-2">
-          <label className={labelStyles}>Account Number</label>
-          <input {...register("bankDetails.accountNumber")} className={inputStyles} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="space-y-1"><label className={labelStyles}>Bank Name</label><input {...register("bankDetails.bankName")} className={inputStyles} /></div>
+            <div className="space-y-1"><label className={labelStyles}>IFSC Code</label><input {...register("bankDetails.ifscCode")} className={inputStyles} /></div>
+            <div className="space-y-1 md:col-span-2"><label className={labelStyles}>Account Holder Name</label><input {...register("bankDetails.accountHolderName")} className={inputStyles} /></div>
+            <div className="space-y-1 md:col-span-2"><label className={labelStyles}>Account Number</label><input {...register("bankDetails.accountNumber")} className={inputStyles} /></div>
         </div>
       </div>
-    </div>
-  );
+    );
 }
 
-function DocumentsStep() {
-  const { register, watch, setValue, formState: { errors } } = useFormContext();
-  
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setValue(`documents.${fieldName}`, reader.result as string, { shouldValidate: true });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
+  const { watch } = useFormContext();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fetchingDoc, setFetchingDoc] = useState<string | null>(null);
 
   const documentList = [
     { id: "birthCertificate", name: "Birth Certificate", hindi: "जन्म प्रमाण पत्र" },
@@ -814,84 +748,136 @@ function DocumentsStep() {
     { id: "scholarshipSlip", name: "Scholarship Slip", hindi: "छात्रवृत्ति पर्ची" },
   ];
 
+  const handlePreview = async (docId: string) => {
+    setFetchingDoc(docId);
+    const res = await getDocumentContent(admissionId, docId);
+    setFetchingDoc(null);
+    if (res.success && res.content) {
+      setPreviewUrl(res.content);
+    } else {
+      alert("Error loading document: " + (res.error || "Document not found"));
+    }
+  };
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">
       <div className="space-y-1 text-center">
-        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Upload Documents</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: All documents are mandatory.</p>
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Review Documents</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: Verify all uploaded records.</p>
       </div>
       
       <div className="space-y-2 md:space-y-3">
         {documentList.map((doc) => {
+          const { watch, formState: { errors } } = useFormContext();
+          const fileData = watch(`documents.${doc.id}`);
           const hasError = (errors.documents as any)?.[doc.id];
+          // Let's use formState from useFormContext
           return (
-            <div key={doc.id} className={cn(
-              "flex items-center justify-between p-3 md:p-4 rounded-xl border bg-white shadow-sm transition-all",
-              hasError ? "border-red-200 bg-red-50/10" : "border-slate-100 hover:border-blue-100"
-            )}>
-              <div className="flex-1 min-w-0 pr-4">
-                <p className={cn("text-[10px] md:text-xs font-black uppercase tracking-tight truncate", hasError ? "text-red-600" : "text-slate-900")}>{doc.name}</p>
-                <p className="text-[9px] md:text-[10px] text-slate-500 font-bold truncate">{doc.hindi}</p>
-                {hasError && <p className="text-[8px] font-black text-red-500 uppercase mt-0.5">Missing</p>}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <input 
-                  type="hidden" 
-                  {...register(`documents.${doc.id}`, { required: true })} 
-                />
-                
-                {watch(`documents.${doc.id}`) ? (
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 md:px-3 py-1 rounded-full border border-emerald-100 ring-4 ring-emerald-50/50">
-                      <CheckCircle size={10} /> DONE
-                    </span>
-                    <button 
-                      type="button" 
-                      onClick={() => setValue(`documents.${doc.id}`, "")}
-                      className="text-[8px] md:text-[9px] font-black text-slate-400 hover:text-red-500 uppercase px-2 py-1 transition-colors"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative group">
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, doc.id)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-                    <span className={cn(
-                      "flex items-center gap-1.5 text-[8px] md:text-[9px] font-black px-3 md:px-4 py-1.5 md:py-2 rounded-lg border transition-all uppercase tracking-wider",
-                      hasError ? "text-red-600 bg-red-50 border-red-200" : "text-blue-600 bg-blue-50 border-blue-100 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600"
-                    )}>
-                      <Plus size={12} /> Upload
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <DocumentRow 
+                key={doc.id} 
+                doc={doc} 
+                fileData={fileData} 
+                fetching={fetchingDoc === doc.id}
+                onPreview={() => handlePreview(doc.id)}
+            />
           );
         })}
+      </div>
+
+      {previewUrl && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300"
+          onClick={() => setPreviewUrl(null)}
+        >
+          <div className="absolute top-6 right-6 z-[10000]">
+            <button 
+                onClick={() => setPreviewUrl(null)}
+                className="h-12 w-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all border border-white/20"
+            >
+                <X size={32} />
+            </button>
+          </div>
+          <div className="w-full h-full flex items-center justify-center p-0 md:p-4" onClick={e => e.stopPropagation()}>
+            <img 
+              src={previewUrl} 
+              alt="Document Preview" 
+              className="max-h-full max-w-full object-contain shadow-2xl"
+            />
+          </div>
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+             <p className="bg-black/50 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-sm border border-white/10">
+                Full Browser Preview
+             </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocumentRow({ doc, fileData, fetching, onPreview }: { doc: any, fileData: any, fetching: boolean, onPreview: () => void }) {
+  const { formState: { errors } } = useFormContext();
+  const hasError = (errors.documents as any)?.[doc.id];
+  
+  return (
+    <div key={doc.id} className={cn(
+       "flex items-center justify-between p-3 md:p-4 rounded-xl border bg-white shadow-sm transition-all",
+       hasError ? "border-red-200 bg-red-50/10" : "border-slate-100 hover:border-blue-100"
+    )}>
+      <div className="flex-1 min-w-0 pr-4">
+        <p className={cn("text-[10px] md:text-xs font-black uppercase tracking-tight truncate", hasError ? "text-red-600" : "text-slate-900")}>{doc.name}</p>
+        <p className="text-[9px] md:text-[10px] text-slate-500 font-bold truncate">{doc.hindi}</p>
+        {hasError && <p className="text-[8px] font-black text-red-500 uppercase mt-0.5">Missing from student</p>}
+      </div>
+      
+      <div className="flex items-center gap-2">
+        {fileData ? (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 md:px-3 py-1 rounded-full border border-emerald-100">
+              <CheckCircle size={10} /> DONE
+            </span>
+            <button 
+                type="button"
+                disabled={fetching}
+                onClick={onPreview}
+                className="h-8 w-8 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50"
+            >
+                {fetching ? <Loader2 size={14} className="animate-spin" /> : <Eye size={16} />}
+            </button>
+          </div>
+        ) : (
+          <span className="text-[8px] md:text-[9px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 uppercase">
+            Pending
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
+
 function DeclarationStep() {
-  const { register, watch, formState: { errors } } = useFormContext();
+  const { register, formState: { errors } } = useFormContext();
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1 text-center">
-        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Final Declaration</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium font-bold">Step 9: validation & signature.</p>
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Decision & Review</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium font-bold">Step 9: Final office verification.</p>
       </div>
 
       <div className="p-6 md:p-8 rounded-2xl md:rounded-[32px] bg-white border border-blue-50 shadow-sm space-y-6 md:space-y-8 max-w-2xl mx-auto">
-        <p className="text-xs md:text-sm text-slate-600 font-medium leading-relaxed italic text-center">
-            "I hereby solemnly declare that all information furnished in this application is true, complete and correct. I am aware that if any information is found incorrect, the admission will be cancelled."
-        </p>
+        <div className="flex flex-col items-center gap-4 text-center">
+            <div className="h-16 w-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center shadow-inner">
+                <CheckCircle size={32} />
+            </div>
+            <div>
+                <h4 className="text-lg font-black uppercase">Verify Documentation</h4>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest leading-relaxed mt-1">
+                    Please ensure you have reviewed all documents in Step 8. 
+                    Verification will allow the student to proceed to the Entrance Test.
+                </p>
+            </div>
+        </div>
 
         <div className="space-y-6 md:space-y-8">
           <div>
@@ -900,15 +886,14 @@ function DeclarationStep() {
               (errors.declaration as any)?.declarationAccepted ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50"
             )}>
               <input type="checkbox" {...register("declaration.declarationAccepted", { required: true })} className="h-6 w-6 md:h-7 md:w-7 rounded-lg border-2 border-slate-300 text-blue-600 cursor-pointer" />
-              <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", (errors.declaration as any)?.declarationAccepted ? "text-red-600" : "text-slate-700")}>I Accept All Terms</span>
+              <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", (errors.declaration as any)?.declarationAccepted ? "text-red-600" : "text-slate-700")}>Verified All Documents</span>
             </label>
             <ErrorMessage error={(errors.declaration as any)?.declarationAccepted} />
           </div>
 
           <div className="space-y-1">
-            <label className={cn(labelStyles, "text-center")}>Parent Signature (Full Name)*</label>
-            <input {...register("declaration.guardianName", { required: true })} className={cn(getInputClass((errors.declaration as any)?.guardianName), "text-center text-lg md:text-xl font-black font-outfit uppercase border-t-0 border-l-0 border-r-0 rounded-none bg-transparent")} placeholder="Sign Here" />
-            <ErrorMessage error={(errors.declaration as any)?.guardianName} />
+            <label className={cn(labelStyles, "text-center")}>Student Name Reference</label>
+            <input {...register("declaration.guardianName")} className={cn(getInputClass(null), "text-center text-lg md:text-xl font-black font-outfit uppercase border-t-0 border-l-0 border-r-0 rounded-none bg-transparent")} placeholder="Reference Name" />
           </div>
         </div>
       </div>
@@ -918,9 +903,6 @@ function DeclarationStep() {
 
 function SubmissionSuccessStep({ data }: { data: any }) {
   const bio = data.studentBio || {};
-  const addr = data.address || {};
-  const parents = data.parentsGuardians || [];
-
   const formatDate = (date: any) => {
     if (!date) return "-";
     if (typeof date === 'string') return date;
@@ -931,86 +913,28 @@ function SubmissionSuccessStep({ data }: { data: any }) {
   return (
     <div className="animate-in zoom-in-95 fade-in duration-500 py-4 md:py-8">
       <div className="text-center space-y-4 md:space-y-6 mb-8 md:mb-12">
-        <div className="inline-flex items-center justify-center h-20 w-20 md:h-24 md:w-24 rounded-[32px] bg-emerald-50 text-emerald-500 shadow-xl shadow-emerald-500/10 border border-emerald-100">
-          <CheckCircle size={48} strokeWidth={2.5} />
+        <div className="inline-flex items-center justify-center h-20 w-20 md:h-24 md:w-24 rounded-[32px] bg-blue-50 text-blue-600 shadow-xl shadow-blue-500/10 border border-blue-100">
+          <Verified size={48} strokeWidth={2.5} />
         </div>
         <div className="space-y-2">
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">Application Submitted!</h2>
-          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">Your admission form has been received successfully.</p>
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">Verification Complete</h2>
+          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">All documents have been officially reviewed.</p>
         </div>
       </div>
 
-      <div className="bg-slate-50/50 rounded-[32px] border border-slate-100 p-6 md:p-10 space-y-8 md:space-y-12 shadow-inner">
-        {/* Quick Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <GraduationCap size={14} /> Student Details
-                </h4>
-                <div className="space-y-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Name</span> <span className="font-black text-slate-900">{bio.firstName} {bio.lastName}</span></p>
-                    <p className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Gender</span> <span className="font-black text-slate-900">{bio.gender === "M" ? "Male" : "Female"}</span></p>
-                    <p className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">DOB</span> <span className="font-black text-slate-900">{formatDate(bio.dob)}</span></p>
-                    <p className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Samagra</span> <span className="font-black text-slate-900">{bio.samagraId || "-"}</span></p>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <MapPin size={14} /> Contact Address
-                </h4>
-                <div className="space-y-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-sm font-black text-slate-900">{addr.houseNo}, {addr.street}</p>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-tight">{addr.village}, {addr.district}</p>
-                    <p className="text-xs font-black text-slate-400 mt-2">PIN: {addr.pinCode}</p>
-                </div>
-            </div>
-        </div>
-
-        <div className="space-y-6">
-            <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                <Users size={14} /> Parent Information
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {parents.map((p: any, i: number) => (
-                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{p.personType}</p>
-                            <p className="font-black text-slate-900">{p.name}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-slate-500">{p.mobileNumber}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 md:pt-8">
-            <button
-                type="button"
-                onClick={() => generateAdmissionPDF(data, `${bio.firstName} ${bio.lastName}`)}
-                className="w-full md:w-auto group flex items-center justify-center gap-4 px-10 py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-[0.15em] text-xs hover:bg-blue-700 transition-all duration-300 shadow-2xl shadow-blue-500/20 active:scale-95"
-            >
-                <Download size={20} className="group-hover:translate-y-1 transition-transform" /> 
-                Download Application PDF
-            </button>
+      <div className="bg-slate-50/50 rounded-[32px] border border-slate-100 p-6 md:p-10 space-y-8 md:space-y-12 shadow-inner text-center">
+            <p className="font-black text-2xl uppercase">{bio.firstName} {bio.lastName}</p>
+            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.4em]">Review Complete</p>
             
-            <button
-                type="button"
-                onClick={() => window.location.href = "/student/dashboard"}
-                className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-white text-slate-900 border-2 border-slate-200 rounded-3xl font-black uppercase tracking-[0.15em] text-xs hover:bg-slate-50 transition-all active:scale-95"
-            >
-                Back to Dashboard
-            </button>
-        </div>
-
-        <div className="pt-8 border-t border-slate-200/50 flex flex-col items-center gap-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Next Steps</p>
-            <p className="text-xs md:text-sm text-slate-500 font-medium text-center max-w-lg">
-                Your application will now be reviewed by the school office. You will be notified once the verification process is complete. Keep the downloaded PDF for your records.
-            </p>
-        </div>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
+                <button
+                    type="button"
+                    onClick={() => window.location.href = "/office/inquiries?tab=admissions"}
+                    className="w-full md:w-auto px-12 py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.15em] text-xs hover:bg-black transition-all active:scale-95 shadow-2xl"
+                >
+                    Back to Admissions List
+                </button>
+            </div>
       </div>
     </div>
   );

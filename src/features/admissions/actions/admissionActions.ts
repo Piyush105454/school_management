@@ -10,7 +10,9 @@ import {
   siblingDetails, 
   parentGuardianDetails, 
   declarations,
-  studentProfiles 
+  studentProfiles,
+  documentChecklists,
+  studentDocuments
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -30,12 +32,23 @@ function sanitizeBioData(data: any) {
   const numericFields = ["age", "heightCm", "weightKg"];
   numericFields.forEach(field => {
     if (sanitized[field] === "" || sanitized[field] === undefined || sanitized[field] === null) {
-      sanitized[field] = null;
+      // Age is NOT NULL in DB, so provide fallback
+      sanitized[field] = field === "age" ? 0 : null;
     } else if (typeof sanitized[field] === "string") {
       const val = field === "age" ? parseInt(sanitized[field]) : parseFloat(sanitized[field]);
-      sanitized[field] = isNaN(val) ? null : val;
+      if (isNaN(val)) {
+        sanitized[field] = field === "age" ? 0 : null;
+      } else {
+        sanitized[field] = val;
+      }
     }
   });
+
+  // Fallbacks for other NOT NULL fields if they are somehow missing
+  if (!sanitized.firstName) sanitized.firstName = "-";
+  if (!sanitized.lastName) sanitized.lastName = "-";
+  if (!sanitized.gender) sanitized.gender = "M";
+  if (!sanitized.caste) sanitized.caste = "GEN";
 
   return sanitized;
 }
@@ -154,10 +167,23 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
         });
       }
 
-      // 8. Update Profile Step
+      // 8. Documents
+      if (data.documents) {
+        await tx.insert(studentDocuments).values({
+          ...data.documents,
+          admissionId,
+        }).onConflictDoUpdate({
+          target: studentDocuments.admissionId,
+          set: data.documents
+        });
+      }
+
+      // 9. Update Profile Step
       if (step) {
         await tx.update(studentProfiles)
-          .set({ admissionStep: step, isFullyAdmitted: step === 8 })
+          .set({ 
+            admissionStep: step === 9 ? 10 : step
+          })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
 
@@ -165,20 +191,116 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
       return { success: true };
     });
   } catch (error: any) {
+    console.error("submitFullAdmissionForm error:", error);
     return { success: false, error: error.message };
   }
 }
 
-export async function getAdmissionData(admissionId: string) {
+export async function verifyAdmission(admissionId: string) {
   try {
-    const [bio, address, academic, parents, bank, declaration] = await Promise.all([
+    const existing = await db.query.documentChecklists.findFirst({
+      where: eq(documentChecklists.admissionId, admissionId)
+    });
+
+    if (existing) {
+      await db.update(documentChecklists)
+        .set({ 
+          formReceivedComplete: true, 
+          verifiedAt: new Date() 
+        })
+        .where(eq(documentChecklists.admissionId, admissionId));
+    } else {
+      await db.insert(documentChecklists).values({
+        admissionId,
+        formReceivedComplete: true,
+        verifiedAt: new Date()
+      });
+    }
+
+    revalidatePath("/office/inquiries");
+    revalidatePath("/student/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function finalizeFinalAdmission(admissionId: string) {
+  try {
+    await db.update(studentProfiles)
+      .set({ isFullyAdmitted: true })
+      .where(eq(studentProfiles.admissionMetaId, admissionId));
+
+    revalidatePath("/office/inquiries");
+    revalidatePath("/student/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getDocumentContent(admissionId: string, fieldName: string) {
+  try {
+    const doc = await db.query.studentDocuments.findFirst({
+      where: eq(studentDocuments.admissionId, admissionId),
+      columns: {
+        [fieldName as any]: true
+      }
+    });
+    return { success: true, content: (doc as any)?.[fieldName] || null };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getAdmissionData(admissionId: string, lite: boolean = false) {
+  try {
+    const [bio, address, academic, parents, bank, documents, declaration, siblings] = await Promise.all([
       db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) }),
       db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) }),
       db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) }),
       db.query.parentGuardianDetails.findMany({ where: eq(parentGuardianDetails.admissionId, admissionId) }),
       db.query.studentBankDetails.findFirst({ where: eq(studentBankDetails.admissionId, admissionId) }),
-      db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) })
+      db.query.studentDocuments.findFirst({ 
+        where: eq(studentDocuments.admissionId, admissionId),
+        columns: lite ? {
+          admissionId: true,
+          birthCertificate: false,
+          studentPhoto: false,
+          marksheet: false,
+          casteCertificate: false,
+          affidavit: false,
+          transferCertificate: false,
+          scholarshipSlip: false
+        } : undefined
+      }),
+      db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
+      db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) })
     ]);
+
+    // If lite mode, we still need to know IF a document exists
+    let sanitizedDocs = documents;
+    if (lite && documents) {
+      // Re-fetch only keys to check nullability without fetching massive text data
+      const docRaw = await db.execute(
+        `SELECT 
+          (birth_certificate IS NOT NULL) as "birthCertificate",
+          (student_photo IS NOT NULL) as "studentPhoto",
+          (marksheet IS NOT NULL) as "marksheet",
+          (caste_certificate IS NOT NULL) as "casteCertificate",
+          (affidavit IS NOT NULL) as "affidavit",
+          (transfer_certificate IS NOT NULL) as "transferCertificate",
+          (scholarship_slip IS NOT NULL) as "scholarshipSlip"
+         FROM student_documents WHERE admission_id = '${admissionId}'`
+      );
+      
+      const existsMap = (docRaw as any).rows?.[0] || docRaw[0] || {};
+      sanitizedDocs = {} as any;
+      Object.keys(existsMap).forEach(key => {
+        // If it exists in DB, we put a placeholder "EXISTS" to trigger the UI "DONE" state
+        (sanitizedDocs as any)[key] = existsMap[key] ? "__EXISTING__" : "";
+      });
+    }
 
     return {
       success: true,
@@ -188,10 +310,13 @@ export async function getAdmissionData(admissionId: string) {
         previousAcademic: academic,
         parentsGuardians: parents,
         bankDetails: bank,
-        declaration
+        documents: sanitizedDocs,
+        declaration,
+        siblings: siblings || []
       }
     };
   } catch (error: any) {
+    console.error("getAdmissionData error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -260,6 +385,14 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           }
           break;
         case 8:
+          if (data.documents) {
+            await tx.insert(studentDocuments).values({ ...data.documents, admissionId }).onConflictDoUpdate({
+              target: studentDocuments.admissionId,
+              set: data.documents
+            });
+          }
+          break;
+        case 9:
           if (data.declaration) {
             await tx.insert(declarations).values({ ...data.declaration, admissionId }).onConflictDoUpdate({
               target: declarations.admissionId,
@@ -271,12 +404,13 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
 
       // Update current step in profile
       await tx.update(studentProfiles)
-        .set({ admissionStep: step + 1, isFullyAdmitted: step === 8 })
+        .set({ admissionStep: step + 1 })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
 
       return { success: true };
     });
   } catch (error: any) {
+    console.error("saveAdmissionStep error:", error);
     return { success: false, error: error.message };
   }
 }

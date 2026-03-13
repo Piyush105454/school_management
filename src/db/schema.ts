@@ -7,6 +7,7 @@ export const admissionTypeEnum = pgEnum("admission_type", ["NEW", "RE_ADMISSION"
 export const genderEnum = pgEnum("gender", ["M", "F", "O"]);
 export const casteEnum = pgEnum("caste", ["GEN", "OBC", "ST", "SC"]);
 export const documentStatusEnum = pgEnum("document_status", ["SUBMITTED", "NOT_SUBMITTED"]);
+export const testStatusEnum = pgEnum("test_status", ["NOT_SCHEDULED", "PENDING", "PASS", "FAIL"]);
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -168,6 +169,35 @@ export const documentChecklists = pgTable("document_checklists", {
   verifiedAt: timestamp("verified_at"),
 });
 
+export const studentDocuments = pgTable("student_documents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }).unique(),
+  birthCertificate: text("birth_certificate"),
+  studentPhoto: text("student_photo"),
+  marksheet: text("marksheet"),
+  casteCertificate: text("caste_certificate"),
+  affidavit: text("affidavit"),
+  transferCertificate: text("transfer_certificate"),
+  scholarshipSlip: text("scholarship_slip"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const entranceTests = pgTable("entrance_tests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }).unique(),
+  testDate: text("test_date"),
+  testTime: text("test_time"),
+  location: text("location"),
+  teacherName: text("teacher_name"),
+  contactNumber: text("contact_number"),
+  status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),
+  resultDate: timestamp("result_date"),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const inquiriesRelations = relations(inquiries, ({ one }) => ({
   admissionMeta: one(admissionMeta, {
@@ -188,6 +218,18 @@ export const admissionMetaRelations = relations(admissionMeta, ({ one, many }) =
   studentBio: one(studentBio, {
     fields: [admissionMeta.id],
     references: [studentBio.admissionId],
+  }),
+  documentChecklists: one(documentChecklists, {
+    fields: [admissionMeta.id],
+    references: [documentChecklists.admissionId],
+  }),
+  studentDocuments: one(studentDocuments, {
+    fields: [admissionMeta.id],
+    references: [studentDocuments.admissionId],
+  }),
+  entranceTest: one(entranceTests, {
+    fields: [admissionMeta.id],
+    references: [entranceTests.admissionId],
   }),
 }));
 
