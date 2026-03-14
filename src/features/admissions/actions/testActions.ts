@@ -27,8 +27,8 @@ export async function scheduleEntranceTest(admissionId: string, data: any) {
       });
     }
 
-    revalidatePath("/(dashboard)/office/admissions/[id]", "page");
-    revalidatePath("/(dashboard)/student/admission", "page");
+    revalidatePath("/office/entrance-tests", "page");
+    revalidatePath("/student/entrance-test", "page");
     return { success: true };
   } catch (error: any) {
     console.error("scheduleEntranceTest error:", error);
@@ -58,8 +58,8 @@ export async function updateTestResult(admissionId: string, status: "PASS" | "FA
       })
       .where(eq(entranceTests.admissionId, admissionId));
 
-    revalidatePath("/(dashboard)/office/admissions/[id]", "page");
-    revalidatePath("/(dashboard)/student/admission", "page");
+    revalidatePath("/office/entrance-tests", "page");
+    revalidatePath("/student/entrance-test", "page");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

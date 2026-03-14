@@ -37,10 +37,13 @@ export function OfficeTestManager({ applicant }: { applicant: any }) {
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const res = await scheduleEntranceTest(applicant.id, testData);
+    // Don't pass status - let the action set it to PENDING
+    const { status, ...dataWithoutStatus } = testData;
+    const res = await scheduleEntranceTest(applicant.id, dataWithoutStatus);
     setLoading(false);
     if (res.success) {
       alert("Test Scheduled Successfully!");
+      window.location.reload();
     } else {
       alert("Error: " + res.error);
     }

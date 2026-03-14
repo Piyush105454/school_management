@@ -42,10 +42,24 @@ export default async function StudentEntranceTestPage() {
   const testResults = await db
     .select()
     .from(entranceTests)
-    .where(eq(entranceTests.admissionId, profile.admissionMetaId!))
-    .limit(1);
+    .where(eq(entranceTests.admissionId, profile.admissionMetaId!));
     
-  const testData = testResults[0] || null;
+  const testData = testResults.length > 0 ? testResults[0] : null;
+
+  // Debug logging
+  console.log("Student Entrance Test Debug:", {
+    admissionMetaId: profile.admissionMetaId,
+    testDataExists: !!testData,
+    testDataStatus: testData?.status,
+    testDataFields: testData ? {
+      testDate: testData.testDate,
+      testTime: testData.testTime,
+      location: testData.location,
+      teacherName: testData.teacherName,
+      contactNumber: testData.contactNumber,
+      status: testData.status,
+    } : null
+  });
 
   const studentName = (profile as any).admissionMeta?.inquiry?.studentName || "Student";
 

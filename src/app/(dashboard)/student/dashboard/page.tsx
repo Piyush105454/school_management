@@ -103,7 +103,7 @@ export default async function StudentDashboard() {
   const progressItems = [
     { name: "Inquiry", status: inquiryStatus, icon: CheckCircle2, href: "#" },
     { name: "Form", status: formStatus, icon: FileText, href: "/student/admission" },
-    { name: "Verification", status: verificationStatus, icon: UserCheck, href: "#" },
+    { name: "Verification", status: verificationStatus, icon: UserCheck, href: "/student/document-verification" },
     { name: "Entrance Test", status: entranceTestStatus, icon: ClipboardList, href: "/student/entrance-test" },
     { name: "Home Visit", status: homeVisitStatus, icon: Users, href: "#" },
     { name: "Final Admission", status: finalAdmissionStatus, icon: GraduationCap, href: "#" },

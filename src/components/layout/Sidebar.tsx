@@ -21,12 +21,14 @@ const officeItems = [
   { name: "Dashboard", href: "/office/dashboard", icon: LayoutDashboard },
   { name: "Inquiries", href: "/office/inquiries?tab=inquiries", icon: FileText, baseHref: "/office/inquiries" },
   { name: "Admissions Progress", href: "/office/inquiries?tab=admissions", icon: UserCheck, baseHref: "/office/inquiries" },
+  { name: "Document Verification", href: "/office/document-verification", icon: FileText },
   { name: "Entrance Tests", href: "/office/entrance-tests", icon: ClipboardCheck },
 ];
 
 const studentItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Admission Form", href: "/student/admission", icon: FileText },
+  { name: "Document Verification", href: "/student/document-verification", icon: UserCheck },
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
 ];
 

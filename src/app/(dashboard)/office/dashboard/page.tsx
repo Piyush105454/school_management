@@ -74,10 +74,14 @@ export default function OfficeDashboard() {
               New Inquiry
               <UserPlus className="h-5 w-5" />
             </Link>
-            <button className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors uppercase text-sm tracking-wider">
+            <Link href="/office/document-verification" className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors uppercase text-sm tracking-wider">
+              Document Verification
+              <FileText className="h-5 w-5 text-slate-400" />
+            </Link>
+            <Link href="/office/entrance-tests" className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors uppercase text-sm tracking-wider">
               Schedule Entrance Exam
               <Clock className="h-5 w-5 text-slate-400" />
-            </button>
+            </Link>
             <button className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors uppercase text-sm tracking-wider">
               Generate Report
               <FileText className="h-5 w-5 text-slate-400" />
