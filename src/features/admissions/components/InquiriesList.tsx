@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { shortlistInquiry, resetStudentPassword } from "../actions/inquiryActions";
+import { shortlistInquiry, resetStudentPassword, deleteInquiry } from "../actions/inquiryActions";
 import { 
   UserCheck, 
   Trash2, 
@@ -71,6 +71,17 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
       setNewCredentials(result.credentials);
     } else {
       alert("Error: " + result.error);
+    }
+  };
+
+  const handleDeleteInquiry = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this inquiry?")) return;
+    const result = await deleteInquiry(id) as any;
+    if (result.success) {
+      alert("Inquiry deleted successfully");
+      setInquiries(inquiries.filter(inq => inq.id !== id));
+    } else {
+      alert("Error deleting inquiry: " + result.error);
     }
   };
 
@@ -166,7 +177,11 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                           {loadingId === inq.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
                         </button>
                       )}
-                      <button className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors">
+                      <button 
+                        onClick={() => handleDeleteInquiry(inq.id)}
+                        className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
+                        title="Delete Inquiry"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                       <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">

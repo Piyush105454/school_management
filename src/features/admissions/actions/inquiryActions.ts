@@ -113,3 +113,21 @@ export async function resetStudentPassword(email: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function deleteInquiry(id: string) {
+  try {
+    const inquiry = await db.query.inquiries.findFirst({
+      where: eq(inquiries.id, id),
+    });
+
+    if (!inquiry) throw new Error("Inquiry not found");
+
+    await db.delete(inquiries).where(eq(inquiries.id, id));
+
+    revalidatePath("/office/inquiries");
+    return { success: true, message: "Inquiry deleted successfully" };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+

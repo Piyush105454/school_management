@@ -84,6 +84,20 @@ function sanitizeSiblingData(data: any[]) {
   });
 }
 
+function sanitizeDocuments(docs: any) {
+  if (!docs) return docs;
+  const sanitized = { ...docs };
+  Object.keys(sanitized).forEach(key => {
+    if (sanitized[key] === "__EXISTING__") {
+      delete sanitized[key];
+    } else if (sanitized[key] === "") {
+      sanitized[key] = null;
+    }
+  });
+  return sanitized;
+}
+
+
 export async function submitFullAdmissionForm(admissionId: string, data: any, step?: number) {
   try {
     return await db.transaction(async (tx) => {
@@ -169,13 +183,16 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
 
       // 8. Documents
       if (data.documents) {
-        await tx.insert(studentDocuments).values({
-          ...data.documents,
-          admissionId,
-        }).onConflictDoUpdate({
-          target: studentDocuments.admissionId,
-          set: data.documents
-        });
+        const sanitizedDocs = sanitizeDocuments(data.documents);
+        if (Object.keys(sanitizedDocs).length > 0) {
+          await tx.insert(studentDocuments).values({
+            ...sanitizedDocs,
+            admissionId,
+          }).onConflictDoUpdate({
+            target: studentDocuments.admissionId,
+            set: sanitizedDocs
+          });
+        }
       }
 
       // 9. Update Profile Step
@@ -387,10 +404,13 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           break;
         case 8:
           if (data.documents) {
-            await tx.insert(studentDocuments).values({ ...data.documents, admissionId }).onConflictDoUpdate({
-              target: studentDocuments.admissionId,
-              set: data.documents
-            });
+            const sanitizedDocs = sanitizeDocuments(data.documents);
+            if (Object.keys(sanitizedDocs).length > 0) {
+              await tx.insert(studentDocuments).values({ ...sanitizedDocs, admissionId }).onConflictDoUpdate({
+                target: studentDocuments.admissionId,
+                set: sanitizedDocs
+              });
+            }
           }
           break;
         case 9:
