@@ -108,7 +108,7 @@ export default async function StudentDashboard() {
 
 
   const finalAdmissionStatus = 
-    (isAdmitted && isTestPassed && isVerified && isFormDone) ? "completed" :
+    (isAdmitted && isTestPassed && isVerified && isFormDone && homeVisitStatus === "completed") ? "completed" :
     (homeVisitStatus === "completed" ? "pending" : "waiting");
 
   const progressItems = [
