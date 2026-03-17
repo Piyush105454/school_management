@@ -29,107 +29,8 @@ import {
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent } from "../actions/admissionActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 
-const generateAdmissionPDF = (data: any, studentName: string) => {
-  const doc = new jsPDF() as any;
-  const primaryColor = [37, 99, 235]; 
-  
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, 210, 40, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text("ADMISSION APPLICATION FORM", 105, 20, { align: "center" });
-  doc.setFontSize(12);
-  doc.text(`Student Name: ${studentName.toUpperCase()}`, 105, 30, { align: "center" });
-
-  let yPos = 50;
-
-  const addSection = (title: string, fields: any[]) => {
-    if (yPos > 250) { doc.addPage(); yPos = 20; }
-    doc.setTextColor(...primaryColor);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(title, 20, yPos);
-    yPos += 5;
-    doc.setDrawColor(...primaryColor);
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
-    
-    autoTable(doc, {
-      startY: yPos,
-      head: [],
-      body: fields,
-      theme: 'plain',
-      styles: { fontSize: 10, cellPadding: 2 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 } },
-      margin: { left: 20 },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 15;
-  };
-
-  const bio = data.studentBio || {};
-  addSection("I. STUDENT BIO-DATA", [
-    ["First Name", bio.firstName || "-"],
-    ["Middle Name", bio.middleName || "-"],
-    ["Last Name", bio.lastName || "-"],
-    ["Gender", bio.gender === "M" ? "Male" : bio.gender === "F" ? "Female" : "Other"],
-    ["Date of Birth", bio.dob || "-"],
-    ["Category", bio.caste || "-"],
-    ["Religion", bio.religion || "-"],
-    ["Blood Group", bio.bloodGroup || "-"],
-    ["Aadhaar Number", bio.aadhaarNumber || "-"],
-    ["Samagra ID", bio.samagraId || "-"],
-  ]);
-
-  const addr = data.address || {};
-  addSection("II. RESIDENTIAL ADDRESS", [
-    ["House/Street", addr.houseNo || "-"],
-    ["Village/City", addr.village || "-"],
-    ["Tehsil/Block", addr.tehsil || "-"],
-    ["District", addr.district || "-"],
-    ["Pin Code", addr.pinCode || "-"],
-  ]);
-
-  const parents = data.parentsGuardians || [];
-  const parentRows = parents.map((p: any) => [p.personType, p.name, p.mobileNumber, p.occupation]);
-  addSection("III. PARENT/GUARDIAN DETAILS", [
-    ["TYPE", "NAME", "MOBILE", "OCCUPATION"],
-    ...parentRows
-  ]);
-
-  const bank = data.bankDetails || {};
-  addSection("IV. BANK DETAILS", [
-    ["Bank Name", bank.bankName || "-"],
-    ["A/C Holder", bank.accountHolderName || "-"],
-    ["Account No", bank.accountNumber || "-"],
-    ["IFSC Code", bank.ifscCode || "-"],
-  ]);
-
-  const docs = data.documents || {};
-  addSection("V. DOCUMENTS SUBMITTED", [
-    ["Birth Certificate", docs.birthCertificate ? "UPLOADED" : "NOT UPLOADED"],
-    ["Student Photo", docs.studentPhoto ? "UPLOADED" : "NOT UPLOADED"],
-    ["Marksheet", docs.marksheet ? "UPLOADED" : "NOT UPLOADED"],
-    ["Caste Certificate", docs.casteCertificate ? "UPLOADED" : "NOT UPLOADED"],
-    ["Affidavit", docs.affidavit ? "UPLOADED" : "NOT UPLOADED"],
-    ["Transfer Certificate", docs.transferCertificate ? "UPLOADED" : "NOT UPLOADED"],
-    ["Scholarship Slip", docs.scholarshipSlip ? "UPLOADED" : "NOT UPLOADED"],
-  ]);
-
-  if (yPos > 240) doc.addPage();
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "italic");
-  doc.text("I hereby declare that all the information provided above is true and correct to the best of my knowledge.", 20, 260);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Parent Signature: ${data.declaration?.guardianName || "____________________"}`, 20, 280);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 280);
-
-  doc.save(`Admission_Form_${studentName.replace(/\s+/g, '_')}.pdf`);
-};
 
 const steps = [
   { id: 1, name: "Bio Info", icon: GraduationCap },
@@ -148,6 +49,8 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
   const [currentStep, setCurrentStep] = useState(maxStep > 10 ? 10 : maxStep);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
 
   const defaults = {
     studentBio: {
@@ -211,9 +114,12 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
         });
       }
       methods.reset(mergedData);
+      const targetStep = maxStep && maxStep > 10 ? 10 : maxStep || 1;
+      setCurrentStep(targetStep);
     };
     loadData();
-  }, [initialData, methods, admissionId]);
+  }, [initialData, methods, admissionId, maxStep]);
+
 
   const dob = methods.watch("studentBio.dob");
   React.useEffect(() => {
@@ -286,7 +192,6 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
       <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
           {steps.map((step, index) => {
-            if (step.id === 10) return null;
             const isActive = currentStep === step.id;
             const isPast = (currentStep > step.id);
             const isUnlocked = true; 
@@ -305,12 +210,13 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
                     {step.name}
                   </span>
                 </div>
-                {index < steps.length - 2 && (
+                {index < steps.length - 1 && (
                   <div className={cn("h-px flex-1 mx-1 md:mx-2", isPast ? "bg-emerald-200" : "bg-slate-100")} />
                 )}
               </React.Fragment>
             );
           })}
+
         </div>
       </div>
 
@@ -318,18 +224,38 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
         <div className="p-4 md:p-8 flex flex-col bg-white">
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
+              {maxStep >= 10 && (
+                <div className="flex justify-end max-w-3xl mx-auto mb-4 px-4 md:px-0">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditMode(!isEditMode)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] md:text-xs tracking-wider transition-all shadow-sm border",
+                      isEditMode ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100" : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"
+                    )}
+                  >
+                    {isEditMode ? "Cancel Editing" : "Unlock Details Editing"}
+                  </button>
+                </div>
+              )}
+
               <div className="max-w-3xl mx-auto">
-                {currentStep === 1 && <BioStep />}
-                {currentStep === 2 && <ProfileStatsStep />}
-                {currentStep === 3 && <AddressStep />}
-                {currentStep === 4 && <AcademicStep />}
-                {currentStep === 5 && <SiblingsStep />}
-                {currentStep === 6 && <ParentsStep />}
-                {currentStep === 7 && <BankStep />}
-                {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} />}
-                {currentStep === 9 && <DeclarationStep />}
-                {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} />}
+                <fieldset disabled={maxStep >= 10 && !isEditMode} className="space-y-4">
+                  {currentStep === 1 && <BioStep />}
+                  {currentStep === 2 && <ProfileStatsStep />}
+                  {currentStep === 3 && <AddressStep />}
+                  {currentStep === 4 && <AcademicStep />}
+                  {currentStep === 5 && <SiblingsStep />}
+                  {currentStep === 6 && <ParentsStep />}
+                  {currentStep === 7 && <BankStep />}
+                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} />}
+                  {currentStep === 9 && <DeclarationStep />}
+                </fieldset>
+                {currentStep === 10 && <SubmissionSuccessStep data={initialData} />}
+
               </div>
+
+
             </form>
           </FormProvider>
 
@@ -349,11 +275,12 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
                     <button 
                       type="button"
                       onClick={handleApprove} 
-                      disabled={verifying}
+                      disabled={verifying || maxStep >= 10}
                       className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-emerald-600 text-white rounded-2xl font-black tracking-tight hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30"
                     >
                       {verifying ? <Loader2 className="animate-spin" /> : <><Verified size={22} /> VERIFY DOCUMENTS</>}
                     </button>
+
                  )}
                  <button 
                    type="button" 
@@ -748,6 +675,9 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
     { id: "scholarshipSlip", name: "Scholarship Slip", hindi: "छात्रवृत्ति पर्ची" },
   ];
 
+
+
+
   const handlePreview = async (docId: string) => {
     setFetchingDoc(docId);
     const res = await getDocumentContent(admissionId, docId);
@@ -798,11 +728,16 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
             </button>
           </div>
           <div className="w-full h-full flex items-center justify-center p-0 md:p-4" onClick={e => e.stopPropagation()}>
-            <img 
-              src={previewUrl} 
-              alt="Document Preview" 
-              className="max-h-full max-w-full object-contain shadow-2xl"
-            />
+            {previewUrl.includes("application/pdf") || previewUrl.startsWith("http") && previewUrl.endsWith(".pdf") ? (
+              <iframe src={previewUrl} title="Document Preview" className="w-full h-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl bg-white" />
+            ) : (
+              <img 
+                src={previewUrl} 
+                alt="Document Preview" 
+                className="max-h-full max-w-full object-contain shadow-2xl"
+              />
+            )}
+
           </div>
           <div className="absolute bottom-6 left-0 right-0 flex justify-center">
              <p className="bg-black/50 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-sm border border-white/10">

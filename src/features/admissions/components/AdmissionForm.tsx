@@ -20,117 +20,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep } from "../actions/admissionActions";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 
-const generateAdmissionPDF = (data: any, studentName: string) => {
-  const doc = new jsPDF() as any;
-  const primaryColor = [37, 99, 235]; // blue-600
-  
-  // Header
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, 210, 40, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text("ADMISSION APPLICATION FORM", 105, 20, { align: "center" });
-  doc.setFontSize(12);
-  doc.text(`Student Name: ${studentName.toUpperCase()}`, 105, 30, { align: "center" });
-
-  let yPos = 50;
-
-  const addSection = (title: string, fields: any[]) => {
-    if (yPos > 250) {
-      doc.addPage();
-      yPos = 20;
-    }
-    doc.setTextColor(...primaryColor);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(title, 20, yPos);
-    yPos += 5;
-    doc.setDrawColor(...primaryColor);
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
-    
-    autoTable(doc, {
-      startY: yPos,
-      head: [],
-      body: fields,
-      theme: 'plain',
-      styles: { fontSize: 10, cellPadding: 2 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 } },
-      margin: { left: 20 },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 15;
-  };
-
-  // Section 1: Bio Info
-  const bio = data.studentBio || {};
-  addSection("I. STUDENT BIO-DATA", [
-    ["First Name", bio.firstName || "-"],
-    ["Middle Name", bio.middleName || "-"],
-    ["Last Name", bio.lastName || "-"],
-    ["Gender", bio.gender === "M" ? "Male" : bio.gender === "F" ? "Female" : "Other"],
-    ["Date of Birth", bio.dob || "-"],
-    ["Category", bio.caste || "-"],
-    ["Religion", bio.religion || "-"],
-    ["Blood Group", bio.bloodGroup || "-"],
-    ["Aadhaar Number", bio.aadhaarNumber || "-"],
-    ["Samagra ID", bio.samagraId || "-"],
-  ]);
-
-  // Section 2: Address
-  const addr = data.address || {};
-  addSection("II. RESIDENTIAL ADDRESS", [
-    ["House/Street", addr.houseNo || "-"],
-    ["Village/City", addr.village || "-"],
-    ["Tehsil/Block", addr.tehsil || "-"],
-    ["District", addr.district || "-"],
-    ["Pin Code", addr.pinCode || "-"],
-  ]);
-
-  // Section 3: Parents
-  const parents = data.parentsGuardians || [];
-  const parentRows = parents.map((p: any) => [p.personType, p.name, p.mobileNumber, p.occupation]);
-  addSection("III. PARENT/GUARDIAN DETAILS", [
-    ["TYPE", "NAME", "MOBILE", "OCCUPATION"],
-    ...parentRows
-  ]);
-
-  // Section 4: Bank
-  const bank = data.bankDetails || {};
-  addSection("IV. BANK DETAILS", [
-    ["Bank Name", bank.bankName || "-"],
-    ["A/C Holder", bank.accountHolderName || "-"],
-    ["Account No", bank.accountNumber || "-"],
-    ["IFSC Code", bank.ifscCode || "-"],
-  ]);
-
-  // Section 5: Documents
-  const docs = data.documents || {};
-  addSection("V. DOCUMENTS SUBMITTED", [
-    ["Birth Certificate", docs.birthCertificate ? "UPLOADED" : "NOT UPLOADED"],
-    ["Student Photo", docs.studentPhoto ? "UPLOADED" : "NOT UPLOADED"],
-    ["Marksheet", docs.marksheet ? "UPLOADED" : "NOT UPLOADED"],
-    ["Caste Certificate", docs.casteCertificate ? "UPLOADED" : "NOT UPLOADED"],
-    ["Affidavit", docs.affidavit ? "UPLOADED" : "NOT UPLOADED"],
-    ["Transfer Certificate", docs.transferCertificate ? "UPLOADED" : "NOT UPLOADED"],
-    ["Scholarship Slip", docs.scholarshipSlip ? "UPLOADED" : "NOT UPLOADED"],
-  ]);
-
-  // Footer / Declaration
-  if (yPos > 240) doc.addPage();
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "italic");
-  doc.text("I hereby declare that all the information provided above is true and correct to the best of my knowledge.", 20, 260);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Parent Signature: ${data.declaration?.guardianName || "____________________"}`, 20, 280);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 280);
-
-  doc.save(`Admission_Form_${studentName.replace(/\s+/g, '_')}.pdf`);
-};
 
 const steps = [
   { id: 1, name: "Bio Info", icon: GraduationCap },
@@ -809,10 +700,10 @@ function DocumentsStep() {
     { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो" },
     { id: "marksheet", name: "Previous Marksheet", hindi: "पिछली कक्षा की अंकसूची" },
     { id: "casteCertificate", name: "Caste Certificate", hindi: "जाति प्रमाण पत्र" },
-    { id: "affidavit", name: "Affidavit", hindi: "माता-पिता का शपथ पत्र" },
     { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र" },
-    { id: "scholarshipSlip", name: "Scholarship Slip", hindi: "छात्रवृत्ति पर्ची" },
   ];
+
+
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">

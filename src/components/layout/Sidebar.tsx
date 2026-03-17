@@ -23,14 +23,22 @@ const officeItems = [
   { name: "Admissions Progress", href: "/office/inquiries?tab=admissions", icon: UserCheck, baseHref: "/office/inquiries" },
   { name: "Document Verification", href: "/office/document-verification", icon: FileText },
   { name: "Entrance Tests", href: "/office/entrance-tests", icon: ClipboardCheck },
+  { name: "Home Visits", href: "/office/home-visits", icon: Users },
+  { name: "Final Approvals", href: "/office/final-admissions", icon: ClipboardCheck },
 ];
+
+
 
 const studentItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Admission Form", href: "/student/admission", icon: FileText },
   { name: "Document Verification", href: "/student/document-verification", icon: UserCheck },
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
+  { name: "Home Visit", href: "/student/home-visit", icon: Users },
+  { name: "Final Option", href: "/student/final-admission", icon: ClipboardCheck },
 ];
+
+
 
 interface SidebarProps {
   role: "OFFICE" | "STUDENT_PARENT";

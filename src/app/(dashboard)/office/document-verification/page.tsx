@@ -13,6 +13,8 @@ import {
   Download
 } from "lucide-react";
 import Link from "next/link";
+import ViewDocumentButton from "./components/ViewDocumentButton";
+
 
 export default async function OfficeDocumentVerificationPage() {
   const session = await getServerSession(authOptions);
@@ -128,14 +130,8 @@ function DocumentRow({ applicant }: { applicant: any }) {
           </div>
         </div>
         <div className="flex gap-2">
-          <a
-            href={affidavitUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all flex items-center gap-2"
-          >
-            <Eye size={14} /> View
-          </a>
+          <ViewDocumentButton url={affidavitUrl || ""} />
+
           <a
             href={affidavitUrl}
             download

@@ -42,9 +42,11 @@ export const admissionMeta = pgTable("admission_meta", {
   entryNumber: text("entry_number").notNull().unique(),
   admissionNumber: text("admission_number").unique(),
   scholarNumber: text("scholar_number").unique(),
+  appliedScholarship: boolean("applied_scholarship").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
 
 export const studentProfiles = pgTable("student_profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -231,7 +233,12 @@ export const admissionMetaRelations = relations(admissionMeta, ({ one, many }) =
     fields: [admissionMeta.id],
     references: [entranceTests.admissionId],
   }),
+  homeVisit: one(homeVisits, {
+    fields: [admissionMeta.id],
+    references: [homeVisits.admissionId],
+  }),
 }));
+
 
 export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
   user: one(users, {
@@ -243,3 +250,25 @@ export const studentProfilesRelations = relations(studentProfiles, ({ one }) => 
     references: [admissionMeta.id],
   }),
 }));
+
+export const homeVisits = pgTable("home_visits", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }).unique(),
+  visitDate: text("visit_date"),
+  visitTime: text("visit_time"),
+  teacherName: text("teacher_name"),
+  remarks: text("remarks"),
+  visitImage: text("visit_image"),
+  status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+
+export const homeVisitsRelations = relations(homeVisits, ({ one }) => ({
+  admissionMeta: one(admissionMeta, {
+    fields: [homeVisits.admissionId],
+    references: [admissionMeta.id],
+  }),
+}));
+

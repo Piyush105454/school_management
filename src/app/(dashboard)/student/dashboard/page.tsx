@@ -19,7 +19,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
-import { studentProfiles, admissionMeta, entranceTests, inquiries, documentChecklists } from "@/db/schema";
+import { studentProfiles, admissionMeta, entranceTests, inquiries, documentChecklists, homeVisits } from "@/db/schema";
+
 import { redirect } from "next/navigation";
 import { EntranceTestCard } from "@/features/admissions/components/EntranceTestCard";
 
@@ -75,6 +76,15 @@ export default async function StudentDashboard() {
     
   const testData = testResults[0] || null;
 
+  const visitResults = await db
+    .select()
+    .from(homeVisits)
+    .where(eq(homeVisits.admissionId, profile.admissionMetaId!))
+    .limit(1);
+    
+  const visitData = visitResults[0] || null;
+
+
   // --- STRICT SEQUENTIAL LOGIC ---
   const isFormDone = currentStep >= 10;
   const isVerified = !!((profile as any).admissionMeta?.documentChecklists?.formReceivedComplete);
@@ -93,8 +103,9 @@ export default async function StudentDashboard() {
     (verificationStatus === "completed" ? "pending" : "waiting");
 
   const homeVisitStatus = 
-    (isAdmitted && isTestPassed) ? "completed" :
-    (entranceTestStatus === "completed" ? "pending" : "waiting");
+    (isAdmitted && (visitData?.status === "PASS")) ? "completed" :
+    (entranceTestStatus === "completed" || isTestPassed) ? "pending" : "waiting";
+
 
   const finalAdmissionStatus = 
     (isAdmitted && isTestPassed && isVerified && isFormDone) ? "completed" :
@@ -105,8 +116,9 @@ export default async function StudentDashboard() {
     { name: "Form", status: formStatus, icon: FileText, href: "/student/admission" },
     { name: "Verification", status: verificationStatus, icon: UserCheck, href: "/student/document-verification" },
     { name: "Entrance Test", status: entranceTestStatus, icon: ClipboardList, href: "/student/entrance-test" },
-    { name: "Home Visit", status: homeVisitStatus, icon: Users, href: "#" },
-    { name: "Final Admission", status: finalAdmissionStatus, icon: GraduationCap, href: "#" },
+    { name: "Home Visit", status: homeVisitStatus, icon: Users, href: "/student/home-visit" },
+    { name: "Final Admission", status: finalAdmissionStatus, icon: GraduationCap, href: "/student/final-admission" },
+
   ];
 
   const steps = [
@@ -147,8 +159,10 @@ export default async function StudentDashboard() {
                          formStatus === "pending" ? "Please complete and submit your details." :
                          verificationStatus === "pending" ? "We are verifying your submitted files." :
                          entranceTestStatus === "pending" ? "View your test schedule and location details." :
-                         homeVisitStatus === "pending" ? "Awaiting your visit to the school." :
+                         homeVisitStatus === "pending" ? 
+                         (visitData?.visitDate ? `Family Visit Scheduled: ${visitData.visitDate} at ${visitData.visitTime} with ${visitData.teacherName}` : "Awaiting Home Visit schedule from Office.") :
                          "Final processing is underway."}
+
                     </p>
                 </div>
                 {finalAdmissionStatus !== "completed" && (
@@ -263,7 +277,47 @@ export default async function StudentDashboard() {
                         Open Full Test Page <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>
+            ) : homeVisitStatus === "pending" || (homeVisitStatus === "completed" && finalAdmissionStatus !== "completed") ? (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col items-center text-center space-y-4">
+                        <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/10">
+                            <Users size={32} />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-slate-900 uppercase italic leading-none tracking-tight">Home Visit Details</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Details about your faculty visitation schedule</p>
+                        </div>
+                        {visitData?.visitDate ? (
+                            <div className="bg-white p-4 rounded-xl border border-slate-100/80 w-full max-w-sm space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Date</span>
+                                    <span className="text-sm font-bold text-slate-900">{visitData.visitDate}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Time</span>
+                                    <span className="text-sm font-bold text-slate-900">{visitData.visitTime}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Teacher</span>
+                                    <span className="text-sm font-bold text-slate-900">{visitData.teacherName || "Assigned shortly"}</span>
+                                </div>
+                                <div className="flex items-center justify-between border-t pt-2 border-slate-100">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Status</span>
+                                    <span className={cn(
+                                        "text-xs font-black uppercase tracking-widest",
+                                        visitData?.status === "PASS" ? "text-emerald-600" : "text-blue-600"
+                                    )}>
+                                        {visitData?.status === "PASS" ? "Completed" : "Scheduled"}
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500 font-medium italic">Layout schedule is being updated from the office dashboard.</p>
+                        )}
+                    </div>
+                </div>
             ) : (
+
                 <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
                     <div className="h-20 w-20 bg-emerald-50 text-emerald-500 rounded-[32px] flex items-center justify-center border-4 border-white shadow-xl shadow-emerald-100">
                         <CheckCircle2 size={40} />

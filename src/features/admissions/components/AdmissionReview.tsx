@@ -159,9 +159,8 @@ export function AdmissionReview({ admissionId, initialData }: AdmissionReviewPro
             <DocPreview label="Student Photo" data={docs.studentPhoto} />
             <DocPreview label="Marksheet" data={docs.marksheet} />
             <DocPreview label="Caste Cert" data={docs.casteCertificate} />
-            <DocPreview label="Affidavit" data={docs.affidavit} />
             <DocPreview label="TC" data={docs.transferCertificate} />
-            <DocPreview label="Scholarship Slip" data={docs.scholarshipSlip} />
+
           </div>
         </ReviewSection>
       </div>

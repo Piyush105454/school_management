@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { 
   UserCheck,
   ClipboardCheck, 
@@ -31,11 +33,44 @@ interface AdmissionProcessListProps {
 }
 
 export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) {
+  const router = useRouter();
   const [selectedAdm, setSelectedAdm] = useState<any | null>(null);
+
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [newCredentials, setNewCredentials] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const getStepBadge = (step: number) => {
+    const stepsConf: Record<number, any> = {
+      1: { name: "Bio Info", icon: Clock, color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-100" },
+      2: { name: "Stats/ID", icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" },
+      3: { name: "Address", icon: MapPin, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+      4: { name: "Academic", icon: BookOpen, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+      5: { name: "Siblings", icon: Users, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+      6: { name: "Parents", icon: Users, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-100" },
+      7: { name: "Bank", icon: CreditCard, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
+      8: { name: "Docs", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+      9: { name: "Finalize", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
+      10: { name: "Verification", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+      11: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+    };
+    const c = stepsConf[step] || { name: `Step ${step}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
+    const Icon = c.icon;
+    return (
+      <span className={cn("flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border", c.color, c.bg, c.border)}>
+        <Icon size={12}/> {c.name}
+      </span>
+    );
+  };
+
+  const getStatusBadge = (step: number) => {
+    if (step >= 11) return <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider">Admitted</span>;
+    if (step === 10) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Verifying</span>;
+    if (step === 9) return <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100 uppercase tracking-wider">Submitted</span>;
+    return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Drafting</span>;
+  };
+
 
   const handleResetPassword = async () => {
     if (!selectedAdm?.profile?.user?.email) return;
@@ -70,7 +105,9 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Applied Class</th>
                 <th className="px-6 py-4">Current Step</th>
+                <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Form Progress</th>
+
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -89,17 +126,10 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      {adm.profile?.admissionStep === 1 && <span className="flex items-center gap-1.5 text-xs font-bold text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-full border border-yellow-100"><Clock size={12}/> Bio Info</span>}
-                      {adm.profile?.admissionStep === 2 && <span className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100"><UserCheck size={12}/> Stats/ID</span>}
-                      {adm.profile?.admissionStep === 3 && <span className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100"><MapPin size={12}/> Address</span>}
-                      {adm.profile?.admissionStep === 4 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100"><BookOpen size={12}/> Academic</span>}
-                      {adm.profile?.admissionStep === 5 && <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100"><Users size={12}/> Siblings</span>}
-                      {adm.profile?.admissionStep === 6 && <span className="flex items-center gap-1.5 text-xs font-bold text-pink-600 bg-pink-50 px-2.5 py-1 rounded-full border border-pink-100"><Users size={12}/> Parents</span>}
-                      {adm.profile?.admissionStep === 7 && <span className="flex items-center gap-1.5 text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100"><CreditCard size={12}/> Bank</span>}
-                      {adm.profile?.admissionStep === 8 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100"><FileText size={12}/> Documents</span>}
-                      {adm.profile?.admissionStep >= 9 && <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100"><CheckCircle2 size={12}/> Submitted</span>}
-                    </div>
+                    {getStepBadge(adm.profile?.admissionStep || 1)}
+                  </td>
+                  <td className="px-6 py-4">
+                    {getStatusBadge(adm.profile?.admissionStep || 1)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1.5">
@@ -107,17 +137,17 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                         <div 
                           className={cn(
                             "h-full transition-all duration-1000",
-                            adm.profile?.admissionStep >= 9 ? "w-full bg-green-500" :
-                            `bg-blue-500`
+                            adm.profile?.admissionStep >= 9 ? "w-full bg-green-500" : "bg-blue-500"
                           )}
-                          style={{ width: `${(adm.profile?.admissionStep / 9) * 100}%` }}
+                          style={{ width: `${Math.min((adm.profile?.admissionStep / 9) * 100, 100)}%` }}
                         />
                       </div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                        {Math.round((adm.profile?.admissionStep / 9) * 100)}% Complete
+                        {Math.min(Math.round((adm.profile?.admissionStep / 9) * 100), 100)}% Complete
                       </p>
                     </div>
                   </td>
+
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Link
@@ -132,9 +162,14 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                           if (confirm(`Are you sure you want to verify ${adm.inquiry?.studentName}'s documents?`)) {
                              const { verifyAdmission } = await import("../actions/admissionActions");
                              const res = await verifyAdmission(adm.id);
-                             if (res.success) alert("Verified successfully!");
-                             else alert("Error: " + res.error);
-                          }
+                              if (res.success) {
+                                alert("Verified successfully!");
+                                router.refresh();
+                              } else {
+                                alert("Error: " + res.error);
+                              }
+                            }
+
                         }}
                         className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                         title="Verify Documents"

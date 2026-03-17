@@ -52,7 +52,27 @@ export function DocumentVerificationCard({ docData, admissionId, studentName }: 
     }
   };
 
+  const handleViewPdf = () => {
+    if (docData?.affidavit) {
+      if (docData.affidavit.startsWith("data:application/pdf")) {
+        const base64Data = docData.affidavit.split(",")[1];
+        const byteCharacters = window.atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      } else {
+        window.open(docData.affidavit, "_blank");
+      }
+    }
+  };
+
   return (
+
     <div className="space-y-6">
       {/* UPLOAD SECTION */}
       <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
@@ -116,14 +136,13 @@ export function DocumentVerificationCard({ docData, admissionId, studentName }: 
           </div>
 
           <div className="flex gap-3">
-            <a
-              href={docData.affidavit}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={handleViewPdf}
               className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
             >
               <Eye size={14} /> View Document
-            </a>
+            </button>
+
             <button
               onClick={() => {
                 const link = document.createElement("a");

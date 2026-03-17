@@ -256,6 +256,21 @@ export async function finalizeFinalAdmission(admissionId: string) {
   }
 }
 
+export async function applyScholarship(admissionId: string, applied: boolean) {
+  try {
+    await db.update(admissionMeta)
+      .set({ appliedScholarship: applied, updatedAt: new Date() })
+      .where(eq(admissionMeta.id, admissionId));
+
+    revalidatePath("/student/dashboard");
+    revalidatePath("/office/inquiries");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+
 export async function getDocumentContent(admissionId: string, fieldName: string) {
   try {
     const doc = await db.query.studentDocuments.findFirst({
