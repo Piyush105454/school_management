@@ -14,6 +14,8 @@ export default async function OfficeInquiriesPage() {
   const allAdmissions = await db.query.admissionMeta.findMany({
     with: {
       inquiry: true,
+      entranceTest: true,
+      homeVisit: true,
     },
     orderBy: [desc(admissionMeta.createdAt)],
   });

@@ -10,16 +10,49 @@ import {
   Loader2, 
   ChevronDown, 
   ChevronUp,
-  FileText
+  FileText,
+  Download
 } from "lucide-react";
+import { generateHomeVisitPDF } from "@/features/admissions/utils/generateHomeVisitPDF";
 import { cn } from "@/lib/utils";
 import { scheduleHomeVisit, updateHomeVisitStatus } from "@/features/admissions/actions/homeVisitActions";
 // Remove finalize component imports to avoid unused warnings
 
 
+const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+  });
+};
+
 export function OfficeHomeVisitManager({ applicant }: { applicant: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [visitData, setVisitData] = useState((applicant as any).homeVisit || {
     visitDate: "",
     visitTime: "",
@@ -33,8 +66,14 @@ export function OfficeHomeVisitManager({ applicant }: { applicant: any }) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setVisitData({ ...visitData, visitImage: reader.result as string });
+    reader.onloadend = async () => {
+      try {
+        const compressed = await compressImage(reader.result as string);
+        setVisitData({ ...visitData, visitImage: compressed });
+      } catch (e) {
+        console.error("Compression error:", e);
+        alert("Error compressing image.");
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -99,6 +138,21 @@ export function OfficeHomeVisitManager({ applicant }: { applicant: any }) {
         </div>
 
         <div className="flex items-center gap-4 ml-auto">
+            <button 
+                type="button" 
+                onClick={async (e) => { 
+                    e.stopPropagation(); 
+                    setDownloadingPdf(true);
+                    try { await generateHomeVisitPDF(applicant); } 
+                    finally { setDownloadingPdf(false); }
+                }} 
+                disabled={downloadingPdf}
+                className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl flex items-center gap-1.5 border border-blue-100/30 transition-all select-none disabled:opacity-50"
+                title="Download Visit Report"
+            >
+                {downloadingPdf ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
+                <span className="text-[10px] font-black uppercase tracking-wider">{downloadingPdf ? "Loading..." : "Report"}</span>
+            </button>
             {isOpen ? <ChevronUp className="text-slate-300" /> : <ChevronDown className="text-slate-300" />}
         </div>
       </div>

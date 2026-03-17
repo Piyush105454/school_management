@@ -41,7 +41,23 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   const [newCredentials, setNewCredentials] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const getStepBadge = (step: number) => {
+  const getComputedStep = (adm: any) => {
+    const step = adm.profile?.admissionStep || 1;
+    const isFullyAdmitted = adm.profile?.isFullyAdmitted;
+    const entrance = adm.entranceTest;
+    const home = adm.homeVisit;
+
+    if (step >= 11) {
+      if (isFullyAdmitted) return 14;
+      if (home && home.status === "PASS") return 13;
+      if (entrance && entrance.status === "PASS") return 12;
+      return 11;
+    }
+    return step;
+  };
+
+  const getStepBadge = (adm: any) => {
+    const computedStep = getComputedStep(adm);
     const stepsConf: Record<number, any> = {
       1: { name: "Bio Info", icon: Clock, color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-100" },
       2: { name: "Stats/ID", icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" },
@@ -53,9 +69,12 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
       8: { name: "Docs", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
       9: { name: "Finalize", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
       10: { name: "Verification", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-      11: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+      11: { name: "Entrance Test", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100" },
+      12: { name: "Home Visit", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+      13: { name: "Approval", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+      14: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
     };
-    const c = stepsConf[step] || { name: `Step ${step}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
+    const c = stepsConf[computedStep] || { name: `Step ${computedStep}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
     const Icon = c.icon;
     return (
       <span className={cn("flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border", c.color, c.bg, c.border)}>
@@ -64,10 +83,14 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
     );
   };
 
-  const getStatusBadge = (step: number) => {
-    if (step >= 11) return <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider">Admitted</span>;
-    if (step === 10) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Verifying</span>;
-    if (step === 9) return <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100 uppercase tracking-wider">Submitted</span>;
+  const getStatusBadge = (adm: any) => {
+    const computedStep = getComputedStep(adm);
+    if (computedStep >= 14) return <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider">Admitted</span>;
+    if (computedStep === 13) return <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase tracking-wider">Approval</span>;
+    if (computedStep === 12) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Home Visit</span>;
+    if (computedStep === 11) return <span className="text-[10px] font-black text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 uppercase tracking-wider">Entrance Test</span>;
+    if (computedStep === 10) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Verifying</span>;
+    if (computedStep === 9) return <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100 uppercase tracking-wider">Submitted</span>;
     return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Drafting</span>;
   };
 
@@ -126,10 +149,10 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    {getStepBadge(adm.profile?.admissionStep || 1)}
+                    {getStepBadge(adm)}
                   </td>
                   <td className="px-6 py-4">
-                    {getStatusBadge(adm.profile?.admissionStep || 1)}
+                    {getStatusBadge(adm)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1.5">

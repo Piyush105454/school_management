@@ -83,7 +83,7 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
             >
               <option value="">Select Class</option>
-              {["Nursery", "KG-1", "KG-2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+              {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

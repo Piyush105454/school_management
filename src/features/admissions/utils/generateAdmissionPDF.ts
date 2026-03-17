@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
+import { PDFDocument } from "pdf-lib";
 
-export const generateAdmissionPDF = (data: any, studentName: string) => {
+export const generateAdmissionPDF = (data: any, studentName: string, options?: { returnBytes?: boolean }) => {
   const doc = new jsPDF() as any;
   const primaryColor = [37, 99, 235]; 
 
@@ -87,7 +88,6 @@ export const generateAdmissionPDF = (data: any, studentName: string) => {
 
   drawSectionHeader("STUDENT DETAILS", "Student's Bio Data");
 
-  // Sidebar Photo Box setup
   const sidebarWidth = 25;
   const gridWidth = contentWidth - sidebarWidth; // 165mm
 
@@ -96,11 +96,10 @@ export const generateAdmissionPDF = (data: any, studentName: string) => {
   doc.text("Paste", margin + 5, y + 6);
   doc.text("Photo", margin + 5, y + 10);
 
-  // Grid fields right side photo node WITH startX offset
   drawRow(
       ["First Name", "Middle Name", "Last Name", "Gender"],
       [bio.firstName, bio.middleName, bio.lastName, bio.gender === "M" ? "Male" : "Female"],
-      [45, 45, 45, 30], // total = 165
+      [45, 45, 45, 30], 
       12, y, margin + sidebarWidth
   );
   y += 12;
@@ -108,16 +107,15 @@ export const generateAdmissionPDF = (data: any, studentName: string) => {
   drawRow(
       ["DOB (DD/MM/YYYY)", "Age", "Religion", "Caste", "Family ID"],
       [bio.dob, String(bio.age || ""), bio.religion, bio.caste, bio.familyId],
-      [40, 15, 40, 35, 35], // total = 165
+      [40, 15, 40, 35, 35], 
       12, y, margin + sidebarWidth
   );
   y += 12;
 
-  // Grid spreads below full box size STARTING AT MARGIN
   drawRow(
       ["Blood Group", "Height (cm)", "Weight (kg)", "Aadhaar Card No", "Samagra ID"],
       [bio.bloodGroup, bio.heightCm, bio.weightKg, bio.aadhaarNumber, bio.samagraId],
-      [25, 25, 25, 60, 55], // total = 190
+      [25, 25, 25, 60, 55], 
       12, y, margin
   );
   y += 14;
@@ -182,7 +180,6 @@ export const generateAdmissionPDF = (data: any, studentName: string) => {
   }
   y += 4;
 
-  // PAGE 2
   doc.addPage();
   y = 10;
 
@@ -286,7 +283,7 @@ export const generateAdmissionPDF = (data: any, studentName: string) => {
   checkItems.forEach((c, idx) => {
      const py = y + 10 + (idx * 5);
      doc.text(c.label, margin + 4, py);
-     doc.rect(margin + 40, py - 3, 3, 3); // Checkbox Box
+     doc.rect(margin + 40, py - 3, 3, 3); 
      if (c.checked) {
         doc.line(margin + 40 + 0.5, py - 1.5, margin + 40 + 1.2, py - 0.5);
         doc.line(margin + 40 + 1.2, py - 0.5, margin + 40 + 2.5, py - 2.5);
@@ -299,5 +296,39 @@ export const generateAdmissionPDF = (data: any, studentName: string) => {
 
   y += 42;
 
+  if (options?.returnBytes) {
+      return doc.output('arraybuffer') as ArrayBuffer;
+  }
+
   doc.save(`Admission_Form_${studentName.replace(/\s+/g, '_') || "Student"}.pdf`);
+};
+
+export const generateMergedApplicationPDF = async (data: any, studentName: string) => {
+  try {
+      const admissionBytes = generateAdmissionPDF(data, studentName, { returnBytes: true }) as ArrayBuffer;
+      const prospectusUrl = '/prospectus.pdf';
+      const prospectusBytes = await fetch(prospectusUrl).then(res => res.arrayBuffer());
+
+      const mergedPdf = await PDFDocument.create();
+      const admissionPdfDoc = await PDFDocument.load(admissionBytes);
+      const prospectusPdfDoc = await PDFDocument.load(prospectusBytes);
+
+      const admissionPages = await mergedPdf.copyPages(admissionPdfDoc, admissionPdfDoc.getPageIndices());
+      admissionPages.forEach(page => mergedPdf.addPage(page));
+
+      const prospectusPages = await mergedPdf.copyPages(prospectusPdfDoc, prospectusPdfDoc.getPageIndices());
+      prospectusPages.forEach(page => mergedPdf.addPage(page));
+
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DPS_Application_Plus_Prospectus_${studentName.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (err) {
+      console.error("Merge error:", err);
+      alert("Failed to merge with prospectus. Make sure prospectus.pdf exists in public/.");
+  }
 };

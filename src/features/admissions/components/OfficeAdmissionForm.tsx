@@ -490,7 +490,12 @@ function SiblingsStep() {
                 </div>
                 <div className="space-y-1">
                   <label className={labelStyles}>Class</label>
-                  <input {...register(`siblings.${index}.classCurrent`)} className={inputStyles} />
+                  <select {...register(`siblings.${index}.classCurrent`)} className={inputStyles}>
+                    <option value="">Select Class</option>
+                    {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -565,7 +570,12 @@ function AcademicStep() {
         </div>
         <div className="space-y-1">
           <label className={labelStyles}>Class Attended</label>
-          <input {...register("previousAcademic.classLastAttended")} className={inputStyles} placeholder="e.g. Class 5" />
+          <select {...register("previousAcademic.classLastAttended")} className={inputStyles}>
+            <option value="">Select Class</option>
+            {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-1">
           <label className={labelStyles}>Percentage (%)</label>

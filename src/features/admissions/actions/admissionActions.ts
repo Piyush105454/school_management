@@ -179,6 +179,12 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
           target: declarations.admissionId,
           set: data.declaration
         });
+
+        if (data.declaration.appliedScholarship !== undefined) {
+          await tx.update(admissionMeta)
+            .set({ appliedScholarship: data.declaration.appliedScholarship === "true" })
+            .where(eq(admissionMeta.id, admissionId));
+        }
       }
 
       // 8. Documents
@@ -233,6 +239,10 @@ export async function verifyAdmission(admissionId: string) {
         verifiedAt: new Date()
       });
     }
+
+    await db.update(studentProfiles)
+      .set({ admissionStep: 11 })
+      .where(eq(studentProfiles.admissionMetaId, admissionId));
 
     revalidatePath("/office/inquiries");
     revalidatePath("/student/dashboard");
@@ -434,14 +444,29 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
               target: declarations.admissionId,
               set: data.declaration
             });
+
+            if (data.declaration.appliedScholarship !== undefined) {
+              await tx.update(admissionMeta)
+                .set({ appliedScholarship: data.declaration.appliedScholarship === "true" })
+                .where(eq(admissionMeta.id, admissionId));
+            }
           }
           break;
       }
 
-      // Update current step in profile
-      await tx.update(studentProfiles)
-        .set({ admissionStep: step + 1 })
-        .where(eq(studentProfiles.admissionMetaId, admissionId));
+      // Only advance if step + 1 is greater than existing step to prevent regression on edits
+      const currentProfile = await tx.select({ currentStep: studentProfiles.admissionStep })
+        .from(studentProfiles)
+        .where(eq(studentProfiles.admissionMetaId, admissionId))
+        .limit(1);
+
+      const existingStep = currentProfile?.[0]?.currentStep || 0;
+
+      if (step + 1 > existingStep) {
+        await tx.update(studentProfiles)
+          .set({ admissionStep: step + 1 })
+          .where(eq(studentProfiles.admissionMetaId, admissionId));
+      }
 
       return { success: true };
     });

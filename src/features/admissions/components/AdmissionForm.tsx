@@ -20,8 +20,38 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep } from "../actions/admissionActions";
-import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
+import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
 
+
+const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+  });
+};
 
 const steps = [
   { id: 1, name: "Bio Info", icon: GraduationCap },
@@ -32,12 +62,13 @@ const steps = [
   { id: 6, name: "Parents", icon: Users },
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
-  { id: 9, name: "Finalize", icon: CheckCircle },
-  { id: 10, name: "Complete", icon: CheckCircle },
+  { id: 9, name: "Download", icon: Download },
+  { id: 10, name: "Finalize", icon: CheckCircle },
+  { id: 11, name: "Complete", icon: CheckCircle },
 ];
 
 export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
-  const [currentStep, setCurrentStep] = useState(maxStep > 10 ? 10 : maxStep);
+  const [currentStep, setCurrentStep] = useState(maxStep > 11 ? 11 : maxStep);
   const [loading, setLoading] = useState(false);
   const defaults = {
     studentBio: {
@@ -173,7 +204,8 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
       6: "parentsGuardians",
       7: "bankDetails",
       8: "documents",
-      9: "declaration"
+      9: [],
+      10: "declaration"
     };
 
     const currentFields = fieldsByStep[currentStep];
@@ -207,7 +239,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
       <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
           {steps.map((step, index) => {
-            if (step.id === 10) return null; // Don't show step 10 in horizontal stepper
+            if (step.id === 11) return null; // Don't show step 11 in horizontal stepper
             const isActive = currentStep === step.id;
             const isPast = maxStep > step.id || (currentStep > step.id);
             const isUnlocked = maxStep >= step.id;
@@ -248,6 +280,20 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
           })}
         </div>
       </div>
+      
+      {(currentStep === 9 || maxStep >= 10) && (
+        <div className="flex justify-end max-w-4xl mx-auto px-1">
+          <button
+            type="button"
+            onClick={() => generateAdmissionPDF(methods.getValues(), methods.getValues("studentBio.firstName") + " " + methods.getValues("studentBio.lastName"))}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-black uppercase tracking-widest text-[10px] bg-blue-50/80 backdrop-blur-sm px-5 py-2.5 rounded-xl border border-blue-100/80 transition-all hover:bg-blue-100 hover:shadow-sm"
+          >
+            <Download size={14} /> Download Application PDF
+          </button>
+        </div>
+      )}
+
+
 
       <div className="bg-white rounded-2xl shadow-lg border border-slate-100 mb-6">
         {/* Form Content */}
@@ -262,14 +308,15 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 {currentStep === 5 && <SiblingsStep />}
                 {currentStep === 6 && <ParentsStep />}
                 {currentStep === 7 && <BankStep />}
-                {currentStep === 8 && <DocumentsStep />}
-                {currentStep === 9 && <DeclarationStep />}
-                {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} />}
+                {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
+                {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} />}
+                {currentStep === 10 && <DeclarationStep />}
+                {currentStep === 11 && <SubmissionSuccessStep data={methods.getValues()} />}
               </div>
             </form>
           </FormProvider>
 
-          {currentStep < 10 && (
+          {currentStep < 11 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button
                 onClick={prevStep}
@@ -279,7 +326,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
               </button>
               
-              {currentStep < 9 ? (
+              {currentStep < 10 ? (
                 <button
                   type="button"
                   onClick={nextStep}
@@ -301,17 +348,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
             </div>
           )}
           
-          {currentStep === 9 && (
-            <div className="mt-6 flex justify-center">
-              <button
-                type="button"
-                onClick={() => generateAdmissionPDF(methods.getValues(), methods.getValues("studentBio.firstName") + " " + methods.getValues("studentBio.lastName"))}
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold uppercase tracking-widest text-xs bg-blue-50 px-6 py-3 rounded-xl border border-blue-100 transition-all hover:bg-blue-100"
-              >
-                <Download size={16} /> Download Filled Form (PDF)
-              </button>
-            </div>
-          )}
+
         </div>
       </div>
     </div>
@@ -497,7 +534,12 @@ function SiblingsStep() {
                 </div>
                 <div className="space-y-1">
                   <label className={labelStyles}>Class</label>
-                  <input {...register(`siblings.${index}.classCurrent`)} className={inputStyles} />
+                  <select {...register(`siblings.${index}.classCurrent`)} className={inputStyles}>
+                    <option value="">Select Class</option>
+                    {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -572,7 +614,12 @@ function AcademicStep() {
         </div>
         <div className="space-y-1">
           <label className={labelStyles}>Class Attended</label>
-          <input {...register("previousAcademic.classLastAttended")} className={inputStyles} placeholder="e.g. Class 5" />
+          <select {...register("previousAcademic.classLastAttended")} className={inputStyles}>
+            <option value="">Select Class</option>
+            {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-1">
           <label className={labelStyles}>Percentage (%)</label>
@@ -681,15 +728,35 @@ function BankStep() {
   );
 }
 
-function DocumentsStep() {
+function DocumentsStep({ admissionId }: { admissionId: string }) {
   const { register, watch, setValue, formState: { errors } } = useFormContext();
-  
+  const [uploading, setUploading] = React.useState<Record<string, boolean>>({});
+  const [saveSuccess, setSaveSuccess] = React.useState<Record<string, boolean>>({});
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploading(prev => ({ ...prev, [fieldName]: true }));
+      setSaveSuccess(prev => ({ ...prev, [fieldName]: false }));
+      
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setValue(`documents.${fieldName}`, reader.result as string, { shouldValidate: true });
+      reader.onloadend = async () => {
+        try {
+          const compressed = await compressImage(reader.result as string);
+          setValue(`documents.${fieldName}`, compressed, { shouldValidate: true });
+          
+          const saveRes = await saveAdmissionStep(admissionId, { documents: { [fieldName]: compressed } }, 8);
+          if (saveRes.success) {
+             setSaveSuccess(prev => ({ ...prev, [fieldName]: true }));
+          } else {
+             alert(`Failed to auto-save ${fieldName}. Please try again.`);
+          }
+        } catch (e) {
+          console.error("Compression error:", e);
+          alert("Error compressing image.");
+        } finally {
+          setUploading(prev => ({ ...prev, [fieldName]: false }));
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -703,8 +770,6 @@ function DocumentsStep() {
     { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र" },
   ];
 
-
-
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">
       <div className="space-y-1 text-center">
@@ -715,6 +780,10 @@ function DocumentsStep() {
       <div className="space-y-2 md:space-y-3">
         {documentList.map((doc) => {
           const hasError = (errors.documents as any)?.[doc.id];
+          const isUploading = uploading[doc.id];
+          const isSaved = saveSuccess[doc.id];
+          const fileData = watch(`documents.${doc.id}`);
+
           return (
             <div key={doc.id} className={cn(
               "flex items-center justify-between p-3 md:p-4 rounded-xl border bg-white shadow-sm transition-all",
@@ -732,15 +801,25 @@ function DocumentsStep() {
                   {...register(`documents.${doc.id}`, { required: true })} 
                 />
                 
-                {watch(`documents.${doc.id}`) ? (
+                {fileData ? (
                   <div className="flex items-center gap-1 md:gap-2">
-                    <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 md:px-3 py-1 rounded-full border border-emerald-100 ring-4 ring-emerald-50/50">
-                      <CheckCircle size={10} /> DONE
+                    <span className={cn(
+                      "flex items-center gap-1 text-[8px] md:text-[9px] font-black px-2 md:px-3 py-1 rounded-full border ring-4 transition-all",
+                      isUploading ? "text-amber-600 bg-amber-50 border-amber-100 ring-amber-50/50" :
+                      isSaved ? "text-emerald-600 bg-emerald-50 border-emerald-100 ring-emerald-50/50" : 
+                      "text-blue-600 bg-blue-50 border-blue-100 ring-blue-50/50"
+                    )}>
+                      {isUploading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
+                      {isUploading ? "SAVING..." : isSaved ? "UPLOAD SAVED" : "DONE"}
                     </span>
                     <button 
                       type="button" 
-                      onClick={() => setValue(`documents.${doc.id}`, "")}
-                      className="text-[8px] md:text-[9px] font-black text-slate-400 hover:text-red-500 uppercase px-2 py-1 transition-colors"
+                      disabled={isUploading}
+                      onClick={() => {
+                        setValue(`documents.${doc.id}`, "", { shouldValidate: true });
+                        setSaveSuccess(prev => ({ ...prev, [doc.id]: false }));
+                      }}
+                      className="text-[8px] md:text-[9px] font-black text-slate-400 hover:text-red-500 uppercase px-2 py-1 transition-colors disabled:opacity-50"
                     >
                       Remove
                     </button>
@@ -750,14 +829,17 @@ function DocumentsStep() {
                     <input 
                       type="file" 
                       accept="image/*"
+                      disabled={isUploading}
                       onChange={(e) => handleFileChange(e, doc.id)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
                     />
                     <span className={cn(
                       "flex items-center gap-1.5 text-[8px] md:text-[9px] font-black px-3 md:px-4 py-1.5 md:py-2 rounded-lg border transition-all uppercase tracking-wider",
-                      hasError ? "text-red-600 bg-red-50 border-red-200" : "text-blue-600 bg-blue-50 border-blue-100 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600"
+                      hasError ? "text-red-600 bg-red-50 border-red-200" : "text-blue-600 bg-blue-50 border-blue-100 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600",
+                      isUploading && "opacity-50"
                     )}>
-                      <Plus size={12} /> Upload
+                      {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} 
+                      {isUploading ? "Reading..." : "Upload"}
                     </span>
                   </div>
                 )}
@@ -772,6 +854,8 @@ function DocumentsStep() {
 
 function DeclarationStep() {
   const { register, watch, formState: { errors } } = useFormContext();
+  const declarationAccepted = watch("declaration.declarationAccepted");
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1 text-center">
@@ -788,13 +872,17 @@ function DeclarationStep() {
           <div>
             <label className={cn(
               "flex items-center gap-4 md:gap-5 p-4 md:p-6 rounded-xl md:rounded-3xl cursor-pointer group transition-all",
-              (errors.declaration as any)?.declarationAccepted ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50"
+              (errors.declaration as any)?.declarationAccepted ? "bg-red-50 border-red-200" : 
+              declarationAccepted ? "bg-emerald-50/50 border-emerald-200 shadow-sm" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50"
             )}>
               <input type="checkbox" {...register("declaration.declarationAccepted", { required: true })} className="h-6 w-6 md:h-7 md:w-7 rounded-lg border-2 border-slate-300 text-blue-600 cursor-pointer" />
-              <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", (errors.declaration as any)?.declarationAccepted ? "text-red-600" : "text-slate-700")}>I Accept All Terms</span>
+              <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", (errors.declaration as any)?.declarationAccepted ? "text-red-600" : declarationAccepted ? "text-emerald-700" : "text-slate-700")}>I Accept All Terms</span>
+              {declarationAccepted && <CheckCircle size={20} className="text-emerald-500 ml-auto animate-in zoom-in-50 duration-200" />}
             </label>
             <ErrorMessage error={(errors.declaration as any)?.declarationAccepted} />
           </div>
+
+
 
           <div className="space-y-1">
             <label className={cn(labelStyles, "text-center")}>Parent Signature (Full Name)*</label>
@@ -902,6 +990,50 @@ function SubmissionSuccessStep({ data }: { data: any }) {
                 Your application will now be reviewed by the school office. You will be notified once the verification process is complete. Keep the downloaded PDF for your records.
             </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DownloadApplicationStep({ data }: { data: any }) {
+  const [downloading, setDownloading] = React.useState(false);
+  
+  const handleDownload = async () => {
+     setDownloading(true);
+     try {
+         const studentName = data.studentBio?.firstName ? `${data.studentBio.firstName} ${data.studentBio.lastName}` : "Student";
+         await generateMergedApplicationPDF(data, studentName);
+     } catch (e) {
+         console.error(e);
+     } finally {
+         setDownloading(false);
+     }
+  };
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Download Application</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium font-outfit">Step 9: Get your filled application combined with Prospectus.</p>
+      </div>
+      
+      <div className="bg-slate-50 border border-slate-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-5 mt-4 group hover:bg-white hover:border-blue-100 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5">
+          <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-blue-50">
+              <Download size={28} />
+          </div>
+          <div className="space-y-1">
+              <h4 className="font-black text-slate-800 uppercase tracking-tight font-outfit">Application Package is Ready</h4>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Combine Form & Prospectus in one click</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-3 bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-[11px] px-8 py-4 rounded-2xl shadow-xl shadow-slate-900/10 transition-all hover:shadow-2xl active:scale-95 disabled:opacity-50"
+          >
+            {downloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+            {downloading ? "Generating Package..." : "Download Full Package PDF"}
+          </button>
       </div>
     </div>
   );

@@ -49,14 +49,28 @@ export async function getHomeVisitData(admissionId: string) {
 
 export async function updateHomeVisitStatus(admissionId: string, status: "PASS" | "FAIL" | "PENDING", remarks?: string, visitImage?: string) {
   try {
-    await db.update(homeVisits)
-      .set({
+    const existing = await db.query.homeVisits.findFirst({
+      where: eq(homeVisits.admissionId, admissionId),
+    });
+
+    if (existing) {
+      await db.update(homeVisits)
+        .set({
+          status,
+          remarks,
+          visitImage,
+          updatedAt: new Date(),
+        })
+        .where(eq(homeVisits.admissionId, admissionId));
+    } else {
+      await db.insert(homeVisits).values({
+        admissionId,
         status,
         remarks,
         visitImage,
-        updatedAt: new Date(),
-      })
-      .where(eq(homeVisits.admissionId, admissionId));
+      });
+    }
+
 
 
     revalidatePath("/office/home-visits", "page");
