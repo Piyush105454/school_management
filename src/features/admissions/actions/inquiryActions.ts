@@ -122,6 +122,24 @@ export async function deleteInquiry(id: string) {
 
     if (!inquiry) throw new Error("Inquiry not found");
 
+    // 1. Find admissionMeta
+    const meta = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.inquiryId, id),
+    });
+
+    if (meta) {
+      // 2. Find studentProfile
+      const profile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.admissionMetaId, meta.id),
+      });
+
+      if (profile && profile.userId) {
+        // 3. Delete from users (cascades to studentProfiles)
+        await db.delete(users).where(eq(users.id, profile.userId));
+      }
+    }
+
+    // 4. Delete the inquiry (cascades to admissionMeta & forms)
     await db.delete(inquiries).where(eq(inquiries.id, id));
 
     revalidatePath("/office/inquiries");

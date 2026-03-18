@@ -95,6 +95,8 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   };
 
 
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   const handleResetPassword = async () => {
     if (!selectedAdm?.profile?.user?.email) return;
     setResetting(true);
@@ -145,7 +147,7 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-                      Class {adm.inquiry?.appliedClass}
+                       Class {adm.inquiry?.appliedClass}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -172,47 +174,65 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                   </td>
 
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link
-                        href={`/office/admissions/${adm.id}`}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="View Application"
-                      >
-                        <FileText size={18} />
-                      </Link>
+                    <div className="relative inline-block text-left">
                       <button 
-                        onClick={async () => {
-                          if (confirm(`Are you sure you want to verify ${adm.inquiry?.studentName}'s documents?`)) {
-                             const { verifyAdmission } = await import("../actions/admissionActions");
-                             const res = await verifyAdmission(adm.id);
-                              if (res.success) {
-                                alert("Verified successfully!");
-                                router.refresh();
-                              } else {
-                                alert("Error: " + res.error);
-                              }
-                            }
-
-                        }}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                        title="Verify Documents"
+                        onClick={() => setOpenMenuId(openMenuId === adm.id ? null : adm.id)}
+                        className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        title="More Actions"
                       >
-                        <CheckCircle2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setSelectedAdm(adm);
-                          setNewCredentials(null);
-                          setShowAccountModal(true);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="View Login Details"
-                      >
-                        <Shield className="h-4 w-4" />
-                      </button>
-                      <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
                         <MoreVertical className="h-4 w-4" />
                       </button>
+
+                      {openMenuId === adm.id && (
+                        <>
+                          {/* Backdrop for click outside */}
+                          <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                          
+                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-20 animate-in fade-in-0 zoom-in-95 duration-100">
+                            <Link
+                              href={`/office/admissions/${adm.id}`}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+                              onClick={() => setOpenMenuId(null)}
+                            >
+                              <FileText size={14} className="text-indigo-600" />
+                              <span>View Application</span>
+                            </Link>
+                            
+                            <button 
+                              onClick={async () => {
+                                setOpenMenuId(null);
+                                if (confirm(`Are you sure you want to verify ${adm.inquiry?.studentName}'s documents?`)) {
+                                   const { verifyAdmission } = await import("../actions/admissionActions");
+                                   const res = await verifyAdmission(adm.id);
+                                    if (res.success) {
+                                      alert("Verified successfully!");
+                                      router.refresh();
+                                    } else {
+                                      alert("Error: " + res.error);
+                                    }
+                                  }
+                              }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors text-left cursor-pointer"
+                            >
+                              <CheckCircle2 size={14} className="text-emerald-600" />
+                              <span>Verify Documents</span>
+                            </button>
+
+                            <button 
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setSelectedAdm(adm);
+                                setNewCredentials(null);
+                                setShowAccountModal(true);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors text-left cursor-pointer"
+                            >
+                              <Shield size={14} className="text-blue-600" />
+                              <span>View Credentials</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
