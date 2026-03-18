@@ -2,7 +2,7 @@ import React from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { admissionMeta, entranceTests, inquiries, studentProfiles } from "@/db/schema";
+import { admissionMeta, entranceTests, inquiries, studentProfiles, teachers } from "@/db/schema";
 import { eq, desc, and, or, isNotNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { 
@@ -36,6 +36,8 @@ export default async function OfficeEntranceTestsPage() {
     .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
     .orderBy(desc(admissionMeta.createdAt));
+
+  const teachersList = await db.select().from(teachers).orderBy(teachers.name);
 
   // Map result to a more usable structure and filter
   const eligibleApplicants = rows
@@ -78,6 +80,7 @@ export default async function OfficeEntranceTestsPage() {
             <OfficeTestManager 
                key={applicant.id} 
                applicant={applicant} 
+               teachers={teachersList}
             />
           ))
         )}

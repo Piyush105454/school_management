@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { scheduleEntranceTest, updateTestResult } from "@/features/admissions/actions/testActions";
 import { finalizeFinalAdmission } from "@/features/admissions/actions/admissionActions";
 
-export function OfficeTestManager({ applicant }: { applicant: any }) {
+export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any, teachers?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState((applicant as any).entranceTest || {
@@ -143,12 +143,24 @@ export function OfficeTestManager({ applicant }: { applicant: any }) {
                     </div>
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher</label>
-                        <input 
-                            placeholder="Teacher Name"
+                        <select 
                             value={testData.teacherName || ""}
-                            onChange={(e) => setTestData({ ...testData, teacherName: e.target.value })}
-                            className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                        />
+                            onChange={(e) => {
+                                const selectedName = e.target.value;
+                                const teacher = teachers.find(t => t.name === selectedName);
+                                setTestData({ 
+                                    ...testData, 
+                                    teacherName: selectedName,
+                                    contactNumber: teacher?.contactNumber || testData.contactNumber
+                                });
+                            }}
+                            className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                        >
+                            <option value="">Select Teacher</option>
+                            {teachers.map((t: any) => (
+                                <option key={t.id} value={t.name}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Contact</label>

@@ -200,6 +200,15 @@ export const entranceTests = pgTable("entrance_tests", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const teachers = pgTable("teachers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  contactNumber: text("contact_number"),
+  classAssigned: text("class_assigned"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const inquiriesRelations = relations(inquiries, ({ one }) => ({
   admissionMeta: one(admissionMeta, {

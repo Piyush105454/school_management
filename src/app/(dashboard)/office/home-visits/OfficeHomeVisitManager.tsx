@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Calendar, 
   Clock, 
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { generateHomeVisitPDF } from "@/features/admissions/utils/generateHomeVisitPDF";
 import { cn } from "@/lib/utils";
-import { scheduleHomeVisit, updateHomeVisitStatus } from "@/features/admissions/actions/homeVisitActions";
+import { scheduleHomeVisit, updateHomeVisitStatus, getHomeVisitData } from "@/features/admissions/actions/homeVisitActions";
 // Remove finalize component imports to avoid unused warnings
 
 
@@ -49,7 +49,7 @@ const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Pr
   });
 };
 
-export function OfficeHomeVisitManager({ applicant }: { applicant: any }) {
+export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant: any, teachers?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -61,6 +61,16 @@ export function OfficeHomeVisitManager({ applicant }: { applicant: any }) {
     visitImage: "",
     status: "NOT_SCHEDULED"
   });
+
+  useEffect(() => {
+    if (isOpen && !visitData.visitImage) {
+      getHomeVisitData(applicant.id).then((res: any) => {
+        if (res.success && res.data?.visitImage) {
+          setVisitData((prev: any) => ({ ...prev, visitImage: res.data.visitImage }));
+        }
+      });
+    }
+  }, [isOpen, applicant.id, visitData.visitImage]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -185,12 +195,16 @@ export function OfficeHomeVisitManager({ applicant }: { applicant: any }) {
                     </div>
                     <div className="col-span-2 space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher Assigned</label>
-                        <input 
-                            placeholder="Teacher Name"
+                        <select 
                             value={visitData.teacherName || ""}
                             onChange={(e) => setVisitData({ ...visitData, teacherName: e.target.value })}
-                            className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                        />
+                            className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                        >
+                            <option value="">Select Teacher</option>
+                            {teachers.map((t: any) => (
+                                <option key={t.id} value={t.name}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
                  </div>
 

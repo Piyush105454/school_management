@@ -2,7 +2,7 @@ import React from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { admissionMeta, homeVisits, inquiries, studentProfiles, entranceTests } from "@/db/schema";
+import { admissionMeta, homeVisits, inquiries, studentProfiles, entranceTests, teachers } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { 
@@ -19,7 +19,17 @@ export default async function OfficeHomeVisitsPage() {
     .select({
       admissionMeta: admissionMeta,
       inquiry: inquiries,
-      homeVisit: homeVisits,
+      homeVisit: {
+        id: homeVisits.id,
+        admissionId: homeVisits.admissionId,
+        visitDate: homeVisits.visitDate,
+        visitTime: homeVisits.visitTime,
+        teacherName: homeVisits.teacherName,
+        remarks: homeVisits.remarks,
+        status: homeVisits.status,
+        createdAt: homeVisits.createdAt,
+        updatedAt: homeVisits.updatedAt,
+      },
       studentProfile: studentProfiles,
       entranceTest: entranceTests,
     })
@@ -29,6 +39,8 @@ export default async function OfficeHomeVisitsPage() {
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
     .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
     .orderBy(desc(admissionMeta.createdAt));
+
+  const teachersList = await db.select().from(teachers).orderBy(teachers.name);
 
   const eligibleApplicants = rows
     .map(row => ({
@@ -71,6 +83,7 @@ export default async function OfficeHomeVisitsPage() {
             <OfficeHomeVisitManager 
                key={applicant.id} 
                applicant={applicant} 
+               teachers={teachersList}
             />
           ))
         )}
