@@ -34,6 +34,20 @@ export default async function StudentHomeVisitPage() {
 
   const visitData = visitResults[0] || null;
 
+  let teacherDisplay = "Assigned Shortly";
+  if (visitData?.teacherName) {
+    try {
+      if (visitData.teacherName.startsWith('{')) {
+        const parsed = JSON.parse(visitData.teacherName);
+        teacherDisplay = [parsed.teacher1, parsed.teacher2, parsed.teacher3].filter(Boolean).join(", ");
+      } else {
+        teacherDisplay = visitData.teacherName;
+      }
+    } catch (e) {
+      teacherDisplay = visitData.teacherName;
+    }
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 max-w-4xl mx-auto">
       <div>
@@ -95,7 +109,7 @@ export default async function StudentHomeVisitPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</p>
-                  <p className="text-lg font-bold text-slate-900 mt-0.5">{visitData.teacherName || "Assigned Shortly"}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-0.5">{teacherDisplay}</p>
                 </div>
               </div>
             </div>

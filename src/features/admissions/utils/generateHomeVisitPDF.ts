@@ -45,7 +45,17 @@ export const generateHomeVisitPDF = async (applicant: any) => {
       drawField(contactNumber, startX, 681);
       drawField(addressString, startX, 665);
       drawField(`${visit.visitDate || ""} ${visit.visitTime || ""}`, 300, 648);
-      drawField(visit.teacherName || "-", startX, 626);
+      let teacherDisplay = visit.teacherName || "-";
+      try {
+          if (visit.teacherName && visit.teacherName.startsWith('{')) {
+              const parsed = JSON.parse(visit.teacherName);
+              teacherDisplay = [parsed.teacher1, parsed.teacher2, parsed.teacher3].filter(Boolean).join(", ");
+          }
+      } catch (e) {
+          console.error("Error parsing teacherName:", e);
+      }
+      drawField(teacherDisplay, startX, 626);
+
 
       const pdfBytes = await pdfDoc.save();
       

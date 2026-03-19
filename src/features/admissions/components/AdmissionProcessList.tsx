@@ -198,25 +198,6 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                               <span>View Application</span>
                             </Link>
                             
-                            <button 
-                              onClick={async () => {
-                                setOpenMenuId(null);
-                                if (confirm(`Are you sure you want to verify ${adm.inquiry?.studentName}'s documents?`)) {
-                                   const { verifyAdmission } = await import("../actions/admissionActions");
-                                   const res = await verifyAdmission(adm.id);
-                                    if (res.success) {
-                                      alert("Verified successfully!");
-                                      router.refresh();
-                                    } else {
-                                      alert("Error: " + res.error);
-                                    }
-                                  }
-                              }}
-                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors text-left cursor-pointer"
-                            >
-                              <CheckCircle2 size={14} className="text-emerald-600" />
-                              <span>Verify Documents</span>
-                            </button>
 
                             <button 
                               onClick={() => {

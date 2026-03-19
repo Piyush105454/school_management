@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import ViewDocumentButton from "./components/ViewDocumentButton";
+import VerifyDocumentButton from "./components/VerifyDocumentButton";
 
 
 export default async function OfficeDocumentVerificationPage() {
@@ -131,6 +132,10 @@ function DocumentRow({ applicant }: { applicant: any }) {
         </div>
         <div className="flex gap-2">
           <ViewDocumentButton url={affidavitUrl || ""} />
+          <VerifyDocumentButton 
+            admissionId={applicant.id} 
+            isVerified={(applicant.studentProfile?.admissionStep ?? 0) >= 11} 
+          />
 
           <a
             href={affidavitUrl}

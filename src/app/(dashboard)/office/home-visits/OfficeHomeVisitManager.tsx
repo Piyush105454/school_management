@@ -62,6 +62,29 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
     status: "NOT_SCHEDULED"
   });
 
+  const [selectedTeacher1, setSelectedTeacher1] = useState("");
+  const [selectedTeacher2, setSelectedTeacher2] = useState("");
+  const [selectedTeacher3, setSelectedTeacher3] = useState("");
+
+  useEffect(() => {
+    if (visitData.teacherName) {
+      try {
+        const parsed = JSON.parse(visitData.teacherName);
+        setSelectedTeacher1(parsed.teacher1 || "");
+        setSelectedTeacher2(parsed.teacher2 || "");
+        setSelectedTeacher3(parsed.teacher3 || "");
+      } catch (e) {
+        setSelectedTeacher1(visitData.teacherName);
+      }
+    } else {
+      const classTeacher = teachers.find((t: any) => t.classAssigned === applicant.inquiry?.appliedClass);
+      if (classTeacher) {
+        setSelectedTeacher1(classTeacher.name);
+      }
+    }
+  }, [visitData.teacherName, teachers, applicant.inquiry?.appliedClass]);
+
+
   useEffect(() => {
     if (isOpen && !visitData.visitImage) {
       getHomeVisitData(applicant.id).then((res: any) => {
@@ -96,6 +119,14 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
     e.preventDefault();
     setLoading(true);
     const { status: currentStatus, ...dataWithoutStatus } = visitData;
+    
+    // Add teacher data as JSON
+    dataWithoutStatus.teacherName = JSON.stringify({
+      teacher1: selectedTeacher1,
+      teacher2: selectedTeacher2,
+      teacher3: selectedTeacher3
+    });
+
     const res = await scheduleHomeVisit(applicant.id, dataWithoutStatus);
     setLoading(false);
     if (res.success) {
@@ -193,18 +224,46 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
                             className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                         />
                     </div>
-                    <div className="col-span-2 space-y-1">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher Assigned</label>
-                        <select 
-                            value={visitData.teacherName || ""}
-                            onChange={(e) => setVisitData({ ...visitData, teacherName: e.target.value })}
-                            className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
-                        >
-                            <option value="">Select Teacher</option>
-                            {teachers.map((t: any) => (
-                                <option key={t.id} value={t.name}>{t.name}</option>
-                            ))}
-                        </select>
+                    <div className="col-span-2 space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher 1 (Class Teacher)</label>
+                            <select 
+                                value={selectedTeacher1}
+                                onChange={(e) => setSelectedTeacher1(e.target.value)}
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                            >
+                                <option value="">Select Teacher</option>
+                                {teachers.map((t: any) => (
+                                    <option key={t.id} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher 2 (Optional)</label>
+                            <select 
+                                value={selectedTeacher2 || ""}
+                                onChange={(e) => setSelectedTeacher2(e.target.value)}
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                            >
+                                <option value="">Select Teacher</option>
+                                {teachers.map((t: any) => (
+                                    <option key={t.id} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher 3 (Principal - Optional)</label>
+                            <select 
+                                value={selectedTeacher3 || ""}
+                                onChange={(e) => setSelectedTeacher3(e.target.value)}
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium appearance-none"
+                            >
+                                <option value="">Select Teacher</option>
+                                {teachers.map((t: any) => (
+                                    <option key={t.id} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                  </div>
 
