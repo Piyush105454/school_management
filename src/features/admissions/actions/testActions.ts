@@ -47,16 +47,30 @@ export async function getEntranceTestData(admissionId: string) {
   }
 }
 
-export async function updateTestResult(admissionId: string, status: "PASS" | "FAIL", remarks?: string) {
+export async function updateTestResult(
+  admissionId: string, 
+  status: "PASS" | "FAIL", 
+  remarks?: string,
+  marksObtained?: string | number,
+  totalMarks?: string | number,
+  reportLink?: string
+) {
   try {
+    const marks = marksObtained ? parseFloat(marksObtained.toString()) : null;
+    const total = totalMarks ? parseFloat(totalMarks.toString()) : null;
+
     await db.update(entranceTests)
       .set({
         status,
         remarks,
+        marksObtained: marks,
+        totalMarks: total,
+        reportLink: reportLink || null,
         resultDate: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(entranceTests.admissionId, admissionId));
+
 
     revalidatePath("/office/entrance-tests", "page");
     revalidatePath("/student/entrance-test", "page");

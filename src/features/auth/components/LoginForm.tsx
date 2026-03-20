@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { GraduationCap, Loader2 } from "lucide-react";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export function LoginForm() {
 
     try {
       const result = await signIn("credentials", {
-        email,
+        email: identifier,
         password,
         redirect: false,
       });
@@ -60,15 +60,15 @@ export function LoginForm() {
         <div className="space-y-4">
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-              Email Address
+              Email or Phone Number
             </label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-medium"
-              placeholder="Enter your email"
+              placeholder="Enter your email or phone number"
             />
           </div>
           <div>

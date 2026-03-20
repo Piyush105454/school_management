@@ -53,14 +53,24 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [visitData, setVisitData] = useState((applicant as any).homeVisit || {
-    visitDate: "",
-    visitTime: "",
-    teacherName: "",
-    remarks: "",
-    visitImage: "",
-    status: "NOT_SCHEDULED"
+  const [visitData, setVisitData] = useState({
+    visitDate: applicant.homeVisit?.visitDate || "",
+    visitTime: applicant.homeVisit?.visitTime || "",
+    teacherName: applicant.homeVisit?.teacherName || "",
+    remarks: applicant.homeVisit?.remarks || "",
+    visitImage: applicant.homeVisit?.visitImage || "",
+    homePhoto: (() => {
+      try {
+        return applicant.homeVisit?.homePhoto ? JSON.parse(applicant.homeVisit.homePhoto) : [];
+      } catch (e) {
+        return applicant.homeVisit?.homePhoto ? [applicant.homeVisit.homePhoto] : [];
+      }
+    })(),
+    status: applicant.homeVisit?.status || "NOT_SCHEDULED"
   });
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+
 
   const [selectedTeacher1, setSelectedTeacher1] = useState("");
   const [selectedTeacher2, setSelectedTeacher2] = useState("");
@@ -86,13 +96,19 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
 
 
   useEffect(() => {
-    if (isOpen && !visitData.visitImage) {
+    if (isOpen && (!visitData.visitImage || (Array.isArray(visitData.homePhoto) && visitData.homePhoto.length === 0))) {
       getHomeVisitData(applicant.id).then((res: any) => {
-        if (res.success && res.data?.visitImage) {
-          setVisitData((prev: any) => ({ ...prev, visitImage: res.data.visitImage }));
+        if (res.success && (res.data?.visitImage || res.data?.homePhoto)) {
+          setVisitData((prev: any) => ({ 
+            ...prev, 
+            visitImage: res.data.visitImage || prev.visitImage,
+            homePhoto: res.data.homePhoto ? 
+              (() => { try { return JSON.parse(res.data.homePhoto); } catch (e) { return [res.data.homePhoto]; } })() : prev.homePhoto
+          }));
         }
       });
     }
+
   }, [isOpen, applicant.id, visitData.visitImage]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,6 +126,28 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
     };
     reader.readAsDataURL(file);
   };
+
+  const handleMultipleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const compressed = await compressImage(reader.result as string);
+          setVisitData((prev: any) => ({
+             ...prev,
+             homePhoto: [...(prev.homePhoto || []), compressed]
+          }));
+        } catch (e) {
+          console.error("Compression error:", e);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
 
 
   const studentName = applicant.inquiry?.studentName || "Unknown Applicant";
@@ -140,8 +178,15 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
   const handleStatusChange = async (newStatus: "PASS" | "FAIL") => {
     if (!confirm(`Mark ${studentName}'s Home Visit as ${newStatus === "PASS" ? "COMPLETED" : "FAILED"}?`)) return;
     setLoading(true);
-    const res = await updateHomeVisitStatus(applicant.id, newStatus, visitData.remarks, visitData.visitImage);
+    const res = await updateHomeVisitStatus(
+      applicant.id, 
+      newStatus, 
+      visitData.remarks, 
+      visitData.visitImage,
+      JSON.stringify(visitData.homePhoto)
+    );
     setLoading(false);
+
 
     if (res.success) {
       setVisitData({ ...visitData, status: newStatus });
@@ -302,14 +347,48 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
                         className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                     />
                     {visitData.visitImage && (
-                        <div className="mt-2 rounded-xl border border-slate-100 overflow-hidden max-w-[150px] relative group">
+                        <div className="mt-2 rounded-xl border border-slate-100 overflow-hidden max-w-[150px] relative group cursor-pointer" onClick={() => setPreviewImage(visitData.visitImage)}>
                             <img src={visitData.visitImage} alt="Visit Report" className="h-24 w-full object-cover rounded-lg" />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-[8px] font-black text-white bg-red-600 px-2 py-1 rounded-md cursor-pointer" onClick={() => setVisitData({ ...visitData, visitImage: "" })}>REMOVE</span>
+                                <span className="text-[8px] font-black text-white bg-red-600 px-2 py-1 rounded-md cursor-pointer" onClick={(e) => { e.stopPropagation(); setVisitData({ ...visitData, visitImage: "" }); }}>REMOVE</span>
                             </div>
                         </div>
                     )}
+
                  </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                        <FileText size={12} /> Upload Home Photo (Multiple)
+                    </label>
+                    <input 
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMultipleImageChange}
+                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                    />
+                    {Array.isArray(visitData.homePhoto) && visitData.homePhoto.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                            {visitData.homePhoto.map((img: string, idx: number) => (
+                                <div key={idx} className="rounded-xl border border-slate-100 overflow-hidden relative group cursor-pointer" onClick={() => setPreviewImage(img)}>
+                                    <img src={img} alt={`Home Photo ${idx+1}`} className="h-20 w-full object-cover rounded-lg" />
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span className="text-[8px] font-black text-white bg-red-600 px-2 py-1 rounded-md cursor-pointer" onClick={(e) => {
+                                            e.stopPropagation();
+                                            const updated = [...visitData.homePhoto];
+                                            updated.splice(idx, 1);
+                                            setVisitData({ ...visitData, homePhoto: updated });
+                                        }}>REMOVE</span>
+                                    </div>
+                                </div>
+
+                            ))}
+                        </div>
+                    )}
+                 </div>
+
+
 
 
                   <div className="flex gap-4">
@@ -337,6 +416,12 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
            </div>
         </div>
       )}
+      {previewImage && (
+         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 cursor-pointer" onClick={() => setPreviewImage(null)}>
+             <img src={previewImage} className="max-h-[95vh] max-w-[95vw] object-contain rounded-2xl animate-in zoom-in duration-200" />
+         </div>
+      )}
     </div>
   );
 }
+

@@ -74,7 +74,7 @@ export async function shortlistInquiry(id: string) {
 
       // 5. Update Inquiry Status
       await tx.update(inquiries)
-        .set({ status: "SHORTLISTED" })
+        .set({ status: "SHORTLISTED", passwordPlain: password })
         .where(eq(inquiries.id, inquiry.id));
 
       revalidatePath("/office/inquiries");
@@ -103,6 +103,10 @@ export async function resetStudentPassword(email: string) {
     await db.update(users)
       .set({ password: hashedPassword })
       .where(eq(users.id, user.id));
+
+    await db.update(inquiries)
+      .set({ passwordPlain: newPassword })
+      .where(eq(inquiries.email, email));
 
     return { 
       success: true, 

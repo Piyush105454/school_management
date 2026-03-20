@@ -103,12 +103,11 @@ export default async function StudentDashboard() {
     (verificationStatus === "completed" ? "pending" : "waiting");
 
   const homeVisitStatus = 
-    (isAdmitted && (visitData?.status === "PASS")) ? "completed" :
-    (entranceTestStatus === "completed" || isTestPassed) ? "pending" : "waiting";
-
+    (visitData?.status === "PASS") ? "completed" :
+    (entranceTestStatus === "completed") ? "pending" : "waiting";
 
   const finalAdmissionStatus = 
-    (isAdmitted && isTestPassed && isVerified && isFormDone && homeVisitStatus === "completed") ? "completed" :
+    isAdmitted ? "completed" :
     (homeVisitStatus === "completed" ? "pending" : "waiting");
 
   const progressItems = [
@@ -270,14 +269,14 @@ export default async function StudentDashboard() {
                     })}
                   </div>
                 </div>
-            ) : entranceTestStatus === "pending" || (entranceTestStatus === "completed" && finalAdmissionStatus !== "completed") ? (
+            ) : entranceTestStatus === "pending" ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <EntranceTestCard testData={testData} studentName={studentName} />
                     <Link href="/student/entrance-test" className="mt-8 flex items-center justify-center gap-2 w-full p-4 rounded-[24px] border-2 border-dashed border-slate-100 text-slate-400 hover:border-blue-200 hover:text-blue-600 transition-all font-black text-[10px] uppercase tracking-[0.2em] group">
                         Open Full Test Page <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>
-            ) : homeVisitStatus === "pending" || (homeVisitStatus === "completed" && finalAdmissionStatus !== "completed") ? (
+            ) : homeVisitStatus === "pending" ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col items-center text-center space-y-4">
                         <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/10">
@@ -316,15 +315,25 @@ export default async function StudentDashboard() {
                         )}
                     </div>
                 </div>
+            ) : finalAdmissionStatus === "completed" ? (
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 bg-emerald-50/50 rounded-2xl p-6 border border-emerald-100">
+                    <div className="h-20 w-20 bg-emerald-500 text-white rounded-[32px] flex items-center justify-center border-4 border-white shadow-xl shadow-emerald-200">
+                        <GraduationCap size={40} />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tight font-outfit">Congratulations!</h3>
+                        <p className="text-sm text-emerald-600 font-bold uppercase tracking-widest">Your admission is finalized and admitted.</p>
+                        <p className="text-xs text-slate-500 max-w-sm">Welcome to our school community!</p>
+                    </div>
+                </div>
             ) : (
-
                 <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-20 w-20 bg-emerald-50 text-emerald-500 rounded-[32px] flex items-center justify-center border-4 border-white shadow-xl shadow-emerald-100">
-                        <CheckCircle2 size={40} />
+                    <div className="h-20 w-20 bg-slate-50 text-slate-400 rounded-[32px] flex items-center justify-center border-4 border-white shadow-xl shadow-slate-100">
+                        <Clock size={40} />
                     </div>
                     <div className="space-y-1">
-                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Great Progress!</h3>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">The school office will update your status shortly.</p>
+                        <h3 className="text-xl font-black text-slate-900 uppercase italic">In Progress</h3>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">The school office is updating your status shortly.</p>
                     </div>
                 </div>
             )}

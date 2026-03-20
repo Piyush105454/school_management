@@ -47,7 +47,13 @@ export async function getHomeVisitData(admissionId: string) {
   }
 }
 
-export async function updateHomeVisitStatus(admissionId: string, status: "PASS" | "FAIL" | "PENDING", remarks?: string, visitImage?: string) {
+export async function updateHomeVisitStatus(
+  admissionId: string, 
+  status: "PASS" | "FAIL" | "PENDING", 
+  remarks?: string, 
+  visitImage?: string,
+  homePhoto?: string
+) {
   try {
     const existing = await db.query.homeVisits.findFirst({
       where: eq(homeVisits.admissionId, admissionId),
@@ -59,6 +65,7 @@ export async function updateHomeVisitStatus(admissionId: string, status: "PASS" 
           status,
           remarks,
           visitImage,
+          homePhoto,
           updatedAt: new Date(),
         })
         .where(eq(homeVisits.admissionId, admissionId));
@@ -68,8 +75,10 @@ export async function updateHomeVisitStatus(admissionId: string, status: "PASS" 
         status,
         remarks,
         visitImage,
+        homePhoto,
       });
     }
+
 
 
 

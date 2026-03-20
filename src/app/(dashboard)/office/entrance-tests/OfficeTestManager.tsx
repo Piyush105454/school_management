@@ -21,15 +21,19 @@ import { finalizeFinalAdmission } from "@/features/admissions/actions/admissionA
 export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any, teachers?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [testData, setTestData] = useState((applicant as any).entranceTest || {
-    testDate: "",
-    testTime: "",
-    location: "",
-    teacherName: "",
-    contactNumber: "",
-    status: "NOT_SCHEDULED",
-    remarks: ""
+  const [testData, setTestData] = useState({
+    testDate: applicant.entranceTest?.testDate || "",
+    testTime: applicant.entranceTest?.testTime || "",
+    location: applicant.entranceTest?.location || "",
+    teacherName: applicant.entranceTest?.teacherName || "",
+    contactNumber: applicant.entranceTest?.contactNumber || "",
+    status: applicant.entranceTest?.status || "NOT_SCHEDULED",
+    remarks: applicant.entranceTest?.remarks || "",
+    marksObtained: applicant.entranceTest?.marksObtained || "",
+    totalMarks: applicant.entranceTest?.totalMarks || "",
+    reportLink: applicant.entranceTest?.reportLink || ""
   });
+
 
   const studentName = applicant.inquiry?.studentName || "Unknown Applicant";
   const status = testData.status;
@@ -50,9 +54,21 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
   };
 
   const handleStatusChange = async (newStatus: "PASS" | "FAIL") => {
+    if (!testData.marksObtained) {
+      alert("Please fill Marks Obtained before updating result.");
+      return;
+    }
     if (!confirm(`Mark ${studentName} as ${newStatus}?`)) return;
     setLoading(true);
-    const res = await updateTestResult(applicant.id, newStatus, testData.remarks);
+    const res = await updateTestResult(
+
+      applicant.id, 
+      newStatus, 
+      testData.remarks,
+      testData.marksObtained,
+      testData.totalMarks,
+      testData.reportLink
+    );
     setLoading(false);
     if (res.success) {
       setTestData({ ...testData, status: newStatus });
@@ -61,6 +77,7 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
       alert("Error updating result: " + res.error);
     }
   };
+
 
   const handleFinalizeAdmission = async () => {
     if (!confirm(`Are you sure you want to officially ADMIT ${studentName}?`)) return;
@@ -186,7 +203,41 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <CheckCircle size={12} /> Result Management
                  </h4>
-                 
+                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1">
+                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Marks Obtained</label>
+                         <input 
+                             placeholder="e.g. 45"
+                             type="number"
+                             step="0.01"
+                             value={testData.marksObtained || ""}
+                             onChange={(e) => setTestData({ ...testData, marksObtained: e.target.value })}
+                             className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                         />
+                     </div>
+                     <div className="space-y-1">
+                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Marks</label>
+                         <input 
+                             placeholder="e.g. 50"
+                             type="number"
+                             step="0.01"
+                             value={testData.totalMarks || ""}
+                             onChange={(e) => setTestData({ ...testData, totalMarks: e.target.value })}
+                             className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                         />
+                     </div>
+                  </div>
+
+                  <div className="space-y-1">
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Report Link (Optional)</label>
+                     <input 
+                         placeholder="Drive Link"
+                         value={testData.reportLink || ""}
+                         onChange={(e) => setTestData({ ...testData, reportLink: e.target.value })}
+                         className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                     />
+                  </div>
+
                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Remarks / Feedback</label>
                     <textarea 
@@ -216,19 +267,8 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
                     </button>
                  </div>
 
-                 {status === "PASS" && !applicant.studentProfile?.isFullyAdmitted && (
-                    <div className="pt-4 animate-in fade-in zoom-in duration-500">
-                        <button
-                            type="button"
-                            onClick={handleFinalizeAdmission}
-                            disabled={loading}
-                            className="w-full bg-blue-600 text-white py-5 rounded-3xl font-black uppercase tracking-[0.2em] text-xs hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/40 border-b-4 border-blue-800 active:border-b-0 active:translate-y-1"
-                        >
-                            <CheckCircle size={18} strokeWidth={3} /> FINALIZE ADMISSION
-                        </button>
-                        <p className="text-center text-[8px] font-black text-blue-500 uppercase tracking-widest mt-3 opacity-60">Final step to official enrollment</p>
-                    </div>
-                 )}
+                  {/* Finalize Admission Button Removed */}
+
 
                  {applicant.studentProfile?.isFullyAdmitted && (
                     <div className="pt-4 text-center">

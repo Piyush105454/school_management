@@ -1,22 +1,74 @@
-"use client";
-
 import React from "react";
+import Link from "next/link";
+import { db } from "@/db";
+import { inquiries, studentProfiles, admissionMeta } from "@/db/schema";
+import { count, eq } from "drizzle-orm";
+import { Users, Presentation } from "lucide-react";
 
-export default function ClassManagementPage() {
+export default async function ClassManagementPage() {
+  const classesList = ["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+
+  // Fetch student counts grouped by class
+  const studentCounts = await db
+    .select({
+      className: inquiries.appliedClass,
+      count: count(),
+    })
+    .from(studentProfiles)
+    .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
+    .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+    .where(eq(studentProfiles.isFullyAdmitted, true))
+    .groupBy(inquiries.appliedClass);
+
+  // Map counts to classes List
+  const classData = classesList.map((c) => {
+    const match = studentCounts.find((sc) => String(sc.className) === c);
+    return {
+      name: c,
+      count: match ? match.count : 0,
+    };
+  });
+
+
   return (
     <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">
       <div className="space-y-1">
         <h1 className="text-2xl md:text-3xl font-black text-slate-900 font-outfit uppercase tracking-tight">Class Management</h1>
-        <p className="text-xs md:text-sm text-slate-500 font-medium">Manage and organize school classes layout.</p>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Manage and organize school classes and view admitted students.</p>
       </div>
 
-      <div className="bg-white border border-slate-100 rounded-3xl p-12 flex flex-col items-center justify-center text-center gap-4 shadow-sm">
-         <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-            <span className="text-2xl font-black">🏫</span>
-         </div>
-         <p className="text-sm font-black text-slate-800 uppercase tracking-wide">Under Construction</p>
-         <p className="text-xs text-slate-400 font-medium max-w-sm">This page of Class management is coming soon accurately.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {classData.map((cls) => (
+          <div key={cls.name} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                <Presentation className="h-6 w-6" />
+              </div>
+              <span className="text-xs font-black bg-slate-100 text-slate-600 px-3 py-1 rounded-full uppercase tracking-wider">
+                Class
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-slate-800">
+                {cls.name === "Nursery" || cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
+              </h2>
+              <div className="flex items-center gap-2 text-slate-500 text-sm">
+                <Users className="h-4 w-4" />
+                <span>{cls.count} Confirmed Students</span>
+              </div>
+            </div>
+
+            <Link 
+              href={`/office/school-management/classes/${cls.name}`}
+              className="mt-2 w-full text-center px-4 py-3 bg-slate-900 text-white font-weight-bold rounded-xl hover:bg-slate-800 transition-colors text-sm uppercase tracking-wider font-bold"
+            >
+              View Students
+            </Link>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+

@@ -29,6 +29,7 @@ export const inquiries = pgTable("inquiries", {
   academicYear: text("academic_year").notNull(),
   status: inquiryStatusEnum("status").default("PENDING").notNull(),
   entryNumber: text("entry_number").unique(),
+  passwordPlain: text("password_plain"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -195,7 +196,11 @@ export const entranceTests = pgTable("entrance_tests", {
   contactNumber: text("contact_number"),
   status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),
   resultDate: timestamp("result_date"),
+  marksObtained: doublePrecision("marks_obtained"),
+  totalMarks: doublePrecision("total_marks"),
+  reportLink: text("report_link"),
   remarks: text("remarks"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -268,7 +273,9 @@ export const homeVisits = pgTable("home_visits", {
   teacherName: text("teacher_name"),
   remarks: text("remarks"),
   visitImage: text("visit_image"),
+  homePhoto: text("home_photo"),
   status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

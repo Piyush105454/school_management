@@ -43,6 +43,7 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
   const filteredInquiries = inquiries.filter(inq => 
     inq.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inq.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inq.entryNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -119,6 +120,7 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
               <tr>
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Parent</th>
+                <th className="px-6 py-4">Phone</th>
                 <th className="px-6 py-4">Class</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Date</th>
@@ -135,6 +137,7 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{inq.parentName}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{inq.phone}</td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-medium px-2 py-1 bg-blue-50 text-blue-600 rounded-md">
                       Class {inq.appliedClass}
@@ -226,25 +229,35 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
 
               <div className="pt-2">
                 <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Password</p>
-                {newCredentials ? (
+                {newCredentials || selectedInquiry.passwordPlain ? (
                   <div className="flex items-center justify-between bg-green-50 p-3 rounded-xl border border-green-100">
-                    <code className="text-green-700 font-bold">{newCredentials.password}</code>
-                    <button onClick={() => copyToClipboard(newCredentials.password)} className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all">
+                    <code className="text-green-700 font-bold">
+                      {newCredentials ? newCredentials.password : selectedInquiry.passwordPlain}
+                    </code>
+                    <button 
+                      onClick={() => copyToClipboard(newCredentials ? newCredentials.password : selectedInquiry.passwordPlain)} 
+                      className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-all"
+                    >
                       <Copy size={16} />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between bg-slate-100 p-3 rounded-xl border border-slate-200">
-                    <span className="text-slate-400 italic">••••••••••••</span>
-                    <button 
-                      onClick={handleResetPassword}
-                      disabled={resetting}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                    >
-                      {resetting ? <Loader2 size={12} className="animate-spin" /> : <Key size={12} />}
-                      Reset & Show
-                    </button>
-                  </div>
+                  <>
+                    <div className="flex items-center justify-between bg-slate-100 p-3 rounded-xl border border-slate-200">
+                      <span className="text-slate-400 italic">••••••••••••</span>
+                      <button 
+                        onClick={handleResetPassword}
+                        disabled={resetting}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        {resetting ? <Loader2 size={12} className="animate-spin" /> : <Key size={12} />}
+                        Reset & Show
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1 italic">
+                      ⚠️ Password was created before tracking. You must reset it to view a new one.
+                    </p>
+                  </>
                 )}
               </div>
             </div>
