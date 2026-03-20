@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -14,7 +14,8 @@ import {
   X,
   ClipboardCheck,
   School,
-  UserCog
+  UserCog,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -50,7 +51,14 @@ interface SidebarProps {
 
 export function Sidebar({ role, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const items = role === "OFFICE" ? officeItems : studentItems;
+
+  const items = role === "OFFICE" 
+    ? [
+        ...officeItems.slice(0, 3), 
+        { name: "View Applications", href: "/office/applications", icon: Eye },
+        ...officeItems.slice(3)
+      ] 
+    : studentItems;
 
   return (
     <div className="flex h-full flex-col bg-white text-slate-800 w-72 md:w-64 border-r border-slate-100 shadow-sm shadow-slate-100/10">

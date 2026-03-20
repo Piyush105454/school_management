@@ -14,7 +14,7 @@ import {
   documentChecklists,
   studentDocuments
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 function sanitizeBioData(data: any) {
@@ -473,5 +473,26 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
   } catch (error: any) {
     console.error("saveAdmissionStep error:", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function getAdmissionsForList() {
+  try {
+    const admissions = await db.query.admissionMeta.findMany({
+      with: { 
+        inquiry: {
+          columns: {
+            studentName: true,
+            appliedClass: true,
+            email: true
+          }
+        } 
+      },
+      orderBy: [desc(admissionMeta.createdAt)]
+    });
+    return { success: true, data: admissions };
+  } catch (error: any) {
+    console.error("getAdmissionsForList error:", error);
+    return { success: false, error: error.message, data: [] };
   }
 }
