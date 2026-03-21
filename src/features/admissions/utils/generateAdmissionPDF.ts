@@ -92,9 +92,20 @@ export const generateAdmissionPDF = (data: any, studentName: string, options?: {
   const gridWidth = contentWidth - sidebarWidth; // 165mm
 
   doc.rect(margin, y, sidebarWidth, 24);
-  doc.setFontSize(7);
-  doc.text("Paste", margin + 5, y + 6);
-  doc.text("Photo", margin + 5, y + 10);
+  
+  if (docs.studentPhoto && docs.studentPhoto.startsWith("data:image")) {
+    try {
+      doc.addImage(docs.studentPhoto, "JPEG", margin, y, sidebarWidth, 24);
+    } catch (e) {
+      doc.setFontSize(7);
+      doc.text("Paste", margin + 5, y + 6);
+      doc.text("Photo", margin + 5, y + 10);
+    }
+  } else {
+    doc.setFontSize(7);
+    doc.text("Paste", margin + 5, y + 6);
+    doc.text("Photo", margin + 5, y + 10);
+  }
 
   drawRow(
       ["First Name", "Middle Name", "Last Name", "Gender"],
@@ -191,7 +202,15 @@ export const generateAdmissionPDF = (data: any, studentName: string, options?: {
     doc.setFontSize(6);
     doc.text(title, margin + 2, y + 10);
     doc.rect(margin + 20, y, 20, 30);
-    doc.text("Paste Photo", margin + 22, y + 15);
+    if (p.photo && p.photo.startsWith("data:image")) {
+       try {
+          doc.addImage(p.photo, "JPEG", margin + 20, y, 20, 30);
+       } catch (e) {
+          doc.text("Paste Photo", margin + 22, y + 15);
+       }
+    } else {
+       doc.text("Paste Photo", margin + 22, y + 15);
+    }
 
     let cx = margin + 40;
     const infoWidth = contentWidth - 40;
