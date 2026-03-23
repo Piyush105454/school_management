@@ -29,6 +29,11 @@ const officeItems = [
   { name: "Home Visits", href: "/office/home-visits", icon: Users },
   { name: "Final Approvals", href: "/office/final-admissions", icon: ClipboardCheck },
   
+  { type: "section", name: "Scholarship" },
+  { name: "Student Scholarships", href: "/office/scholarship/students", icon: GraduationCap },
+  { name: "Monthly Reports", href: "/office/scholarship/reports", icon: FileText },
+  { name: "Criteria Settings", href: "/office/scholarship/settings", icon: Settings },
+  
   { type: "section", name: "School Management" },
   { name: "Class Management", href: "/office/school-management/classes", icon: School },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
@@ -42,6 +47,7 @@ const studentItems = [
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
   { name: "Final Option", href: "/student/final-admission", icon: ClipboardCheck },
+  { name: "My Scholarship", href: "/student/scholarship", icon: GraduationCap },
 ];
 
 interface SidebarProps {

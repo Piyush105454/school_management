@@ -214,6 +214,82 @@ export const teachers = pgTable("teachers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const scholarshipStatusEnum = pgEnum("scholarship_status", ["PENDING", "APPROVED", "PAID"]);
+
+export const scholarshipCriteriaSettings = pgTable("scholarship_criteria_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  academicYear: text("academic_year").notNull().unique(),
+  attendanceThreshold: integer("attendance_threshold").default(90).notNull(),
+  attendanceAmount: integer("attendance_amount").default(750).notNull(),
+  homeworkThreshold: integer("homework_threshold").default(90).notNull(),
+  homeworkAmount: integer("homework_amount").default(750).notNull(),
+  guardianRatingThreshold: integer("guardian_rating_threshold").default(8).notNull(),
+  guardianAmount: integer("guardian_amount").default(750).notNull(),
+  ptmAmount: integer("ptm_amount").default(750).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const scholarshipAttendance = pgTable("scholarship_attendance", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }),
+  month: text("month").notNull(),
+  year: text("year").notNull(),
+  totalDays: integer("total_days").notNull(),
+  presentDays: integer("present_days").notNull(),
+  percentage: doublePrecision("percentage").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const scholarshipHomework = pgTable("scholarship_homework", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }),
+  month: text("month").notNull(),
+  year: text("year").notNull(),
+  totalGiven: integer("total_given").notNull(),
+  totalDone: integer("total_done").notNull(),
+  percentage: doublePrecision("percentage").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const scholarshipGuardian = pgTable("scholarship_guardian", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }),
+  month: text("month").notNull(),
+  year: text("year").notNull(),
+  rating: integer("rating").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const scholarshipPtm = pgTable("scholarship_ptm", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }),
+  month: text("month").notNull(),
+  year: text("year").notNull(),
+  attended: boolean("attended").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const scholarshipRecords = pgTable("scholarship_records", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }),
+  month: text("month").notNull(),
+  year: text("year").notNull(),
+  
+  attendanceAmount: integer("attendance_amount").notNull(),
+  homeworkAmount: integer("homework_amount").notNull(),
+  guardianAmount: integer("guardian_amount").notNull(),
+  ptmAmount: integer("ptm_amount").notNull(),
+  totalAmount: integer("total_amount").notNull(),
+  
+  status: scholarshipStatusEnum("status").default("PENDING").notNull(),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const inquiriesRelations = relations(inquiries, ({ one }) => ({
   admissionMeta: one(admissionMeta, {
@@ -251,6 +327,11 @@ export const admissionMetaRelations = relations(admissionMeta, ({ one, many }) =
     fields: [admissionMeta.id],
     references: [homeVisits.admissionId],
   }),
+  scholarshipAttendance: many(scholarshipAttendance),
+  scholarshipHomework: many(scholarshipHomework),
+  scholarshipGuardian: many(scholarshipGuardian),
+  scholarshipPtm: many(scholarshipPtm),
+  scholarshipRecords: many(scholarshipRecords),
 }));
 
 
@@ -286,5 +367,25 @@ export const homeVisitsRelations = relations(homeVisits, ({ one }) => ({
     fields: [homeVisits.admissionId],
     references: [admissionMeta.id],
   }),
+}));
+
+export const scholarshipAttendanceRelations = relations(scholarshipAttendance, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipAttendance.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipHomeworkRelations = relations(scholarshipHomework, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipHomework.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipGuardianRelations = relations(scholarshipGuardian, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipGuardian.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipPtmRelations = relations(scholarshipPtm, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipPtm.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipRecordsRelations = relations(scholarshipRecords, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipRecords.admissionId], references: [admissionMeta.id] }),
 }));
 
