@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { scholarshipRecords } from "@/db/schema";
 import { sql } from "drizzle-orm";
 
-export async function getMonthlyReports() {
+export async function getMonthlyReports(): Promise<{ success: true; data: any[] } | { success: false; error: string }> {
   try {
     // Group by month and year, sum amounts, count approved/paid
     const reports = await db

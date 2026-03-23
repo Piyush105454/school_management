@@ -2,7 +2,7 @@ import { getMonthlyReports } from "@/features/scholarship/actions/reportActions"
 
 export default async function ReportsPage() {
   const reportsResult = await getMonthlyReports();
-  const reports = reportsResult.success ? reportsResult.data : [];
+  const reports = (reportsResult.success && reportsResult.data) ? reportsResult.data : [];
 
   return (
     <div className="space-y-6">
