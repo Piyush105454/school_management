@@ -316,14 +316,28 @@ export default async function StudentDashboard() {
                     </div>
                 </div>
             ) : finalAdmissionStatus === "completed" ? (
-                <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 bg-emerald-50/50 rounded-2xl p-6 border border-emerald-100">
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-5 bg-emerald-50/50 rounded-2xl p-6 border border-emerald-100">
                     <div className="h-20 w-20 bg-emerald-500 text-white rounded-[32px] flex items-center justify-center border-4 border-white shadow-xl shadow-emerald-200">
                         <GraduationCap size={40} />
                     </div>
                     <div className="space-y-2">
-                        <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tight font-outfit">Congratulations!</h3>
-                        <p className="text-sm text-emerald-600 font-bold uppercase tracking-widest">Your admission is finalized and admitted.</p>
-                        <p className="text-xs text-slate-500 max-w-sm">Welcome to our school community!</p>
+                        <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tight font-outfit leading-none">Congratulations!</h3>
+                        <p className="text-xs text-emerald-600 font-bold uppercase tracking-widest">Your admission is finalized and admitted.</p>
+                        
+                        {(profile as any).admissionMeta?.awardedScholarship && (
+                            <div className="mt-4 bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm max-w-sm mx-auto space-y-2 relative overflow-hidden">
+                                <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest flex items-center justify-center gap-2">
+                                     You have been awarded
+                                </p>
+                                <p className="text-3xl font-black text-emerald-600 tracking-tight leading-none">₹{(profile as any).admissionMeta.scholarshipAmount.toLocaleString()}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Scholarship for the full year</p>
+                                <div className="border-t border-slate-100 pt-3 mt-2">
+                                    <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal">Note: Payout is ₹3,000/month based on attendance, homework, guardian rating & PTM criteria.</p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        <p className="text-[10px] text-slate-400 max-w-sm pt-2 uppercase font-bold tracking-widest">Welcome to our school community!</p>
                     </div>
                 </div>
             ) : (

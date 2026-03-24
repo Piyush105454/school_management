@@ -168,6 +168,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
               percentage={data?.attendance?.percentage}
               amount={record?.attendanceAmount || 0}
               success={(record?.attendanceAmount || 0) > 0}
+              requiredThreshold={data?.criteria?.attendanceThreshold}
+              maxAmount={data?.criteria?.attendanceAmount}
             >
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div><label className="text-[10px] text-slate-400">Total</label><input type="number" {...register("attendance.totalDays")} className="w-full border p-1 text-sm rounded mt-0.5" /></div>
@@ -180,6 +182,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
               percentage={data?.homework?.percentage}
               amount={record?.homeworkAmount || 0}
               success={(record?.homeworkAmount || 0) > 0}
+              requiredThreshold={data?.criteria?.homeworkThreshold}
+              maxAmount={data?.criteria?.homeworkAmount}
             >
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div><label className="text-[10px] text-slate-400">Given</label><input type="number" {...register("homework.totalGiven")} className="w-full border p-1 text-sm rounded mt-0.5" /></div>
@@ -191,6 +195,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
               title="Guardian Rating"
               amount={record?.guardianAmount || 0}
               success={(record?.guardianAmount || 0) > 0}
+              requiredThreshold={data?.criteria?.guardianRatingThreshold}
+              maxAmount={data?.criteria?.guardianAmount}
             >
               <div><label className="text-[10px] text-slate-400">Score (1-10)</label><input type="number" max={10} min={0} {...register("guardian.rating")} className="w-full border p-1 text-sm rounded mt-0.5" /></div>
             </KpiCard>
@@ -199,6 +205,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
               title="PTM Attended"
               amount={record?.ptmAmount || 0}
               success={(record?.ptmAmount || 0) > 0}
+              maxAmount={data?.criteria?.ptmAmount}
             >
               <label className="flex items-center gap-2 mt-4 cursor-pointer">
                 <input type="checkbox" {...register("ptm.attended")} className="h-4 w-4 rounded" />
@@ -223,7 +230,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   );
 }
 
-function KpiCard({ title, percentage, amount, success, children }: { title: string, percentage?: number, amount: number, success: boolean, children: React.ReactNode }) {
+function KpiCard({ title, percentage, amount, success, requiredThreshold, maxAmount, children }: { title: string, percentage?: number, amount: number, success: boolean, requiredThreshold?: number, maxAmount?: number, children: React.ReactNode }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
@@ -231,6 +238,12 @@ function KpiCard({ title, percentage, amount, success, children }: { title: stri
         <div>
           <h3 className="text-sm font-bold text-slate-900">{title}</h3>
           {percentage !== undefined && <p className="text-xs text-slate-400 font-medium">{percentage?.toFixed(1) ?? "0.0"}%</p>}
+          {(requiredThreshold !== undefined || maxAmount !== undefined) && (
+            <p className="text-[10px] font-semibold text-slate-500 mt-0.5">
+              {requiredThreshold !== undefined ? `Req: ${requiredThreshold}${title === "Guardian Rating" ? "/10" : "%"}` : ""}
+              {maxAmount !== undefined ? ` (Max: ₹${maxAmount})` : ""}
+            </p>
+          )}
         </div>
         {success ? <CheckCircle2 className="text-green-500 h-5 w-5" /> : <XCircle className="text-slate-300 h-5 w-5" />}
       </div>

@@ -252,14 +252,38 @@ export async function verifyAdmission(admissionId: string) {
   }
 }
 
-export async function finalizeFinalAdmission(admissionId: string) {
+export async function finalizeFinalAdmission(admissionId: string, approveScholarship?: boolean, amount: number = 36000) {
   try {
-    await db.update(studentProfiles)
-      .set({ isFullyAdmitted: true })
-      .where(eq(studentProfiles.admissionMetaId, admissionId));
+    return await db.transaction(async (tx) => {
+      await tx.update(studentProfiles)
+        .set({ isFullyAdmitted: true })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
 
-    revalidatePath("/office/inquiries");
+      if (approveScholarship) {
+        await tx.update(admissionMeta)
+          .set({ awardedScholarship: true, scholarshipAmount: amount, updatedAt: new Date() })
+          .where(eq(admissionMeta.id, admissionId));
+      }
+
+      revalidatePath("/office/inquiries");
+      revalidatePath("/student/dashboard");
+      revalidatePath("/office/final-admissions");
+      return { success: true };
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function awardScholarshipDirect(admissionId: string, amount: number = 36000) {
+  try {
+    await db.update(admissionMeta)
+      .set({ awardedScholarship: true, scholarshipAmount: amount, updatedAt: new Date() })
+      .where(eq(admissionMeta.id, admissionId));
+
     revalidatePath("/student/dashboard");
+    revalidatePath("/office/inquiries");
+    revalidatePath("/office/scholarship/award");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

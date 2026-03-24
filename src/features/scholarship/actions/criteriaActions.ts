@@ -2,13 +2,18 @@
 
 import { db } from "@/db";
 import { scholarshipCriteriaSettings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export async function getCriteriaSettings(academicYear: string) {
+export async function getCriteriaSettings(academicYear: string, admissionId?: string) {
   try {
     const data = await db.query.scholarshipCriteriaSettings.findFirst({
-      where: eq(scholarshipCriteriaSettings.academicYear, academicYear),
+      where: and(
+        eq(scholarshipCriteriaSettings.academicYear, academicYear),
+        admissionId 
+          ? eq(scholarshipCriteriaSettings.admissionId, admissionId)
+          : isNull(scholarshipCriteriaSettings.admissionId)
+      ),
     });
     return { success: true, data };
   } catch (error: any) {
@@ -16,10 +21,15 @@ export async function getCriteriaSettings(academicYear: string) {
   }
 }
 
-export async function updateCriteriaSettings(academicYear: string, data: any) {
+export async function updateCriteriaSettings(academicYear: string, data: any, admissionId?: string) {
   try {
     const existing = await db.query.scholarshipCriteriaSettings.findFirst({
-      where: eq(scholarshipCriteriaSettings.academicYear, academicYear),
+      where: and(
+        eq(scholarshipCriteriaSettings.academicYear, academicYear),
+        admissionId 
+          ? eq(scholarshipCriteriaSettings.admissionId, admissionId)
+          : isNull(scholarshipCriteriaSettings.admissionId)
+      ),
     });
 
     if (existing) {
@@ -28,10 +38,18 @@ export async function updateCriteriaSettings(academicYear: string, data: any) {
           ...data,
           updatedAt: new Date(),
         })
-        .where(eq(scholarshipCriteriaSettings.academicYear, academicYear));
+        .where(
+          and(
+            eq(scholarshipCriteriaSettings.academicYear, academicYear),
+            admissionId 
+              ? eq(scholarshipCriteriaSettings.admissionId, admissionId)
+              : isNull(scholarshipCriteriaSettings.admissionId)
+          )
+        );
     } else {
       await db.insert(scholarshipCriteriaSettings).values({
         academicYear,
+        admissionId: admissionId || null,
         ...data,
       });
     }

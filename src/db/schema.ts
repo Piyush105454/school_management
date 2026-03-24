@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer, doublePrecision, pgEnum, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, integer, doublePrecision, pgEnum, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const roleEnum = pgEnum("role", ["OFFICE", "STUDENT_PARENT"]);
@@ -44,6 +44,8 @@ export const admissionMeta = pgTable("admission_meta", {
   admissionNumber: text("admission_number").unique(),
   scholarNumber: text("scholar_number").unique(),
   appliedScholarship: boolean("applied_scholarship").default(false).notNull(),
+  awardedScholarship: boolean("awarded_scholarship").default(false).notNull(),
+  scholarshipAmount: integer("scholarship_amount").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -218,7 +220,8 @@ export const scholarshipStatusEnum = pgEnum("scholarship_status", ["PENDING", "A
 
 export const scholarshipCriteriaSettings = pgTable("scholarship_criteria_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
-  academicYear: text("academic_year").notNull().unique(),
+  academicYear: text("academic_year").notNull(),
+  admissionId: uuid("admission_id").references(() => admissionMeta.id, { onDelete: 'cascade' }),
   attendanceThreshold: integer("attendance_threshold").default(90).notNull(),
   attendanceAmount: integer("attendance_amount").default(750).notNull(),
   homeworkThreshold: integer("homework_threshold").default(90).notNull(),
@@ -228,6 +231,10 @@ export const scholarshipCriteriaSettings = pgTable("scholarship_criteria_setting
   ptmAmount: integer("ptm_amount").default(750).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    academicYearAdmissionIdx: uniqueIndex("academic_year_admission_idx").on(table.academicYear, table.admissionId),
+  };
 });
 
 export const scholarshipAttendance = pgTable("scholarship_attendance", {

@@ -88,7 +88,7 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
       alert("Student Admitted Successfully!");
       window.location.reload();
     } else {
-      alert("Error finalizing admission: " + res.error);
+      alert("Error finalizing admission: " + ("error" in res ? res.error : "Unknown Error"));
     }
   };
 

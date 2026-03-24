@@ -9,7 +9,7 @@ import {
   scholarshipRecords, 
   scholarshipCriteriaSettings 
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function saveKpiData(admissionId: string, month: string, year: string, data: {
@@ -19,10 +19,22 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
   ptm: { attended: boolean };
 }) {
   try {
-    // 1. Get Criteria Settings for the year
-    const criteria = await db.query.scholarshipCriteriaSettings.findFirst({
-      where: eq(scholarshipCriteriaSettings.academicYear, "2025-26"), // Fixed or derived from somewhere
+    // 1. Get Criteria Settings (Try student override first, then global)
+    let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+      where: and(
+        eq(scholarshipCriteriaSettings.academicYear, "2025-26"), // Fixed or derived
+        eq(scholarshipCriteriaSettings.admissionId, admissionId)
+      ),
     });
+
+    if (!criteria) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          isNull(scholarshipCriteriaSettings.admissionId)
+        ),
+      });
+    }
 
     if (!criteria) {
       return { success: false, error: "Scholarship criteria settings not found for this year." };
@@ -119,7 +131,34 @@ export async function getStudentKpiData(admissionId: string, month: string, year
     const ptm = await db.query.scholarshipPtm.findFirst({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)) });
     const record = await db.query.scholarshipRecords.findFirst({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)) });
 
-    return { success: true, data: { attendance: attendance || null, homework: homework || null, guardian: guardian || null, ptm: ptm || null, record: record || null } };
+    // Fetch Criteria (Override first, then global)
+    let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+      where: and(
+        eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+        eq(scholarshipCriteriaSettings.admissionId, admissionId)
+      ),
+    });
+
+    if (!criteria) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          isNull(scholarshipCriteriaSettings.admissionId)
+        ),
+      });
+    }
+
+    return { 
+      success: true, 
+      data: { 
+        attendance: attendance || null, 
+        homework: homework || null, 
+        guardian: guardian || null, 
+        ptm: ptm || null, 
+        record: record || null,
+        criteria: criteria || null
+      } 
+    };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

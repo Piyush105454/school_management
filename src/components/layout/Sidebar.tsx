@@ -15,7 +15,9 @@ import {
   ClipboardCheck,
   School,
   UserCog,
-  Eye
+  Eye,
+  ChevronDown,
+  Award
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -30,6 +32,7 @@ const officeItems = [
   { name: "Final Approvals", href: "/office/final-admissions", icon: ClipboardCheck },
   
   { type: "section", name: "Scholarship" },
+  { name: "Award Scholarship", href: "/office/scholarship/award", icon: Award },
   { name: "Student Scholarships", href: "/office/scholarship/students", icon: GraduationCap },
   { name: "Monthly Reports", href: "/office/scholarship/reports", icon: FileText },
   { name: "Criteria Settings", href: "/office/scholarship/settings", icon: Settings },
@@ -57,6 +60,14 @@ interface SidebarProps {
 
 export function Sidebar({ role, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (sectionName: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
 
   const items = role === "OFFICE" 
     ? [
@@ -87,43 +98,56 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       </div>
       
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-        {items.map((item, idx) => {
-           if ('type' in item && item.type === 'section') {
+        {(() => {
+          let currentSection = "";
+          return items.map((item, idx) => {
+             if ('type' in item && item.type === 'section') {
+               currentSection = item.name;
+               const isCollapsed = collapsedSections[item.name];
+               return (
+                 <button 
+                   key={`section-${idx}`} 
+                   onClick={() => toggleSection(item.name)}
+                   className="pt-5 pb-2 px-4 first:pt-0 flex items-center justify-between w-full group cursor-pointer select-none"
+                 >
+                   <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 group-hover:text-slate-600 transition-colors">{item.name}</span>
+                   <ChevronDown size={14} className={cn("text-slate-400 group-hover:text-slate-600 transition-transform duration-200", isCollapsed ? "-rotate-90" : "rotate-0")} />
+                 </button>
+               );
+             }
+
+             const regularItem = item as any;
+             const isCollapsed = currentSection ? collapsedSections[currentSection] : false;
+             if (isCollapsed) return null;
+
+             let isActive = pathname === regularItem.href;
+             if (role === "OFFICE" && regularItem.baseHref === "/office/inquiries") {
+               const currentTab = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab');
+               const targetTab = new URL(regularItem.href, 'http://x').searchParams.get('tab');
+               isActive = pathname === regularItem.baseHref && currentTab === targetTab;
+             }
+
              return (
-               <div key={`section-${idx}`} className="pt-5 pb-2 px-4 first:pt-0">
-                 <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">{item.name}</span>
-               </div>
+               <Link
+                 key={regularItem.href}
+                 href={regularItem.href}
+                 onClick={onClose}
+                 className={cn(
+                   "group flex items-center px-4 py-3 md:py-2.5 text-xs md:text-[13px] font-bold rounded-xl transition-all duration-150 tracking-wide select-none",
+                   isActive 
+                     ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
+                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                 )}
+               >
+                 <regularItem.icon className={cn(
+                   "mr-3 h-5 w-5 md:h-4 md:w-4 transition-colors duration-150",
+                   isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"
+                 )} />
+                 {regularItem.name}
+               </Link>
              );
-           }
-
-           const regularItem = item as any;
-           let isActive = pathname === regularItem.href;
-           if (role === "OFFICE" && regularItem.baseHref === "/office/inquiries") {
-             const currentTab = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab');
-             const targetTab = new URL(regularItem.href, 'http://x').searchParams.get('tab');
-             isActive = pathname === regularItem.baseHref && currentTab === targetTab;
-           }
-
-           return (
-             <Link
-               key={regularItem.href}
-               href={regularItem.href}
-               onClick={onClose}
-               className={cn(
-                 "group flex items-center px-4 py-3 md:py-2.5 text-xs md:text-[13px] font-bold rounded-xl transition-all duration-150 tracking-wide select-none",
-                 isActive 
-                   ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
-                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-               )}
-             >
-               <regularItem.icon className={cn(
-                 "mr-3 h-5 w-5 md:h-4 md:w-4 transition-colors duration-150",
-                 isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"
-               )} />
-               {regularItem.name}
-             </Link>
-           );
-        })}
+          });
+        })()}
       </nav>
 
       <div className="p-4 border-t border-slate-50">
