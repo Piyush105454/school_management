@@ -17,7 +17,12 @@ import {
   UserCog,
   Eye,
   ChevronDown,
-  Award
+  Award,
+  CalendarCheck,
+  ScrollText,
+  FolderOpen,
+  Clock,
+  Megaphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -36,9 +41,18 @@ const officeItems = [
   { name: "Student Scholarships", href: "/office/scholarship/students", icon: GraduationCap },
   { name: "Monthly Reports", href: "/office/scholarship/reports", icon: FileText },
   { name: "Criteria Settings", href: "/office/scholarship/settings", icon: Settings },
+  { type: "section", name: "Academy Management" },
+  { name: "Class Management", href: "/office/academy-management/classes", icon: School },
+  { name: "Attendance Management", href: "/office/academy-management/attendance", icon: CalendarCheck },
+  { name: "Homework Management", href: "/office/academy-management/homework", icon: ClipboardCheck },
+  { name: "Test & Exam Management", href: "/office/academy-management/exams", icon: ScrollText },
+  { name: "Library & Resources", href: "/office/academy-management/library", icon: FolderOpen },
+  
+  { type: "section", name: "Time Table Management" },
+  { name: "Manage Timetable", href: "/office/timetable", icon: Clock },
   
   { type: "section", name: "School Management" },
-  { name: "Class Management", href: "/office/school-management/classes", icon: School },
+  { name: "Notice Board", href: "/office/school-management/notices", icon: Megaphone },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
   { name: "Principal Management", href: "/office/school-management/principal", icon: UserCog },
 ];
@@ -71,7 +85,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
   const items = role === "OFFICE" 
     ? [
-        ...officeItems.slice(0, 3), 
+        ...officeItems.slice(0, 1), 
+        { type: "section", name: "Admissions" },
+        ...officeItems.slice(1, 3), 
         { name: "View Applications", href: "/office/applications", icon: Eye },
         ...officeItems.slice(3)
       ] 
