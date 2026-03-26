@@ -396,3 +396,66 @@ export const scholarshipRecordsRelations = relations(scholarshipRecords, ({ one 
   admissionMeta: one(admissionMeta, { fields: [scholarshipRecords.admissionId], references: [admissionMeta.id] }),
 }));
 
+// --- Academy Management ---
+
+export const classes = pgTable("classes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
+export const subjects = pgTable("subjects", {
+  id: serial("id").primaryKey(),
+  classId: integer("class_id").notNull().references(() => classes.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  medium: text("medium").default("English/Hindi").notNull(),
+});
+
+export const units = pgTable("units", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  orderNo: integer("order_no").notNull(),
+});
+
+export const chapters = pgTable("chapters", {
+  id: serial("id").primaryKey(),
+  unitId: integer("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  chapterNo: integer("chapter_no").notNull(),
+  pageStart: integer("page_start").notNull(),
+  pageEnd: integer("page_end").notNull(),
+  orderNo: integer("order_no").notNull(),
+});
+
+export const chapterPdfs = pgTable("chapter_pdfs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  chapterId: integer("chapter_id").notNull().references(() => chapters.id, { onDelete: 'cascade' }),
+  fileUrl: text("file_url").notNull(),
+  uploadedBy: text("uploaded_by"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+// Academy Relations
+export const classesRelations = relations(classes, ({ many }) => ({
+  subjects: many(subjects),
+}));
+
+export const subjectsRelations = relations(subjects, ({ one, many }) => ({
+  class: one(classes, { fields: [subjects.classId], references: [classes.id] }),
+  units: many(units),
+}));
+
+export const unitsRelations = relations(units, ({ one, many }) => ({
+  subject: one(subjects, { fields: [units.subjectId], references: [subjects.id] }),
+  chapters: many(chapters),
+}));
+
+export const chaptersRelations = relations(chapters, ({ one, many }) => ({
+  unit: one(units, { fields: [chapters.unitId], references: [units.id] }),
+  chapterPdfs: many(chapterPdfs),
+}));
+
+export const chapterPdfsRelations = relations(chapterPdfs, ({ one }) => ({
+  chapter: one(chapters, { fields: [chapterPdfs.chapterId], references: [chapters.id] }),
+}));
+
