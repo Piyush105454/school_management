@@ -7,6 +7,7 @@ import { eq, inArray } from "drizzle-orm";
 import ChapterPdfUploader from "@/features/academy/components/ChapterPdfUploader";
 import AddUnitModal from "@/features/academy/components/AddUnitModal";
 import AddChapterModal from "@/features/academy/components/AddChapterModal";
+import ExcelImportModal from "@/features/academy/components/ExcelImportModal";
 
 interface SubjectDetailsPageProps {
   params: Promise<{
@@ -94,12 +95,14 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
           </div>
         </div>
         
-        <div className="hidden sm:block mt-2">
+        <div className="hidden sm:flex items-center gap-3 mt-2">
+          <ExcelImportModal subjectId={subjectId} />
           <AddUnitModal subjectId={subjectId} nextOrderNo={subjectUnits.length + 1} />
         </div>
       </div>
       
-      <div className="sm:hidden w-full pt-2">
+      <div className="sm:hidden flex flex-col gap-3 w-full pt-2">
+        <ExcelImportModal subjectId={subjectId} />
         <AddUnitModal subjectId={subjectId} nextOrderNo={subjectUnits.length + 1} />
       </div>
 
@@ -119,17 +122,36 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
         <div className="space-y-6 mt-8">
           {subjectUnits.map((unit) => {
             const unitsChapters = subjectChapters.filter(c => c.unitId === unit.id);
+            const isNA = unit.name === "NA";
+
             return (
-              <div key={unit.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div key={unit.id} className={cn(
+                "bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm",
+                isNA && "border-none shadow-none bg-transparent"
+              )}>
+                <div className={cn(
+                  "p-4 border-b border-slate-200 flex items-center justify-between gap-3",
+                  isNA ? "bg-transparent border-none px-0" : "bg-slate-50"
+                )}>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-white shadow-sm border border-slate-200 text-slate-700 rounded-xl flex items-center justify-center font-black">
-                      U{unit.orderNo}
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-800">{unit.name}</h2>
+                    {!isNA && (
+                      <div className="h-10 w-10 bg-white shadow-sm border border-slate-200 text-slate-700 rounded-xl flex items-center justify-center font-black">
+                        U{unit.orderNo}
+                      </div>
+                    )}
+                    <h2 className={cn(
+                      "font-bold text-slate-800",
+                      isNA ? "text-xl uppercase italic tracking-tight" : "text-lg"
+                    )}>
+                      {isNA ? "Direct Chapters" : unit.name}
+                    </h2>
                   </div>
                   <AddChapterModal unitId={unit.id} nextOrderNo={unitsChapters.length + 1} />
                 </div>
+
+                <div className={cn(
+                  isNA && "bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm"
+                )}>
 
                 {unitsChapters.length === 0 ? (
                   <div className="p-8 text-center text-slate-500 text-sm font-medium">
@@ -160,14 +182,10 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
                           </div>
                           
                           <div className="w-full md:w-64 shrink-0 border-l border-slate-100 pl-0 md:pl-6 pt-4 md:pt-0">
-                            {chapterPdf ? (
+                            {chapterPdf && (
                               <ChapterPdfUploader 
                                 chapterId={chapter.id} 
                                 existingPdfUrl={`/api/academy/chapter-pdf/${chapter.id}`}
-                              />
-                            ) : (
-                              <ChapterPdfUploader 
-                                chapterId={chapter.id} 
                               />
                             )}
                           </div>
@@ -176,6 +194,8 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
                     })}
                   </div>
                 )}
+                {isNA && <div className="mb-8" />}
+              </div>
               </div>
             );
           })}
@@ -183,4 +203,8 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
       )}
     </div>
   );
+}
+
+function cn(...classes: any[]) {
+    return classes.filter(Boolean).join(" ");
 }

@@ -80,7 +80,8 @@ export async function GET() {
       -- 2. Seed Classes
       INSERT INTO "classes" ("id", "name") VALUES 
         (1, 'Class 1'), (2, 'Class 2'), (3, 'Class 3'), (4, 'Class 4'), 
-        (5, 'Class 5'), (6, 'Class 6'), (7, 'Class 7'), (8, 'Class 8')
+        (5, 'Class 5'), (6, 'Class 6'), (7, 'Class 7'), (8, 'Class 8'),
+        (9, 'Nursery'), (10, 'LKG'), (11, 'UKG')
       ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name";
       
       SELECT setval(pg_get_serial_sequence('classes', 'id'), coalesce(max(id), 0) + 1, false) FROM "classes";

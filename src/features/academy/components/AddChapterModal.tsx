@@ -16,7 +16,16 @@ export default function AddChapterModal({ unitId, nextOrderNo }: AddChapterModal
   const [chapterNo, setChapterNo] = useState(nextOrderNo);
   const [pageStart, setPageStart] = useState("");
   const [pageEnd, setPageEnd] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
   const [orderNo, setOrderNo] = useState(nextOrderNo);
+
+  // Sync state with prop when modal opens to ensure latest numbering
+  React.useEffect(() => {
+    if (isOpen) {
+      setChapterNo(nextOrderNo);
+      setOrderNo(nextOrderNo);
+    }
+  }, [isOpen, nextOrderNo]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +46,7 @@ export default function AddChapterModal({ unitId, nextOrderNo }: AddChapterModal
       chapterNo,
       pageStart: parseInt(pageStart) || 0,
       pageEnd: parseInt(pageEnd) || 0,
+      pdfUrl,
       orderNo 
     });
     
@@ -49,6 +59,7 @@ export default function AddChapterModal({ unitId, nextOrderNo }: AddChapterModal
       setOrderNo(orderNo + 1);
       setPageStart("");
       setPageEnd("");
+      setPdfUrl("");
     } else {
       setError(result.error || "Failed to add chapter.");
     }
@@ -148,6 +159,19 @@ export default function AddChapterModal({ unitId, nextOrderNo }: AddChapterModal
                     disabled={isSubmitting}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-bold text-slate-700">PDF Link (Google Drive)</label>
+                <input
+                  type="url"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  placeholder="Paste Google Drive link here..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-800"
+                  disabled={isSubmitting}
+                />
+                <p className="text-[10px] text-slate-400 font-medium">Recommended for large files to avoid server load.</p>
               </div>
 
               <div className="pt-4 flex items-center gap-3">

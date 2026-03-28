@@ -331,8 +331,17 @@ export default async function StudentDashboard() {
                                 </p>
                                 <p className="text-3xl font-black text-emerald-600 tracking-tight leading-none">₹{(profile as any).admissionMeta.scholarshipAmount.toLocaleString()}</p>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Scholarship for the full year</p>
-                                <div className="border-t border-slate-100 pt-3 mt-2">
+                                <div className="border-t border-slate-100 pt-3 mt-2 space-y-3">
                                     <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal">Note: Payout is ₹3,000/month based on attendance, homework, guardian rating & PTM criteria.</p>
+                                    
+                                    <a 
+                                        href="/api/scholarship/certificate" 
+                                        download 
+                                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
+                                    >
+                                        <FileText size={14} />
+                                        Download Your Scholarship Certificate
+                                    </a>
                                 </div>
                             </div>
                         )}

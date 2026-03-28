@@ -89,22 +89,36 @@ export default function ChapterPdfUploader({
 
   // View Mode
   if (existingPdfUrl && !success && !file) {
+    const isExternal = existingPdfUrl.startsWith("http");
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <button
           onClick={() => {
             window.open(existingPdfUrl, '_blank');
           }}
-          className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-slate-100 text-blue-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider"
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 font-bold rounded-xl transition-colors text-xs uppercase tracking-wider ${
+            isExternal 
+              ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200" 
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
         >
-          <Eye className="h-4 w-4" />
-          View PDF Mode
+          {isExternal ? (
+            <>
+              <Eye className="h-4 w-4" />
+              Open Drive Link
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4" />
+              View Server PDF
+            </>
+          )}
         </button>
         <button
           onClick={handleDelete}
           disabled={isDeleting}
           className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
-          title="Delete PDF"
+          title="Delete"
         >
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
         </button>

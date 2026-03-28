@@ -83,17 +83,26 @@ export async function createChapter(data: {
   chapterNo: number; 
   pageStart: number; 
   pageEnd: number; 
-  orderNo: number 
+  orderNo: number;
+  pdfUrl?: string;
 }) {
   try {
-    await db.insert(chapters).values({
+    const [newChapter] = await db.insert(chapters).values({
       unitId: data.unitId,
       name: data.name,
       chapterNo: data.chapterNo,
       pageStart: data.pageStart,
       pageEnd: data.pageEnd,
       orderNo: data.orderNo,
-    });
+    }).returning({ id: chapters.id });
+
+    if (data.pdfUrl) {
+      await db.insert(chapterPdfs).values({
+        chapterId: newChapter.id,
+        fileUrl: data.pdfUrl,
+        uploadedBy: "Teacher",
+      });
+    }
     revalidatePath("/office/academy-management/classes/[className]/subjects/[subjectId]", "page");
     return { success: true };
   } catch (error: any) {

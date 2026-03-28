@@ -69,6 +69,24 @@ export default function AddUnitModal({ subjectId, nextOrderNo }: AddUnitModalPro
                 </div>
               )}
               
+              <div className="bg-blue-50/50 border border-blue-100/50 p-4 rounded-2xl mb-2 space-y-2">
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">No Unit Structure?</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">If this subject doesn't have units, you can skip this and add chapters directly.</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsSubmitting(true);
+                    const res = await createUnit({ subjectId, name: "NA", orderNo: nextOrderNo });
+                    setIsSubmitting(false);
+                    if (res.success) setIsOpen(false);
+                  }}
+                  className="w-full py-2 bg-white border border-blue-200 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-50 transition-colors shadow-sm"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Processing..." : "Skip Units (Add Chapters Directly)"}
+                </button>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-700 flex items-center justify-between">
                   Unit Name <span className="text-red-500">*</span>

@@ -9,7 +9,10 @@ INSERT INTO "classes" ("id", "name") VALUES
   (5, 'Class 5'), 
   (6, 'Class 6'), 
   (7, 'Class 7'), 
-  (8, 'Class 8')
+  (8, 'Class 8'),
+  (9, 'Nursery'),
+  (10, 'LKG'),
+  (11, 'UKG')
 ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name";
 
 -- Reset sequence for classes
