@@ -16,16 +16,23 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const email = credentials.email.trim().toLowerCase();
+        console.log("LOGIN_ATTEMPT:", email);
+
         const user = await db.query.users.findFirst({
           where: or(
-            eq(users.email, credentials.email),
-            eq(users.phone, credentials.email)
+            eq(users.email, email),
+            eq(users.phone, email)
           ),
         });
+
+        console.log("USER_FOUND:", !!user, user?.role);
 
         if (!user) return null;
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
+        console.log("PASSWORD_VALID:", isValid);
+
         if (!isValid) return null;
 
         return {

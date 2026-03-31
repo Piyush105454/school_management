@@ -1,7 +1,7 @@
 import { pgTable, text, serial, timestamp, boolean, integer, doublePrecision, pgEnum, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const roleEnum = pgEnum("role", ["OFFICE", "STUDENT_PARENT"]);
+export const roleEnum = pgEnum("role", ["OFFICE", "STUDENT_PARENT", "TEACHER"]);
 export const inquiryStatusEnum = pgEnum("inquiry_status", ["PENDING", "SHORTLISTED", "REJECTED"]);
 export const admissionTypeEnum = pgEnum("admission_type", ["NEW", "RE_ADMISSION"]);
 export const genderEnum = pgEnum("gender", ["M", "F", "O"]);
@@ -209,6 +209,7 @@ export const entranceTests = pgTable("entrance_tests", {
 
 export const teachers = pgTable("teachers", {
   id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   contactNumber: text("contact_number"),
   classAssigned: text("class_assigned"),
@@ -282,17 +283,17 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }),
   month: text("month").notNull(),
   year: text("year").notNull(),
-  
+
   attendanceAmount: integer("attendance_amount").notNull(),
   homeworkAmount: integer("homework_amount").notNull(),
   guardianAmount: integer("guardian_amount").notNull(),
   ptmAmount: integer("ptm_amount").notNull(),
   totalAmount: integer("total_amount").notNull(),
-  
+
   status: scholarshipStatusEnum("status").default("PENDING").notNull(),
   approvedBy: text("approved_by"),
   approvedAt: timestamp("approved_at"),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

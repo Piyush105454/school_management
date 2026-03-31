@@ -1,0 +1,84 @@
+{
+  "users": [
+    {
+      "id": "8da1888a-8cc9-4446-8cfc-bed55078ca06",
+      "email": "admin@schoolflow.com",
+      "role": "OFFICE",
+      "phone": "1234567890"
+    },
+    {
+      "id": "72b31f05-2504-491e-9582-70b7809fdf44",
+      "email": "demo@example.com",
+      "role": "STUDENT_PARENT",
+      "phone": "3287654"
+    },
+    {
+      "id": "237ca595-b8aa-441c-b6d4-504841926c25",
+      "email": "piyushtamoli9@gmail.com",
+      "role": "STUDENT_PARENT",
+      "phone": "2346578456"
+    },
+    {
+      "id": "95e0c6f4-ddf4-471d-bf56-dee77532e5f6",
+      "email": "shub@gmail.com",
+      "role": "STUDENT_PARENT",
+      "phone": "2356754"
+    }
+  ],
+  "teachers": [
+    {
+      "id": "5219e74d-7089-41f2-99dd-994bd6bedcbf",
+      "name": "yash",
+      "user_id": null,
+      "contact_number": "4567898654"
+    },
+    {
+      "id": "18dec246-f85f-439c-b7ee-bc6acbac6022",
+      "name": "Sida najay",
+      "user_id": null,
+      "contact_number": "21533647868"
+    },
+    {
+      "id": "c0e5e761-10c3-4dcf-a566-0eafbaf08a8e",
+      "name": "Shahnaj Bee",
+      "user_id": null,
+      "contact_number": null
+    },
+    {
+      "id": "80a109d8-d076-42ea-a91e-d36ab5837ba7",
+      "name": "Vaishali Dahiya",
+      "user_id": null,
+      "contact_number": null
+    },
+    {
+      "id": "6b998e68-931f-443b-9ec3-eff87efc909a",
+      "name": "Rajni Vishwakarma",
+      "user_id": null,
+      "contact_number": null
+    },
+    {
+      "id": "ed37f39a-d3d7-44fd-9309-021e928a4ca0",
+      "name": "Sana Bee",
+      "user_id": null,
+      "contact_number": null
+    },
+    {
+      "id": "d74b17f1-3e02-4f14-8c4a-de4a136ac319",
+      "name": "Neetu Yadav",
+      "user_id": null,
+      "contact_number": null
+    },
+    {
+      "id": "dd1debcf-37aa-4058-9319-d5553ec3a394",
+      "name": "Saida Najmi",
+      "user_id": null,
+      "contact_number": null
+    },
+    {
+      "id": "6e01585f-6e19-4f49-aa8a-f4908eb8c3a8",
+      "name": "Abdul Waseem",
+      "user_id": null,
+      "contact_number": null
+    }
+  ]
+}

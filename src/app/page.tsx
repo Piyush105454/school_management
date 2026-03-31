@@ -9,6 +9,8 @@ export default async function Home() {
   if (session) {
     if (session.user.role === "OFFICE") {
       redirect("/office/dashboard");
+    } else if (session.user.role === "TEACHER") {
+      redirect("/teacher/dashboard");
     } else {
       redirect("/student/dashboard");
     }

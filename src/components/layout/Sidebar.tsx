@@ -63,10 +63,17 @@ const officeItems = [
   { type: "section", name: "Time Table Management" },
   { name: "Manage Timetable", href: "/office/timetable", icon: Clock },
 
-  { type: "section", name: "School Management" },
-  { name: "Notice Board", href: "/office/school-management/notices", icon: Megaphone },
+  { type: "section", name: "People Management" },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
   { name: "Principal Management", href: "/office/school-management/principal", icon: UserCog },
+];
+
+const teacherItems = [
+  { name: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },
+  { type: "section", name: "Class Management" },
+  { name: "My Classes", href: "/office/academy-management/classes", icon: School },
+  { name: "Attendance", href: "/office/academy-management/attendance", icon: CalendarCheck },
+  { name: "Lesson Plans", href: "/office/academy-management/lesson-plan", icon: BookOpen },
 ];
 
 const studentItems = [
@@ -80,7 +87,7 @@ const studentItems = [
 ];
 
 interface SidebarProps {
-  role: "OFFICE" | "STUDENT_PARENT";
+  role: "OFFICE" | "STUDENT_PARENT" | "TEACHER";
   onClose?: () => void;
 }
 
@@ -103,7 +110,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       { name: "View Applications", href: "/office/applications", icon: Eye },
       ...officeItems.slice(3)
     ]
-    : studentItems;
+    : role === "TEACHER"
+      ? teacherItems
+      : studentItems;
 
   return (
     <div className="flex h-full flex-col bg-white text-slate-800 w-72 md:w-64 border-r border-slate-100 shadow-sm shadow-slate-100/10">
