@@ -21,6 +21,7 @@ export function ApplicationsClient({ admissions }: ApplicationsClientProps) {
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
               <tr>
+                <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Applied Class</th>
                 <th className="px-6 py-4 text-right">Actions</th>
@@ -29,11 +30,16 @@ export function ApplicationsClient({ admissions }: ApplicationsClientProps) {
             <tbody className="divide-y divide-slate-100">
               {admissions.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="text-center text-slate-500 py-12 font-medium">No applications found.</td>
+                  <td colSpan={4} className="text-center text-slate-500 py-12 font-medium">No applications found.</td>
                 </tr>
               ) : (
                 admissions.map((adm) => (
                   <tr key={adm.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 whitespace-nowrap">
+                        {adm.entryNumber?.replace(/^E/, 'A').replace(/^INQ-/, 'A') || "N/A"}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-semibold text-slate-900">{adm.inquiry?.studentName}</p>

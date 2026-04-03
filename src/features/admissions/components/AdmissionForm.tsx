@@ -63,12 +63,11 @@ const steps = [
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
   { id: 9, name: "Download", icon: Download },
-  { id: 10, name: "Finalize", icon: CheckCircle },
-  { id: 11, name: "Complete", icon: CheckCircle },
+  { id: 10, name: "Complete", icon: CheckCircle },
 ];
 
 export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
-  const [currentStep, setCurrentStep] = useState(maxStep > 11 ? 11 : maxStep);
+  const [currentStep, setCurrentStep] = useState(maxStep > 10 ? 10 : maxStep);
   const [loading, setLoading] = useState(false);
   const defaults = {
     studentBio: {
@@ -212,6 +211,14 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
     const isValid = await methods.trigger(currentFields);
     
     if (isValid) {
+      if (currentStep === 8) {
+        const docs = methods.getValues("documents");
+        if (!docs?.studentPhoto || !docs?.marksheet) {
+          alert("Student Photo and Previous Marksheet are mandatory!");
+          return;
+        }
+      }
+      
       setLoading(true);
       // Optimistic move
       const prevStepVal = currentStep;
@@ -234,55 +241,74 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   return (
-    <div className="max-w-4xl mx-auto my-4 md:my-8 space-y-4 md:space-y-6">
-      {/* Horizontal Stepper */}
-      <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
-          {steps.map((step, index) => {
-            if (step.id === 11) return null; // Don't show step 11 in horizontal stepper
-            const isActive = currentStep === step.id;
-            const isPast = maxStep > step.id || (currentStep > step.id);
-            const isUnlocked = maxStep >= step.id;
-            
-            return (
-              <React.Fragment key={step.id}>
-                <div 
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 group transition-all duration-200",
-                    isUnlocked ? "cursor-pointer" : "opacity-30 cursor-not-allowed"
-                  )} 
-                  onClick={() => isUnlocked && setCurrentStep(step.id)}
-                >
-                  <div className={cn(
-                    "h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center transition-all duration-300 border-2",
-                    isActive ? "bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/10" : 
-                    isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-100 text-slate-400 bg-slate-50"
-                  )}>
-                    <step.icon size={16} className={cn(
-                      isActive || isPast ? "text-white" : "text-slate-400"
-                    )} />
-                  </div>
-                  <span className={cn(
-                    "text-[9px] font-bold uppercase tracking-widest text-center",
-                    isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400"
-                  )}>
-                    {step.name}
-                  </span>
+    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-info font-inter">
+      {initialData?.admissionMeta?.officeRemarks && (
+        <div className="max-w-6xl mx-auto mb-8 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 md:p-6 flex items-start gap-4 shadow-sm">
+                <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+                    <CheckCircle className="text-red-600" size={20} />
                 </div>
-                {index < steps.length - 2 && ( // Changed from length - 1 to length - 2 to skip connector to step 10
-                  <div className={cn(
-                    "h-px flex-1 mx-1 md:mx-2",
-                    isPast ? "bg-emerald-200" : "bg-slate-100"
-                  )} />
-                )}
-              </React.Fragment>
-            );
-          })}
+                <div className="space-y-1">
+                    <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Requirement / Correction Needed</h4>
+                    <p className="text-xs font-bold text-red-700 leading-relaxed italic">
+                        "{initialData.admissionMeta.officeRemarks}"
+                    </p>
+                    <p className="text-[10px] font-medium text-red-500 pt-1">
+                        Please update your information/documents as mentioned above.
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto mb-10 overflow-x-auto no-scrollbar pb-2">
+        <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
+            {steps.map((step, index) => {
+              const isActive = currentStep === step.id;
+              const isPast = (currentStep > step.id);
+              const isUnlocked = maxStep >= step.id;
+              
+              return (
+                <React.Fragment key={step.id}>
+                  <div 
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 group transition-all duration-200",
+                      isUnlocked ? "cursor-pointer" : "opacity-30 cursor-not-allowed"
+                    )} 
+                    onClick={() => isUnlocked && setCurrentStep(step.id)}
+                  >
+                    <div className={cn(
+                      "h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center transition-all duration-300 border-2",
+                      isActive ? "bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/10" : 
+                      isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-100 text-slate-400 bg-slate-50"
+                    )}>
+                      <step.icon size={16} className={cn(
+                        isActive || isPast ? "text-white" : "text-slate-400"
+                      )} />
+                    </div>
+                    <span className={cn(
+                      "text-[9px] font-bold uppercase tracking-widest text-center",
+                      isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400"
+                    )}>
+                      {step.name}
+                    </span>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className={cn(
+                      "h-px flex-1 mx-1 md:mx-2",
+                      isPast ? "bg-emerald-200" : "bg-slate-100"
+                    )} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </div>
       
-      {(currentStep === 9 || maxStep >= 10) && (
-        <div className="flex justify-end max-w-4xl mx-auto px-1">
+      {(currentStep === 9 || maxStep >= 9) && (
+        <div className="flex justify-end max-w-6xl mx-auto px-1 mb-4">
           <button
             type="button"
             onClick={() => generateAdmissionPDF(methods.getValues(), methods.getValues("studentBio.firstName") + " " + methods.getValues("studentBio.lastName"))}
@@ -293,10 +319,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
         </div>
       )}
 
-
-
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 mb-6">
-        {/* Form Content */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 mb-6 max-w-6xl mx-auto">
         <div className="p-4 md:p-8 flex flex-col bg-white">
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
@@ -310,15 +333,15 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 {currentStep === 7 && <BankStep />}
                 {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
                 {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} />}
-                {currentStep === 10 && <DeclarationStep />}
-                {currentStep === 11 && <SubmissionSuccessStep data={methods.getValues()} />}
+                {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} />}
               </div>
             </form>
           </FormProvider>
 
-          {currentStep < 11 && (
+          {currentStep < 10 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button
+                type="button"
                 onClick={prevStep}
                 disabled={currentStep === 1}
                 className="w-full md:w-auto group flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl text-slate-600 font-bold hover:bg-slate-200/50 transition-all duration-200 disabled:opacity-30 border border-slate-100 md:border-transparent hover:border-slate-200"
@@ -326,7 +349,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
               </button>
               
-              {currentStep < 10 ? (
+              {currentStep < 9 ? (
                 <button
                   type="button"
                   onClick={nextStep}
@@ -336,6 +359,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={methods.handleSubmit(onSubmit)}
                   disabled={loading}
                   className="w-full md:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all duration-200 shadow-2xl shadow-blue-600/30 disabled:opacity-70"
@@ -347,8 +371,6 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
               )}
             </div>
           )}
-          
-
         </div>
       </div>
     </div>
@@ -360,7 +382,8 @@ const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase 
 
 const ErrorMessage = ({ error }: { error: any }) => {
   if (!error) return null;
-  return <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-1 animate-in fade-in slide-in-from-top-1">This field is required</p>;
+  const message = error.message || "This field is required";
+  return <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-1 animate-in fade-in slide-in-from-top-1">{message}</p>;
 };
 
 const getInputClass = (error: any) => cn(
@@ -436,7 +459,7 @@ function BioStep() {
 }
 
 function ProfileStatsStep() {
-    const { register, watch } = useFormContext();
+    const { register, watch, formState: { errors } } = useFormContext();
     return (
       <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="space-y-1">
@@ -446,12 +469,20 @@ function ProfileStatsStep() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-1">
-                <label className={labelStyles}>Aadhaar Number (12 Digits)</label>
-                <input {...register("studentBio.aadhaarNumber")} className={inputStyles} placeholder="0000 0000 0000" maxLength={12} />
+                <label className={labelStyles}>Aadhaar Number (12 Digits)*</label>
+                <input {...register("studentBio.aadhaarNumber", { 
+                    required: "Student Aadhaar is required", 
+                    pattern: { value: /^\d{12}$/, message: "Must be 12 digits" } 
+                })} className={getInputClass((errors.studentBio as any)?.aadhaarNumber)} placeholder="0000 0000 0000" maxLength={12} />
+                <ErrorMessage error={(errors.studentBio as any)?.aadhaarNumber} />
             </div>
             <div className="space-y-1">
-                <label className={labelStyles}>Samagra ID</label>
-                <input {...register("studentBio.samagraId")} className={inputStyles} placeholder="9 Digit ID" />
+                <label className={labelStyles}>Samagra ID*</label>
+                <input {...register("studentBio.samagraId", { 
+                    required: "Samagra ID is required", 
+                    pattern: { value: /^\d{9}$/, message: "Must be 9 digits" } 
+                })} className={getInputClass((errors.studentBio as any)?.samagraId)} placeholder="9 Digit ID" maxLength={9} />
+                <ErrorMessage error={(errors.studentBio as any)?.samagraId} />
             </div>
             <div className="space-y-1">
                 <label className={labelStyles}>Blood Group</label>
@@ -589,7 +620,7 @@ function AddressStep() {
 }
 
 function AcademicStep() {
-  const { register } = useFormContext();
+  const { register, formState: { errors } } = useFormContext();
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1">
@@ -599,8 +630,9 @@ function AcademicStep() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-1 md:col-span-2">
-          <label className={labelStyles}>Last School Name</label>
-          <input {...register("previousAcademic.schoolName")} className={inputStyles} placeholder="Enter full school name" />
+          <label className={labelStyles}>Last School Name*</label>
+          <input {...register("previousAcademic.schoolName", { required: "Last school name is required" })} className={getInputClass((errors.previousAcademic as any)?.schoolName)} placeholder="Enter full school name" />
+          <ErrorMessage error={(errors.previousAcademic as any)?.schoolName} />
         </div>
         <div className="grid grid-cols-2 gap-4 md:col-span-2">
             <div className="space-y-1">
@@ -727,9 +759,19 @@ function ParentsStep() {
                   <ErrorMessage error={parentErrors?.mobileNumber} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className={labelStyles}>Occupation</label>
-                <input {...register(`parentsGuardians.${index}.occupation`)} className={inputStyles} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-1">
+                  <label className={labelStyles}>Occupation</label>
+                  <input {...register(`parentsGuardians.${index}.occupation`)} className={inputStyles} />
+                </div>
+                <div className="space-y-1">
+                  <label className={labelStyles}>Aadhaar Number*</label>
+                  <input {...register(`parentsGuardians.${index}.aadhaarNumber`, { 
+                      required: "Parent Aadhaar is required", 
+                      pattern: { value: /^\d{12}$/, message: "Must be 12 digits" } 
+                  })} className={getInputClass(parentErrors?.aadhaarNumber)} placeholder="12 Digit Aadhaar" maxLength={12} />
+                  <ErrorMessage error={parentErrors?.aadhaarNumber} />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className={labelStyles}>Qualification</label>
@@ -744,7 +786,7 @@ function ParentsStep() {
 }
 
 function BankStep() {
-  const { register } = useFormContext();
+  const { register, formState: { errors } } = useFormContext();
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1">
@@ -754,20 +796,31 @@ function BankStep() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-1">
-          <label className={labelStyles}>Bank Name</label>
-          <input {...register("bankDetails.bankName")} className={inputStyles} />
+          <label className={labelStyles}>Bank Name*</label>
+          <input {...register("bankDetails.bankName", { required: "Bank name is required" })} className={getInputClass((errors.bankDetails as any)?.bankName)} placeholder="e.g. State Bank of India" />
+          <ErrorMessage error={(errors.bankDetails as any)?.bankName} />
         </div>
         <div className="space-y-1">
-          <label className={labelStyles}>IFSC Code</label>
-          <input {...register("bankDetails.ifscCode")} className={inputStyles} />
+          <label className={labelStyles}>IFSC Code*</label>
+          <input {...register("bankDetails.ifscCode", { 
+              required: "IFSC code is required",
+              pattern: { value: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: "Invalid IFSC format (e.g. SBIN0001234)" }
+          })} className={getInputClass((errors.bankDetails as any)?.ifscCode)} placeholder="11 Digit IFSC" maxLength={11} />
+          <ErrorMessage error={(errors.bankDetails as any)?.ifscCode} />
         </div>
         <div className="space-y-1 md:col-span-2">
-          <label className={labelStyles}>Account Holder Name</label>
-          <input {...register("bankDetails.accountHolderName")} className={inputStyles} />
+          <label className={labelStyles}>Account Holder Name*</label>
+          <input {...register("bankDetails.accountHolderName", { required: "Account holder name is required" })} className={getInputClass((errors.bankDetails as any)?.accountHolderName)} placeholder="Same as in passbook" />
+          <ErrorMessage error={(errors.bankDetails as any)?.accountHolderName} />
         </div>
         <div className="space-y-1 md:col-span-2">
-          <label className={labelStyles}>Account Number</label>
-          <input {...register("bankDetails.accountNumber")} className={inputStyles} />
+          <label className={labelStyles}>Account Number*</label>
+          <input {...register("bankDetails.accountNumber", { 
+              required: "Account number is required",
+              minLength: { value: 9, message: "Min 9 digits" },
+              maxLength: { value: 18, message: "Max 18 digits" }
+          })} className={getInputClass((errors.bankDetails as any)?.accountNumber)} placeholder="Enter 9 to 18 digits" />
+          <ErrorMessage error={(errors.bankDetails as any)?.accountNumber} />
         </div>
       </div>
     </div>

@@ -14,7 +14,7 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const onSubmit = async (data: any) => {
     setLoading(true);
-    const result = await createInquiry(data);
+    const result = await createInquiry(data) as any;
     setLoading(false);
     
     if (result.success) {
@@ -47,39 +47,74 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Student Name</label>
             <input 
-              {...register("studentName", { required: true })}
+              {...register("studentName", { required: "Student Name is required" })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               placeholder="Full Name"
             />
+            {errors.studentName && <p className="text-xs text-red-500 mt-1">{errors.studentName.message as string}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Parent/Guardian Name</label>
             <input 
-              {...register("parentName", { required: true })}
+              {...register("parentName", { required: "Parent Name is required" })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               placeholder="Name"
             />
+            {errors.parentName && <p className="text-xs text-red-500 mt-1">{errors.parentName.message as string}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Email Address</label>
             <input 
-              {...register("email", { required: true, pattern: /^\S+@\S+$/i })}
+              {...register("email", { 
+                required: "Email is required", 
+                pattern: { value: /^\S+@\S+$/i, message: "Invalid email address" } 
+              })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               placeholder="email@example.com"
             />
+            {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message as string}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Phone Number</label>
             <input 
-              {...register("phone", { required: true })}
+              {...register("phone", { 
+                required: "Phone is required",
+                pattern: { value: /^\d{10}$/, message: "Must be 10 digits" }
+              })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-              placeholder="+91 XXXXX XXXXX"
+              placeholder="10 digit mobile number"
             />
+            {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message as string}</p>}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Aadhaar Card Number</label>
+            <input 
+              {...register("aadhaarNumber", { 
+                required: "Aadhaar is required", 
+                pattern: { value: /^\d{12}$/, message: "Must be 12 digits" } 
+              })}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              placeholder="12 digit Aadhaar number"
+            />
+            {errors.aadhaarNumber && <p className="text-xs text-red-500 mt-1">{errors.aadhaarNumber.message as string}</p>}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Create Password</label>
+            <input 
+              type="password"
+              {...register("password", { 
+                required: "Password is required", 
+                minLength: { value: 6, message: "Min 6 characters" } 
+              })}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              placeholder="••••••••"
+            />
+            {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message as string}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Applying for Class</label>
             <select 
-              {...register("appliedClass", { required: true })}
+              {...register("appliedClass", { required: "Please select a class" })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
             >
               <option value="">Select Class</option>
@@ -87,6 +122,7 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
+            {errors.appliedClass && <p className="text-xs text-red-500 mt-1">{errors.appliedClass.message as string}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Academic Year</label>

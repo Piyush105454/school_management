@@ -47,11 +47,11 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
     const entrance = adm.entranceTest;
     const home = adm.homeVisit;
 
-    if (step >= 11) {
-      if (isFullyAdmitted) return 14;
-      if (home && home.status === "PASS") return 13;
-      if (entrance && entrance.status === "PASS") return 12;
-      return 11;
+    if (step >= 12) {
+      if (isFullyAdmitted) return 15;
+      if (home && home.status === "PASS") return 14;
+      if (entrance && entrance.status === "PASS") return 13;
+      return 12;
     }
     return step;
   };
@@ -67,12 +67,13 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
       6: { name: "Parents", icon: Users, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-100" },
       7: { name: "Bank", icon: CreditCard, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
       8: { name: "Docs", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-      9: { name: "Finalize", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
-      10: { name: "Verification", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-      11: { name: "Entrance Test", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100" },
-      12: { name: "Home Visit", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-      13: { name: "Approval", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-      14: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+      9: { name: "Final Review", icon: Clock, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+      10: { name: "Pending Office Review", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+      11: { name: "Verified", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+      12: { name: "Entrance Test", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100" },
+      13: { name: "Home Visit", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+      14: { name: "Approval", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+      15: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
     };
     const c = stepsConf[computedStep] || { name: `Step ${computedStep}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
     const Icon = c.icon;
@@ -85,12 +86,13 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
 
   const getStatusBadge = (adm: any) => {
     const computedStep = getComputedStep(adm);
-    if (computedStep >= 14) return <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider">Admitted</span>;
-    if (computedStep === 13) return <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase tracking-wider">Approval</span>;
-    if (computedStep === 12) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Home Visit</span>;
-    if (computedStep === 11) return <span className="text-[10px] font-black text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 uppercase tracking-wider">Entrance Test</span>;
-    if (computedStep === 10) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Verifying</span>;
-    if (computedStep === 9) return <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100 uppercase tracking-wider">Submitted</span>;
+    if (computedStep >= 15) return <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider">Admitted</span>;
+    if (computedStep === 14) return <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase tracking-wider">Approval</span>;
+    if (computedStep === 13) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Home Visit</span>;
+    if (computedStep === 12) return <span className="text-[10px] font-black text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 uppercase tracking-wider">Entrance Test</span>;
+    if (computedStep === 11) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Documents Verified</span>;
+    if (computedStep === 10) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Awaiting Verification</span>;
+    if (computedStep === 9) return <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 uppercase tracking-wider">Final Approval Pending</span>;
     return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Drafting</span>;
   };
 
@@ -127,6 +129,7 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
               <tr>
+                <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Applied Class</th>
                 <th className="px-6 py-4">Current Step</th>
@@ -139,6 +142,11 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
             <tbody className="divide-y divide-slate-100">
               {admissions.map((adm) => (
                 <tr key={adm.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-6 py-4">
+                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 whitespace-nowrap">
+                      {adm.entryNumber?.replace(/^E/, 'A').replace(/^INQ-/, 'A') || "N/A"}
+                    </span>
+                  </td>
                   <td className="px-6 py-4">
                     <div>
                       <p className="font-semibold text-slate-900">{adm.inquiry?.studentName}</p>
@@ -162,13 +170,13 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                         <div 
                           className={cn(
                             "h-full transition-all duration-1000",
-                            adm.profile?.admissionStep >= 9 ? "w-full bg-green-500" : "bg-blue-500"
+                            adm.profile?.admissionStep >= 11 ? "w-full bg-green-500" : "bg-blue-500"
                           )}
-                          style={{ width: `${Math.min((adm.profile?.admissionStep / 9) * 100, 100)}%` }}
+                          style={{ width: `${Math.min((getComputedStep(adm) / 15) * 100, 100)}%` }}
                         />
                       </div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                        {Math.min(Math.round((adm.profile?.admissionStep / 9) * 100), 100)}% Complete
+                        {Math.min(Math.round((getComputedStep(adm) / 15) * 100), 100)}% Complete
                       </p>
                     </div>
                   </td>

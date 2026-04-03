@@ -31,8 +31,8 @@ import { signOut } from "next-auth/react";
 
 const officeItems = [
   { name: "Dashboard", href: "/office/dashboard", icon: LayoutDashboard },
-  { name: "Inquiries", href: "/office/inquiries?tab=inquiries", icon: FileText, baseHref: "/office/inquiries" },
-  { name: "Admissions Progress", href: "/office/inquiries?tab=admissions", icon: UserCheck, baseHref: "/office/inquiries" },
+  { name: "Inquiries", href: "/office/inquiries", icon: FileText },
+  { name: "Admissions Progress", href: "/office/admissions-progress", icon: UserCheck },
   { name: "Doc Verification", href: "/office/document-verification", icon: FileText },
   { name: "Entrance Tests", href: "/office/entrance-tests", icon: ClipboardCheck },
   { name: "Home Visits", href: "/office/home-visits", icon: Users },
@@ -158,11 +158,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
             if (isCollapsed) return null;
 
             let isActive = pathname === regularItem.href;
-            if (role === "OFFICE" && regularItem.baseHref === "/office/inquiries") {
-              const currentTab = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab');
-              const targetTab = new URL(regularItem.href, 'http://x').searchParams.get('tab');
-              isActive = pathname === regularItem.baseHref && currentTab === targetTab;
-            }
 
             return (
               <Link

@@ -2,29 +2,80 @@
 
 import { db } from "@/db";
 import { inquiries, users, studentProfiles, admissionMeta } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
 export async function createInquiry(data: any) {
   try {
-    if (!data.studentName || !data.email || !data.phone) {
-       throw new Error("Missing required fields: Student Name, Email, and Phone are mandatory.");
+    if (!data.studentName || !data.email || !data.phone || !data.aadhaarNumber || !data.password) {
+       throw new Error("Missing required fields: Student Name, Email, Phone, Aadhaar, and Password are mandatory.");
     }
 
-    const entryNumber = `INQ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const result = await db.insert(inquiries).values({
-      studentName: data.studentName,
-      parentName: data.parentName || "",
-      email: data.email,
-      phone: data.phone,
-      appliedClass: data.appliedClass || "",
-      academicYear: data.academicYear || "2026-27",
-      entryNumber,
-    }).returning();
+    if (!/^\d{12}$/.test(data.aadhaarNumber)) {
+      throw new Error("Aadhaar Number must be exactly 12 digits.");
+    }
+
+    // 1. Check if user already exists
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.email, data.email),
+    });
+    if (existingUser) throw new Error("A user with this email already exists.");
+
+    const academicYear = data.academicYear || "2026-27";
     
-    revalidatePath("/office/inquiries");
-    return { success: true, data: result[0] };
+    // 2. Generate Sequential ID: E[Year] [Sequence] (e.g., E2026-27 001)
+    const inquiryCount = await db.select({ value: count() })
+      .from(inquiries)
+      .where(eq(inquiries.academicYear, academicYear));
+    
+    const nextNumber = (inquiryCount[0].value + 1).toString().padStart(3, '0');
+    const entryNumberE = `E${academicYear} ${nextNumber}`;
+    const entryNumberA = `A${academicYear} ${nextNumber}`;
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    return await db.transaction(async (tx) => {
+      // 3. Create Inquiry
+      const [inquiry] = await tx.insert(inquiries).values({
+        studentName: data.studentName,
+        parentName: data.parentName || "",
+        email: data.email,
+        phone: data.phone,
+        appliedClass: data.appliedClass || "",
+        academicYear,
+        entryNumber: entryNumberE,
+        aadhaarNumber: data.aadhaarNumber,
+        passwordPlain: data.password,
+        status: "SHORTLISTED",
+      }).returning();
+
+      // 3. Create User
+      const [user] = await tx.insert(users).values({
+        email: data.email,
+        password: hashedPassword,
+        role: "STUDENT_PARENT",
+        phone: data.phone,
+      }).returning();
+
+      // 4. Create AdmissionMeta
+      const [meta] = await tx.insert(admissionMeta).values({
+        inquiryId: inquiry.id,
+        academicYear: inquiry.academicYear,
+        entryNumber: entryNumberA,
+        admissionType: "NEW",
+      }).returning();
+
+      // 5. Create StudentProfile
+      await tx.insert(studentProfiles).values({
+        userId: user.id,
+        admissionMetaId: meta.id,
+        admissionStep: 1,
+      });
+
+      revalidatePath("/office/inquiries");
+      return { success: true, data: inquiry };
+    });
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -61,7 +112,7 @@ export async function shortlistInquiry(id: string) {
       const [meta] = await tx.insert(admissionMeta).values({
         inquiryId: inquiry.id,
         academicYear: inquiry.academicYear,
-        entryNumber: inquiry.entryNumber!,
+        entryNumber: inquiry.entryNumber?.startsWith('E') ? inquiry.entryNumber.replace('E', 'A') : (inquiry.entryNumber || ""),
         admissionType: "NEW",
       }).returning();
 

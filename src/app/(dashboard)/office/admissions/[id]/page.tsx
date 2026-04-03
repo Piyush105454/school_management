@@ -42,7 +42,14 @@ export default async function AdminAdmissionViewPage({ params }: { params: Promi
         </Link>
         <div className="text-right">
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Office Application Review</p>
-          <p className="text-sm font-bold text-slate-900">{(admission as any).inquiry?.studentName}</p>
+          <div className="flex flex-col items-end">
+            <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+              {(admission as any).inquiry?.studentName}
+            </p>
+            <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md mt-1 italic">
+              Applied Class: {(admission as any).inquiry?.appliedClass || "N/A"}
+            </p>
+          </div>
         </div>
       </div>
 

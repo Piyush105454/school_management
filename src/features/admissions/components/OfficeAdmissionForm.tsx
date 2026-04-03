@@ -27,7 +27,7 @@ import {
   MapPinned
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark } from "../actions/admissionActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 
@@ -41,12 +41,11 @@ const steps = [
   { id: 6, name: "Parents", icon: Users },
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
-  { id: 9, name: "Finalize", icon: CheckCircle },
-  { id: 10, name: "Complete", icon: CheckCircle },
+  { id: 9, name: "Complete", icon: CheckCircle },
 ];
 
 export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
-  const [currentStep, setCurrentStep] = useState(maxStep > 10 ? 10 : maxStep);
+  const [currentStep, setCurrentStep] = useState(maxStep >= 11 ? 9 : Math.max(1, Math.min(maxStep, 8)));
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -158,9 +157,16 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
     const currentFields = fieldsByStep[currentStep];
     const isValid = await methods.trigger(currentFields);
     if (isValid) {
+      if (currentStep === 8) {
+        const docs = methods.getValues("documents");
+        if (!docs?.studentPhoto || !docs?.marksheet) {
+          alert("Student Photo and Previous Marksheet are mandatory!");
+          return;
+        }
+      }
       setLoading(true);
       const prevStepVal = currentStep;
-      setCurrentStep(prev => Math.min(prev + 1, steps.length));
+      setCurrentStep(prev => Math.min(prev + 1, 9));
       const data = methods.getValues();
       const stepData: any = { [currentFields]: data[currentFields as keyof typeof data] };
       const saveRes = await saveAdmissionStep(admissionId, stepData, prevStepVal) as any;
@@ -188,35 +194,57 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
   };
 
   return (
-    <div className="max-w-4xl mx-auto my-4 md:my-8 space-y-4 md:space-y-6">
-      <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
-          {steps.map((step, index) => {
-            const isActive = currentStep === step.id;
-            const isPast = (currentStep > step.id);
-            const isUnlocked = true; 
-            
-            return (
-              <React.Fragment key={step.id}>
-                <div className="flex flex-col items-center gap-1.5 group transition-all duration-200 cursor-pointer" onClick={() => setCurrentStep(step.id)}>
-                  <div className={cn(
-                    "h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center transition-all duration-300 border-2",
-                    isActive ? "bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/10" : 
-                    isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-100 text-slate-400 bg-slate-50"
-                  )}>
-                    <step.icon size={16} className={cn(isActive || isPast ? "text-white" : "text-slate-400")} />
-                  </div>
-                  <span className={cn("text-[9px] font-bold uppercase tracking-widest text-center", isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400")}>
-                    {step.name}
-                  </span>
+    <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-inter">
+      {initialData?.admissionMeta?.officeRemarks && (
+        <div className="max-w-6xl mx-auto mb-8 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 md:p-6 flex items-start gap-4 shadow-sm">
+                <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="text-red-600" size={20} />
                 </div>
-                {index < steps.length - 1 && (
-                  <div className={cn("h-px flex-1 mx-1 md:mx-2", isPast ? "bg-emerald-200" : "bg-slate-100")} />
-                )}
-              </React.Fragment>
-            );
-          })}
+                <div className="space-y-1">
+                    <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Requirement / Correction Needed</h4>
+                    <p className="text-xs font-bold text-red-700 leading-relaxed italic">
+                        "{initialData.admissionMeta.officeRemarks}"
+                    </p>
+                    <p className="text-[10px] font-medium text-red-500 pt-1">
+                        Please update your information/documents as mentioned above.
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
 
+      <div className="max-w-6xl mx-auto mb-10 overflow-x-auto no-scrollbar pb-2">
+        <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[750px] px-2 md:px-4">
+            {steps.map((step, index) => {
+              const isActive = currentStep === step.id;
+              const isPast = (currentStep > step.id);
+              const isUnlocked = true; 
+              
+              return (
+                <React.Fragment key={step.id}>
+                  <div className="flex flex-col items-center gap-1.5 group transition-all duration-200 cursor-pointer" onClick={() => setCurrentStep(step.id)}>
+                    <div className={cn(
+                      "h-8 w-8 md:h-9 md:w-9 rounded-lg flex items-center justify-center transition-all duration-300 border-2",
+                      isActive ? "bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/10" : 
+                      isPast ? "bg-emerald-500 border-emerald-500" : "border-slate-100 text-slate-400 bg-slate-50"
+                    )}>
+                      <step.icon size={16} className={cn(isActive || isPast ? "text-white" : "text-slate-400")} />
+                    </div>
+                    <span className={cn("text-[9px] font-bold uppercase tracking-widest text-center", isActive ? "text-blue-600" : isPast ? "text-emerald-600" : "text-slate-400")}>
+                      {step.name}
+                    </span>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className={cn(
+                      "h-px flex-1 mx-1 md:mx-2",
+                      isPast ? "bg-emerald-200" : "bg-slate-100")} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -248,18 +276,16 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
                   {currentStep === 5 && <SiblingsStep />}
                   {currentStep === 6 && <ParentsStep />}
                   {currentStep === 7 && <BankStep />}
-                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} />}
-                  {currentStep === 9 && <DeclarationStep />}
+                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 9 && <SubmissionSuccessStep data={initialData} />}
                 </fieldset>
-                {currentStep === 10 && <SubmissionSuccessStep data={initialData} />}
-
               </div>
 
 
             </form>
           </FormProvider>
 
-          {currentStep < 10 && (
+          {currentStep < 9 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button 
                 type="button"
@@ -316,7 +342,8 @@ const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase 
 
 const ErrorMessage = ({ error }: { error: any }) => {
   if (!error) return null;
-  return <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-1 animate-in fade-in slide-in-from-top-1">This field is required</p>;
+  const message = error.message || "This field is required";
+  return <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-1 animate-in fade-in slide-in-from-top-1">{message}</p>;
 };
 
 const getInputClass = (error: any) => cn(
@@ -392,7 +419,7 @@ function BioStep() {
 }
 
 function ProfileStatsStep() {
-    const { register, watch } = useFormContext();
+    const { register, watch, formState: { errors } } = useFormContext();
     return (
       <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="space-y-1">
@@ -402,12 +429,20 @@ function ProfileStatsStep() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-1">
-                <label className={labelStyles}>Aadhaar Number (12 Digits)</label>
-                <input {...register("studentBio.aadhaarNumber")} className={inputStyles} placeholder="0000 0000 0000" maxLength={12} />
+                <label className={labelStyles}>Aadhaar Number (12 Digits)*</label>
+                <input {...register("studentBio.aadhaarNumber", { 
+                    required: "Student Aadhaar is required", 
+                    pattern: { value: /^\d{12}$/, message: "Must be 12 digits" } 
+                })} className={getInputClass((errors.studentBio as any)?.aadhaarNumber)} placeholder="0000 0000 0000" maxLength={12} />
+                <ErrorMessage error={(errors.studentBio as any)?.aadhaarNumber} />
             </div>
             <div className="space-y-1">
-                <label className={labelStyles}>Samagra ID</label>
-                <input {...register("studentBio.samagraId")} className={inputStyles} placeholder="9 Digit ID" />
+                <label className={labelStyles}>Samagra ID*</label>
+                <input {...register("studentBio.samagraId", { 
+                    required: "Samagra ID is required", 
+                    pattern: { value: /^\d{9}$/, message: "Must be 9 digits" } 
+                })} className={getInputClass((errors.studentBio as any)?.samagraId)} placeholder="9 Digit ID" maxLength={9} />
+                <ErrorMessage error={(errors.studentBio as any)?.samagraId} />
             </div>
             <div className="space-y-1">
                 <label className={labelStyles}>Blood Group</label>
@@ -545,7 +580,7 @@ function AddressStep() {
 }
 
 function AcademicStep() {
-  const { register } = useFormContext();
+  const { register, formState: { errors } } = useFormContext();
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1">
@@ -555,8 +590,9 @@ function AcademicStep() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-1 md:col-span-2">
-          <label className={labelStyles}>Last School Name</label>
-          <input {...register("previousAcademic.schoolName")} className={inputStyles} placeholder="Enter full school name" />
+          <label className={labelStyles}>Last School Name*</label>
+          <input {...register("previousAcademic.schoolName", { required: "Last school name is required" })} className={getInputClass((errors.previousAcademic as any)?.schoolName)} placeholder="Enter full school name" />
+          <ErrorMessage error={(errors.previousAcademic as any)?.schoolName} />
         </div>
         <div className="grid grid-cols-2 gap-4 md:col-span-2">
             <div className="space-y-1">
@@ -636,9 +672,19 @@ function ParentsStep() {
                   <ErrorMessage error={parentErrors?.mobileNumber} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className={labelStyles}>Occupation</label>
-                <input {...register(`parentsGuardians.${index}.occupation`)} className={inputStyles} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-1">
+                  <label className={labelStyles}>Occupation</label>
+                  <input {...register(`parentsGuardians.${index}.occupation`)} className={inputStyles} />
+                </div>
+                <div className="space-y-1">
+                  <label className={labelStyles}>Aadhaar Number*</label>
+                  <input {...register(`parentsGuardians.${index}.aadhaarNumber`, { 
+                      required: "Parent Aadhaar is required", 
+                      pattern: { value: /^\d{12}$/, message: "Must be 12 digits" } 
+                  })} className={getInputClass(parentErrors?.aadhaarNumber)} placeholder="12 Digit Aadhaar" maxLength={12} />
+                  <ErrorMessage error={parentErrors?.aadhaarNumber} />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className={labelStyles}>Qualification</label>
@@ -653,7 +699,7 @@ function ParentsStep() {
 }
 
 function BankStep() {
-    const { register } = useFormContext();
+    const { register, formState: { errors } } = useFormContext();
     return (
       <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="space-y-1">
@@ -661,17 +707,40 @@ function BankStep() {
           <p className="text-xs md:text-sm text-slate-500 font-medium">Step 7: For scholarship and DBT.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            <div className="space-y-1"><label className={labelStyles}>Bank Name</label><input {...register("bankDetails.bankName")} className={inputStyles} /></div>
-            <div className="space-y-1"><label className={labelStyles}>IFSC Code</label><input {...register("bankDetails.ifscCode")} className={inputStyles} /></div>
-            <div className="space-y-1 md:col-span-2"><label className={labelStyles}>Account Holder Name</label><input {...register("bankDetails.accountHolderName")} className={inputStyles} /></div>
-            <div className="space-y-1 md:col-span-2"><label className={labelStyles}>Account Number</label><input {...register("bankDetails.accountNumber")} className={inputStyles} /></div>
+            <div className="space-y-1">
+                <label className={labelStyles}>Bank Name*</label>
+                <input {...register("bankDetails.bankName", { required: "Bank name is required" })} className={getInputClass((errors.bankDetails as any)?.bankName)} placeholder="e.g. State Bank of India" />
+                <ErrorMessage error={(errors.bankDetails as any)?.bankName} />
+            </div>
+            <div className="space-y-1">
+                <label className={labelStyles}>IFSC Code*</label>
+                <input {...register("bankDetails.ifscCode", { 
+                    required: "IFSC code is required",
+                    pattern: { value: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: "Invalid IFSC format (e.g. SBIN0001234)" }
+                })} className={getInputClass((errors.bankDetails as any)?.ifscCode)} placeholder="11 Digit IFSC" maxLength={11} />
+                <ErrorMessage error={(errors.bankDetails as any)?.ifscCode} />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+                <label className={labelStyles}>Account Holder Name*</label>
+                <input {...register("bankDetails.accountHolderName", { required: "Account holder name is required" })} className={getInputClass((errors.bankDetails as any)?.accountHolderName)} placeholder="Same as in passbook" />
+                <ErrorMessage error={(errors.bankDetails as any)?.accountHolderName} />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+                <label className={labelStyles}>Account Number*</label>
+                <input {...register("bankDetails.accountNumber", { 
+                    required: "Account number is required",
+                    minLength: { value: 9, message: "Min 9 digits" },
+                    maxLength: { value: 18, message: "Max 18 digits" }
+                })} className={getInputClass((errors.bankDetails as any)?.accountNumber)} placeholder="Enter 9 to 18 digits" />
+                <ErrorMessage error={(errors.bankDetails as any)?.accountNumber} />
+            </div>
         </div>
       </div>
     );
 }
 
-function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
-  const { watch } = useFormContext();
+function OfficeDocumentsStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  const { watch, setValue } = useFormContext();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fetchingDoc, setFetchingDoc] = useState<string | null>(null);
 
@@ -683,11 +752,19 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
     { id: "affidavit", name: "Affidavit", hindi: "माता-पिता का शपथ पत्र" },
     { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र" },
     { id: "scholarshipSlip", name: "Scholarship Slip", hindi: "छात्रवृत्ति पर्ची" },
-  ];
+  ];  const [remark, setRemark] = useState((initialData?.admissionMeta?.officeRemarks as string) || "");
+  const [savingRemark, setSavingRemark] = useState(false);
 
-
-
-
+  const handleSaveRemark = async (unlock: boolean) => {
+    setSavingRemark(true);
+    const res = await saveOfficeRemark(admissionId, remark, unlock);
+    setSavingRemark(false);
+    if (res.success) {
+      alert(unlock ? "Remark saved and Document step UNLOCKED for student!" : "Remark saved successfully.");
+    } else {
+      alert("Error saving remark: " + ((res as any).error));
+    }
+  };
   const handlePreview = async (docId: string) => {
     setFetchingDoc(docId);
     const res = await getDocumentContent(admissionId, docId);
@@ -699,8 +776,55 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
     }
   };
 
+  const handleDelete = async (docId: string) => {
+    if (!confirm(`Are you sure you want to REJECT and DELETE this document (${docId})?`)) return;
+    setFetchingDoc(docId);
+    const res = await deleteDocument(admissionId, docId);
+    setFetchingDoc(null);
+    if (res.success) {
+      setValue(`documents.${docId}`, null);
+      alert("Document deleted successfully. Status is now PENDING.");
+    } else {
+      alert("Error deleting document: " + res.error);
+    }
+  };
+
+  const [verifying, setVerifying] = useState(false);
+
+  const documents = watch("documents") || {};
+  const isGeneral = initialData?.studentBio?.caste === "GEN";
+
+  const missingDocs = [
+    !documents.studentPhoto && "Student Photo",
+    !documents.birthCertificate && "Birth Certificate",
+    !documents.marksheet && "Previous Marksheet",
+    !documents.affidavit && "Affidavit",
+    (!isGeneral && !documents.casteCertificate) && "Caste Certificate"
+  ].filter(Boolean) as string[];
+
+  const canVerify = missingDocs.length === 0;
+
+  const handleVerifyAll = async () => {
+    if (!canVerify) {
+      alert("Missing required documents: " + missingDocs.join(", "));
+      return;
+    }
+    if (!confirm("Are all documents verified? This will mark the application as 100% complete.")) return;
+    
+    setVerifying(true);
+    const res = await verifyAdmission(admissionId);
+    setVerifying(false);
+    
+    if (res.success) {
+      alert("Documents Verified Successfully! Application is now 100% complete.");
+      window.location.reload();
+    } else {
+      alert("Error: " + res.error);
+    }
+  };
+
   return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
       <div className="space-y-1 text-center">
         <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Review Documents</h3>
         <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: Verify all uploaded records.</p>
@@ -708,10 +832,8 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
       
       <div className="space-y-2 md:space-y-3">
         {documentList.map((doc) => {
-          const { watch, formState: { errors } } = useFormContext();
           const fileData = watch(`documents.${doc.id}`);
-          const hasError = (errors.documents as any)?.[doc.id];
-          // Let's use formState from useFormContext
+          
           return (
             <DocumentRow 
                 key={doc.id} 
@@ -719,9 +841,67 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
                 fileData={fileData} 
                 fetching={fetchingDoc === doc.id}
                 onPreview={() => handlePreview(doc.id)}
+                onDelete={() => handleDelete(doc.id)}
             />
           );
         })}
+      </div>
+
+      <div className="mt-10 p-6 bg-slate-50 rounded-[32px] border border-blue-100 shadow-inner space-y-6">
+        <div className="flex items-center gap-3 px-2">
+            <ClipboardCheck size={18} className="text-blue-500" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Admission Office Remark</span>
+        </div>
+        
+        <textarea 
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            className="w-full text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-2xl p-5 min-h-[120px] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm"
+            placeholder="Type document problems or verification remarks here..."
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+                type="button"
+                onClick={() => handleSaveRemark(false)}
+                disabled={savingRemark}
+                className="px-6 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+                {savingRemark && !verifying ? <Loader2 size={16} className="animate-spin" /> : "Save Remark Only"}
+            </button>
+            <button
+                type="button"
+                onClick={() => handleSaveRemark(true)}
+                disabled={savingRemark}
+                className="px-6 py-4 bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl font-black text-xs hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
+            >
+                <UserCheck size={16} /> Mark Correction Needed
+            </button>
+        </div>
+
+        <button
+            type="button"
+            onClick={handleVerifyAll}
+            disabled={verifying || !canVerify}
+            className={cn(
+                "w-full px-6 py-5 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95",
+                canVerify ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed grayscale"
+            )}
+        >
+            {verifying ? <Loader2 size={18} className="animate-spin" /> : <Verified size={18} />}
+            {canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
+        </button>
+
+        {!canVerify && (
+            <div className="bg-red-50/50 border border-red-100 rounded-xl p-3 text-center">
+                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">
+                    Missing: {missingDocs.join(" | ")}
+                </p>
+                <p className="text-[8px] font-bold text-red-400 uppercase tracking-widest mt-0.5">
+                    (TC and Scholarship Slip are Optional)
+                </p>
+            </div>
+        )}
       </div>
 
       {previewUrl && (
@@ -760,7 +940,7 @@ function OfficeDocumentsStep({ admissionId }: { admissionId: string }) {
   );
 }
 
-function DocumentRow({ doc, fileData, fetching, onPreview }: { doc: any, fileData: any, fetching: boolean, onPreview: () => void }) {
+function DocumentRow({ doc, fileData, fetching, onPreview, onDelete }: { doc: any, fileData: any, fetching: boolean, onPreview: () => void, onDelete: () => void }) {
   const { formState: { errors } } = useFormContext();
   const hasError = (errors.documents as any)?.[doc.id];
   
@@ -785,9 +965,17 @@ function DocumentRow({ doc, fileData, fetching, onPreview }: { doc: any, fileDat
                 type="button"
                 disabled={fetching}
                 onClick={onPreview}
-                className="h-8 w-8 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50"
+                className="h-8 w-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
             >
                 {fetching ? <Loader2 size={14} className="animate-spin" /> : <Eye size={16} />}
+            </button>
+            <button 
+                type="button"
+                disabled={fetching}
+                onClick={onDelete}
+                className="h-8 w-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
+            >
+                {fetching ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={16} />}
             </button>
           </div>
         ) : (
@@ -801,50 +989,6 @@ function DocumentRow({ doc, fileData, fetching, onPreview }: { doc: any, fileDat
 }
 
 
-function DeclarationStep() {
-  const { register, formState: { errors } } = useFormContext();
-  return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-1 text-center">
-        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Decision & Review</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium font-bold">Step 9: Final office verification.</p>
-      </div>
-
-      <div className="p-6 md:p-8 rounded-2xl md:rounded-[32px] bg-white border border-blue-50 shadow-sm space-y-6 md:space-y-8 max-w-2xl mx-auto">
-        <div className="flex flex-col items-center gap-4 text-center">
-            <div className="h-16 w-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center shadow-inner">
-                <CheckCircle size={32} />
-            </div>
-            <div>
-                <h4 className="text-lg font-black uppercase">Verify Documentation</h4>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest leading-relaxed mt-1">
-                    Please ensure you have reviewed all documents in Step 8. 
-                    Verification will allow the student to proceed to the Entrance Test.
-                </p>
-            </div>
-        </div>
-
-        <div className="space-y-6 md:space-y-8">
-          <div>
-            <label className={cn(
-              "flex items-center gap-4 md:gap-5 p-4 md:p-6 rounded-xl md:rounded-3xl cursor-pointer group transition-all",
-              (errors.declaration as any)?.declarationAccepted ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50"
-            )}>
-              <input type="checkbox" {...register("declaration.declarationAccepted", { required: true })} className="h-6 w-6 md:h-7 md:w-7 rounded-lg border-2 border-slate-300 text-blue-600 cursor-pointer" />
-              <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", (errors.declaration as any)?.declarationAccepted ? "text-red-600" : "text-slate-700")}>Verified All Documents</span>
-            </label>
-            <ErrorMessage error={(errors.declaration as any)?.declarationAccepted} />
-          </div>
-
-          <div className="space-y-1">
-            <label className={cn(labelStyles, "text-center")}>Student Name Reference</label>
-            <input {...register("declaration.guardianName")} className={cn(getInputClass(null), "text-center text-lg md:text-xl font-black font-outfit uppercase border-t-0 border-l-0 border-r-0 rounded-none bg-transparent")} placeholder="Reference Name" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SubmissionSuccessStep({ data }: { data: any }) {
   const bio = data.studentBio || {};

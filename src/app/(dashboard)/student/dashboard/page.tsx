@@ -138,8 +138,32 @@ export default async function StudentDashboard() {
     <div className="space-y-6 md:space-y-8">
       {/* Application Progress Tracker */}
       <div className="bg-white rounded-xl p-4 md:p-8 border border-slate-200">
-        <h2 className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-6 md:mb-8 text-center bg-slate-50 py-2 rounded-lg border border-slate-100/50">Admission Progress Tracker</h2>
-        
+        {/* Quick Alert for Office Remarks */}
+        {profile.admissionMeta?.officeRemarks && (
+          <div className="max-w-4xl mx-auto mb-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-5 md:p-6 flex items-start gap-5 shadow-xl shadow-red-100/50">
+              <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
+                <AlertCircle className="text-red-600" size={24} />
+              </div>
+              <div className="space-y-1.5 flex-1 pt-1">
+                <h4 className="text-[10px] font-black text-red-900 uppercase tracking-[0.2em]">Requirement / Correction Needed</h4>
+                <p className="text-sm font-bold text-red-700 leading-tight italic">
+                  "{profile.admissionMeta.officeRemarks}"
+                </p>
+                <p className="text-[10px] font-bold text-red-400 pt-1 uppercase tracking-widest">
+                  Please update your information/documents as mentioned above.
+                </p>
+              </div>
+              <Link 
+                href="/student/admission" 
+                className="hidden md:flex bg-red-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95 self-center"
+              >
+                Go to Form
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Simplified Next Action Card */}
         <div className="max-w-4xl mx-auto mb-8">
             <div className="bg-blue-600 rounded-3xl p-6 md:p-8 text-white shadow-2xl shadow-blue-100 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden transition-all">

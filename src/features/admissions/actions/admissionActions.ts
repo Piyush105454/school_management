@@ -317,6 +317,41 @@ export async function getDocumentContent(admissionId: string, fieldName: string)
   } catch (error: any) {
     return { success: false, error: error.message };
   }
+}export async function deleteDocument(admissionId: string, fieldName: string) {
+  try {
+    await db.update(studentDocuments)
+      .set({ [fieldName]: null, updatedAt: new Date() })
+      .where(eq(studentDocuments.admissionId, admissionId));
+    
+    revalidatePath("/office/inquiries");
+    revalidatePath("/student/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function saveOfficeRemark(admissionId: string, remark: string, unlockDocs: boolean = false) {
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.update(admissionMeta)
+        .set({ officeRemarks: remark, updatedAt: new Date() })
+        .where(eq(admissionMeta.id, admissionId));
+      
+      if (unlockDocs) {
+        // If we are unlocking, set the student's progress back to Step 8 (Docs)
+        await tx.update(studentProfiles)
+          .set({ admissionStep: 8 })
+          .where(eq(studentProfiles.admissionMetaId, admissionId));
+      }
+      
+      revalidatePath("/office/inquiries");
+      revalidatePath("/student/dashboard");
+      return { success: true };
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
 
 export async function getAdmissionData(admissionId: string, lite: boolean = false) {

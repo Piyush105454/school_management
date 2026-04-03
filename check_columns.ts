@@ -3,20 +3,16 @@ import { sql } from "drizzle-orm";
 
 async function check() {
   try {
-    const tables = ['users', 'student_profiles', 'admission_meta', 'entrance_tests'];
-    for (const table of tables) {
-      console.log(`\nColumns for ${table}:`);
-      const result = await db.execute(sql`
-        SELECT column_name, data_type 
-        FROM information_schema.columns 
-        WHERE table_name = ${table}
-      `);
-      console.log(JSON.stringify(result.rows, null, 2));
-    }
-  } catch (err) {
-    console.error("Error:", err);
+    const res = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'parent_guardian_details';
+    `);
+    console.log("COLUMNS:", JSON.stringify((res as any).rows));
+    process.exit(0);
+  } catch(e) {
+    console.error("DB error:", e);
+    process.exit(1);
   }
-  process.exit(0);
 }
-
 check();

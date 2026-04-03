@@ -29,6 +29,7 @@ export const inquiries = pgTable("inquiries", {
   academicYear: text("academic_year").notNull(),
   status: inquiryStatusEnum("status").default("PENDING").notNull(),
   entryNumber: text("entry_number").unique(),
+  aadhaarNumber: text("aadhaar_number"),
   passwordPlain: text("password_plain"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -46,6 +47,7 @@ export const admissionMeta = pgTable("admission_meta", {
   appliedScholarship: boolean("applied_scholarship").default(false).notNull(),
   awardedScholarship: boolean("awarded_scholarship").default(false).notNull(),
   scholarshipAmount: integer("scholarship_amount").default(0).notNull(),
+  officeRemarks: text("office_remarks"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -118,11 +118,13 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
               <tr>
+                <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Parent</th>
+                <th className="px-6 py-4">Aadhaar</th>
                 <th className="px-6 py-4">Phone</th>
                 <th className="px-6 py-4">Class</th>
-                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4">Date</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
@@ -131,20 +133,26 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
               {filteredInquiries.map((inq) => (
                 <tr key={inq.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
-                    <div>
-                      <p className="font-semibold text-slate-900">{inq.studentName}</p>
-                      <p className="text-xs text-slate-500">{inq.email}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{inq.parentName}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{inq.phone}</td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs font-medium px-2 py-1 bg-blue-50 text-blue-600 rounded-md">
-                      Class {inq.appliedClass}
+                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 whitespace-nowrap">
+                      {inq.entryNumber || '---'}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border ${
+                    <div>
+                      <p className="font-semibold text-slate-900 leading-tight">{inq.studentName}</p>
+                      <p className="text-[10px] text-slate-500">{inq.email}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-slate-600">{inq.parentName}</td>
+                  <td className="px-6 py-4 text-xs text-slate-600 font-mono">{inq.aadhaarNumber || '---'}</td>
+                  <td className="px-6 py-4 text-xs text-slate-600">{inq.phone}</td>
+                  <td className="px-6 py-4">
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                      {inq.appliedClass}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
                       inq.status === 'SHORTLISTED' 
                         ? 'bg-green-50 text-green-600 border-green-100' 
                         : 'bg-yellow-50 text-yellow-600 border-yellow-100'
@@ -152,7 +160,7 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                       {inq.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-500">
+                  <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">
                     {new Date(inq.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -214,6 +222,13 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                 <div>
                   <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Student Name</p>
                   <p className="text-lg font-black text-slate-900">{selectedInquiry.studentName}</p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Aadhaar Number</p>
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <code className="text-slate-600 font-bold">{selectedInquiry.aadhaarNumber || 'Not provided'}</code>
                 </div>
               </div>
 
