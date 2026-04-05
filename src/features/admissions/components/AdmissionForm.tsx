@@ -367,7 +367,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
                 </fieldset>
-                {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} />}
+                {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
               </div>
             </form>
           </FormProvider>
@@ -1036,7 +1036,7 @@ function DeclarationStep() {
   );
 }
 
-function SubmissionSuccessStep({ data }: { data: any }) {
+function SubmissionSuccessStep({ data, onDownload, downloading }: { data: any, onDownload: (type: 'ADMISSION' | 'FULL_PACKAGE') => void, downloading: boolean }) {
   const bio = data.studentBio || {};
   const addr = data.address || {};
   const parents = data.parentsGuardians || [];
@@ -1109,11 +1109,11 @@ function SubmissionSuccessStep({ data }: { data: any }) {
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 md:pt-8">
             <button
                 type="button"
-                disabled={loading}
-                onClick={() => handleDownloadWithFullData('ADMISSION')}
+                disabled={downloading}
+                onClick={() => onDownload('ADMISSION')}
                 className="w-full md:w-auto group flex items-center justify-center gap-4 px-10 py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-[0.15em] text-xs hover:bg-blue-700 transition-all duration-300 shadow-2xl shadow-blue-500/20 active:scale-95 disabled:opacity-50"
             >
-                {loading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} className="group-hover:translate-y-1 transition-transform" />}
+                {downloading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} className="group-hover:translate-y-1 transition-transform" />}
                 Download Application PDF
             </button>
             
