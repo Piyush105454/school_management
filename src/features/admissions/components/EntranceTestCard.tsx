@@ -14,7 +14,7 @@ import {
   XCircle,
   ClipboardList
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatTime } from "@/lib/utils";
 
 interface EntranceTestCardProps {
   testData: any;
@@ -55,8 +55,8 @@ export function EntranceTestCard({ testData, studentName }: EntranceTestCardProp
 
       {/* TEST DETAILS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DetailItem icon={<Calendar size={20} />} label="Date" value={testDate || "To be decided"} />
-        <DetailItem icon={<Clock size={20} />} label="Time" value={testTime || "To be decided"} />
+        <DetailItem icon={<Calendar size={20} />} label="Date" value={formatDate(testDate)} />
+        <DetailItem icon={<Clock size={20} />} label="Time" value={formatTime(testTime)} />
         <DetailItem icon={<MapPinned size={20} />} label="Location" value={location || "School Premises"} className="md:col-span-2" />
         <DetailItem icon={<Users size={20} />} label="Teacher" value={teacherName || "-"} />
         <DetailItem icon={<Phone size={20} />} label="Contact" value={contactNumber || "-"} />
@@ -79,7 +79,7 @@ export function EntranceTestCard({ testData, studentName }: EntranceTestCardProp
                 <h4 className={cn("text-lg font-black uppercase italic", status === "PASS" ? "text-emerald-700" : "text-red-700")}>
                     Test Result: {status}
                 </h4>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Released on {testData.resultDate ? new Date(testData.resultDate).toLocaleDateString() : 'recently'}</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Released on {testData.resultDate ? formatDate(new Date(testData.resultDate).toISOString().split('T')[0]) : 'recently'}</p>
              </div>
           </div>
           

@@ -19,7 +19,7 @@ import {
   FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, getDocumentContent } from "../actions/admissionActions";
 import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
 
 
@@ -213,8 +213,8 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
     if (isValid) {
       if (currentStep === 8) {
         const docs = methods.getValues("documents");
-        if (!docs?.studentPhoto || !docs?.marksheet) {
-          alert("Student Photo and Previous Marksheet are mandatory!");
+        if (!docs?.studentPhoto) {
+          alert("Student Photo is mandatory!");
           return;
         }
       }
@@ -239,6 +239,37 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
   };
 
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+  
+  const handleDownloadWithFullData = async (type: 'ADMISSION' | 'FULL_PACKAGE') => {
+    setLoading(true);
+    const data = methods.getValues();
+    
+    // Check if critical documents are "lite" placeholders and fetch them
+    if (data.documents?.studentPhoto === "__EXISTING__") {
+      try {
+        const res = await getDocumentContent(admissionId, "studentPhoto");
+        if (res.success && res.content) {
+          data.documents.studentPhoto = res.content;
+        }
+      } catch (e) {
+        console.error("Failed to fetch student photo:", e);
+      }
+    }
+    
+    try {
+      const studentName = data.studentBio?.firstName ? `${data.studentBio.firstName} ${data.studentBio.lastName}` : "Student";
+      if (type === 'ADMISSION') {
+        generateAdmissionPDF(data, studentName);
+      } else {
+        await generateMergedApplicationPDF(data, studentName);
+      }
+    } catch (e) {
+      console.error("Download error:", e);
+      alert("Error generating PDF. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-info font-inter">
@@ -311,10 +342,11 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
         <div className="flex justify-end max-w-6xl mx-auto px-1 mb-4">
           <button
             type="button"
-            onClick={() => generateAdmissionPDF(methods.getValues(), methods.getValues("studentBio.firstName") + " " + methods.getValues("studentBio.lastName"))}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-black uppercase tracking-widest text-[10px] bg-blue-50/80 backdrop-blur-sm px-5 py-2.5 rounded-xl border border-blue-100/80 transition-all hover:bg-blue-100 hover:shadow-sm"
+            disabled={loading}
+            onClick={() => handleDownloadWithFullData('ADMISSION')}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-black uppercase tracking-widest text-[10px] bg-blue-50/80 backdrop-blur-sm px-5 py-2.5 rounded-xl border border-blue-100/80 transition-all hover:bg-blue-100 hover:shadow-sm disabled:opacity-50"
           >
-            <Download size={14} /> Download Application PDF
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Download Application PDF
           </button>
         </div>
       )}
@@ -324,15 +356,17 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
               <div className="max-w-3xl mx-auto">
-                {currentStep === 1 && <BioStep />}
-                {currentStep === 2 && <ProfileStatsStep />}
-                {currentStep === 3 && <AddressStep />}
-                {currentStep === 4 && <AcademicStep />}
-                {currentStep === 5 && <SiblingsStep />}
-                {currentStep === 6 && <ParentsStep />}
-                {currentStep === 7 && <BankStep />}
-                {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
-                {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} />}
+                <fieldset disabled={maxStep >= 10 && currentStep < 9} className="contents shadow-none border-none p-0 m-0">
+                  {currentStep === 1 && <BioStep />}
+                  {currentStep === 2 && <ProfileStatsStep />}
+                  {currentStep === 3 && <AddressStep />}
+                  {currentStep === 4 && <AcademicStep />}
+                  {currentStep === 5 && <SiblingsStep />}
+                  {currentStep === 6 && <ParentsStep />}
+                  {currentStep === 7 && <BankStep />}
+                  {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
+                  {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
+                </fieldset>
                 {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} />}
               </div>
             </form>
@@ -349,7 +383,15 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
               </button>
               
-              {currentStep < 9 ? (
+              {currentStep === 9 && maxStep >= 10 ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(10)}
+                  className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all duration-200 shadow-xl shadow-emerald-900/10"
+                >
+                  Return to Confirmation <CheckCircle size={22} className="group-hover:scale-110 transition-transform" />
+                </button>
+              ) : currentStep < 9 ? (
                 <button
                   type="button"
                   onClick={nextStep}
@@ -873,7 +915,7 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">
       <div className="space-y-1 text-center">
         <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Upload Documents</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: All documents are mandatory.</p>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: Upload required & optional documents.</p>
       </div>
       
       <div className="space-y-2 md:space-y-3">
@@ -897,7 +939,7 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
               <div className="flex items-center gap-2">
                 <input 
                   type="hidden" 
-                  {...register(`documents.${doc.id}`, { required: true })} 
+                  {...register(`documents.${doc.id}`, { required: doc.id === "studentPhoto" })} 
                 />
                 
                 {fileData ? (
@@ -1067,10 +1109,11 @@ function SubmissionSuccessStep({ data }: { data: any }) {
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 md:pt-8">
             <button
                 type="button"
-                onClick={() => generateAdmissionPDF(data, `${bio.firstName} ${bio.lastName}`)}
-                className="w-full md:w-auto group flex items-center justify-center gap-4 px-10 py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-[0.15em] text-xs hover:bg-blue-700 transition-all duration-300 shadow-2xl shadow-blue-500/20 active:scale-95"
+                disabled={loading}
+                onClick={() => handleDownloadWithFullData('ADMISSION')}
+                className="w-full md:w-auto group flex items-center justify-center gap-4 px-10 py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-[0.15em] text-xs hover:bg-blue-700 transition-all duration-300 shadow-2xl shadow-blue-500/20 active:scale-95 disabled:opacity-50"
             >
-                <Download size={20} className="group-hover:translate-y-1 transition-transform" /> 
+                {loading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} className="group-hover:translate-y-1 transition-transform" />}
                 Download Application PDF
             </button>
             
@@ -1094,20 +1137,8 @@ function SubmissionSuccessStep({ data }: { data: any }) {
   );
 }
 
-function DownloadApplicationStep({ data }: { data: any }) {
-  const [downloading, setDownloading] = React.useState(false);
-  
-  const handleDownload = async () => {
-     setDownloading(true);
-     try {
-         const studentName = data.studentBio?.firstName ? `${data.studentBio.firstName} ${data.studentBio.lastName}` : "Student";
-         await generateMergedApplicationPDF(data, studentName);
-     } catch (e) {
-         console.error(e);
-     } finally {
-         setDownloading(false);
-     }
-  };
+function DownloadApplicationStep({ data, onDownload, downloading }: { data: any, onDownload: (type: 'ADMISSION' | 'FULL_PACKAGE') => void, downloading: boolean }) {
+  const handleDownload = () => onDownload('FULL_PACKAGE');
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">

@@ -5,25 +5,44 @@ import { entranceTests } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+function sanitizeTestData(data: any) {
+  if (!data) return data;
+  const sanitized = { ...data };
+  
+  const numericFields = ["marksObtained", "graceMarks", "totalMarks"];
+  numericFields.forEach(field => {
+    if (sanitized[field] === "" || sanitized[field] === undefined || sanitized[field] === null) {
+      sanitized[field] = null;
+    } else if (typeof sanitized[field] === "string") {
+      const val = parseFloat(sanitized[field]);
+      sanitized[field] = isNaN(val) ? null : val;
+    }
+  });
+
+  return sanitized;
+}
+
 export async function scheduleEntranceTest(admissionId: string, data: any) {
   try {
     const existing = await db.query.entranceTests.findFirst({
       where: eq(entranceTests.admissionId, admissionId),
     });
 
+    const sanitizedData = sanitizeTestData(data);
+
     if (existing) {
       await db.update(entranceTests)
         .set({
-          ...data,
-          status: data.status || "PENDING",
+          ...sanitizedData,
+          status: sanitizedData.status || "PENDING",
           updatedAt: new Date(),
         })
         .where(eq(entranceTests.admissionId, admissionId));
     } else {
       await db.insert(entranceTests).values({
         admissionId,
-        ...data,
-        status: data.status || "PENDING",
+        ...sanitizedData,
+        status: sanitizedData.status || "PENDING",
       });
     }
 
@@ -49,22 +68,26 @@ export async function getEntranceTestData(admissionId: string) {
 
 export async function updateTestResult(
   admissionId: string, 
-  status: "PASS" | "FAIL", 
   remarks?: string,
   marksObtained?: string | number,
-  totalMarks?: string | number,
+  graceMarks?: string | number,
   reportLink?: string
 ) {
   try {
-    const marks = marksObtained ? parseFloat(marksObtained.toString()) : null;
-    const total = totalMarks ? parseFloat(totalMarks.toString()) : null;
+    const marks = marksObtained ? parseFloat(marksObtained.toString()) : 0;
+    const grace = graceMarks ? parseFloat(graceMarks.toString()) : 0;
+    const totalGained = marks + grace;
+    
+    // Auto-calculate status based on 33% threshold (Total Marks Fixed at 100)
+    const status = totalGained >= 33 ? "PASS" : "FAIL";
 
     await db.update(entranceTests)
       .set({
         status,
         remarks,
         marksObtained: marks,
-        totalMarks: total,
+        graceMarks: grace,
+        totalMarks: 100, // Fixed Total Marks
         reportLink: reportLink || null,
         resultDate: new Date(),
         updatedAt: new Date(),

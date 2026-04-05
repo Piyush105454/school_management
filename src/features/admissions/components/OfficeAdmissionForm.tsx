@@ -159,8 +159,8 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
     if (isValid) {
       if (currentStep === 8) {
         const docs = methods.getValues("documents");
-        if (!docs?.studentPhoto || !docs?.marksheet) {
-          alert("Student Photo and Previous Marksheet are mandatory!");
+        if (!docs?.studentPhoto) {
+          alert("Student Photo is mandatory!");
           return;
         }
       }
@@ -796,8 +796,6 @@ function OfficeDocumentsStep({ admissionId, initialData }: { admissionId: string
 
   const missingDocs = [
     !documents.studentPhoto && "Student Photo",
-    !documents.birthCertificate && "Birth Certificate",
-    !documents.marksheet && "Previous Marksheet",
     !documents.affidavit && "Affidavit",
     (!isGeneral && !documents.casteCertificate) && "Caste Certificate"
   ].filter(Boolean) as string[];
@@ -898,7 +896,7 @@ function OfficeDocumentsStep({ admissionId, initialData }: { admissionId: string
                     Missing: {missingDocs.join(" | ")}
                 </p>
                 <p className="text-[8px] font-bold text-red-400 uppercase tracking-widest mt-0.5">
-                    (TC and Scholarship Slip are Optional)
+                    (Birth Cert, Marksheet, TC and Scholarship Slip are Optional)
                 </p>
             </div>
         )}

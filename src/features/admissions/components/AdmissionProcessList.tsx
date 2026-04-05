@@ -42,18 +42,43 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   const [copied, setCopied] = useState(false);
 
   const getComputedStep = (adm: any) => {
-    const step = adm.profile?.admissionStep || 1;
-    const isFullyAdmitted = adm.profile?.isFullyAdmitted;
+    // 1. Highest priority: Fully Admitted
+    if (adm.profile?.isFullyAdmitted) return 15;
+
+    // 2. Next: Check for successful milestones
     const entrance = adm.entranceTest;
     const home = adm.homeVisit;
+    const scholarship = adm.awardedScholarship;
 
-    if (step >= 12) {
-      if (isFullyAdmitted) return 15;
-      if (home && home.status === "PASS") return 14;
-      if (entrance && entrance.status === "PASS") return 13;
+    // If home visit is passed, they are at Approval stage
+    if (home && home.status === "PASS") return 14;
+    
+    // If scholarship is awarded, treat as Approval stage (since they must be verified)
+    if (scholarship) return 14;
+
+    // If entrance test is passed, they are at Home Visit stage
+    if (entrance && entrance.status === "PASS") return 13;
+
+    // 3. Fallback to the saved step
+    const step = adm.profile?.admissionStep || 1;
+    
+    // Ensure we don't show "Verified" if they've moved onto entrance test/home visit status
+    if (step === 11 && (entrance || home)) {
       return 12;
     }
+
     return step;
+  };
+
+  const getStepRedirect = (adm: any) => {
+    const step = getComputedStep(adm);
+    if (step <= 9) return `/office/admissions/${adm.id}`;
+    if (step === 10 || step === 11) return `/office/document-verification`;
+    if (step === 12) return `/office/entrance-tests`;
+    if (step === 13) return `/office/home-visits`;
+    if (step === 14) return `/office/final-admissions`;
+    if (step === 15) return `/office/admissions/${adm.id}`;
+    return "#";
   };
 
   const getStepBadge = (adm: any) => {
@@ -69,31 +94,51 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
       8: { name: "Docs", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
       9: { name: "Final Review", icon: Clock, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
       10: { name: "Pending Office Review", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-      11: { name: "Verified", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+      11: { name: "Document Verification", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
       12: { name: "Entrance Test", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100" },
       13: { name: "Home Visit", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-      14: { name: "Approval", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+      14: { name: "Final Approved", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
       15: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
     };
     const c = stepsConf[computedStep] || { name: `Step ${computedStep}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
     const Icon = c.icon;
+    const redirectUrl = getStepRedirect(adm);
+
     return (
-      <span className={cn("flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border", c.color, c.bg, c.border)}>
-        <Icon size={12}/> {c.name}
-      </span>
+      <Link 
+        href={redirectUrl}
+        className={cn(
+          "inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-all hover:scale-105 active:scale-95 group/badge cursor-pointer", 
+          c.color, c.bg, c.border
+        )}
+      >
+        <Icon size={12} className="group-hover/badge:rotate-12 transition-transform"/> {c.name}
+      </Link>
     );
   };
 
   const getStatusBadge = (adm: any) => {
     const computedStep = getComputedStep(adm);
-    if (computedStep >= 15) return <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider">Admitted</span>;
-    if (computedStep === 14) return <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase tracking-wider">Approval</span>;
+    const hasScholarship = adm.awardedScholarship;
+
+    if (computedStep >= 15) return (
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider text-center">Admitted</span>
+        {hasScholarship && <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter text-center italic">Scholarship Reward</span>}
+      </div>
+    );
+    if (computedStep === 14) return (
+       <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase tracking-wider text-center">Final Approved</span>
+          {hasScholarship && <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter text-center italic">Scholarship Reward</span>}
+       </div>
+    );
     if (computedStep === 13) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Home Visit</span>;
     if (computedStep === 12) return <span className="text-[10px] font-black text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 uppercase tracking-wider">Entrance Test</span>;
-    if (computedStep === 11) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Documents Verified</span>;
+    if (computedStep === 11) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Document Verified</span>;
     if (computedStep === 10) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Awaiting Verification</span>;
     if (computedStep === 9) return <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 uppercase tracking-wider">Final Approval Pending</span>;
-    return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Drafting</span>;
+    return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Drafting Application</span>;
   };
 
 
@@ -144,7 +189,7 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                 <tr key={adm.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 whitespace-nowrap">
-                      {adm.entryNumber?.replace(/^E/, 'A').replace(/^INQ-/, 'A') || "N/A"}
+                      {adm.entryNumber || "N/A"}
                     </span>
                   </td>
                   <td className="px-6 py-4">

@@ -1,6 +1,17 @@
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import * as schema from './schema';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-export const db = drizzle(pool, { schema });
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is missing in environment variables");
+}
+
+const globalForDb = globalThis as unknown as {
+  db: ReturnType<typeof drizzle<typeof schema>> | undefined;
+};
+
+export const db = globalForDb.db ?? drizzle(postgres(connectionString), { schema });
+
+if (process.env.NODE_ENV !== "production") globalForDb.db = db;

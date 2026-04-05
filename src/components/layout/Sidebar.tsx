@@ -33,7 +33,7 @@ const officeItems = [
   { name: "Dashboard", href: "/office/dashboard", icon: LayoutDashboard },
   { name: "Inquiries", href: "/office/inquiries", icon: FileText },
   { name: "Admissions Progress", href: "/office/admissions-progress", icon: UserCheck },
-  { name: "Doc Verification", href: "/office/document-verification", icon: FileText },
+  { name: "Doc Verification & Affidavit Upload", href: "/office/document-verification", icon: FileText },
   { name: "Entrance Tests", href: "/office/entrance-tests", icon: ClipboardCheck },
   { name: "Home Visits", href: "/office/home-visits", icon: Users },
   { name: "Final Approvals", href: "/office/final-admissions", icon: ClipboardCheck },
@@ -79,7 +79,7 @@ const teacherItems = [
 const studentItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Admission Form", href: "/student/admission", icon: FileText },
-  { name: "Doc Verification", href: "/student/document-verification", icon: UserCheck },
+  { name: "Doc Verification & Affidavit Upload", href: "/student/document-verification", icon: UserCheck },
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
   { name: "Final Option", href: "/student/final-admission", icon: ClipboardCheck },
@@ -107,7 +107,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       ...officeItems.slice(0, 1),
       { type: "section", name: "Admissions" },
       ...officeItems.slice(1, 3),
-      { name: "View Applications", href: "/office/applications", icon: Eye },
       ...officeItems.slice(3)
     ]
     : role === "TEACHER"

@@ -7,29 +7,28 @@ import { AdmissionsManager } from "@/features/admissions/components/AdmissionsMa
 export const dynamic = "force-dynamic";
 
 export default async function AdmissionsProgressPage() {
-  const allAdmissions = await db.query.admissionMeta.findMany({
+  // Re-fetch with everything joined to be safe and fast (single roundtrip)
+  const fullResults = await db.query.admissionMeta.findMany({
     with: {
       inquiry: true,
       entranceTest: true,
       homeVisit: true,
+      studentProfile: {
+        with: {
+          user: true
+        }
+      }
     },
     orderBy: [desc(admissionMeta.createdAt)],
   });
 
-  const admissionsWithDetail = await Promise.all(allAdmissions.map(async (adm) => {
-    const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.admissionMetaId, adm.id),
-        with: {
-          user: true
-        }
-    });
-    return {
-        ...adm,
-        profile
-    };
+  // Map studentProfile to profile for the component to consume correctly
+  const mappedResults = fullResults.map(adm => ({
+    ...adm,
+    profile: adm.studentProfile
   }));
 
   return (
-    <AdmissionsManager admissions={admissionsWithDetail} />
+    <AdmissionsManager admissions={mappedResults} />
   );
 }

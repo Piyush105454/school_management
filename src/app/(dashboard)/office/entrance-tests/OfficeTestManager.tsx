@@ -14,7 +14,7 @@ import {
   ChevronDown,
   ChevronUp
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatTime } from "@/lib/utils";
 import { scheduleEntranceTest, updateTestResult } from "@/features/admissions/actions/testActions";
 import { finalizeFinalAdmission } from "@/features/admissions/actions/admissionActions";
 
@@ -30,16 +30,29 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
     status: applicant.entranceTest?.status || "NOT_SCHEDULED",
     remarks: applicant.entranceTest?.remarks || "",
     marksObtained: applicant.entranceTest?.marksObtained || "",
-    totalMarks: applicant.entranceTest?.totalMarks || "",
+    graceMarks: applicant.entranceTest?.graceMarks || "",
+    totalMarks: "100", // Fixed Total Marks
     reportLink: applicant.entranceTest?.reportLink || ""
   });
 
-
   const studentName = applicant.inquiry?.studentName || "Unknown Applicant";
-  const status = testData.status;
+  
+  // LIVE STATUS PREVIEW
+  const marks = parseFloat(testData.marksObtained?.toString() || "0");
+  const grace = parseFloat(testData.graceMarks?.toString() || "0");
+  const totalGained = marks + grace;
+  const calculatedStatus = totalGained >= 33 ? "PASS" : "FAIL";
+  const currentStatus = testData.status;
 
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation
+    if (!testData.testDate || !testData.testTime || !testData.location || !testData.teacherName) {
+      alert("Please fill all mandatory fields: Date, Time, Location, and Teacher.");
+      return;
+    }
+
     setLoading(true);
     // Don't pass status - let the action set it to PENDING
     const { status, ...dataWithoutStatus } = testData;
@@ -53,26 +66,28 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
     }
   };
 
-  const handleStatusChange = async (newStatus: "PASS" | "FAIL") => {
-    if (!testData.marksObtained) {
-      alert("Please fill Marks Obtained before updating result.");
+  const handleSubmitResult = async () => {
+    if (testData.marksObtained === "") {
+      alert("Please fill Marks Obtained before submitting.");
       return;
     }
-    if (!confirm(`Mark ${studentName} as ${newStatus}?`)) return;
+    
+    const confirmMsg = `Submit result for ${studentName}?\nTotal Gained: ${totalGained} (Marks: ${marks}, Grace: ${grace})\nStatus: ${calculatedStatus}`;
+    if (!confirm(confirmMsg)) return;
+
     setLoading(true);
     const res = await updateTestResult(
-
       applicant.id, 
-      newStatus, 
       testData.remarks,
       testData.marksObtained,
-      testData.totalMarks,
+      testData.graceMarks,
       testData.reportLink
     );
     setLoading(false);
+    
     if (res.success) {
-      setTestData({ ...testData, status: newStatus });
-      alert(`Result Updated to ${newStatus}`);
+      setTestData({ ...testData, status: calculatedStatus });
+      alert(`Result Submitted: ${calculatedStatus}`);
     } else {
       alert("Error updating result: " + res.error);
     }
@@ -106,13 +121,16 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
                 <h3 className="text-xl font-black text-slate-900 font-outfit uppercase tracking-tight italic">{studentName}</h3>
                 <div className="flex items-center gap-4 mt-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry: {applicant.entryNumber}</p>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest border-l-2 pl-3 border-slate-100">
+                      {testData.testDate ? `${formatDate(testData.testDate)} | ${formatTime(testData.testTime)}` : "NOT SCHEDULED"}
+                    </p>
                     <span className={cn(
-                        "px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest",
-                        status === "PASS" ? "bg-emerald-100 text-emerald-700" :
-                        status === "FAIL" ? "bg-red-100 text-red-700" :
-                        status === "PENDING" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
+                        "px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ml-auto",
+                        currentStatus === "PASS" ? "bg-emerald-100 text-emerald-700" :
+                        currentStatus === "FAIL" ? "bg-red-100 text-red-700" :
+                        currentStatus === "PENDING" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
                     )}>
-                        {status}
+                        {currentStatus}
                     </span>
                 </div>
             </div>
@@ -216,14 +234,23 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
                          />
                      </div>
                      <div className="space-y-1">
-                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Total Marks</label>
+                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Grace Marks</label>
                          <input 
-                             placeholder="e.g. 50"
+                             placeholder="e.g. 3"
                              type="number"
                              step="0.01"
-                             value={testData.totalMarks || ""}
-                             onChange={(e) => setTestData({ ...testData, totalMarks: e.target.value })}
+                             value={testData.graceMarks || ""}
+                             onChange={(e) => setTestData({ ...testData, graceMarks: e.target.value })}
                              className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                         />
+                     </div>
+                     <div className="col-span-2 space-y-1">
+                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 font-outfit">Total Marks (Fixed at 100)</label>
+                         <input 
+                             type="number"
+                             value="100"
+                             disabled
+                             className="w-full bg-slate-100 border-slate-100 text-slate-400 rounded-xl px-4 py-3 text-sm cursor-not-allowed font-black"
                          />
                      </div>
                   </div>
@@ -248,22 +275,34 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
                     />
                  </div>
 
+                  {testData.marksObtained !== "" && (
+                    <div className={cn(
+                        "p-4 rounded-2xl flex items-center justify-between border animate-in fade-in zoom-in-95 duration-500",
+                        calculatedStatus === "PASS" ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"
+                    )}>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Calculated Result</p>
+                            <p className={cn("text-lg font-black italic uppercase italic tracking-tighter", calculatedStatus === "PASS" ? "text-emerald-700" : "text-red-700")}>
+                                {calculatedStatus} ({totalGained}/100)
+                            </p>
+                        </div>
+                        <div className={cn(
+                            "h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-lg",
+                            calculatedStatus === "PASS" ? "bg-emerald-500 shadow-emerald-500/20" : "bg-red-500 shadow-red-500/20"
+                        )}>
+                            {calculatedStatus === "PASS" ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                        </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-4">
                     <button
                         type="button"
-                        onClick={() => handleStatusChange("PASS")}
-                        disabled={loading || status === "PASS"}
-                        className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-30"
+                        onClick={handleSubmitResult}
+                        disabled={loading}
+                        className="w-full bg-blue-600 text-white py-4.5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-blue-700 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 disabled:opacity-50"
                     >
-                        <CheckCircle size={14} /> MARKS AS PASS
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleStatusChange("FAIL")}
-                        disabled={loading || status === "FAIL"}
-                        className="flex-1 bg-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-red-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 disabled:opacity-30"
-                    >
-                        <XCircle size={14} /> MARK AS FAIL
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle size={20} /> SUBMIT RESULT</>}
                     </button>
                  </div>
 

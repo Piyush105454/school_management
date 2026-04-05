@@ -201,7 +201,6 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
         }
       }
 
-      // 9. Update Profile Step
       if (step) {
         await tx.update(studentProfiles)
           .set({ 
@@ -209,6 +208,11 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
           })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
+
+      // ALWAYS clear office remarks when the student is submitting/fixing their form
+      await tx.update(admissionMeta)
+        .set({ officeRemarks: null, updatedAt: new Date() })
+        .where(eq(admissionMeta.id, admissionId));
 
       revalidatePath("/office/inquiries");
       return { success: true };
@@ -404,6 +408,11 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       });
     }
 
+    // Fetch admissionMeta as well
+    const meta = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.id, admissionId)
+    });
+
     return {
       success: true,
       data: {
@@ -414,7 +423,8 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
         bankDetails: bank,
         documents: sanitizedDocs,
         declaration,
-        siblings: siblings || []
+        siblings: siblings || [],
+        admissionMeta: meta
       }
     };
   } catch (error: any) {
@@ -526,6 +536,11 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           .set({ admissionStep: step + 1 })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
+
+      // ALWAYS clear office remarks when the student is saving a step (fixing their form)
+      await tx.update(admissionMeta)
+        .set({ officeRemarks: null, updatedAt: new Date() })
+        .where(eq(admissionMeta.id, admissionId));
 
       return { success: true };
     });

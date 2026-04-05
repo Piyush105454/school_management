@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Upload, 
   FileText, 
@@ -8,24 +8,52 @@ import {
   AlertCircle, 
   Loader2,
   Download,
-  Eye
+  Eye,
+  Trash2,
+  Lock,
+  Send
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { uploadAffidavit } from "@/features/admissions/actions/documentActions";
+import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "@/features/admissions/actions/documentActions";
+import { useRouter } from "next/navigation";
 
 interface DocumentVerificationCardProps {
   docData: any;
+  checklistData: any;
   admissionId: string;
   studentName: string;
 }
 
-export function DocumentVerificationCard({ docData, admissionId, studentName }: DocumentVerificationCardProps) {
+export function DocumentVerificationCard({ docData, checklistData, admissionId, studentName }: DocumentVerificationCardProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
+  
+  // Local state for instant feedback
+  const [currentDocData, setCurrentDocData] = useState(docData);
+  const [currentChecklistData, setCurrentChecklistData] = useState(checklistData);
+
+  // Sync state when props change (from background router.refresh())
+  useEffect(() => {
+    setCurrentDocData(docData);
+  }, [docData]);
+
+  useEffect(() => {
+    setCurrentChecklistData(checklistData);
+  }, [checklistData]);
+
+  const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED";
+  const hasUploaded = !!currentDocData?.affidavit;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      setAffidavitFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File size exceeds 5MB limit. Please select a smaller file.");
+        e.target.value = "";
+        return;
+      }
+      setAffidavitFile(file);
     }
   };
 
@@ -40,22 +68,96 @@ export function DocumentVerificationCard({ docData, admissionId, studentName }: 
     formData.append("file", affidavitFile);
     formData.append("admissionId", admissionId);
 
-    const res = await uploadAffidavit(formData);
-    setLoading(false);
+    try {
+      const response = await fetch("/api/upload-affidavit", {
+        method: "POST",
+        body: formData,
+      });
 
-    if (res.success) {
-      alert("Affidavit uploaded successfully!");
-      setAffidavitFile(null);
-      window.location.reload();
-    } else {
-      alert("Error uploading file: " + res.error);
+      const res = await response.json();
+      
+      if (res.success) {
+        // Instant feedback: Generate a preview URL for the local state
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setCurrentDocData((prev: any) => ({
+            ...prev,
+            affidavit: reader.result as string
+          }));
+          setAffidavitFile(null);
+          setLoading(false);
+          router.refresh(); // Sync with server in background
+        };
+        reader.readAsDataURL(affidavitFile);
+      } else {
+        setLoading(false);
+        alert("Error uploading file: " + (res.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      setLoading(false);
+      alert("Network error: Upload failed. Please try again.");
+      console.error(err);
     }
   };
 
-  const handleViewPdf = () => {
-    if (docData?.affidavit) {
-      if (docData.affidavit.startsWith("data:application/pdf")) {
-        const base64Data = docData.affidavit.split(",")[1];
+  const handleRemove = async () => {
+    if (!confirm("Are you sure you want to remove this document?")) return;
+    
+    setLoading(true);
+    const res = await removeAffidavit(admissionId);
+
+    if (res.success) {
+      // Instant feedback
+      setCurrentDocData((prev: any) => ({
+        ...prev,
+        affidavit: null
+      }));
+      setLoading(false);
+      router.refresh(); // Sync with server in background
+    } else {
+      setLoading(false);
+      alert("Error removing document: " + res.error);
+    }
+  };
+
+  const handleSubmitFinal = async () => {
+    if (!confirm("Once submitted, you cannot edit or remove this document. Proceed?")) return;
+
+    setLoading(true);
+    const res = await submitAffidavit(admissionId);
+
+    if (res.success) {
+      // Instant feedback
+      setCurrentChecklistData((prev: any) => ({
+        ...prev,
+        parentAffidavit: "SUBMITTED"
+      }));
+      setLoading(false);
+      router.refresh(); // Sync with server in background
+    } else {
+      setLoading(false);
+      alert("Error submitting document: " + res.error);
+    }
+  };
+
+  const handleViewPdf = async () => {
+    let affidavit = currentDocData?.affidavit;
+    
+    if (affidavit === "PRESENT") {
+      setLoading(true);
+      const res = await getAffidavitContent(admissionId);
+      setLoading(false);
+      if (res.success && res.affidavit) {
+        affidavit = res.affidavit;
+      } else {
+        alert("Error loading document: " + (res.error || "Not found"));
+        return;
+      }
+    }
+
+    if (affidavit) {
+      if (affidavit.startsWith("data:application/pdf")) {
+        const base64Data = affidavit.split(",")[1];
         const byteCharacters = window.atob(base64Data);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -66,105 +168,164 @@ export function DocumentVerificationCard({ docData, admissionId, studentName }: 
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
       } else {
-        window.open(docData.affidavit, "_blank");
+        window.open(affidavit, "_blank");
       }
     }
   };
 
+  const handleDownload = async () => {
+    let affidavit = currentDocData?.affidavit;
+    
+    if (affidavit === "PRESENT") {
+      setLoading(true);
+      const res = await getAffidavitContent(admissionId);
+      setLoading(false);
+      if (res.success && res.affidavit) {
+        affidavit = res.affidavit;
+      } else {
+        alert("Error loading document: " + (res.error || "Not found"));
+        return;
+      }
+    }
+
+    if (affidavit) {
+      const link = document.createElement("a");
+      link.href = affidavit;
+      link.download = `affidavit_${studentName.replace(/\s+/g, "_")}.pdf`;
+      link.click();
+    }
+  };
+
   return (
-
     <div className="space-y-6">
-      {/* UPLOAD SECTION */}
-      <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
-        <div className="space-y-2">
-          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Affidavit Document</h3>
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Upload the affidavit document (PDF format recommended)
-          </p>
+      {/* LOCKED STATUS BANNER */}
+      {isFinalized && (
+        <div className="bg-slate-900 text-white p-6 rounded-[32px] border border-slate-800 flex items-center gap-4 shadow-xl shadow-slate-900/10 animate-in slide-in-from-top duration-500">
+          <div className="h-12 w-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <Lock size={24} />
+          </div>
+          <div>
+            <h4 className="text-lg font-black uppercase italic tracking-tight">Document Finalized & Locked</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Your affidavit has been officially submitted and cannot be modified.</p>
+          </div>
         </div>
+      )}
 
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-blue-300 transition-colors cursor-pointer group">
-            <input
-              type="file"
-              onChange={handleFileChange}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              className="hidden"
-              id="affidavit-upload"
-              disabled={loading}
-            />
-            <label htmlFor="affidavit-upload" className="cursor-pointer block">
-              <Upload className="mx-auto mb-3 text-slate-300 group-hover:text-blue-400 transition-colors" size={32} />
-              <p className="text-sm font-black text-slate-600 uppercase tracking-tight">
-                {affidavitFile ? affidavitFile.name : "Click to upload or drag and drop"}
-              </p>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mt-1">
-                PDF, DOC, DOCX, JPG, PNG (Max 10MB)
-              </p>
-            </label>
+      {/* UPLOAD SECTION (Visible only if not uploaded AND not finalized) */}
+      {!hasUploaded && !isFinalized && (
+        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-2">
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">Step 1: Upload Affidavit</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+              Scan and upload your document. PDF format recommended. (Max 5MB)
+            </p>
           </div>
 
-          <button
-            onClick={handleUpload}
-            disabled={loading || !affidavitFile}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" size={16} /> Uploading...
-              </>
-            ) : (
-              <>
-                <Upload size={16} /> Upload Affidavit
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* STATUS SECTION */}
-      {docData?.affidavit && (
-        <div className="bg-emerald-50 p-8 rounded-[32px] border border-emerald-100 shadow-sm space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <CheckCircle size={24} />
+          <div className="space-y-4">
+            <div className="border-2 border-dashed border-slate-100 rounded-3xl p-10 text-center hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer group relative overflow-hidden">
+              <input
+                type="file"
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                className="hidden"
+                id="affidavit-upload"
+                disabled={loading}
+              />
+              <label htmlFor="affidavit-upload" className="cursor-pointer block">
+                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-inner">
+                  <Upload size={32} />
+                </div>
+                <p className="text-sm font-black text-slate-600 uppercase tracking-tight mb-1">
+                  {affidavitFile ? affidavitFile.name : "Select File"}
+                </p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                  Drag and drop or click to browse
+                </p>
+              </label>
             </div>
-            <div>
-              <h4 className="text-lg font-black text-emerald-700 uppercase italic">Document Uploaded</h4>
-              <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Pending office verification</p>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleViewPdf}
-              className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
-            >
-              <Eye size={14} /> View Document
-            </button>
 
             <button
-              onClick={() => {
-                const link = document.createElement("a");
-                link.href = docData.affidavit;
-                link.download = "affidavit.pdf";
-                link.click();
-              }}
-              className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+              onClick={handleUpload}
+              disabled={loading || !affidavitFile}
+              className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 disabled:opacity-50 disabled:grayscale"
             >
-              <Download size={14} /> Download
+              {loading ? <><Loader2 className="animate-spin" size={18} /> Syncing...</> : <><Upload size={18} /> Upload For Review</>}
             </button>
           </div>
         </div>
       )}
 
-      {!docData?.affidavit && (
+      {/* REVIEW & SUBMIT SECTION (Visible if uploaded) */}
+      {hasUploaded && (
+        <div className={cn(
+          "p-8 rounded-[32px] border shadow-xl transition-all duration-500 animate-in fade-in zoom-in-95",
+          isFinalized ? "bg-slate-50 border-slate-100 opacity-80" : "bg-emerald-50/50 border-emerald-100/50"
+        )}>
+          <div className="flex items-center gap-5 mb-8">
+            <div className={cn(
+              "h-14 w-14 rounded-2xl flex items-center justify-center shadow-lg",
+              isFinalized ? "bg-slate-800 text-white shadow-slate-800/20" : "bg-emerald-500 text-white shadow-emerald-500/20"
+            )}>
+              {isFinalized ? <CheckCircle size={28} /> : <FileText size={28} />}
+            </div>
+            <div>
+              <h4 className={cn("text-xl font-black uppercase italic tracking-tight", isFinalized ? "text-slate-800" : "text-emerald-800")}>
+                {isFinalized ? "Documents Verified" : "Review & Submit"}
+              </h4>
+              <p className={cn("text-[9px] font-bold uppercase tracking-[0.2em]", isFinalized ? "text-slate-500" : "text-emerald-600")}>
+                {isFinalized ? "No further action needed" : "Verify details before locking submission"}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={handleViewPdf}
+              disabled={loading}
+              className="py-4 bg-white border border-slate-200 text-slate-800 rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-95 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="animate-spin" size={14}/> : <><Eye size={16} /> View Document</>}
+            </button>
+
+            <button
+              onClick={handleDownload}
+              disabled={loading}
+              className="py-4 bg-white border border-slate-200 text-slate-800 rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-2.5 shadow-sm active:scale-95 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="animate-spin" size={14}/> : <><Download size={16} /> Download Copy</>}
+            </button>
+          </div>
+
+          {!isFinalized && (
+            <div className="pt-6 mt-6 border-t border-emerald-100/50 space-y-4">
+               <button
+                onClick={handleSubmitFinal}
+                disabled={loading}
+                className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-emerald-700 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-600/20"
+              >
+                {loading ? <Loader2 className="animate-spin" size={20} /> : <><Send size={20} /> Final Submit & Lock</>}
+              </button>
+
+              <button
+                onClick={handleRemove}
+                disabled={loading}
+                className="w-full py-3 text-red-400 font-bold uppercase tracking-[0.2em] text-[8px] hover:text-red-600 hover:bg-red-50/50 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 size={12} /> Remove and start over
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* WARNING BOX (Visible only if not uploaded) */}
+      {!hasUploaded && !isFinalized && (
         <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100 flex items-start gap-4 shadow-sm">
           <AlertCircle className="text-amber-500 shrink-0 mt-1" size={24} />
           <div className="space-y-1">
-            <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Document Not Uploaded</p>
-            <p className="text-xs font-medium text-amber-700 leading-relaxed uppercase tracking-wider">
-              Please upload your affidavit document to proceed with the entrance test.
+            <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Submission Required</p>
+            <p className="text-[10px] font-bold text-amber-700 leading-relaxed uppercase tracking-widest">
+              You must upload AND submit your affidavit to proceed. Max file size: 5MB.
             </p>
           </div>
         </div>

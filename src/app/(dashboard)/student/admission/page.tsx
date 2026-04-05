@@ -46,7 +46,7 @@ export default async function StudentAdmissionPage() {
         </div>
       </div>
 
-      <div className={cn(profile.admissionStep >= 10 && "opacity-50 pointer-events-none")}>
+      <div>
         <AdmissionForm 
           admissionId={profile.admissionMetaId} 
           initialData={initialData} 

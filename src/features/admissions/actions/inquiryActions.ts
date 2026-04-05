@@ -25,13 +25,24 @@ export async function createInquiry(data: any) {
     const academicYear = data.academicYear || "2026-27";
     
     // 2. Generate Sequential ID: E[Year] [Sequence] (e.g., E2026-27 001)
-    const inquiryCount = await db.select({ value: count() })
-      .from(inquiries)
-      .where(eq(inquiries.academicYear, academicYear));
+    const lastInquiry = await db.query.inquiries.findFirst({
+      where: eq(inquiries.academicYear, academicYear),
+      orderBy: (inquiries, { desc }) => [desc(inquiries.entryNumber)],
+    });
+
+    let nextNumberValue = 1;
+    if (lastInquiry && lastInquiry.entryNumber) {
+      const match = lastInquiry.entryNumber.match(/\d+$/);
+      if (match) {
+        nextNumberValue = parseInt(match[0], 10) + 1;
+      }
+    }
     
-    const nextNumber = (inquiryCount[0].value + 1).toString().padStart(3, '0');
-    const entryNumberE = `E${academicYear} ${nextNumber}`;
-    const entryNumberA = `A${academicYear} ${nextNumber}`;
+    const yearSuffix = academicYear.replace("20", "").replace("-", ""); // "2026-27" -> "2627"
+    const nextNumber = nextNumberValue.toString().padStart(4, '0');
+    
+    const entryNumberENQ = `ENQ-${yearSuffix}-${nextNumber}`;
+    const entryNumberADM = `ADM-${yearSuffix}-${nextNumber}`;
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
@@ -43,8 +54,9 @@ export async function createInquiry(data: any) {
         email: data.email,
         phone: data.phone,
         appliedClass: data.appliedClass || "",
+        school: data.school || "",
         academicYear,
-        entryNumber: entryNumberE,
+        entryNumber: entryNumberENQ,
         aadhaarNumber: data.aadhaarNumber,
         passwordPlain: data.password,
         status: "SHORTLISTED",
@@ -62,7 +74,7 @@ export async function createInquiry(data: any) {
       const [meta] = await tx.insert(admissionMeta).values({
         inquiryId: inquiry.id,
         academicYear: inquiry.academicYear,
-        entryNumber: entryNumberA,
+        entryNumber: entryNumberADM,
         admissionType: "NEW",
       }).returning();
 
@@ -108,11 +120,15 @@ export async function shortlistInquiry(id: string) {
         phone: inquiry.phone,
       }).returning();
 
+      const yearSuffix = inquiry.academicYear.replace("20", "").replace("-", "");
+      
       // 3. Create AdmissionMeta
       const [meta] = await tx.insert(admissionMeta).values({
         inquiryId: inquiry.id,
         academicYear: inquiry.academicYear,
-        entryNumber: inquiry.entryNumber?.startsWith('E') ? inquiry.entryNumber.replace('E', 'A') : (inquiry.entryNumber || ""),
+        entryNumber: inquiry.entryNumber?.startsWith('ENQ-') 
+          ? inquiry.entryNumber.replace('ENQ-', 'ADM-') 
+          : `ADM-${yearSuffix}-0001`, // Fallback
         admissionType: "NEW",
       }).returning();
 

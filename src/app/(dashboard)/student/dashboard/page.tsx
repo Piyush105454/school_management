@@ -12,7 +12,8 @@ import {
   Users,
   Banknote,
   ClipboardList,
-  ArrowRight
+  ArrowRight,
+  Award
 } from "lucide-react";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
@@ -22,24 +23,29 @@ import { eq } from "drizzle-orm";
 import { studentProfiles, admissionMeta, entranceTests, inquiries, documentChecklists, homeVisits } from "@/db/schema";
 
 import { redirect } from "next/navigation";
+import { formatDate, formatTime } from "@/lib/utils";
 import { EntranceTestCard } from "@/features/admissions/components/EntranceTestCard";
 
 export default async function StudentDashboard() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
-  // Use standard join for stability with Neon pooler/Drizzle 0.45
+  // Use standard join for stability and high performance (single roundtrip)
   const results = await db
     .select({
       profile: studentProfiles,
       admissionMeta: admissionMeta,
       inquiry: inquiries,
       documentChecklists: documentChecklists,
+      entranceTest: entranceTests,
+      homeVisit: homeVisits,
     })
     .from(studentProfiles)
     .leftJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
     .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
     .leftJoin(documentChecklists, eq(admissionMeta.id, documentChecklists.admissionId))
+    .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
+    .leftJoin(homeVisits, eq(admissionMeta.id, homeVisits.admissionId))
     .where(eq(studentProfiles.userId, session.user.id))
     .limit(1);
 
@@ -61,6 +67,8 @@ export default async function StudentDashboard() {
       ...result.admissionMeta,
       inquiry: result.inquiry,
       documentChecklists: result.documentChecklists,
+      entranceTest: result.entranceTest,
+      homeVisit: result.homeVisit,
     } : null
   };
 
@@ -68,21 +76,8 @@ export default async function StudentDashboard() {
   const entryNumber = (profile as any).admissionMeta?.entryNumber || "N/A";
   const currentStep = profile.admissionStep;
 
-  const testResults = await db
-    .select()
-    .from(entranceTests)
-    .where(eq(entranceTests.admissionId, profile.admissionMetaId!))
-    .limit(1);
-    
-  const testData = testResults[0] || null;
-
-  const visitResults = await db
-    .select()
-    .from(homeVisits)
-    .where(eq(homeVisits.admissionId, profile.admissionMetaId!))
-    .limit(1);
-    
-  const visitData = visitResults[0] || null;
+  const testData = (profile as any).admissionMeta?.entranceTest || null;
+  const visitData = (profile as any).admissionMeta?.homeVisit || null;
 
 
   // --- STRICT SEQUENTIAL LOGIC ---
@@ -90,6 +85,8 @@ export default async function StudentDashboard() {
   const isVerified = !!((profile as any).admissionMeta?.documentChecklists?.formReceivedComplete);
   const isTestPassed = testData?.status === "PASS";
   const isAdmitted = profile.isFullyAdmitted;
+  const isScholarshipApplied = (profile as any).admissionMeta?.appliedScholarship;
+  const isScholarshipAwarded = !!(profile as any).admissionMeta?.awardedScholarship;
 
   const inquiryStatus = "completed";
   const formStatus = isFormDone ? "completed" : "pending";
@@ -103,12 +100,16 @@ export default async function StudentDashboard() {
     (verificationStatus === "completed" ? "pending" : "waiting");
 
   const homeVisitStatus = 
-    (visitData?.status === "PASS") ? "completed" :
+    (visitData?.status === "PASS" && entranceTestStatus === "completed") ? "completed" :
     (entranceTestStatus === "completed") ? "pending" : "waiting";
 
   const finalAdmissionStatus = 
     isAdmitted ? "completed" :
     (homeVisitStatus === "completed" ? "pending" : "waiting");
+
+  const scholarshipStatus = 
+    isScholarshipAwarded ? "completed" :
+    (isAdmitted && isScholarshipApplied ? "pending" : "waiting");
 
   const progressItems = [
     { name: "Inquiry", status: inquiryStatus, icon: CheckCircle2, href: "#" },
@@ -116,7 +117,8 @@ export default async function StudentDashboard() {
     { name: "Verification", status: verificationStatus, icon: UserCheck, href: "/student/document-verification" },
     { name: "Entrance Test", status: entranceTestStatus, icon: ClipboardList, href: "/student/entrance-test" },
     { name: "Home Visit", status: homeVisitStatus, icon: Users, href: "/student/home-visit" },
-    { name: "Final Admission", status: finalAdmissionStatus, icon: GraduationCap, href: "/student/final-admission" },
+    { name: "Admission Approval", status: finalAdmissionStatus, icon: GraduationCap, href: "/student/final-admission" },
+    { name: "Scholarship", status: scholarshipStatus, icon: Award, href: "#" },
 
   ];
 
@@ -138,8 +140,8 @@ export default async function StudentDashboard() {
     <div className="space-y-6 md:space-y-8">
       {/* Application Progress Tracker */}
       <div className="bg-white rounded-xl p-4 md:p-8 border border-slate-200">
-        {/* Quick Alert for Office Remarks */}
-        {profile.admissionMeta?.officeRemarks && (
+        {/* Quick Alert for Office Remarks - Hide if already admitted */}
+        {profile.admissionMeta?.officeRemarks && finalAdmissionStatus !== "completed" && (
           <div className="max-w-4xl mx-auto mb-6 animate-in slide-in-from-top-4 duration-500">
             <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-5 md:p-6 flex items-start gap-5 shadow-xl shadow-red-100/50">
               <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
@@ -170,7 +172,8 @@ export default async function StudentDashboard() {
                 <div className="relative z-10 space-y-2 text-center md:text-left">
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Your Current Status</p>
                     <h3 className="text-2xl md:text-3xl font-black font-outfit uppercase italic leading-none tracking-tight">
-                        {finalAdmissionStatus === "completed" ? "Admission Successful" : 
+                        {scholarshipStatus === "completed" ? "Scholarship Awarded" :
+                         finalAdmissionStatus === "completed" ? (isScholarshipApplied && !isScholarshipAwarded ? "Scholarship Review" : "Admission Successful") : 
                          formStatus === "pending" ? "Admission Form" :
                          verificationStatus === "pending" ? "Document Review" :
                          entranceTestStatus === "pending" ? "Entrance Test" :
@@ -178,13 +181,22 @@ export default async function StudentDashboard() {
                          "Application Finalized"}
                     </h3>
                     <p className="text-xs font-bold opacity-80 uppercase tracking-widest leading-relaxed">
-                        {finalAdmissionStatus === "completed" ? "Welcome to the school community." : 
+                        {scholarshipStatus === "completed" ? "Your scholarship has been approved and applied." :
+                         finalAdmissionStatus === "completed" ? (isScholarshipApplied && !isScholarshipAwarded ? "Your admission is confirmed. The Scholarship Committee is now reviewing your application." : "Welcome to the school community. Your admission is now complete.") : 
                          formStatus === "pending" ? "Please complete and submit your details." :
                          verificationStatus === "pending" ? "We are verifying your submitted files." :
                          entranceTestStatus === "pending" ? "View your test schedule and location details." :
                          homeVisitStatus === "pending" ? 
-                         (visitData?.visitDate ? `Family Visit Scheduled: ${visitData.visitDate} at ${visitData.visitTime} with ${visitData.teacherName}` : "Awaiting Home Visit schedule from Office.") :
-                         "Final processing is underway."}
+                         (visitData?.visitDate ? `Family Visit Scheduled: ${formatDate(visitData.visitDate)} at ${formatTime(visitData.visitTime)} with ${(() => {
+                             try {
+                                 if (visitData.teacherName?.startsWith('{')) {
+                                     const p = JSON.parse(visitData.teacherName);
+                                     return [p.teacher1, p.teacher2, p.teacher3].filter(Boolean).join(", ");
+                                 }
+                                 return visitData.teacherName || "Assigned Faculty";
+                             } catch(e) { return "Assigned Faculty"; }
+                         })()}` : "Awaiting Home Visit schedule from Office.") :
+                         "Your application is being finalized by the Principal."}
 
                     </p>
                 </div>
@@ -314,15 +326,28 @@ export default async function StudentDashboard() {
                             <div className="bg-white p-4 rounded-xl border border-slate-100/80 w-full max-w-sm space-y-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-black text-slate-400 uppercase">Date</span>
-                                    <span className="text-sm font-bold text-slate-900">{visitData.visitDate}</span>
+                                    <span className="text-sm font-bold text-slate-900">{formatDate(visitData.visitDate)}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-black text-slate-400 uppercase">Time</span>
-                                    <span className="text-sm font-bold text-slate-900">{visitData.visitTime}</span>
+                                    <span className="text-sm font-bold text-slate-900">{formatTime(visitData.visitTime)}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-black text-slate-400 uppercase">Teacher</span>
-                                    <span className="text-sm font-bold text-slate-900">{visitData.teacherName || "Assigned shortly"}</span>
+                                    <span className="text-sm font-bold text-slate-900">
+                                        {(() => {
+                                            if (!visitData.teacherName) return "Assigned shortly";
+                                            try {
+                                                if (visitData.teacherName.startsWith('{')) {
+                                                    const p = JSON.parse(visitData.teacherName);
+                                                    return [p.teacher1, p.teacher2, p.teacher3].filter(Boolean).join(", ");
+                                                }
+                                                return visitData.teacherName;
+                                            } catch (e) {
+                                                return visitData.teacherName;
+                                            }
+                                        })()}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between border-t pt-2 border-slate-100">
                                     <span className="text-[10px] font-black text-slate-400 uppercase">Status</span>

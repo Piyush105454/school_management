@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { studentProfiles, homeVisits, admissionMeta } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { Users, Calendar, Clock, UserCheck, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatTime } from "@/lib/utils";
 
 export default async function StudentHomeVisitPage() {
   const session = await getServerSession(authOptions);
@@ -89,7 +89,7 @@ export default async function StudentHomeVisitPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visit Date</p>
-                  <p className="text-lg font-bold text-slate-900 mt-0.5">{visitData.visitDate || "TBA"}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-0.5">{formatDate(visitData.visitDate)}</p>
                 </div>
               </div>
 
@@ -99,7 +99,7 @@ export default async function StudentHomeVisitPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visit Time</p>
-                  <p className="text-lg font-bold text-slate-900 mt-0.5">{visitData.visitTime || "TBA"}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-0.5">{formatTime(visitData.visitTime)}</p>
                 </div>
               </div>
 

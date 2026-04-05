@@ -10,7 +10,8 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+  const selectedSchool = watch("school");
 
   const onSubmit = async (data: any) => {
     setLoading(true);
@@ -26,6 +27,15 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
     } else {
       alert("Error: " + result.error);
     }
+  };
+
+  const getClassesBySchool = (school: string) => {
+    if (school === "Dhanpuri Public School") {
+      return ["Nursery", "KG1", "KG2", "1", "2", "3", "4", "5", "6", "7"];
+    } else if (school === "WES Academy") {
+      return ["8", "9", "10", "Senior 1st Year", "Senior 2nd Year", "Senior 3rd Year", "Senior 4th Year"];
+    }
+    return [];
   };
 
   return (
@@ -112,26 +122,39 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message as string}</p>}
           </div>
           <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Select School</label>
+            <select 
+              {...register("school", { required: "Please select a school" })}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+            >
+              <option value="">Select School</option>
+              <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+              <option value="WES Academy">WES Academy</option>
+            </select>
+            {errors.school && <p className="text-xs text-red-500 mt-1">{errors.school.message as string}</p>}
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Applying for Class</label>
             <select 
               {...register("appliedClass", { required: "Please select a class" })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
             >
               <option value="">Select Class</option>
-              {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+              {getClassesBySchool(selectedSchool).map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
             {errors.appliedClass && <p className="text-xs text-red-500 mt-1">{errors.appliedClass.message as string}</p>}
           </div>
+
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Academic Year</label>
             <select 
               {...register("academicYear", { required: true })}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
             >
               <option value="2026-27">2026-2027</option>
-              <option value="2027-28">2027-2028</option>
             </select>
           </div>
         </div>

@@ -26,7 +26,7 @@ export const generateAdmissionPDF = (data: any, studentName: string, options?: {
     });
   };
 
-  const drawHeader = () => {
+  const drawHeader = (meta: any = {}) => {
     doc.rect(margin, y, contentWidth, 30);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
@@ -49,9 +49,16 @@ export const generateAdmissionPDF = (data: any, studentName: string, options?: {
     doc.rect(margin + 40, centerBoxY, 110, 8);
     doc.line(margin + 40 + 36, centerBoxY, margin + 40 + 36, centerBoxY + 8);
     doc.line(margin + 40 + 72, centerBoxY, margin + 40 + 72, centerBoxY + 8);
-    doc.text("Entry Number", margin + 42, centerBoxY + 4);
-    doc.text("Admission Number", margin + 40 + 38, centerBoxY + 4);
-    doc.text("Scholar Number", margin + 40 + 74, centerBoxY + 4);
+    
+    doc.setFontSize(6);
+    doc.text("Entry Number", margin + 42, centerBoxY + 3);
+    doc.text("Admission Number", margin + 40 + 38, centerBoxY + 3);
+    doc.text("Scholar Number", margin + 40 + 74, centerBoxY + 3);
+
+    doc.setFontSize(8);
+    doc.text(String(meta.entryNumber || "-"), margin + 42, centerBoxY + 7);
+    doc.text(String(meta.admissionNumber || "-"), margin + 40 + 38, centerBoxY + 7);
+    doc.text(String(meta.scholarNumber || "-"), margin + 40 + 74, centerBoxY + 7);
 
     // Right logo box
     doc.rect(margin + 150, y, 40, 30);
@@ -76,7 +83,7 @@ export const generateAdmissionPDF = (data: any, studentName: string, options?: {
   };
 
   // ----- MAIN FLOW -----
-  drawHeader();
+  drawHeader(data.admissionMeta || {});
 
   const bio = data.studentBio || {};
   const addr = data.address || {};
