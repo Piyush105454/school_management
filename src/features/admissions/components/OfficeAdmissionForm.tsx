@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark } from "../actions/admissionActions";
+import { rejectAffidavit } from "../actions/documentActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 
@@ -41,11 +42,23 @@ const steps = [
   { id: 6, name: "Parents", icon: Users },
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
-  { id: 9, name: "Complete", icon: CheckCircle },
+  { id: 9, name: "Review", icon: Download },
+  { id: 10, name: "Verify", icon: UserCheck },
+  { id: 11, name: "Final", icon: CheckCircle },
 ];
 
-export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
-  const [currentStep, setCurrentStep] = useState(maxStep >= 11 ? 9 : Math.max(1, Math.min(maxStep, 8)));
+export function OfficeAdmissionForm({ 
+  admissionId, 
+  initialData, 
+  maxStep = 1,
+  initialStep
+}: { 
+  admissionId: string, 
+  initialData?: any, 
+  maxStep?: number,
+  initialStep?: number
+}) {
+  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep >= 11 ? 11 : Math.max(1, Math.min(maxStep, 10))));
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -268,7 +281,7 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
               )}
 
               <div className="max-w-3xl mx-auto">
-                <fieldset disabled={maxStep >= 10 && !isEditMode} className="space-y-4">
+                <fieldset disabled={maxStep >= 11 && !isEditMode} className="space-y-4">
                   {currentStep === 1 && <BioStep />}
                   {currentStep === 2 && <ProfileStatsStep />}
                   {currentStep === 3 && <AddressStep />}
@@ -277,15 +290,15 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
                   {currentStep === 6 && <ParentsStep />}
                   {currentStep === 7 && <BankStep />}
                   {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} />}
-                  {currentStep === 9 && <SubmissionSuccessStep data={initialData} />}
+                  {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateAdmissionPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
+                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} />}
                 </fieldset>
+                {currentStep === 11 && <SubmissionSuccessStep data={initialData} />}
               </div>
-
-
             </form>
           </FormProvider>
 
-          {currentStep < 9 && (
+          {currentStep < 11 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button 
                 type="button"
@@ -297,24 +310,23 @@ export function OfficeAdmissionForm({ admissionId, initialData, maxStep = 1 }: {
               </button>
               
               <div className="flex gap-3 w-full md:w-auto">
-                 {currentStep === 9 && (
+                 {currentStep < 10 ? (
+                   <button 
+                     type="button" 
+                     onClick={nextStep} 
+                     className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                   >
+                      Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
+                   </button>
+                 ) : currentStep === 10 && maxStep >= 11 ? (
                     <button 
                       type="button"
-                      onClick={handleApprove} 
-                      disabled={verifying || maxStep >= 10}
-                      className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-emerald-600 text-white rounded-2xl font-black tracking-tight hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30"
+                      onClick={() => setCurrentStep(11)}
+                      className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30"
                     >
-                      {verifying ? <Loader2 className="animate-spin" /> : <><Verified size={22} /> VERIFY DOCUMENTS</>}
+                      View Final Status <CheckCircle size={22} />
                     </button>
-
-                 )}
-                 <button 
-                   type="button" 
-                   onClick={nextStep} 
-                   className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
-                 >
-                    Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
-                 </button>
+                 ) : null}
               </div>
             </div>
           )}
@@ -986,7 +998,140 @@ function DocumentRow({ doc, fileData, fetching, onPreview, onDelete }: { doc: an
   );
 }
 
+function DownloadApplicationStep({ data, onDownload, downloading }: { data: any, onDownload: (type: 'ADMISSION' | 'FULL_PACKAGE') => void, downloading: boolean }) {
+  const handleDownload = () => onDownload('FULL_PACKAGE');
 
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Review Application</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium font-outfit">Step 9: Review filled application PDF.</p>
+      </div>
+      
+      <div className="bg-slate-50 border border-slate-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-5 mt-4 group hover:bg-white hover:border-blue-100 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5">
+          <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-blue-50">
+              <Download size={28} />
+          </div>
+          <div className="space-y-1">
+              <h4 className="font-black text-slate-800 uppercase tracking-tight font-outfit">PDF Generated</h4>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Review the complete application for accuracy</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-3 bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-[11px] px-8 py-4 rounded-2xl shadow-xl shadow-slate-900/10 transition-all hover:shadow-2xl active:scale-95 disabled:opacity-50"
+          >
+            {downloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+            {downloading ? "Generating..." : "View Application PDF"}
+          </button>
+      </div>
+    </div>
+  );
+}
+
+function OfficeVerificationStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  const [loading, setLoading] = useState(false);
+  const [affidavitUrl, setAffidavitUrl] = useState<string | null>(null);
+  
+  React.useEffect(() => {
+    const fetchAffidavit = async () => {
+      const res = await getDocumentContent(admissionId, "affidavit");
+      if (res.success) setAffidavitUrl(res.content);
+    };
+    fetchAffidavit();
+  }, [admissionId]);
+
+  const handleApprove = async () => {
+    if (!confirm("Approve this affidavit? This will mark admission as verified.")) return;
+    setLoading(true);
+    const res = await verifyAdmission(admissionId);
+    setLoading(false);
+    if (res.success) {
+      alert("Verified Successfully!");
+      window.location.reload();
+    } else {
+      alert("Error: " + res.error);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!confirm("Reject this affidavit? Student will need to upload again.")) return;
+    setLoading(true);
+    const res = await rejectAffidavit(admissionId);
+    setLoading(false);
+    if (res.success) {
+      alert("Affidavit Rejected.");
+      window.location.reload();
+    } else {
+      alert("Error: " + res.error);
+    }
+  };
+
+  const isVerified = (initialData?.studentProfile?.admissionStep ?? 0) >= 11;
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Affidavit Verification</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 10: Review and sign off on submitted documents.</p>
+      </div>
+
+      <div className="max-w-xl mx-auto">
+        {!affidavitUrl ? (
+          <div className="bg-amber-50 border border-amber-100 p-10 rounded-3xl text-center space-y-4">
+            <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+              <FileText size={32} />
+            </div>
+            <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Affidavit Not Uploaded</p>
+            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Waiting for student to upload</p>
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-100 p-8 rounded-[32px] shadow-sm space-y-6">
+            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                <FileText size={24} />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Submitted Affidavit</p>
+                <button onClick={() => window.open(affidavitUrl, "_blank")} className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">Click to View Full Document</button>
+              </div>
+            </div>
+
+            {!isVerified ? (
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                <button 
+                  onClick={handleReject}
+                  disabled={loading}
+                  className="py-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-red-100 transition-all flex items-center justify-center gap-2 border border-red-100 shadow-sm shadow-red-500/5"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Reject
+                </button>
+                <button 
+                  onClick={handleApprove}
+                  disabled={loading}
+                  className="py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/20"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} Approve
+                </button>
+              </div>
+            ) : (
+              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl flex items-center gap-4">
+                 <div className="h-10 w-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                    <CheckCircle size={20} />
+                 </div>
+                 <div>
+                    <h4 className="text-sm font-black text-emerald-900 uppercase tracking-tight leading-none">Officially Verified</h4>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Review locked for this record</p>
+                 </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function SubmissionSuccessStep({ data }: { data: any }) {
   const bio = data.studentBio || {};

@@ -73,7 +73,7 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   const getStepRedirect = (adm: any) => {
     const step = getComputedStep(adm);
     if (step <= 9) return `/office/admissions/${adm.id}`;
-    if (step === 10 || step === 11) return `/office/document-verification`;
+    if (step === 10 || step === 11) return `/office/admissions/${adm.id}?step=10`;
     if (step === 12) return `/office/entrance-tests`;
     if (step === 13) return `/office/home-visits`;
     if (step === 14) return `/office/final-admissions`;

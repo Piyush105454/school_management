@@ -12,6 +12,7 @@ import {
   Eye,
   Download
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import ViewDocumentButton from "./components/ViewDocumentButton";
 import VerifyDocumentButton from "./components/VerifyDocumentButton";
@@ -132,10 +133,17 @@ function DocumentRow({ applicant }: { applicant: any }) {
         </div>
         <div className="flex gap-2">
           <ViewDocumentButton url={affidavitUrl || ""} />
-          <VerifyDocumentButton 
-            admissionId={applicant.id} 
-            isVerified={(applicant.studentProfile?.admissionStep ?? 0) >= 11} 
-          />
+          <Link 
+            href={`/office/admissions/${applicant.id}?step=10`}
+            className={cn(
+              "px-4 py-2 rounded-lg font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2",
+              (applicant.studentProfile?.admissionStep ?? 0) >= 11 
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            )}
+          >
+            {(applicant.studentProfile?.admissionStep ?? 0) >= 11 ? <><CheckCircle size={14} /> Verified</> : <><Eye size={14} /> Review & Verify</>}
+          </Link>
 
           <a
             href={affidavitUrl}

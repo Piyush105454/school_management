@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { studentDocuments, documentChecklists } from "@/db/schema";
+import { studentDocuments, documentChecklists, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -38,7 +38,8 @@ export async function uploadAffidavit(formData: FormData) {
       });
     }
 
-    revalidatePath("/student/document-verification", "page");
+    revalidatePath("/student/admission", "page");
+    revalidatePath("/office/admissions/[id]", "page");
     revalidatePath("/office/document-verification", "page");
     return { success: true };
   } catch (error: any) {
@@ -56,7 +57,8 @@ export async function removeAffidavit(admissionId: string) {
       })
       .where(eq(studentDocuments.admissionId, admissionId));
 
-    revalidatePath("/student/document-verification", "page");
+    revalidatePath("/student/admission", "page");
+    revalidatePath("/office/admissions/[id]", "page");
     revalidatePath("/office/document-verification", "page");
     return { success: true };
   } catch (error: any) {
@@ -68,14 +70,23 @@ export async function removeAffidavit(admissionId: string) {
 export async function submitAffidavit(admissionId: string) {
   try {
     // Update checklist status to SUBMITTED
-    await db.update(documentChecklists)
-      .set({
-        parentAffidavit: "SUBMITTED",
-        verifiedAt: new Date(),
-      })
-      .where(eq(documentChecklists.admissionId, admissionId));
+    await db.transaction(async (tx) => {
+      await tx.update(documentChecklists)
+        .set({
+          parentAffidavit: "SUBMITTED",
+          verifiedAt: new Date(),
+        })
+        .where(eq(documentChecklists.admissionId, admissionId));
 
-    revalidatePath("/student/document-verification", "page");
+      await tx.update(studentProfiles)
+        .set({
+          admissionStep: 11,
+        })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+    });
+
+    revalidatePath("/student/admission", "page");
+    revalidatePath("/office/admissions/[id]", "page");
     revalidatePath("/office/document-verification", "page");
     return { success: true };
   } catch (error: any) {
@@ -110,6 +121,43 @@ export async function getAffidavitContent(admissionId: string) {
 
     return { success: true, affidavit: data[0].affidavit };
   } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function rejectAffidavit(admissionId: string) {
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Clear the affidavit file
+      await tx.update(studentDocuments)
+        .set({
+          affidavit: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(studentDocuments.admissionId, admissionId));
+
+      // 2. Update checklist status to REJECTED
+      await tx.update(documentChecklists)
+        .set({
+          parentAffidavit: "REJECTED" as any,
+          verifiedAt: new Date(),
+        })
+        .where(eq(documentChecklists.admissionId, admissionId));
+
+      // 3. Move student profile back to Step 10
+      await tx.update(studentProfiles)
+        .set({
+          admissionStep: 10,
+        })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+    });
+
+    revalidatePath("/student/admission", "page");
+    revalidatePath("/office/admissions/[id]", "page");
+    revalidatePath("/office/document-verification", "page");
+    return { success: true };
+  } catch (error: any) {
+    console.error("rejectAffidavit error:", error);
     return { success: false, error: error.message };
   }
 }

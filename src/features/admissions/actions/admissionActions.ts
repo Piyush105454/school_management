@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { 
+  inquiries,
   admissionMeta, 
   studentBio, 
   studentAddress, 
@@ -112,6 +113,21 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
           target: studentBio.admissionId,
           set: bioData
         });
+
+        // Sync back to Inquiry for consistency
+        const meta = await tx.query.admissionMeta.findFirst({
+          where: eq(admissionMeta.id, admissionId)
+        });
+        if (meta?.inquiryId) {
+          await tx.update(inquiries)
+            .set({ 
+              firstName: bioData.firstName, 
+              lastName: bioData.lastName,
+              studentName: `${bioData.firstName} ${bioData.lastName}`,
+              aadhaarNumber: bioData.aadhaarNumber,
+            })
+            .where(eq(inquiries.id, meta.inquiryId));
+        }
       }
 
       // 2. Student Address
@@ -233,6 +249,7 @@ export async function verifyAdmission(admissionId: string) {
       await db.update(documentChecklists)
         .set({ 
           formReceivedComplete: true, 
+          parentAffidavit: "VERIFIED" as any,
           verifiedAt: new Date() 
         })
         .where(eq(documentChecklists.admissionId, admissionId));
@@ -240,12 +257,13 @@ export async function verifyAdmission(admissionId: string) {
       await db.insert(documentChecklists).values({
         admissionId,
         formReceivedComplete: true,
+        parentAffidavit: "VERIFIED" as any,
         verifiedAt: new Date()
       });
     }
 
     await db.update(studentProfiles)
-      .set({ admissionStep: 11 })
+      .set({ admissionStep: 12 })
       .where(eq(studentProfiles.admissionMetaId, admissionId));
 
     revalidatePath("/office/inquiries");
@@ -408,15 +426,29 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       });
     }
 
-    // Fetch admissionMeta as well
+    // Fetch admissionMeta and its linked inquiry
     const meta = await db.query.admissionMeta.findFirst({
-      where: eq(admissionMeta.id, admissionId)
+      where: eq(admissionMeta.id, admissionId),
+      with: {
+        inquiry: true
+      }
     });
+
+    // Pre-fill studentBio from Inquiry if fields are empty
+    let enrichedBio = bio;
+    if (meta?.inquiry) {
+      enrichedBio = {
+        ...(bio || {}),
+        firstName: bio?.firstName || meta.inquiry.firstName,
+        lastName: bio?.lastName || meta.inquiry.lastName,
+        aadhaarNumber: bio?.aadhaarNumber || meta.inquiry.aadhaarNumber,
+      } as any;
+    }
 
     return {
       success: true,
       data: {
-        studentBio: bio,
+        studentBio: enrichedBio,
         address,
         previousAcademic: academic,
         parentsGuardians: parents,
@@ -447,6 +479,21 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
               target: studentBio.admissionId,
               set: bioData
             });
+
+            // Sync back to Inquiry for consistency
+            const meta = await tx.query.admissionMeta.findFirst({
+              where: eq(admissionMeta.id, admissionId)
+            });
+            if (meta?.inquiryId) {
+              await tx.update(inquiries)
+                .set({ 
+                  firstName: bioData.firstName, 
+                  lastName: bioData.lastName,
+                  studentName: `${bioData.firstName} ${bioData.lastName}`,
+                  aadhaarNumber: bioData.aadhaarNumber,
+                })
+                .where(eq(inquiries.id, meta.inquiryId));
+            }
           }
           break;
         case 3:

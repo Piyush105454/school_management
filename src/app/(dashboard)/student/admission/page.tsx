@@ -10,7 +10,9 @@ import { getAdmissionData } from "@/features/admissions/actions/admissionActions
 import { EntranceTestCard } from "@/features/admissions/components/EntranceTestCard";
 import { cn } from "@/lib/utils";
 
-export default async function StudentAdmissionPage() {
+export default async function StudentAdmissionPage({ searchParams }: { searchParams: Promise<{ step?: string }> }) {
+  const { step } = await searchParams;
+  const stepParam = step ? parseInt(step) : undefined;
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
@@ -51,6 +53,7 @@ export default async function StudentAdmissionPage() {
           admissionId={profile.admissionMetaId} 
           initialData={initialData} 
           maxStep={profile.admissionStep} 
+          initialStep={stepParam}
         />
       </div>
     </div>

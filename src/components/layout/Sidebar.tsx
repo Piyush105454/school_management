@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -79,7 +79,7 @@ const teacherItems = [
 const studentItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Admission Form", href: "/student/admission", icon: FileText },
-  { name: "Doc Verification & Affidavit Upload", href: "/student/document-verification", icon: UserCheck },
+  { name: "Doc Verification & Affidavit Upload", href: "/student/admission?step=10", icon: UserCheck },
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
   { name: "Final Option", href: "/student/final-admission", icon: ClipboardCheck },
@@ -93,6 +93,8 @@ interface SidebarProps {
 
 export function Sidebar({ role, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentStep = searchParams.get("step");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   const toggleSection = (sectionName: string) => {
@@ -156,7 +158,23 @@ export function Sidebar({ role, onClose }: SidebarProps) {
             const isCollapsed = currentSection ? collapsedSections[currentSection] : false;
             if (isCollapsed) return null;
 
-            let isActive = pathname === regularItem.href;
+            let isActive = false;
+            
+            if (regularItem.href.includes("step=10")) {
+              // Doc verification step (student side)
+              isActive = pathname === "/student/admission" && currentStep === "10";
+            } else if (regularItem.href === "/student/admission") {
+              // Generic admission form (steps 1-9, or 11)
+              isActive = pathname === "/student/admission" && currentStep !== "10";
+            } else if (regularItem.href === "/office/document-verification") {
+              // Office side verification highlight
+              isActive = pathname === "/office/document-verification" || (pathname.startsWith("/office/admissions/") && currentStep === "10");
+            } else if (regularItem.href === "/office/admissions-progress") {
+              // Generic admissions progress (office)
+              isActive = pathname === "/office/admissions-progress" || (pathname.startsWith("/office/admissions/") && currentStep !== "10");
+            } else {
+              isActive = pathname === regularItem.href;
+            }
 
             return (
               <Link

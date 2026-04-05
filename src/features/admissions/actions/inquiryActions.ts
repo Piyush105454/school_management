@@ -2,25 +2,42 @@
 
 import { db } from "@/db";
 import { inquiries, users, studentProfiles, admissionMeta } from "@/db/schema";
-import { eq, sql, count } from "drizzle-orm";
+import { eq, sql, count, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
 export async function createInquiry(data: any) {
   try {
-    if (!data.studentName || !data.email || !data.phone || !data.aadhaarNumber || !data.password) {
-       throw new Error("Missing required fields: Student Name, Email, Phone, Aadhaar, and Password are mandatory.");
+    if (!data.firstName || !data.lastName || !data.email || !data.phone || !data.aadhaarNumber || !data.password) {
+       throw new Error("Missing required fields: First Name, Last Name, Email, Phone, Aadhaar, and Password are mandatory.");
     }
 
     if (!/^\d{12}$/.test(data.aadhaarNumber)) {
       throw new Error("Aadhaar Number must be exactly 12 digits.");
     }
 
-    // 1. Check if user already exists
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, data.email),
+    // 1. Check if user/inquiry already exists (Aadhaar, Email, or Phone)
+    const existingInquiry = await db.query.inquiries.findFirst({
+      where: or(
+        eq(inquiries.email, data.email),
+        eq(inquiries.phone, data.phone),
+        eq(inquiries.aadhaarNumber, data.aadhaarNumber)
+      ),
     });
-    if (existingUser) throw new Error("A user with this email already exists.");
+
+    if (existingInquiry) {
+      if (existingInquiry.email === data.email) throw new Error("An account with this email already exists.");
+      if (existingInquiry.phone === data.phone) throw new Error("An account with this phone number already exists.");
+      if (existingInquiry.aadhaarNumber === data.aadhaarNumber) throw new Error("An account with this Aadhaar number already exists.");
+    }
+
+    const existingUser = await db.query.users.findFirst({
+      where: or(
+        eq(users.email, data.email),
+        eq(users.phone, data.phone)
+      ),
+    });
+    if (existingUser) throw new Error("A user with this email or phone already exists.");
 
     const academicYear = data.academicYear || "2026-27";
     
@@ -49,7 +66,9 @@ export async function createInquiry(data: any) {
     return await db.transaction(async (tx) => {
       // 3. Create Inquiry
       const [inquiry] = await tx.insert(inquiries).values({
-        studentName: data.studentName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        studentName: `${data.firstName} ${data.lastName}`,
         parentName: data.parentName || "",
         email: data.email,
         phone: data.phone,

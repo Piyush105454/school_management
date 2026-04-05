@@ -10,7 +10,9 @@ import { getAdmissionData } from "@/features/admissions/actions/admissionActions
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-export default async function AdminAdmissionViewPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminAdmissionViewPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ step?: string }> }) {
+  const { step } = await searchParams;
+  const stepParam = step ? parseInt(step) : undefined;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "OFFICE") redirect("/");
 
@@ -57,6 +59,7 @@ export default async function AdminAdmissionViewPage({ params }: { params: Promi
         admissionId={admissionId} 
         initialData={initialData} 
         maxStep={(admission as any).studentProfile?.admissionStep || 1} 
+        initialStep={stepParam}
       />
     </div>
   );

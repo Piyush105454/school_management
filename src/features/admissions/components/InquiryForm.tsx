@@ -55,13 +55,22 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Student Name</label>
+            <label className="text-sm font-semibold text-slate-700">First Name</label>
             <input 
-              {...register("studentName", { required: "Student Name is required" })}
+              {...register("firstName", { required: "First Name is required" })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-              placeholder="Full Name"
+              placeholder="First Name"
             />
-            {errors.studentName && <p className="text-xs text-red-500 mt-1">{errors.studentName.message as string}</p>}
+            {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName.message as string}</p>}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Last Name</label>
+            <input 
+              {...register("lastName", { required: "Last Name is required" })}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              placeholder="Last Name"
+            />
+            {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName.message as string}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Parent/Guardian Name</label>
@@ -103,6 +112,10 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
                 required: "Aadhaar is required", 
                 pattern: { value: /^\d{12}$/, message: "Must be 12 digits" } 
               })}
+              maxLength={12}
+              onInput={(e) => {
+                e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, "");
+              }}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               placeholder="12 digit Aadhaar number"
             />
@@ -122,12 +135,12 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message as string}</p>}
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Select School</label>
+            <label className="text-sm font-semibold text-slate-700">Select Institute</label>
             <select 
-              {...register("school", { required: "Please select a school" })}
+              {...register("school", { required: "Please select an institute" })}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
             >
-              <option value="">Select School</option>
+              <option value="">Select Institute</option>
               <option value="Dhanpuri Public School">Dhanpuri Public School</option>
               <option value="WES Academy">WES Academy</option>
             </select>
@@ -165,7 +178,7 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
         >
           {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (
             <>
-              Submit Inquiry <Send className="h-4 w-4" />
+              Create Account <Send className="h-4 w-4" />
             </>
           )}
         </button>

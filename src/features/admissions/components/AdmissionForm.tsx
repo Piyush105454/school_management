@@ -16,10 +16,17 @@ import {
   Trash2,
   UserCheck,
   Download,
-  FileText
+  FileText,
+  Upload,
+  AlertCircle,
+  Eye,
+  Lock,
+  Send,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, getDocumentContent } from "../actions/admissionActions";
+import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "../actions/documentActions";
 import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
 
 
@@ -53,6 +60,20 @@ const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Pr
   });
 };
 
+const inputStyles = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700 text-sm md:text-base";
+const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
+
+const ErrorMessage = ({ error }: { error: any }) => {
+  if (!error) return null;
+  const message = error.message || "This field is required";
+  return <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-1 animate-in fade-in slide-in-from-top-1">{message}</p>;
+};
+
+const getInputClass = (error: any) => cn(
+  inputStyles,
+  error && "border-red-500 focus:ring-red-500/10 focus:border-red-500 bg-red-50/10"
+);
+
 const steps = [
   { id: 1, name: "Bio Info", icon: GraduationCap },
   { id: 2, name: "Stats/ID", icon: UserCheck },
@@ -63,11 +84,22 @@ const steps = [
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
   { id: 9, name: "Download", icon: Download },
-  { id: 10, name: "Complete", icon: CheckCircle },
+  { id: 10, name: "Verification", icon: FileText },
+  { id: 11, name: "Complete", icon: CheckCircle },
 ];
 
-export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admissionId: string, initialData?: any, maxStep?: number }) {
-  const [currentStep, setCurrentStep] = useState(maxStep > 10 ? 10 : maxStep);
+export function AdmissionForm({ 
+  admissionId, 
+  initialData, 
+  maxStep = 1,
+  initialStep 
+}: { 
+  admissionId: string, 
+  initialData?: any, 
+  maxStep?: number,
+  initialStep?: number 
+}) {
+  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep > 11 ? 11 : maxStep));
   const [loading, setLoading] = useState(false);
   const defaults = {
     studentBio: {
@@ -193,6 +225,24 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
     }
   };
 
+  const handleSubmitFinal = async () => {
+    if (!confirm("Proceed with final submission? This will lock your application for review.")) return;
+    setLoading(true);
+    try {
+      const res = await submitAffidavit(admissionId);
+      if (res.success) {
+        alert("Final submission complete! Your application is now locked and under review.");
+        window.location.href = `/student/admission?step=11&t=${Date.now()}`;
+      } else {
+        alert("Submission failed: " + (res.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error submitting form: " + (err.message || "Network error"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const nextStep = async () => {
     const fieldsByStep: Record<number, any> = {
       1: "studentBio",
@@ -204,7 +254,8 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
       7: "bankDetails",
       8: "documents",
       9: [],
-      10: "declaration"
+      10: [],
+      11: "declaration"
     };
 
     const currentFields = fieldsByStep[currentStep];
@@ -356,7 +407,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
               <div className="max-w-3xl mx-auto">
-                <fieldset disabled={maxStep >= 10 && currentStep < 9} className="contents shadow-none border-none p-0 m-0">
+                <fieldset disabled={maxStep >= 11 && currentStep !== 9} className="contents shadow-none border-none p-0 m-0">
                   {currentStep === 1 && <BioStep />}
                   {currentStep === 2 && <ProfileStatsStep />}
                   {currentStep === 3 && <AddressStep />}
@@ -366,13 +417,23 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                   {currentStep === 7 && <BankStep />}
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
+                  {currentStep === 10 && <DocumentVerificationStep admissionId={admissionId} initialDocData={initialData?.documents} initialChecklistData={initialData?.documentChecklist} studentName={`${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`} />}
                 </fieldset>
-                {currentStep === 10 && <SubmissionSuccessStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
+                {currentStep === 11 && (
+                  <SubmissionSuccessStep 
+                    data={methods.getValues()} 
+                    onDownload={handleDownloadWithFullData} 
+                    downloading={loading} 
+                    initialMeta={initialData?.admissionMeta} 
+                    initialChecklist={initialData?.documentChecklist}
+                    admissionId={admissionId}
+                  />
+                )}
               </div>
             </form>
           </FormProvider>
-
-          {currentStep < 10 && (
+          
+          {currentStep < 11 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button
                 type="button"
@@ -383,15 +444,15 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                 <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
               </button>
               
-              {currentStep === 9 && maxStep >= 10 ? (
+              {maxStep >= 11 && currentStep < 11 ? (
                 <button
                   type="button"
-                  onClick={() => setCurrentStep(10)}
-                  className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all duration-200 shadow-xl shadow-emerald-900/10"
+                  onClick={() => setCurrentStep(11)}
+                  className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all duration-200 shadow-xl shadow-blue-900/10"
                 >
                   Return to Confirmation <CheckCircle size={22} className="group-hover:scale-110 transition-transform" />
                 </button>
-              ) : currentStep < 9 ? (
+              ) : currentStep < 10 ? (
                 <button
                   type="button"
                   onClick={nextStep}
@@ -402,7 +463,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
               ) : (
                 <button
                   type="button"
-                  onClick={methods.handleSubmit(onSubmit)}
+                  onClick={handleSubmitFinal}
                   disabled={loading}
                   className="w-full md:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all duration-200 shadow-2xl shadow-blue-600/30 disabled:opacity-70"
                 >
@@ -410,7 +471,7 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
                     <>SUBMIT APPLICATION <CheckCircle size={22} /></>
                   )}
                 </button>
-              )}
+              ) }
             </div>
           )}
         </div>
@@ -418,21 +479,6 @@ export function AdmissionForm({ admissionId, initialData, maxStep = 1 }: { admis
     </div>
   );
 }
-
-const inputStyles = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700 text-sm md:text-base";
-const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
-
-const ErrorMessage = ({ error }: { error: any }) => {
-  if (!error) return null;
-  const message = error.message || "This field is required";
-  return <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-1 animate-in fade-in slide-in-from-top-1">{message}</p>;
-};
-
-const getInputClass = (error: any) => cn(
-  inputStyles,
-  error && "border-red-500 focus:ring-red-500/10 focus:border-red-500 bg-red-50/10"
-);
-
 function BioStep() {
   const { register, formState: { errors } } = useFormContext();
   return (
@@ -1036,7 +1082,21 @@ function DeclarationStep() {
   );
 }
 
-function SubmissionSuccessStep({ data, onDownload, downloading }: { data: any, onDownload: (type: 'ADMISSION' | 'FULL_PACKAGE') => void, downloading: boolean }) {
+function SubmissionSuccessStep({ 
+  data, 
+  onDownload, 
+  downloading,
+  initialMeta,
+  initialChecklist,
+  admissionId
+}: { 
+  data: any, 
+  onDownload: (type: 'ADMISSION' | 'FULL_PACKAGE') => void, 
+  downloading: boolean,
+  initialMeta?: any,
+  initialChecklist?: any,
+  admissionId: string
+}) {
   const bio = data.studentBio || {};
   const addr = data.address || {};
   const parents = data.parentsGuardians || [];
@@ -1048,20 +1108,37 @@ function SubmissionSuccessStep({ data, onDownload, downloading }: { data: any, o
     return String(date);
   };
 
+  const isVerified = initialMeta?.status === "VERIFIED";
+  const isPending = initialChecklist?.parentAffidavit === "SUBMITTED";
+
   return (
     <div className="animate-in zoom-in-95 fade-in duration-500 py-4 md:py-8">
       <div className="text-center space-y-4 md:space-y-6 mb-8 md:mb-12">
-        <div className="inline-flex items-center justify-center h-20 w-20 md:h-24 md:w-24 rounded-[32px] bg-emerald-50 text-emerald-500 shadow-xl shadow-emerald-500/10 border border-emerald-100">
-          <CheckCircle size={48} strokeWidth={2.5} />
+        <div className={cn(
+          "inline-flex items-center justify-center h-20 w-20 md:h-24 md:w-24 rounded-[32px] shadow-xl border",
+          isVerified ? "bg-emerald-50 text-emerald-500 border-emerald-100 shadow-emerald-500/10" :
+          isPending ? "bg-amber-50 text-amber-500 border-amber-100 shadow-amber-500/10" :
+          "bg-slate-100 text-slate-400 border-slate-200"
+        )}>
+          {isVerified ? <CheckCircle size={48} strokeWidth={2.5} /> :
+           isPending ? <Clock size={48} strokeWidth={2.5} /> :
+           <AlertCircle size={48} strokeWidth={2.5} />}
         </div>
         <div className="space-y-2">
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">Application Submitted!</h2>
-          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">Your admission form has been received successfully.</p>
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">
+            {isVerified ? "Verification Complete" : 
+             isPending ? "Verification Pending" : 
+             "Not Verified"}
+          </h2>
+          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">
+            {isVerified ? "All documents have been officially reviewed." :
+             isPending ? "Your documents are currently under review." :
+             "Please complete the verification step."}
+          </p>
         </div>
       </div>
 
       <div className="bg-slate-50/50 rounded-[32px] border border-slate-100 p-6 md:p-10 space-y-8 md:space-y-12 shadow-inner">
-        {/* Quick Summary Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
@@ -1099,14 +1176,44 @@ function SubmissionSuccessStep({ data, onDownload, downloading }: { data: any, o
                             <p className="font-black text-slate-900">{p.name}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-xs font-bold text-slate-500">{p.mobileNumber}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Contact</p>
+                            <p className="font-black text-blue-600">{p.mobileNumber}</p>
                         </div>
                     </div>
                 ))}
             </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 md:pt-8">
+        {(isPending || isVerified) && (
+          <div className="bg-white p-6 md:p-8 rounded-[32px] border border-blue-100 shadow-xl shadow-blue-500/5 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                  <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100">
+                      <FileText size={32} />
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Uploaded Document</p>
+                      <h5 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">Signed Affidavit & Agreement</h5>
+                      <div className="flex items-center gap-2 mt-1">
+                          <div className={cn("h-2 w-2 rounded-full animate-pulse", isVerified ? "bg-emerald-500" : "bg-amber-500")} />
+                          <p className={cn("text-[9px] font-bold uppercase tracking-tight", isVerified ? "text-emerald-600" : "text-amber-600")}>
+                              {isVerified ? "Review Finished" : "In Review Queue"}
+                          </p>
+                      </div>
+                  </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  const res = await getAffidavitContent(admissionId);
+                  if (res.success && res.affidavit) window.open(res.affidavit, "_blank");
+                }}
+                className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 active:scale-95"
+              >
+                  <Eye size={18} /> View My Submission
+              </button>
+          </div>
+        )}
+
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 md:pt-8 border-t border-slate-100">
             <button
                 type="button"
                 disabled={downloading}
@@ -1129,9 +1236,185 @@ function SubmissionSuccessStep({ data, onDownload, downloading }: { data: any, o
         <div className="pt-8 border-t border-slate-200/50 flex flex-col items-center gap-2">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Next Steps</p>
             <p className="text-xs md:text-sm text-slate-500 font-medium text-center max-w-lg">
-                Your application will now be reviewed by the school office. You will be notified once the verification process is complete. Keep the downloaded PDF for your records.
+                {isVerified ? "Your application is complete. Welcome to the school! You can now access all student features." :
+                 isPending ? "Your documents are currently being verified by the school office. Please check back later." :
+                 "Please ensure you have uploaded and submitted your affidavit in the previous step."}
             </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentVerificationStep({ 
+  admissionId, 
+  initialDocData, 
+  initialChecklistData, 
+  studentName 
+}: { 
+  admissionId: string, 
+  initialDocData?: any, 
+  initialChecklistData?: any, 
+  studentName: string 
+}) {
+  const { setValue } = useFormContext();
+  const [loading, setLoading] = useState(false);
+  const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
+  
+  const [currentDocData, setCurrentDocData] = useState(initialDocData);
+  const [currentChecklistData, setCurrentChecklistData] = useState(initialChecklistData);
+
+  const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED";
+  const hasUploaded = !!currentDocData?.affidavit;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File size exceeds 5MB limit. Please select a smaller file.");
+        e.target.value = "";
+        return;
+      }
+      setAffidavitFile(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!affidavitFile) return;
+    setLoading(true);
+    const formData = new FormData();
+    formData.append("file", affidavitFile);
+    formData.append("admissionId", admissionId);
+
+    try {
+      const response = await fetch("/api/upload-affidavit", {
+        method: "POST",
+        body: formData,
+      });
+      const res = await response.json();
+      if (res.success) {
+        setCurrentDocData({ ...currentDocData, affidavit: "UPLOADED" });
+        setValue("documents.affidavit", "__EXISTING__", { shouldDirty: true });
+        setAffidavitFile(null);
+        alert("Document uploaded successfully!");
+      } else {
+        alert("Upload failed: " + res.error);
+      }
+    } catch (err) {
+      alert("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!confirm("Are you sure?")) return;
+    setLoading(true);
+    const res = await removeAffidavit(admissionId);
+    if (res.success) {
+      setCurrentDocData({ ...currentDocData, affidavit: null });
+      setValue("documents.affidavit", "", { shouldDirty: true });
+    }
+    setLoading(false);
+  };
+
+  const handleSubmitFinal = async () => {
+    if (!confirm("Proceed with final submission? This will lock your application for review.")) return;
+    setLoading(true);
+    try {
+      const res = await submitAffidavit(admissionId);
+      if (res.success) {
+        setCurrentChecklistData({ ...currentChecklistData, parentAffidavit: "SUBMITTED" });
+        alert("Final submission complete! Your application is now locked and under review.");
+        // Redirect to step 11 for the success summary
+        window.location.href = `/student/admission?step=11&t=${Date.now()}`;
+      } else {
+        alert("Submission failed: " + (res.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error submitting form: " + (err.message || "Network error"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewPdf = async () => {
+    setLoading(true);
+    const res = await getAffidavitContent(admissionId);
+    setLoading(false);
+    if (res.success && res.affidavit) {
+      window.open(res.affidavit, "_blank");
+    } else {
+      alert("Error: " + res.error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="space-y-1">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Doc Verification</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium font-bold">Step 10: Upload and verify signed documents.</p>
+      </div>
+
+      <div className="max-w-xl mx-auto space-y-6">
+        {isFinalized && (
+          <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 flex items-center gap-4 shadow-xl">
+            <div className="h-12 w-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center">
+              <Lock size={24} />
+            </div>
+            <div>
+              <h4 className="text-lg font-black uppercase italic tracking-tight leading-none">Finalized & Locked</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Submission has been officially locked.</p>
+            </div>
+          </div>
+        )}
+
+        {!hasUploaded && !isFinalized && (
+          <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
+            <div className="border-2 border-dashed border-slate-100 rounded-3xl p-10 text-center hover:border-blue-300 hover:bg-blue-50/5 transition-all cursor-pointer group relative">
+              <input type="file" onChange={handleFileChange} className="hidden" id="form-affidavit" disabled={loading} />
+              <label htmlFor="form-affidavit" className="cursor-pointer block">
+                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                  <Upload size={32} />
+                </div>
+                <p className="text-sm font-black text-slate-600 uppercase tracking-tight">{affidavitFile ? affidavitFile.name : "Select Affidavit"}</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Click to browse signed copy</p>
+              </label>
+            </div>
+            <button onClick={handleUpload} disabled={loading || !affidavitFile} className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+              {loading ? <Loader2 className="animate-spin" /> : <Upload size={18} />} Upload for Review
+            </button>
+          </div>
+        )}
+
+        {hasUploaded && (
+          <div className={cn("p-8 rounded-[32px] border shadow-xl", isFinalized ? "bg-slate-50 border-slate-100" : "bg-emerald-50/50 border-emerald-100/50")}>
+            <div className="flex items-center gap-5 mb-8">
+              <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center", isFinalized ? "bg-slate-800 text-white" : "bg-emerald-500 text-white")}>
+                <FileText size={28} />
+              </div>
+              <div>
+                <h4 className="text-xl font-black uppercase italic tracking-tight">{isFinalized ? "Documents Locked" : "Review Submission"}</h4>
+                <p className="text-[9px] font-bold uppercase tracking-widest">{isFinalized ? "Verified" : "Check details below"}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={handleViewPdf} className="py-4 bg-white border border-slate-200 text-slate-800 rounded-2xl font-black uppercase text-[9px] hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                <Eye size={16} /> View
+              </button>
+              {!isFinalized && (
+                <button onClick={handleRemove} className="py-4 bg-white border border-slate-200 text-red-500 rounded-2xl font-black uppercase text-[9px] hover:bg-red-50 transition-all flex items-center justify-center gap-2">
+                  <Trash2 size={16} /> Delete
+                </button>
+              )}
+            </div>
+            {!isFinalized && (
+              <button onClick={handleSubmitFinal} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all mt-6 shadow-lg shadow-emerald-600/20">
+                Final Submit & Lock
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

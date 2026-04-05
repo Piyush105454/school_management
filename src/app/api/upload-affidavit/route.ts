@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Revalidate paths to sync UI
-    revalidatePath("/student/document-verification", "page");
+    revalidatePath("/student/admission", "page");
+    revalidatePath("/office/admissions/[id]", "page");
     revalidatePath("/office/document-verification", "page");
 
     return NextResponse.json({ success: true });
