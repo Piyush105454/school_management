@@ -21,6 +21,11 @@ export async function createTeacher(data: {
   name: string;
   contactNumber?: string;
   classAssigned?: string;
+  institute?: string;
+  responsibility?: string;
+  incharge?: string;
+  specialization?: string;
+  assignedRole?: string;
   email: string;
   password?: string;
 }) {
@@ -63,6 +68,11 @@ export async function createTeacher(data: {
       name: data.name,
       contactNumber: data.contactNumber || null,
       classAssigned: data.classAssigned || null,
+      institute: data.institute || null,
+      responsibility: data.responsibility || null,
+      incharge: data.incharge || null,
+      specialization: data.specialization || null,
+      assignedRole: data.assignedRole || null,
     }).returning({ id: teachers.id });
 
     console.log("CREATE_TEACHER_PROFILE_CREATED:", teacher?.id);
@@ -82,6 +92,11 @@ export async function updateTeacher(id: string, data: {
   password?: string;
   contactNumber?: string;
   classAssigned?: string;
+  institute?: string;
+  responsibility?: string;
+  incharge?: string;
+  specialization?: string;
+  assignedRole?: string;
 }) {
   try {
     const email = data.email.trim().toLowerCase();
@@ -130,6 +145,11 @@ export async function updateTeacher(id: string, data: {
       name: data.name,
       contactNumber: data.contactNumber || null,
       classAssigned: data.classAssigned || null,
+      institute: data.institute || null,
+      responsibility: data.responsibility || null,
+      incharge: data.incharge || null,
+      specialization: data.specialization || null,
+      assignedRole: data.assignedRole || null,
       updatedAt: new Date(),
     }).where(eq(teachers.id, id));
 

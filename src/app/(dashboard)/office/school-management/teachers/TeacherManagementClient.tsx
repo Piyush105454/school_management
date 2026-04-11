@@ -13,7 +13,14 @@ interface Teacher {
   email: string;
   contactNumber: string | null;
   classAssigned: string | null;
+  institute: string | null;
+  responsibility: string | null;
+  incharge: string | null;
+  specialization: string | null;
+  assignedRole: string | null;
 }
+
+const CLASSES_LIST = ["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export function TeacherManagementClient({ initialTeachers }: { initialTeachers: Teacher[] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,7 +29,12 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
   const [formData, setFormData] = useState({
     name: "",
     contactNumber: "",
-    classAssigned: "",
+    classAssigned: [] as string[],
+    institute: "",
+    responsibility: "",
+    incharge: "",
+    specialization: "",
+    assignedRole: "",
     email: "",
     password: "",
   });
@@ -33,11 +45,73 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
     setFormData({
       name: teacher.name,
       contactNumber: teacher.contactNumber || "",
-      classAssigned: teacher.classAssigned || "",
+      classAssigned: teacher.classAssigned ? teacher.classAssigned.split(",").map(c => c.trim()) : [],
+      institute: teacher.institute || "",
+      responsibility: teacher.responsibility || "",
+      incharge: teacher.incharge || "",
+      specialization: teacher.specialization || "",
+      assignedRole: teacher.assignedRole || "",
       email: teacher.email,
-      password: "", // Keep password empty unless changing
+      password: "", 
     });
     setIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsOpen(false);
+    setSelectedTeacher(null);
+    setFormData({ 
+      name: "", 
+      contactNumber: "", 
+      classAssigned: [], 
+      institute: "",
+      responsibility: "",
+      incharge: "",
+      specialization: "",
+      assignedRole: "",
+      email: "", 
+      password: "" 
+    });
+  };
+
+  const toggleClass = (cls: string) => {
+    setFormData(prev => ({
+      ...prev,
+      classAssigned: prev.classAssigned.includes(cls) 
+        ? prev.classAssigned.filter(c => c !== cls)
+        : [...prev.classAssigned, cls]
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) return alert("Name is required");
+    if (!formData.email) return alert("Email is required");
+
+    setLoading(true);
+    const submissionData = {
+      ...formData,
+      classAssigned: formData.classAssigned.join(", ")
+    };
+
+    let res;
+    if (selectedTeacher) {
+      res = await updateTeacher(selectedTeacher.id, {
+        userId: selectedTeacher.userId,
+        ...submissionData
+      });
+    } else {
+      res = await createTeacher(submissionData);
+    }
+    setLoading(false);
+
+    if (res.success) {
+      alert(selectedTeacher ? "Teacher Updated successfully!" : "Teacher Added successfully!");
+      closeModal();
+      router.refresh();
+    } else {
+      alert("Error: " + res.error);
+    }
   };
 
   const handleDelete = async (id: string, userId: string) => {
@@ -49,38 +123,6 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
 
     if (res.success) {
       alert("Teacher Deleted successfully!");
-      router.refresh();
-    } else {
-      alert("Error: " + res.error);
-    }
-  };
-
-  const closeModal = () => {
-    setIsOpen(false);
-    setSelectedTeacher(null);
-    setFormData({ name: "", contactNumber: "", classAssigned: "", email: "", password: "" });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name) return alert("Name is required");
-    if (!formData.email) return alert("Email is required");
-
-    setLoading(true);
-    let res;
-    if (selectedTeacher) {
-      res = await updateTeacher(selectedTeacher.id, {
-        userId: selectedTeacher.userId,
-        ...formData
-      });
-    } else {
-      res = await createTeacher(formData);
-    }
-    setLoading(false);
-
-    if (res.success) {
-      alert(selectedTeacher ? "Teacher Updated successfully!" : "Teacher Added successfully!");
-      closeModal();
       router.refresh();
     } else {
       alert("Error: " + res.error);
@@ -115,8 +157,9 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Number</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher Info</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Info</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assignments</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
@@ -134,14 +177,32 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5 text-sm text-slate-600 font-medium">{teacher.contactNumber || "-"}</td>
                   <td className="px-6 py-5">
-                    {teacher.classAssigned ? (
-                      <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-blue-100">
-                        Class {teacher.classAssigned}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 text-xs">-</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-12 text-right">Role:</span>
+                        <span className="text-xs font-bold text-slate-700">{teacher.assignedRole || "-"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-12 text-right">Sub:</span>
+                        <span className="text-xs font-bold text-slate-500">{teacher.specialization || "-"}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex flex-wrap gap-1.5 min-h-[40px] items-center">
+                      {teacher.classAssigned ? (
+                        teacher.classAssigned.split(",").map(c => (
+                          <span key={c} className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-emerald-100">
+                            {c.trim()}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 text-xs">-</span>
+                      )}
+                    </div>
+                    {teacher.responsibility && (
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">RESP: {teacher.responsibility}</p>
                     )}
                   </td>
                   <td className="px-6 py-5 text-right">
@@ -169,71 +230,148 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
         </div>
       )}
 
-      <Modal isOpen={isOpen} onClose={closeModal} title={selectedTeacher ? "Edit Teacher" : "Add New Teacher"}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Teacher Name</label>
-            <input
-              placeholder="Enter full name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              required
-            />
+      <Modal isOpen={isOpen} onClose={closeModal} title={selectedTeacher ? "Edit Teacher Profile" : "Add New Teacher"}>
+        <form onSubmit={handleSubmit} className="p-1 space-y-6 max-h-[80vh] overflow-y-auto">
+          {/* Basic Info */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-blue-600 rounded-full"></span> Basic Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Full Name</label>
+                <input
+                  placeholder="Enter full name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Contact Number</label>
+                <input
+                  placeholder="Phone Number"
+                  value={formData.contactNumber}
+                  onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email (Login ID)</label>
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Password</label>
+                <input
+                  type="password"
+                  placeholder={selectedTeacher ? "New password (optional)" : "Default: Teacher@123"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
-            <input
-              type="email"
-              placeholder="Enter email for login"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-              required
-            />
+
+          {/* Professional Info */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-emerald-600 rounded-full"></span> Professional Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Institute / Branch</label>
+                <input
+                  placeholder="Enter Institute"
+                  value={formData.institute}
+                  onChange={(e) => setFormData({ ...formData, institute: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Role / Designation</label>
+                <input
+                  placeholder="e.g. Senior Teacher"
+                  value={formData.assignedRole}
+                  onChange={(e) => setFormData({ ...formData, assignedRole: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Specialization (Subject)</label>
+                <input
+                  placeholder="e.g. Mathematics"
+                  value={formData.specialization}
+                  onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Overall Responsibility</label>
+                <input
+                  placeholder="e.g. Exam Incharge"
+                  value={formData.responsibility}
+                  onChange={(e) => setFormData({ ...formData, responsibility: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1 col-span-full">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Incharge Of (Misc)</label>
+                <input
+                  placeholder="e.g. Cultural Events, Sports"
+                  value={formData.incharge}
+                  onChange={(e) => setFormData({ ...formData, incharge: e.target.value })}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{selectedTeacher ? "New Password (Leave blank to keep)" : "Password (Optional)"}</label>
-            <input
-              type="password"
-              placeholder={selectedTeacher ? "Enter new password" : "Default: Teacher@123"}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Contact Number</label>
-            <input
-              placeholder="Phone Number"
-              value={formData.contactNumber}
-              onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-              className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Class Assigned</label>
-            <select
-              value={formData.classAssigned}
-              onChange={(e) => setFormData({ ...formData, classAssigned: e.target.value })}
-              className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-            >
-              <option value="">Select Class</option>
-              {["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+
+          {/* Assignments */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-indigo-600 rounded-full"></span> Class Assignments
+            </h3>
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Select Classes Assigned to this Teacher</label>
+              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
+                {CLASSES_LIST.map((cls) => (
+                  <button
+                    key={cls}
+                    type="button"
+                    onClick={() => toggleClass(cls)}
+                    className={`px-2 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${
+                      formData.classAssigned.includes(cls)
+                        ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    {cls}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-4 text-[10px] text-slate-400 font-medium italic">* Selected classes will be the only ones visible to this teacher in their dashboard.</p>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all disabled:opacity-50 mt-4"
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 shadow-xl"
           >
-            {loading ? <Loader2 className="animate-spin mx-auto" size={16} /> : (selectedTeacher ? "Update Teacher" : "Save Teacher")}
+            {loading ? <Loader2 className="animate-spin" size={16} /> : (selectedTeacher ? "Update Teacher Profile" : "Create Teacher Profile")}
           </button>
         </form>
       </Modal>
     </div>
   );
 }
+

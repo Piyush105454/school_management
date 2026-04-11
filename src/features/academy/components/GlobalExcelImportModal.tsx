@@ -3,18 +3,15 @@
 import React, { useState, useRef } from "react";
 import { FileSpreadsheet, X, Loader2, Upload, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
-import { bulkImportAcademyData, BulkImportRow } from "@/features/academy/actions/bulkActions";
+import { globalBulkImportAcademyData, GlobalBulkImportRow } from "@/features/academy/actions/bulkActions";
 
-interface ExcelImportModalProps {
-  subjectId: number;
-}
-
-export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
+export default function GlobalExcelImportModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [parsedRows, setParsedRows] = useState<BulkImportRow[]>([]);
+  const [parsedRows, setParsedRows] = useState<GlobalBulkImportRow[]>([]);
+  const [clearExisting, setClearExisting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,7 +27,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: "binary", cellLinks: true } as any);
         
-        const allValidRows: BulkImportRow[] = [];
+        const allValidRows: GlobalBulkImportRow[] = [];
 
         // Iterate through all sheets to find data
         wb.SheetNames.forEach(wsname => {
@@ -38,7 +35,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
           const data = XLSX.utils.sheet_to_json(ws) as any[];
           
           const sheetRows = data.map((row, index) => {
-            // Normalize keys
+            // Normalize row keys (trim and lowercase)
             const normalizedRow: any = {};
             Object.keys(row).forEach(key => {
               normalizedRow[key.trim().toLowerCase()] = row[key];
@@ -52,11 +49,14 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
               return "";
             };
 
+            const className = getVal(["Class", "class", "Grade", "Standard"]);
+            const subjectName = getVal(["Subject", "subject", "Sub", "Book"]);
             const rawUnit = getVal(["Unit Name", "unit_name", "Unit"]) || "NA";
             const rawChapter = getVal(["Chapter Name", "chapter_name", "Chapter"]);
             
-            if (!rawChapter) return null;
+            if (!className || !subjectName || !rawChapter) return null;
 
+            // Parse Unit Number and Name
             const unitMatch = rawUnit.match(/(?:Unit|U)\s*[-:]?\s*(\d+)\s*[:.-]?\s*(.*)/i);
             let unitOrder = parseInt(getVal(["Unit Order", "unit_order", "Unit No"]) || "0");
             let unitName = rawUnit;
@@ -66,6 +66,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
               unitName = unitMatch[2] || rawUnit;
             }
 
+            // Parse Chapter Number and Name
             const chapterMatch = rawChapter.match(/(?:Chapter|Ch|Chap)\s*[-:]?\s*(\d+)\s*[:.-]?\s*(.*)/i);
             let chapterNo = parseInt(getVal(["Chapter No", "chapter_no", "Chapter Number"]) || "0");
             let chapterName = rawChapter;
@@ -77,6 +78,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
 
             if (!chapterNo) chapterNo = index + 1;
 
+            // PDF Link - either from a column or from the Chapter cell hyperlink
             let pdfUrl = getVal(["PDF Link", "pdf_link", "Google Drive Link", "URL"]);
             
             if (!pdfUrl) {
@@ -91,7 +93,9 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
               }
             }
 
-            const res: BulkImportRow = {
+            const res: GlobalBulkImportRow = {
+              className,
+              subjectName,
               unitName: unitName.trim() || "NA",
               unitOrder: unitOrder || 1,
               chapterName: chapterName.trim(),
@@ -105,13 +109,13 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
             if (!isNaN(pe)) res.pageEnd = pe;
 
             return res;
-          }).filter((r): r is BulkImportRow => r !== null);
+          }).filter((r): r is GlobalBulkImportRow => r !== null);
 
           allValidRows.push(...sheetRows);
         });
 
         if (allValidRows.length === 0) {
-          setError("No valid chapter data found in any sheet. Please ensure Chapter Name column exists.");
+          setError("No valid data found in any sheet. Ensure Class, Subject, and Chapter columns exist.");
         } else {
           setParsedRows(allValidRows);
         }
@@ -128,13 +132,21 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
     setIsSubmitting(true);
     setError(null);
 
-    const result = await bulkImportAcademyData(subjectId, parsedRows);
+    const result = await globalBulkImportAcademyData(parsedRows, clearExisting);
     
     setIsSubmitting(false);
     if (result.success) {
-      setIsOpen(false);
       setParsedRows([]);
       setFileName(null);
+      setClearExisting(false);
+      const created = result.stats?.created || 0;
+      const updated = result.stats?.updated || 0;
+      setError(`Successfully imported data! Created: ${created}, Updated: ${updated}.`);
+      // Keep modal open for a second so user sees the message
+      setTimeout(() => {
+        setIsOpen(false);
+        setError(null);
+      }, 3000);
     } else {
       setError(result.error || "Failed to import data.");
     }
@@ -147,7 +159,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
         className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm"
       >
         <FileSpreadsheet className="h-4 w-4" />
-        Import Excel
+        Global Import
       </button>
 
       {isOpen && (
@@ -159,8 +171,8 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
                   <FileSpreadsheet className="h-6 w-6" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">Bulk Import</h2>
-                  <p className="text-xs text-slate-500 font-medium">Upload Excel with Units & Chapters</p>
+                  <h2 className="text-lg font-bold text-slate-800">Global Bulk Import</h2>
+                  <p className="text-xs text-slate-500 font-medium">Upload Excel for All Classes & Subjects</p>
                 </div>
               </div>
               <button
@@ -174,7 +186,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
 
             <div className="p-8 space-y-6">
               {error && (
-                <div className="p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-medium flex gap-3">
+                <div className={`p-4 ${error.includes('Successfully') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'} border rounded-2xl text-sm font-medium flex gap-3`}>
                   <AlertCircle className="h-5 w-5 shrink-0" />
                   {error}
                 </div>
@@ -198,24 +210,52 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
                   <p className="font-bold text-slate-700">
                     {fileName || "Click to select Excel file"}
                   </p>
-                  <p className="text-xs text-slate-400 max-w-xs">
-                    Expected columns: Unit Name, Unit No, Chapter Name, Chapter No, Page Start, Page End, PDF Link.
+                  <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                    Required Columns: <b>Class, Subject, Chapter Name</b>.<br />
+                    Optional: Unit, Chapter No, Page Start/End, PDF Link.
                   </p>
                 </div>
               </div>
 
               {parsedRows.length > 0 && (
-                <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
-                  <p className="text-sm font-bold text-slate-700">
-                    Ready to import <span className="text-emerald-600">{parsedRows.length} Chapters</span>
-                  </p>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Import"}
-                  </button>
+                <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-700">
+                        Ready to import <span className="text-emerald-600">{parsedRows.length} Rows</span>
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium">Data parsed from all sheets in file</p>
+                    </div>
+                    
+                    <button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-200"
+                    >
+                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Import"}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-xl">
+                    <input 
+                      type="checkbox" 
+                      id="clearExisting"
+                      checked={clearExisting}
+                      onChange={(e) => setClearExisting(e.target.checked)}
+                      disabled={isSubmitting}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <label htmlFor="clearExisting" className="text-xs font-bold text-slate-600 cursor-pointer">
+                      Clear existing data for these subjects before importing
+                    </label>
+                  </div>
+                  
+                  {isSubmitting && (
+                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded-xl text-xs font-bold animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {clearExisting ? "Wiping old data and importing..." : "Processing large dataset... Please wait, this may take a moment."}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -225,3 +265,4 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
     </>
   );
 }
+
