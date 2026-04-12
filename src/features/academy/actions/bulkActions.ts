@@ -202,9 +202,13 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
       if (matchedClass) {
         classId = matchedClass.id;
       } else {
-        const [newClass] = await db.insert(classes).values({ name: className }).returning({ id: classes.id });
+        const derivedGrade = parseInt(normalizeAcademicName(className)) || 0;
+        const [newClass] = await db.insert(classes).values({ 
+          name: className,
+          grade: derivedGrade
+        }).returning({ id: classes.id });
         classId = newClass.id;
-        allClasses.push({ id: classId, name: className });
+        allClasses.push({ id: classId, name: className, grade: derivedGrade });
       }
 
       // Fetch subjects for this class

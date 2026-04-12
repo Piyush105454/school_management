@@ -26,24 +26,18 @@ export async function POST(req: NextRequest) {
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 
-    // Update database
-    const existing = await db.query.studentDocuments.findFirst({
-      where: eq(studentDocuments.admissionId, admissionId),
-    });
-
-    if (existing) {
-      await db.update(studentDocuments)
-        .set({
-          affidavit: dataUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(studentDocuments.admissionId, admissionId));
-    } else {
-      await db.insert(studentDocuments).values({
-        admissionId,
+    // Update database (Upsert)
+    await db.insert(studentDocuments).values({
+      admissionId,
+      affidavit: dataUrl,
+      updatedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: studentDocuments.admissionId,
+      set: {
         affidavit: dataUrl,
-      });
-    }
+        updatedAt: new Date(),
+      }
+    });
 
     // Revalidate paths to sync UI
     revalidatePath("/student/admission", "page");

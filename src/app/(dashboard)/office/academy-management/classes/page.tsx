@@ -7,6 +7,8 @@ import { inquiries, studentProfiles, admissionMeta, teachers } from "@/db/schema
 import { count, eq } from "drizzle-orm";
 import { Users, Presentation, BookOpen } from "lucide-react";
 import GlobalExcelImportModal from "@/features/academy/components/GlobalExcelImportModal";
+import ClassTable from "@/features/academy/components/ClassTable";
+
 
 export default async function ClassManagementPage() {
   const session = await getServerSession(authOptions);
@@ -59,47 +61,8 @@ export default async function ClassManagementPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {classData.map((cls) => (
-          <div key={cls.name} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                <Presentation className="h-6 w-6" />
-              </div>
-              <span className="text-xs font-black bg-slate-100 text-slate-600 px-3 py-1 rounded-full uppercase tracking-wider">
-                Class
-              </span>
-            </div>
+      <ClassTable classData={classData} />
 
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-slate-800">
-                {cls.name === "Nursery" || cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
-              </h2>
-              <div className="flex items-center gap-2 text-slate-500 text-sm">
-                <Users className="h-4 w-4" />
-                <span>{cls.count} Confirmed Students</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 mt-2">
-              <Link 
-                href={`/office/school-management/classes/${cls.name}`}
-                className="w-full text-center px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2"
-              >
-                <Users className="h-3.5 w-3.5" />
-                View Students
-              </Link>
-              <Link 
-                href={`/office/academy-management/classes/${cls.name}/subjects`}
-                className="w-full text-center px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2 shadow-sm shadow-blue-500/10"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                View Subject
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

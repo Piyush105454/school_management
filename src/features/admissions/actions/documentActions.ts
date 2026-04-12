@@ -71,12 +71,17 @@ export async function submitAffidavit(admissionId: string) {
   try {
     // Update checklist status to SUBMITTED
     await db.transaction(async (tx) => {
-      await tx.update(documentChecklists)
-        .set({
+      await tx.insert(documentChecklists).values({
+        admissionId,
+        parentAffidavit: "SUBMITTED",
+        verifiedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: documentChecklists.admissionId,
+        set: { 
           parentAffidavit: "SUBMITTED",
           verifiedAt: new Date(),
-        })
-        .where(eq(documentChecklists.admissionId, admissionId));
+        }
+      });
 
       await tx.update(studentProfiles)
         .set({
@@ -136,13 +141,18 @@ export async function rejectAffidavit(admissionId: string) {
         })
         .where(eq(studentDocuments.admissionId, admissionId));
 
-      // 2. Update checklist status to REJECTED
-      await tx.update(documentChecklists)
-        .set({
+      // 2. Update checklist status to REJECTED (using upsert)
+      await tx.insert(documentChecklists).values({
+        admissionId,
+        parentAffidavit: "REJECTED" as any,
+        verifiedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: documentChecklists.admissionId,
+        set: {
           parentAffidavit: "REJECTED" as any,
           verifiedAt: new Date(),
-        })
-        .where(eq(documentChecklists.admissionId, admissionId));
+        }
+      });
 
       // 3. Move student profile back to Step 10
       await tx.update(studentProfiles)

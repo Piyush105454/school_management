@@ -241,26 +241,19 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
 
 export async function verifyAdmission(admissionId: string) {
   try {
-    const existing = await db.query.documentChecklists.findFirst({
-      where: eq(documentChecklists.admissionId, admissionId)
-    });
-
-    if (existing) {
-      await db.update(documentChecklists)
-        .set({ 
-          formReceivedComplete: true, 
-          parentAffidavit: "VERIFIED" as any,
-          verifiedAt: new Date() 
-        })
-        .where(eq(documentChecklists.admissionId, admissionId));
-    } else {
-      await db.insert(documentChecklists).values({
-        admissionId,
-        formReceivedComplete: true,
+    await db.insert(documentChecklists).values({
+      admissionId,
+      formReceivedComplete: true,
+      parentAffidavit: "VERIFIED" as any,
+      verifiedAt: new Date()
+    }).onConflictDoUpdate({
+      target: documentChecklists.admissionId,
+      set: {
+        formReceivedComplete: true, 
         parentAffidavit: "VERIFIED" as any,
         verifiedAt: new Date()
-      });
-    }
+      }
+    });
 
     await db.update(studentProfiles)
       .set({ admissionStep: 12 })

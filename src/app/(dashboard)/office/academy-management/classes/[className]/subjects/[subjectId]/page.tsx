@@ -8,6 +8,8 @@ import ChapterPdfUploader from "@/features/academy/components/ChapterPdfUploader
 import AddUnitModal from "@/features/academy/components/AddUnitModal";
 import AddChapterModal from "@/features/academy/components/AddChapterModal";
 import ExcelImportModal from "@/features/academy/components/ExcelImportModal";
+import EditUnitModal from "@/features/academy/components/EditUnitModal";
+import EditChapterModal from "@/features/academy/components/EditChapterModal";
 
 interface SubjectDetailsPageProps {
   params: Promise<{
@@ -145,6 +147,7 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
                     )}>
                       {isNA ? "Direct Chapters" : unit.name}
                     </h2>
+                    {!isNA && <EditUnitModal unitId={unit.id} initialName={unit.name} />}
                   </div>
                   <AddChapterModal unitId={unit.id} nextOrderNo={unitsChapters.length + 1} />
                 </div>
@@ -167,11 +170,17 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
                             <div className="mt-1">
                               <GripVertical className="h-5 w-5 text-slate-300" />
                             </div>
-                            <div className="space-y-1">
-                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-blue-500" />
-                                {chapter.name}
-                              </h3>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                  {chapter.name}
+                                </h3>
+                                <EditChapterModal 
+                                  chapter={chapter} 
+                                  availableUnits={subjectUnits} 
+                                />
+                              </div>
                               <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
                                 <span className="bg-slate-100 px-2 py-1 rounded-md">Chapter {chapter.chapterNo}</span>
                                 {chapter.pageStart && chapter.pageEnd ? (

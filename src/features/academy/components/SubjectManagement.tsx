@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { BookOpen, ChevronRight, Layers, Plus, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { BookOpen, Layers, Plus, Trash2, Loader2, AlertCircle, Edit2, MoreVertical } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { createSubject, deleteSubject } from "@/features/academy/actions/subjectActions";
+import { updateSubject } from "@/features/academy/actions/academyActions";
 import { useRouter } from "next/navigation";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 
 interface Subject {
   id: number;
@@ -29,9 +31,11 @@ export default function SubjectManagement({
 }: SubjectManagementProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentSubject, setCurrentSubject] = useState<Subject | null>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -62,6 +66,39 @@ export default function SubjectManagement({
     }
   };
 
+  const handleEditSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentSubject || !formData.name.trim()) return;
+
+    setIsSubmitting(true);
+    setError(null);
+    
+    const result = await updateSubject(currentSubject.id, {
+      name: formData.name.trim(),
+      medium: formData.medium
+    });
+    
+    setIsSubmitting(false);
+    
+    if (result.success) {
+      setIsEditModalOpen(false);
+      setCurrentSubject(null);
+      setFormData({ name: "", medium: "English/Hindi" });
+      router.refresh();
+    } else {
+      setError(result.error || "Failed to update subject.");
+    }
+  };
+
+  const openEditModal = (subject: Subject) => {
+    setCurrentSubject(subject);
+    setFormData({
+      name: subject.name,
+      medium: subject.medium
+    });
+    setIsEditModalOpen(true);
+  };
+
   const handleDelete = async (subjectId: number, subjectName: string) => {
     if (confirm(`Are you sure you want to delete "${subjectName}"? This will also delete all units and chapters associated with it.`)) {
       setIsDeleting(subjectId);
@@ -80,7 +117,10 @@ export default function SubjectManagement({
     <div className="space-y-6">
       <div className="flex justify-end">
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setFormData({ name: "", medium: "English/Hindi" });
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-xs uppercase tracking-wider"
         >
           <Plus size={16} />
@@ -101,52 +141,70 @@ export default function SubjectManagement({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {initialSubjects.map((subject) => (
-            <div key={subject.id} className="group bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between gap-4 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300 relative overflow-hidden">
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <button 
-                  onClick={() => handleDelete(subject.id, subject.name)}
-                  disabled={isDeleting === subject.id}
-                  className="p-2.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all shadow-sm"
-                  title="Delete Subject"
-                 >
-                   {isDeleting === subject.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                 </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <BookOpen className="h-6 w-6" />
-                </div>
-                <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-50">
-                  {subject.medium}
-                </span>
-              </div>
-
-              <div className="space-y-1">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">
-                  {subject.name}
-                </h2>
-              </div>
-
-              <div className="pt-2">
-                <Link 
-                  href={`/office/academy-management/classes/${classNameParam}/subjects/${subject.id}`}
-                  className="w-full text-center px-4 py-3.5 bg-slate-50 text-slate-700 font-bold rounded-2xl hover:bg-blue-600 hover:text-white transition-all text-[11px] uppercase tracking-widest flex items-center justify-between group border border-slate-100/50"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Layers className="h-4 w-4 text-blue-500 group-hover:text-blue-100 transition-colors" />
-                    View Units & Chapters
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-100 transition-colors" />
-                </Link>
-              </div>
-            </div>
-          ))}
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Subject Name</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Medium</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Content Management</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {initialSubjects.map((subject) => (
+                  <tr key={subject.id} className="hover:bg-slate-50/30 transition-colors group">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                          <BookOpen className="h-5 w-5" />
+                        </div>
+                        <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                          {subject.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-50 shadow-sm">
+                        {subject.medium}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <Link 
+                        href={`/office/academy-management/classes/${classNameParam}/subjects/${subject.id}`}
+                        className="inline-flex items-center gap-2.5 px-4 py-2 bg-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-600 hover:text-white transition-all group active:scale-95"
+                      >
+                        <Layers className="h-3.5 w-3.5 text-blue-500 group-hover:text-white transition-colors" />
+                        Units & Chapters
+                      </Link>
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <ActionDropdown 
+                        actions={[
+                          {
+                            label: "Edit Subject",
+                            icon: <Edit2 className="h-4 w-4" />,
+                            onClick: () => openEditModal(subject)
+                          },
+                          {
+                            label: isDeleting === subject.id ? "Deleting..." : "Delete Subject",
+                            icon: isDeleting === subject.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />,
+                            variant: "danger",
+                            onClick: () => handleDelete(subject.id, subject.name)
+                          }
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
+      {/* Add Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
@@ -157,7 +215,7 @@ export default function SubjectManagement({
         }}
         title="Add New Subject"
       >
-        <form onSubmit={handleAddSubject} className="space-y-5">
+        <form onSubmit={handleAddSubject} className="space-y-5 p-1">
           {error && (
             <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
               <AlertCircle size={18} className="mt-0.5 shrink-0" />
@@ -209,6 +267,74 @@ export default function SubjectManagement({
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
               {isSubmitting ? "Adding..." : "Add Subject"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          if (!isSubmitting) {
+            setIsEditModalOpen(false);
+            setError(null);
+          }
+        }}
+        title="Edit Subject"
+      >
+        <form onSubmit={handleEditSubject} className="space-y-5 p-1">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Subject Name</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Mathematics, Science"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 placeholder:text-slate-300"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              disabled={isSubmitting}
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Medium</label>
+            <select
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 appearance-none cursor-pointer"
+              value={formData.medium}
+              onChange={(e) => setFormData({ ...formData, medium: e.target.value })}
+              disabled={isSubmitting}
+            >
+              <option value="English/Hindi">English/Hindi</option>
+              <option value="English">English</option>
+              <option value="Hindi">Hindi</option>
+            </select>
+          </div>
+
+          <div className="pt-4 flex gap-3">
+             <button
+              type="button"
+              onClick={() => setIsEditModalOpen(false)}
+              className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-wider"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-6 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-xs uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Edit2 size={16} />}
+              {isSubmitting ? "Updating..." : "Update Subject"}
             </button>
           </div>
         </form>

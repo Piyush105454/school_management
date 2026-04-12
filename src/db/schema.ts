@@ -413,6 +413,37 @@ export const scholarshipRecordsRelations = relations(scholarshipRecords, ({ one 
 export const classes = pgTable("classes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  grade: integer("grade").notNull().default(0),
+});
+
+export const students = pgTable("students", {
+  id: serial("id").primaryKey(),
+  classId: integer("class_id").references(() => classes.id),
+  studentId: text("student_id").unique().notNull(),
+  name: text("name").notNull(),
+});
+
+export const overallAttendance = pgTable("overall_attendance", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").notNull(),
+  day: text("day"),
+  month: text("month"),
+  year: integer("year"),
+  total: integer("total"),
+  present: integer("present"),
+  absent: integer("absent"),
+  attendancePct: integer("attendance_pct"),
+});
+
+export const studentAttendance = pgTable("student_attendance", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id),
+  classId: integer("class_id").references(() => classes.id),
+  date: timestamp("date").notNull(),
+  day: text("day"),
+  month: text("month"),
+  year: integer("year"),
+  status: text("status", { enum: ["P", "A"] }),
 });
 
 export const subjects = pgTable("subjects", {
