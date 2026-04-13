@@ -56,7 +56,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {cls.name === "Nursery" || cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
+                        {cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
                       </p>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Section A</p>
                     </div>

@@ -13,6 +13,7 @@ interface Subject {
   id: number;
   classId: number;
   name: string;
+  bookName?: string | null;
   medium: string;
 }
 
@@ -39,6 +40,7 @@ export default function SubjectManagement({
   
   const [formData, setFormData] = useState({
     name: "",
+    bookName: "",
     medium: "English/Hindi"
   });
 
@@ -52,6 +54,7 @@ export default function SubjectManagement({
     const result = await createSubject({
       classId,
       name: formData.name.trim(),
+      bookName: formData.bookName.trim(),
       medium: formData.medium
     });
     
@@ -59,7 +62,7 @@ export default function SubjectManagement({
     
     if (result.success) {
       setIsModalOpen(false);
-      setFormData({ name: "", medium: "English/Hindi" });
+      setFormData({ name: "", bookName: "", medium: "English/Hindi" });
       router.refresh();
     } else {
       setError(result.error || "Failed to add subject.");
@@ -75,6 +78,7 @@ export default function SubjectManagement({
     
     const result = await updateSubject(currentSubject.id, {
       name: formData.name.trim(),
+      bookName: formData.bookName.trim(),
       medium: formData.medium
     });
     
@@ -83,7 +87,7 @@ export default function SubjectManagement({
     if (result.success) {
       setIsEditModalOpen(false);
       setCurrentSubject(null);
-      setFormData({ name: "", medium: "English/Hindi" });
+      setFormData({ name: "", bookName: "", medium: "English/Hindi" });
       router.refresh();
     } else {
       setError(result.error || "Failed to update subject.");
@@ -94,6 +98,7 @@ export default function SubjectManagement({
     setCurrentSubject(subject);
     setFormData({
       name: subject.name,
+      bookName: subject.bookName || "",
       medium: subject.medium
     });
     setIsEditModalOpen(true);
@@ -118,7 +123,7 @@ export default function SubjectManagement({
       <div className="flex justify-end">
         <button
           onClick={() => {
-            setFormData({ name: "", medium: "English/Hindi" });
+            setFormData({ name: "", bookName: "", medium: "English/Hindi" });
             setIsModalOpen(true);
           }}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-xs uppercase tracking-wider"
@@ -147,6 +152,7 @@ export default function SubjectManagement({
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Subject Name</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Book Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Medium</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Content Management</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -164,6 +170,11 @@ export default function SubjectManagement({
                           {subject.name}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className="text-slate-600 font-medium italic">
+                        {subject.bookName || "—"}
+                      </span>
                     </td>
                     <td className="px-8 py-5">
                       <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-50 shadow-sm">
@@ -238,6 +249,18 @@ export default function SubjectManagement({
           </div>
 
           <div className="space-y-2">
+            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Book Name</label>
+            <input
+              type="text"
+              placeholder="e.g. NCERT Math, RS Aggarwal"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 placeholder:text-slate-300"
+              value={formData.bookName}
+              onChange={(e) => setFormData({ ...formData, bookName: e.target.value })}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="space-y-2">
             <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Medium</label>
             <select
               className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 appearance-none cursor-pointer"
@@ -302,6 +325,18 @@ export default function SubjectManagement({
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               disabled={isSubmitting}
               autoFocus
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Book Name</label>
+            <input
+              type="text"
+              placeholder="e.g. NCERT Math, RS Aggarwal"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 placeholder:text-slate-300"
+              value={formData.bookName}
+              onChange={(e) => setFormData({ ...formData, bookName: e.target.value })}
+              disabled={isSubmitting}
             />
           </div>
 

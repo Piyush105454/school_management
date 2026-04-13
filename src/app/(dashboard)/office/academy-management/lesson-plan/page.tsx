@@ -1,11 +1,21 @@
-"use client";
-
-import React, { useState } from "react";
 import LessonPlanForm from "@/features/academy/components/LessonPlanForm";
-import { BookOpen, FileText, ArrowLeft } from "lucide-react";
+import { BookOpen, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { getAllAcademicMetadata } from "@/features/academy/actions/academyActions";
 
-export default function LessonPlanPage() {
+export default async function LessonPlanPage() {
+  const metadata = await getAllAcademicMetadata();
+  
+  if (!metadata.success) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+        <div className="bg-white p-8 rounded-3xl border border-red-100 shadow-sm text-center">
+          <p className="text-red-500 font-bold">Failed to load academic data. Please contact admin.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -29,7 +39,10 @@ export default function LessonPlanPage() {
 
         <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
           <div className="p-8 md:p-12">
-            <LessonPlanForm />
+            <LessonPlanForm 
+              classes={metadata.classes || []} 
+              subjects={metadata.subjects || []} 
+            />
           </div>
         </div>
       </div>

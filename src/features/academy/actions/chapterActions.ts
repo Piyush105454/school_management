@@ -7,20 +7,24 @@ import { revalidatePath } from "next/cache";
 
 export async function uploadChapterPdf(formData: FormData) {
   try {
-    const file = formData.get("file") as File;
+    const file = formData.get("file") as File | null;
+    const fileUrl = formData.get("fileUrl") as string | null;
     const chapterIdStr = formData.get("chapterId") as string;
     const uploadedBy = formData.get("uploadedBy") as string;
 
-    if (!file || !chapterIdStr) {
-      return { success: false, error: "Missing file or chapter ID" };
+    if (!chapterIdStr || (!file && !fileUrl)) {
+      return { success: false, error: "Missing file/url or chapter ID" };
     }
 
     const chapterId = parseInt(chapterIdStr, 10);
+    let dataUrl = fileUrl || "";
 
-    // Convert file to base64 for storage
-    const buffer = await file.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-    const dataUrl = `data:${file.type};base64,${base64}`;
+    if (file) {
+      // Convert file to base64 for storage
+      const buffer = await file.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString("base64");
+      dataUrl = `data:${file.type};base64,${base64}`;
+    }
 
     // Update database (check if already exists)
     const existing = await db.query.chapterPdfs.findFirst({

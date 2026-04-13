@@ -31,7 +31,7 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const getClassesBySchool = (school: string) => {
     if (school === "Dhanpuri Public School") {
-      return ["Nursery", "KG1", "KG2", "1", "2", "3", "4", "5", "6", "7"];
+      return ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7"];
     } else if (school === "WES Academy") {
       return ["8", "9", "10", "Senior 1st Year", "Senior 2nd Year", "Senior 3rd Year", "Senior 4th Year"];
     }

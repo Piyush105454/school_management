@@ -49,6 +49,7 @@ export async function GET() {
         "id" SERIAL PRIMARY KEY,
         "class_id" integer NOT NULL REFERENCES "classes"("id") ON DELETE CASCADE,
         "name" text NOT NULL,
+        "book_name" text,
         "medium" text DEFAULT 'English/Hindi' NOT NULL
       );
 
@@ -77,11 +78,24 @@ export async function GET() {
         "uploaded_at" timestamp DEFAULT now() NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS "lesson_plans" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "teacher_id" uuid REFERENCES "users"("id"),
+        "class_id" integer REFERENCES "classes"("id"),
+        "subject_id" integer REFERENCES "subjects"("id"),
+        "date" text NOT NULL,
+        "type" text DEFAULT 'EXPLANATION' NOT NULL,
+        "step1_data" text,
+        "step2_data" text,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      );
+
       -- 2. Seed Classes
       INSERT INTO "classes" ("id", "name") VALUES 
         (1, 'Class 1'), (2, 'Class 2'), (3, 'Class 3'), (4, 'Class 4'), 
         (5, 'Class 5'), (6, 'Class 6'), (7, 'Class 7'), (8, 'Class 8'),
-        (9, 'Nursery'), (10, 'LKG'), (11, 'UKG')
+        (10, 'LKG'), (11, 'UKG')
       ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name";
       
       SELECT setval(pg_get_serial_sequence('classes', 'id'), coalesce(max(id), 0) + 1, false) FROM "classes";

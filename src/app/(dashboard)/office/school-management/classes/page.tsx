@@ -6,7 +6,7 @@ import { count, eq } from "drizzle-orm";
 import { Users, Presentation } from "lucide-react";
 
 export default async function ClassManagementPage() {
-  const classesList = ["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+  const classesList = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
   // Fetch student counts grouped by class
   const studentCounts = await db
@@ -51,7 +51,7 @@ export default async function ClassManagementPage() {
 
             <div className="space-y-1">
               <h2 className="text-xl font-bold text-slate-800">
-                {cls.name === "Nursery" || cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
+                {cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
               </h2>
               <div className="flex items-center gap-2 text-slate-500 text-sm">
                 <Users className="h-4 w-4" />

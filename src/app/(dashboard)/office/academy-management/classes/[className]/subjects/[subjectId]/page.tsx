@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Layers, GripVertical, FileText } from "lucide-react";
+import { ArrowLeft, BookOpen, Layers, GripVertical, FileText, Eye } from "lucide-react";
 import { db } from "@/db";
 import { subjects, classes, units, chapters, chapterPdfs } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
@@ -161,46 +161,94 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
                     No chapters added to this unit yet.
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100">
-                    {unitsChapters.map((chapter) => {
-                      const chapterPdf = pdfs.find(p => p.chapterId === chapter.id);
-                      return (
-                        <div key={chapter.id} className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:items-center hover:bg-slate-50/50 transition-colors">
-                          <div className="flex-1 flex gap-4">
-                            <div className="mt-1">
-                              <GripVertical className="h-5 w-5 text-slate-300" />
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                  <FileText className="h-4 w-4 text-blue-500" />
-                                  {chapter.name}
-                                </h3>
-                                <EditChapterModal 
-                                  chapter={chapter} 
-                                  availableUnits={subjectUnits} 
-                                />
-                              </div>
-                              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-                                <span className="bg-slate-100 px-2 py-1 rounded-md">Chapter {chapter.chapterNo}</span>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-16">#</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest w-20 text-center">CH. NO</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Chapter Name</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Pages</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center min-w-[150px]">View Chapter</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {unitsChapters.map((chapter, index) => {
+                          const chapterPdf = pdfs.find(p => p.chapterId === chapter.id);
+                          const resourceUrl = chapterPdf ? (
+                            chapterPdf.fileUrl?.startsWith("data:") 
+                              ? `/api/academy/chapter-pdf/${chapter.id}` 
+                              : chapterPdf.fileUrl
+                          ) : undefined;
+
+                          return (
+                            <tr key={chapter.id} className="hover:bg-slate-50/30 transition-colors group">
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-bold text-slate-400">{(index + 1).toString().padStart(2, '0')}</span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="inline-flex items-center justify-center h-7 w-7 bg-slate-100 text-slate-600 text-[10px] font-black rounded-lg border border-slate-200 shadow-sm">
+                                  {chapter.chapterNo}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center shadow-sm border border-blue-100/50">
+                                    <FileText className="h-4 w-4" />
+                                  </div>
+                                  {resourceUrl ? (
+                                    <button 
+                                      onClick={() => window.open(resourceUrl, '_blank')}
+                                      className="text-sm font-bold text-slate-800 tracking-tight hover:text-blue-600 hover:underline transition-all text-left"
+                                    >
+                                      {chapter.name}
+                                    </button>
+                                  ) : (
+                                    <span className="text-sm font-bold text-slate-800 tracking-tight">
+                                      {chapter.name}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-center">
                                 {chapter.pageStart && chapter.pageEnd ? (
-                                  <span className="px-2 py-1 border border-slate-200 rounded-md">Pages: {chapter.pageStart} - {chapter.pageEnd}</span>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="w-full md:w-64 shrink-0 border-l border-slate-100 pl-0 md:pl-6 pt-4 md:pt-0">
-                            {chapterPdf && (
-                              <ChapterPdfUploader 
-                                chapterId={chapter.id} 
-                                existingPdfUrl={`/api/academy/chapter-pdf/${chapter.id}`}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 whitespace-nowrap">
+                                    {chapter.pageStart} — {chapter.pageEnd}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex justify-center">
+                                  {resourceUrl ? (
+                                    <button
+                                      onClick={() => window.open(resourceUrl, '_blank')}
+                                      className="flex items-center gap-1.5 py-1.5 px-3 bg-white text-slate-700 hover:bg-slate-50 font-bold rounded-lg transition-all text-[10px] uppercase tracking-wider border border-slate-200 shadow-sm whitespace-nowrap group"
+                                    >
+                                      <Eye className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                                      View Link
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-slate-300 italic uppercase tracking-wider">No Resource</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <EditChapterModal 
+                                    chapter={chapter} 
+                                    availableUnits={subjectUnits} 
+                                    initialPdfUrl={chapterPdf?.fileUrl}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
                 {isNA && <div className="mb-8" />}

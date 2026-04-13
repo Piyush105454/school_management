@@ -12,7 +12,7 @@ import ClassTable from "@/features/academy/components/ClassTable";
 
 export default async function ClassManagementPage() {
   const session = await getServerSession(authOptions);
-  let classesList = ["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+  let classesList = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
   
   // If teacher, filter classesList by assignment
   if (session?.user?.role === "TEACHER") {

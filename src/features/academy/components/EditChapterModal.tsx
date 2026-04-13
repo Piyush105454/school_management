@@ -23,9 +23,10 @@ interface Unit {
 interface EditChapterModalProps {
   chapter: Chapter;
   availableUnits: Unit[];
+  initialPdfUrl?: string; // Newly added
 }
 
-export default function EditChapterModal({ chapter, availableUnits }: EditChapterModalProps) {
+export default function EditChapterModal({ chapter, availableUnits, initialPdfUrl }: EditChapterModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,7 +37,8 @@ export default function EditChapterModal({ chapter, availableUnits }: EditChapte
     chapterNo: chapter.chapterNo,
     pageStart: chapter.pageStart,
     pageEnd: chapter.pageEnd,
-    unitId: chapter.unitId
+    unitId: chapter.unitId,
+    pdfUrl: initialPdfUrl || "" // Newly added
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,7 +58,8 @@ export default function EditChapterModal({ chapter, availableUnits }: EditChapte
         name: formData.name,
         chapterNo: formData.chapterNo,
         pageStart: formData.pageStart,
-        pageEnd: formData.pageEnd
+        pageEnd: formData.pageEnd,
+        pdfUrl: formData.pdfUrl // Newly added
       });
       
       if (!updateResult.success) throw new Error(updateResult.error);
@@ -69,6 +72,7 @@ export default function EditChapterModal({ chapter, availableUnits }: EditChapte
       setIsSubmitting(false);
     }
   };
+// ... [rest of render logic, will update input in next chunk or same if possible]
 
   const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete chapter "${chapter.name}"?`)) {
@@ -173,6 +177,19 @@ export default function EditChapterModal({ chapter, availableUnits }: EditChapte
                 onChange={(e) => setFormData({ ...formData, pageEnd: parseInt(e.target.value) })}
                 disabled={isSubmitting}
               />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">PDF Link (Google Drive)</label>
+              <input
+                type="url"
+                placeholder="Paste Google Drive link here..."
+                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                value={formData.pdfUrl}
+                onChange={(e) => setFormData({ ...formData, pdfUrl: e.target.value })}
+                disabled={isSubmitting}
+              />
+              <p className="text-[10px] text-slate-400 font-medium ml-1">Opening the resource via Chapter Name or View Link will use this URL.</p>
             </div>
           </div>
 

@@ -20,7 +20,7 @@ interface Teacher {
   assignedRole: string | null;
 }
 
-const CLASSES_LIST = ["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const CLASSES_LIST = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export function TeacherManagementClient({ initialTeachers }: { initialTeachers: Teacher[] }) {
   const [isOpen, setIsOpen] = useState(false);

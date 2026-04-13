@@ -450,6 +450,7 @@ export const subjects = pgTable("subjects", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").notNull().references(() => classes.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
+  bookName: text("book_name"),
   medium: text("medium").default("English/Hindi").notNull(),
 });
 
@@ -478,14 +479,35 @@ export const chapterPdfs = pgTable("chapter_pdfs", {
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
 });
 
+export const lessonPlans = pgTable("lesson_plans", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  teacherId: uuid("teacher_id").references(() => users.id),
+  classId: integer("class_id").references(() => classes.id),
+  subjectId: integer("subject_id").references(() => subjects.id),
+  date: text("date").notNull(),
+  type: text("type").default("EXPLANATION").notNull(), // EXPLANATION, QA
+  step1Data: text("step1_data"), // JSON string
+  step2Data: text("step2_data"), // JSON string
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
+  class: one(classes, { fields: [lessonPlans.classId], references: [classes.id] }),
+  subject: one(subjects, { fields: [lessonPlans.subjectId], references: [subjects.id] }),
+  teacher: one(users, { fields: [lessonPlans.teacherId], references: [users.id] }),
+}));
+
 // Academy Relations
 export const classesRelations = relations(classes, ({ many }) => ({
   subjects: many(subjects),
+  lessonPlans: many(lessonPlans),
 }));
 
 export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   class: one(classes, { fields: [subjects.classId], references: [classes.id] }),
   units: many(units),
+  lessonPlans: many(lessonPlans),
 }));
 
 export const unitsRelations = relations(units, ({ one, many }) => ({

@@ -14,7 +14,7 @@ export default function SettingsForm({ initialData, academicYear }: { initialDat
   const [selectedStudent, setSelectedStudent] = useState("");
   const [students, setStudents] = useState<any[]>([]);
 
-  const classesList = ["Nursery", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+  const classesList = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
   const { register, handleSubmit, reset } = useForm({
     defaultValues: initialData || {
