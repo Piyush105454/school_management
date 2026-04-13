@@ -6,7 +6,7 @@ export const inquiryStatusEnum = pgEnum("inquiry_status", ["PENDING", "SHORTLIST
 export const admissionTypeEnum = pgEnum("admission_type", ["NEW", "RE_ADMISSION"]);
 export const genderEnum = pgEnum("gender", ["M", "F", "O"]);
 export const casteEnum = pgEnum("caste", ["GEN", "OBC", "ST", "SC"]);
-export const documentStatusEnum = pgEnum("document_status", ["SUBMITTED", "NOT_SUBMITTED"]);
+export const documentStatusEnum = pgEnum("document_status", ["SUBMITTED", "NOT_SUBMITTED", "VERIFIED", "REJECTED"]);
 export const testStatusEnum = pgEnum("test_status", ["NOT_SCHEDULED", "PENDING", "PASS", "FAIL"]);
 
 export const users = pgTable("users", {

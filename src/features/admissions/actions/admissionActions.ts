@@ -371,7 +371,7 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
 
 export async function getAdmissionData(admissionId: string, lite: boolean = false) {
   try {
-    const [bio, address, academic, parents, bank, documents, declaration, siblings] = await Promise.all([
+    const [bio, address, academic, parents, bank, documents, declaration, siblings, checklist] = await Promise.all([
       db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) }),
       db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) }),
       db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) }),
@@ -391,7 +391,8 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
         } : undefined
       }),
       db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
-      db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) })
+      db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) }),
+      db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) })
     ]);
 
     // If lite mode, we still need to know IF a document exists
@@ -423,7 +424,8 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
     const meta = await db.query.admissionMeta.findFirst({
       where: eq(admissionMeta.id, admissionId),
       with: {
-        inquiry: true
+        inquiry: true,
+        studentProfile: true
       }
     });
 
@@ -449,7 +451,9 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
         documents: sanitizedDocs,
         declaration,
         siblings: siblings || [],
-        admissionMeta: meta
+        admissionMeta: meta,
+        documentChecklist: checklist,
+        studentProfile: meta?.studentProfile
       }
     };
   } catch (error: any) {

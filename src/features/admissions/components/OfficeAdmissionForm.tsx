@@ -63,6 +63,30 @@ export function OfficeAdmissionForm({
   const [verifying, setVerifying] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
+  const openInNewTab = async (data: string) => {
+    if (!data) return;
+    if (data.startsWith("data:")) {
+      try {
+        const parts = data.split(",");
+        const mime = parts[0].match(/:(.*?);/)?.[1] || "application/octet-stream";
+        const binary = atob(parts[1]);
+        const array = [];
+        for (let i = 0; i < binary.length; i++) {
+          array.push(binary.charCodeAt(i));
+        }
+        const blob = new Blob([new Uint8Array(array)], { type: mime });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        // We don't revoke immediately because the new tab needs it to load
+      } catch (err) {
+        console.error("New tab opening error:", err);
+        window.open(data, "_blank");
+      }
+    } else {
+      window.open(data, "_blank");
+    }
+  };
+
 
   const defaults = {
     studentBio: {
@@ -289,11 +313,11 @@ export function OfficeAdmissionForm({
                   {currentStep === 5 && <SiblingsStep />}
                   {currentStep === 6 && <ParentsStep />}
                   {currentStep === 7 && <BankStep />}
-                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateAdmissionPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
-                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
                 </fieldset>
-                {currentStep === 11 && <SubmissionSuccessStep data={initialData} />}
+                {currentStep >= 11 && maxStep >= 11 && <SubmissionSuccessStep data={initialData} />}
               </div>
             </form>
           </FormProvider>
@@ -751,9 +775,8 @@ function BankStep() {
     );
 }
 
-function OfficeDocumentsStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void }) {
   const { watch, setValue } = useFormContext();
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fetchingDoc, setFetchingDoc] = useState<string | null>(null);
 
   const documentList = [
@@ -782,7 +805,7 @@ function OfficeDocumentsStep({ admissionId, initialData }: { admissionId: string
     const res = await getDocumentContent(admissionId, docId);
     setFetchingDoc(null);
     if (res.success && res.content) {
-      setPreviewUrl(res.content);
+      onPreviewDirect(res.content);
     } else {
       alert("Error loading document: " + (res.error || "Document not found"));
     }
@@ -913,39 +936,6 @@ function OfficeDocumentsStep({ admissionId, initialData }: { admissionId: string
             </div>
         )}
       </div>
-
-      {previewUrl && (
-        <div 
-          className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300"
-          onClick={() => setPreviewUrl(null)}
-        >
-          <div className="absolute top-6 right-6 z-[10000]">
-            <button 
-                onClick={() => setPreviewUrl(null)}
-                className="h-12 w-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all border border-white/20"
-            >
-                <X size={32} />
-            </button>
-          </div>
-          <div className="w-full h-full flex items-center justify-center p-0 md:p-4" onClick={e => e.stopPropagation()}>
-            {previewUrl.includes("application/pdf") || previewUrl.startsWith("http") && previewUrl.endsWith(".pdf") ? (
-              <iframe src={previewUrl} title="Document Preview" className="w-full h-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl bg-white" />
-            ) : (
-              <img 
-                src={previewUrl} 
-                alt="Document Preview" 
-                className="max-h-full max-w-full object-contain shadow-2xl"
-              />
-            )}
-
-          </div>
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center">
-             <p className="bg-black/50 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-sm border border-white/10">
-                Full Browser Preview
-             </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1030,17 +1020,24 @@ function DownloadApplicationStep({ data, onDownload, downloading }: { data: any,
   );
 }
 
-function OfficeVerificationStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void }) {
   const [loading, setLoading] = useState(false);
-  const [affidavitUrl, setAffidavitUrl] = useState<string | null>(null);
+  const [fetchingPreview, setFetchingPreview] = useState(false);
   
-  React.useEffect(() => {
-    const fetchAffidavit = async () => {
-      const res = await getDocumentContent(admissionId, "affidavit");
-      if (res.success) setAffidavitUrl(res.content);
-    };
-    fetchAffidavit();
-  }, [admissionId]);
+  const checklist = initialData?.documentChecklist || {};
+  const hasAffidavit = checklist.parentAffidavit === "SUBMITTED" || checklist.parentAffidavit === "VERIFIED";
+
+  const handlePreviewAffidavit = async () => {
+    setFetchingPreview(true);
+    const res = await getDocumentContent(admissionId, "affidavit");
+    setFetchingPreview(null as any); // Reset loading state
+    setFetchingPreview(false);
+    if (res.success && res.content) {
+      onPreviewDirect(res.content);
+    } else {
+      alert("Error loading affidavit: " + (res.error || "Content not found"));
+    }
+  };
 
   const handleApprove = async () => {
     if (!confirm("Approve this affidavit? This will mark admission as verified.")) return;
@@ -1078,7 +1075,7 @@ function OfficeVerificationStep({ admissionId, initialData }: { admissionId: str
       </div>
 
       <div className="max-w-xl mx-auto">
-        {!affidavitUrl ? (
+        {!hasAffidavit ? (
           <div className="bg-amber-50 border border-amber-100 p-10 rounded-3xl text-center space-y-4">
             <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
               <FileText size={32} />
@@ -1094,7 +1091,20 @@ function OfficeVerificationStep({ admissionId, initialData }: { admissionId: str
               </div>
               <div className="flex-1">
                 <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Submitted Affidavit</p>
-                <button onClick={() => window.open(affidavitUrl, "_blank")} className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline">Click to View Full Document</button>
+                <button 
+                  type="button" 
+                  disabled={fetchingPreview}
+                  onClick={handlePreviewAffidavit} 
+                  className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline disabled:opacity-50 flex items-center gap-2"
+                >
+                  {fetchingPreview ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" /> Fetching Document...
+                    </>
+                  ) : (
+                    "Click to View Full Document (New Tab)"
+                  )}
+                </button>
               </div>
             </div>
 

@@ -2,7 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await db.query.users.findFirst({
           where: or(
-            eq(users.email, email),
+            sql`lower(${users.email}) = ${email}`,
             eq(users.phone, email)
           ),
         });
