@@ -197,10 +197,31 @@ export async function deleteChapter(chapterId: number) {
 
 export async function updateSubject(subjectId: number, data: { name: string; bookName?: string; medium: string }) {
   try {
+    const existingSubject = await db.query.subjects.findFirst({
+      where: eq(subjects.id, subjectId),
+    });
+
+    if (!existingSubject) {
+      return { success: false, error: "Subject not found." };
+    }
+
+    // Check if another subject with the same name exists for the same class
+    const duplicate = await db.query.subjects.findFirst({
+      where: (s, { and, eq, ne, sql }) => and(
+        eq(s.classId, existingSubject.classId),
+        ne(s.id, subjectId),
+        sql`lower(${s.name}) = lower(${data.name.trim()})`
+      ),
+    });
+
+    if (duplicate) {
+      return { success: false, error: `Another subject with the name "${data.name}" already exists for this class.` };
+    }
+
     await db.update(subjects)
       .set({ 
-        name: data.name,
-        bookName: data.bookName,
+        name: data.name.trim(),
+        bookName: data.bookName?.trim(),
         medium: data.medium
       })
       .where(eq(subjects.id, subjectId));
@@ -209,6 +230,57 @@ export async function updateSubject(subjectId: number, data: { name: string; boo
     return { success: true };
   } catch (error: any) {
     console.error("updateSubject error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function cleanupSubjectDuplicates() {
+  try {
+    console.log("Starting full subject duplicate cleanup...");
+    const allSubjects = await db.query.subjects.findMany();
+    
+    // classId -> (name.toLowerCase() -> subjectId)
+    const map: Record<number, Record<string, number>> = {};
+    const toDelete: number[] = [];
+    let mergedCount = 0;
+
+    for (const sub of allSubjects) {
+      const classId = sub.classId;
+      const normalizedName = sub.name.trim().toLowerCase();
+
+      if (!map[classId]) {
+        map[classId] = {};
+      }
+
+      if (!map[classId][normalizedName]) {
+        map[classId][normalizedName] = sub.id;
+        // Also ensure name is trimmed
+        if (sub.name !== sub.name.trim()) {
+          await db.update(subjects).set({ name: sub.name.trim() }).where(eq(subjects.id, sub.id));
+        }
+      } else {
+        // Duplicate found!
+        const targetId = map[classId][normalizedName];
+        console.log(`Merging subject ${sub.id} ("${sub.name}") into ${targetId} for class ${classId}`);
+        
+        // Update all related units to point to the target subject
+        await db.update(units).set({ subjectId: targetId }).where(eq(units.subjectId, sub.id));
+        
+        toDelete.push(sub.id);
+        mergedCount++;
+      }
+    }
+
+    if (toDelete.length > 0) {
+      for (const id of toDelete) {
+        await db.delete(subjects).where(eq(subjects.id, id));
+      }
+    }
+
+    revalidatePath("/office/academy-management/classes/[className]/subjects", "layout");
+    return { success: true, mergedCount };
+  } catch (error: any) {
+    console.error("cleanupSubjectDuplicates error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -228,6 +300,25 @@ export async function getAllAcademicMetadata() {
     return { success: true, classes: allClasses, subjects: allSubjects };
   } catch (error: any) {
     console.error("getAllAcademicMetadata error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getSubjectUnitsAndChapters(subjectId: number) {
+  try {
+    const subjectUnits = await db.query.units.findMany({
+      where: eq(units.subjectId, subjectId),
+      orderBy: (units, { asc }) => [asc(units.orderNo)],
+      with: {
+        chapters: {
+          orderBy: (chapters, { asc }) => [asc(chapters.orderNo)],
+        }
+      }
+    });
+    
+    return { success: true, units: subjectUnits };
+  } catch (error: any) {
+    console.error("getSubjectUnitsAndChapters error:", error);
     return { success: false, error: error.message };
   }
 }

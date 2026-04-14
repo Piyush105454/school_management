@@ -9,11 +9,23 @@ import { useRouter } from "next/navigation";
 interface EditUnitModalProps {
   unitId: number;
   initialName: string;
+  showTrigger?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function EditUnitModal({ unitId, initialName }: EditUnitModalProps) {
+export default function EditUnitModal({ 
+  unitId, 
+  initialName, 
+  showTrigger = true,
+  isOpen: externalIsOpen,
+  onClose: externalOnClose
+}: EditUnitModalProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnClose || setInternalIsOpen;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState(initialName);
@@ -53,17 +65,19 @@ export default function EditUnitModal({ unitId, initialName }: EditUnitModalProp
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-400 hover:text-blue-600 shadow-sm border border-transparent hover:border-blue-100"
-        title="Edit Unit"
-      >
-        <Edit2 className="h-4 w-4" />
-      </button>
+      {showTrigger && (
+        <button
+          onClick={() => (setIsOpen as any)(true)}
+          className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-400 hover:text-blue-600 shadow-sm border border-transparent hover:border-blue-100"
+          title="Edit Unit"
+        >
+          <Edit2 className="h-4 w-4" />
+        </button>
+      )}
 
       <Modal
         isOpen={isOpen}
-        onClose={() => !isSubmitting && setIsOpen(false)}
+        onClose={() => !isSubmitting && (setIsOpen as any)(false)}
         title="Edit Unit"
       >
         <form onSubmit={handleSubmit} className="space-y-5 p-1">
@@ -100,7 +114,7 @@ export default function EditUnitModal({ unitId, initialName }: EditUnitModalProp
             <div className="flex-1" />
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+              onClick={() => (setIsOpen as any)(false)}
               className="px-6 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-wider"
               disabled={isSubmitting}
             >

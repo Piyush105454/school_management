@@ -23,12 +23,25 @@ interface Unit {
 interface EditChapterModalProps {
   chapter: Chapter;
   availableUnits: Unit[];
-  initialPdfUrl?: string; // Newly added
+  initialPdfUrl?: string;
+  showTrigger?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function EditChapterModal({ chapter, availableUnits, initialPdfUrl }: EditChapterModalProps) {
+export default function EditChapterModal({ 
+  chapter, 
+  availableUnits, 
+  initialPdfUrl,
+  showTrigger = true,
+  isOpen: externalIsOpen,
+  onClose: externalOnClose
+}: EditChapterModalProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnClose || setInternalIsOpen;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -90,17 +103,19 @@ export default function EditChapterModal({ chapter, availableUnits, initialPdfUr
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="p-2 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-blue-600 shadow-sm border border-slate-100 hover:border-blue-100 group"
-        title="Edit Chapter"
-      >
-        <Edit2 className="h-4.5 w-4.5 group-hover:rotate-12 transition-transform" />
-      </button>
+      {showTrigger && (
+        <button
+          onClick={() => (setIsOpen as any)(true)}
+          className="p-2 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-blue-600 shadow-sm border border-slate-100 hover:border-blue-100 group"
+          title="Edit Chapter"
+        >
+          <Edit2 className="h-4.5 w-4.5 group-hover:rotate-12 transition-transform" />
+        </button>
+      )}
 
       <Modal
         isOpen={isOpen}
-        onClose={() => !isSubmitting && setIsOpen(false)}
+        onClose={() => !isSubmitting && (setIsOpen as any)(false)}
         title="Edit Chapter"
       >
         <form onSubmit={handleSubmit} className="space-y-5 p-1">
@@ -206,7 +221,7 @@ export default function EditChapterModal({ chapter, availableUnits, initialPdfUr
             <div className="flex-1" />
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+              onClick={() => (setIsOpen as any)(false)}
               className="px-6 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-wider"
               disabled={isSubmitting}
             >

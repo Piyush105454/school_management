@@ -2,15 +2,27 @@
 
 import { db } from "@/db";
 import { subjects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function createSubject(data: { classId: number; name: string; bookName?: string; medium?: string }) {
   try {
+    // Check if subject already exists for this class
+    const existing = await db.query.subjects.findFirst({
+      where: and(
+        eq(subjects.classId, data.classId),
+        sql`lower(${subjects.name}) = lower(${data.name.trim()})`
+      ),
+    });
+
+    if (existing) {
+      return { success: false, error: `Subject "${data.name}" already exists for this class.` };
+    }
+
     await db.insert(subjects).values({
       classId: data.classId,
-      name: data.name,
-      bookName: data.bookName,
+      name: data.name.trim(),
+      bookName: data.bookName?.trim(),
       medium: data.medium || "English/Hindi",
     });
     

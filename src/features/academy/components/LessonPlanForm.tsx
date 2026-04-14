@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { generateLessonPlanPdf } from "@/features/academy/utils/generateLessonPlanPdf";
 import { saveLessonPlan } from "@/features/academy/actions/lessonPlanActions";
+import { getSubjectUnitsAndChapters } from "@/features/academy/actions/academyActions";
 
 interface AcademicClass {
   id: number;
@@ -22,10 +24,14 @@ interface LessonPlanFormProps {
 }
 
 export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProps) {
+  const searchParams = useSearchParams();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeStep, setActiveStep] = useState(1); // 1: Teacher's Note, 2: Lesson Plan
   const [lessonPlanMode, setLessonPlanMode] = useState("EXPLANATION"); // EXPLANATION, QA
+  
+  const [unitsWithChapters, setUnitsWithChapters] = useState<any[]>([]);
+  const [isLoadingCurriculum, setIsLoadingCurriculum] = useState(false);
 
   const [formData, setFormData] = useState({
     // Common Meta
@@ -47,7 +53,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     progressStatus: "Not Started",
     reviewerPrincipal: "",
 
-    // Timings Content
+    // Timings Content (Explanation)
     openingTimeEnergizer: "",
     openingTimeRoadmap: "",
     learningIndicators: "",
@@ -56,6 +62,13 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     knowledgeBuilding: "",
     lessonActivity: "",
     outcomeFeedback: "",
+    
+    // Timings Content (Q&A)
+    chapterSummaryRevision: "",
+    chapterBasedQA: "",
+    inspectionByTeacher: "",
+
+    // Shared Step 2
     closure: "",
     prevDayCheck: "",
 
@@ -65,6 +78,28 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     studentPerformanceBad: "",
     reviewerRemark: "",
   });
+
+  // Handle Query Parameters for pre-filling
+  useEffect(() => {
+    const className = searchParams.get("class");
+    const subject = searchParams.get("subject");
+    const unitChapter = searchParams.get("unitChapter");
+    const pages = searchParams.get("pages");
+    const type = searchParams.get("type"); // Optional: for Add Homework mode
+
+    if (className || subject || unitChapter || pages) {
+      setFormData(prev => ({
+        ...prev,
+        className: className || prev.className,
+        subject: subject || prev.subject,
+        unitChapterPage: unitChapter && pages ? `${unitChapter}, Pg ${pages}` : (unitChapter || pages || prev.unitChapterPage),
+      }));
+
+      if (type === "homework") {
+        setActiveStep(1);
+      }
+    }
+  }, [searchParams]);
 
   // Filter out any duplicates from classes and remove "Nursery"
   const uniqueClasses = React.useMemo(() => {
@@ -88,6 +123,35 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     if (!classObj) return [];
     return subjects.filter(s => s.classId === classObj.id);
   }, [formData.className, uniqueClasses, subjects]);
+
+  // Fetch Units/Chapters when subject changes
+  useEffect(() => {
+    const fetchCurriculum = async () => {
+      if (!formData.className || !formData.subject) {
+        setUnitsWithChapters([]);
+        return;
+      }
+
+      setIsLoadingCurriculum(true);
+      try {
+        const classObj = uniqueClasses.find(c => c.name === formData.className);
+        const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
+        
+        if (subjectObj) {
+          const res = await getSubjectUnitsAndChapters(subjectObj.id);
+          if (res.success && res.units) {
+            setUnitsWithChapters(res.units);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch curriculum:", error);
+      } finally {
+        setIsLoadingCurriculum(false);
+      }
+    };
+
+    fetchCurriculum();
+  }, [formData.className, formData.subject, uniqueClasses, subjects]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -133,6 +197,9 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
           knowledgeBuilding: formData.knowledgeBuilding,
           lessonActivity: formData.lessonActivity,
           outcomeFeedback: formData.outcomeFeedback,
+          chapterSummaryRevision: formData.chapterSummaryRevision,
+          chapterBasedQA: formData.chapterBasedQA,
+          inspectionByTeacher: formData.inspectionByTeacher,
           closure: formData.closure,
           prevDayCheck: formData.prevDayCheck,
           teacherObservation: formData.teacherObservation,
@@ -409,7 +476,38 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                 <div className="grid grid-cols-10 border-b border-slate-300 h-14">
                   <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300">
-                    <input name="unitChapterPage" value={formData.unitChapterPage} onChange={handleChange} className="w-full bg-transparent border-none outline-none font-bold text-sm" placeholder="e.g. Unit 3, Chapter 4, Pg 12-15" />
+                    <select 
+                      name="unitChapterPage" 
+                      value={formData.unitChapterPage} 
+                      onChange={handleChange} 
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm appearance-none cursor-pointer"
+                      disabled={isLoadingCurriculum || !formData.subject}
+                    >
+                      <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
+                      {unitsWithChapters.map(unit => (
+                        <optgroup key={unit.id} label={unit.name === "NA" ? "Direct Chapters" : unit.name}>
+                          {unit.chapters?.map((chapter: any) => {
+                            const value = unit.name === "NA" 
+                              ? `${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`
+                              : `${unit.name}, ${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`;
+                            return (
+                              <option key={chapter.id} value={value}>
+                                {chapter.chapterNo}. {chapter.name} (Pg {chapter.pageStart}-{chapter.pageEnd})
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      ))}
+                      <option value="custom">-- Custom Entry --</option>
+                    </select>
+                    {formData.unitChapterPage === "custom" && (
+                      <input
+                        type="text"
+                        placeholder="Type manually..."
+                        className="w-full ml-2 border-b border-slate-300 outline-none font-bold text-xs"
+                        onChange={(e) => setFormData(prev => ({ ...prev, unitChapterPage: e.target.value }))}
+                      />
+                    )}
                   </div>
                   <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                   <div className="col-span-4 p-3 flex items-center truncate">
@@ -555,9 +653,238 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                 <textarea name="reviewerRemark" value={formData.reviewerRemark} onChange={handleChange} className="w-full h-24 p-6 bg-transparent outline-none font-bold text-sm resize-none shadow-inner" placeholder="..." />
               </div>
             ) : (
-              <div className="bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-24 text-center">
-                < PenTool className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-400 font-black uppercase tracking-widest">Question & Answer Mode Layout Coming Soon</p>
+              /* --- LESSON PLAN (Q & A) --- */
+              <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
+                {/* Header Row */}
+                <div className="grid grid-cols-12 border-b border-slate-300">
+                  <div className="col-span-2 p-6 flex items-center justify-center border-r border-slate-300 bg-slate-50">
+                    <img src="/logo.png" alt="Logo" className="h-14 w-14 object-contain grayscale opacity-60" />
+                  </div>
+                  <div className="col-span-7 p-6 flex flex-col items-center justify-center border-r border-slate-300">
+                    <h2 className="text-2xl font-black tracking-tighter text-slate-800">Dhanpuri Public School</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1 italic">Knowledge is Power</p>
+                  </div>
+                  <div className="col-span-3 p-6 flex flex-col items-center justify-center bg-slate-50">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                       Lesson Plan <span className="text-emerald-500">(Q & A)</span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase text-slate-400">Your LP No.</span>
+                      <span className="text-sm font-black text-slate-800 border-b border-slate-200 min-w-[40px] text-center">{formData.lpNo || "____"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Meta Grid (Q & A Style) */}
+                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.subject || "-"}</div>
+                  </div>
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter/Page(s):</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.unitChapterPage || "-"}</div>
+                  </div>
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day/Date:</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-xs truncate">{formData.prepDay}, {formData.prepDate}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Progress Status:</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-xs">
+                      <select name="progressStatus" value={formData.progressStatus} onChange={handleChange} className="bg-transparent border-none outline-none font-bold text-sm cursor-pointer">
+                        {["Not Started", "In Progress", "Completed", "Pending Review"].map(status => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day/Date:</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-xs truncate">{formData.deliveryDay}, {formData.date}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.teacherName || "______"}</div>
+                  </div>
+                  <div className="grid grid-cols-4 h-12">
+                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                    <div className="col-span-3 p-3 flex items-center h-full">
+                      <input name="reviewerPrincipal" value={formData.reviewerPrincipal} onChange={handleChange} className="w-full bg-transparent border-none outline-none font-bold text-sm" placeholder="Reviewer Signature..." />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instruction Table (Q & A Specific) */}
+                <div className="grid grid-cols-12 border-b border-slate-300 bg-slate-900 text-white font-black uppercase tracking-widest text-[8px] h-8 items-center text-center">
+                  <div className="col-span-2 border-r border-slate-800">Section</div>
+                  <div className="col-span-1 border-r border-slate-800 text-[6px]">Time</div>
+                  <div className="col-span-2 border-r border-slate-800">Objective / Goal</div>
+                  <div className="col-span-7">Implementation Details</div>
+                </div>
+
+                {/* Self Prep (Shared) */}
+                <div className="grid grid-cols-12 border-b border-slate-200 min-h-[140px]">
+                  <div className="col-span-2 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Self Preparation</div>
+                  <div className="col-span-1 p-4 flex flex-col items-center justify-center border-r border-slate-300 gap-1">
+                    <span className="font-bold text-[10px] text-slate-800">Before session</span>
+                    <span className="font-medium text-[9px] text-slate-400">(30 Minutes)</span>
+                  </div>
+                  <div className="col-span-2 p-4 flex flex-col justify-center border-r border-slate-300 space-y-2">
+                    <p className="font-black text-[9px] text-blue-600 leading-tight uppercase">Instruction for teachers-</p>
+                    <p className="font-bold text-[11px] text-slate-600 italic">Plan and prepare for the session</p>
+                  </div>
+                  <div className="col-span-7 p-6">
+                    <ul className="list-decimal list-inside text-[10px] font-bold text-slate-500 space-y-1.5 marker:text-blue-500 leading-relaxed">
+                      <li>Review and prepare for the session today, make teaching notes & video.</li>
+                      <li>Plan the energizer activity, prepare & understand it and try it once to visualize the classroom.</li>
+                      <li>If you plan to reward the students, keep some candies/pen/pencils etc.</li>
+                      <li>Plan to get most learning outcomes from the students, specially for those who participate less.</li>
+                      <li>Set up all necessary items, including projector, laptop, chargers, & activity materials.</li>
+                      <li>Ensure you're ready at least 5 minutes before the session begins.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Opening Time (Shared Layout) */}
+                <div className="grid grid-cols-12 border-b border-slate-200">
+                  <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 row-span-2 min-h-[120px]">
+                    <span className="font-black text-[10px] uppercase">Opening Time</span>
+                    <span className="font-black text-[10px] mt-1 tracking-widest text-blue-600">घेरा समय</span>
+                    <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
+                  </div>
+                  <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300 border-b">2 minutes</div>
+                  <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b font-medium text-[11px] text-slate-600 leading-tight">Lead the students to perform an energizer/fun activity</div>
+                  <div className="col-span-7 p-4 border-b">
+                    <textarea name="openingTimeEnergizer" value={formData.openingTimeEnergizer} onChange={handleChange} rows={2} className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none" placeholder="Describe the activity..." />
+                  </div>
+
+                  <div className="contents">
+                    <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300">3 minutes</div>
+                    <div className="col-span-2 p-4 flex flex-col justify-center border-r border-slate-300">
+                      <p className="font-bold text-[11px] text-slate-600">Roadmap of the day</p>
+                    </div>
+                    <div className="col-span-7 grid grid-cols-12 divide-x divide-slate-100">
+                      <div className="col-span-8 p-3 flex flex-col gap-2">
+                        <textarea name="openingTimeRoadmap" value={formData.openingTimeRoadmap} onChange={handleChange} rows={2} className="w-full bg-transparent outline-none font-bold text-[11px] resize-none" placeholder="1. Revision of previous class..." />
+                      </div>
+                      <div className="col-span-4 p-3 flex flex-col gap-2 bg-slate-50/50">
+                        <span className="text-[8px] font-black uppercase text-slate-400">Learning Indicators:</span>
+                        <textarea name="learningIndicators" value={formData.learningIndicators} onChange={handleChange} rows={2} className="w-full bg-transparent outline-none font-bold text-[11px] resize-none" placeholder="1. ..." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Active Learning Time (Q & A Specific) */}
+                <div className="grid grid-cols-12 border-b border-slate-200">
+                  <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 min-h-[300px] uppercase font-black text-[10px] text-center">
+                    <span>Active Learning Time</span>
+                    <span className="text-[9px] font-bold text-slate-400 mt-2">(30mins)</span>
+                  </div>
+                  <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-200">
+                    <div className="grid grid-cols-10 h-24">
+                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">2 Minutes</div>
+                      <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
+                      <div className="col-span-7 p-3">
+                        <textarea name="chapterSummaryRevision" value={formData.chapterSummaryRevision} onChange={handleChange} className="w-full h-full bg-transparent outline-none font-bold text-xs resize-none" placeholder="Write key summary points..." />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-10 h-48">
+                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic text-blue-600">25 Minutes</div>
+                      <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-snug italic">
+                        Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students
+                      </div>
+                      <div className="col-span-7 p-4">
+                        <textarea name="chapterBasedQA" value={formData.chapterBasedQA} onChange={handleChange} className="w-full h-full bg-transparent outline-none font-bold text-xs resize-none border-t border-slate-50 pt-2" placeholder="List questions, dictation points, and student tasks..." />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-10 h-20">
+                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
+                      <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
+                      <div className="col-span-7 p-3">
+                        <textarea name="inspectionByTeacher" value={formData.inspectionByTeacher} onChange={handleChange} className="w-full h-full bg-transparent outline-none font-bold text-xs resize-none" placeholder="Observations during student writing..." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Closing Time (Shared Layout but Q & A specific text) */}
+                <div className="grid grid-cols-12 h-64 border-b border-slate-300">
+                  <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 p-4">
+                    <span className="font-black text-[10px] uppercase text-center">Closing Time</span>
+                    <span className="font-black text-[10px] mt-1 tracking-widest text-rose-600 uppercase text-center">समापन सर्किल समय</span>
+                    <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
+                  </div>
+                  <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-200">
+                    <div className="grid grid-cols-10">
+                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">1 Minute</div>
+                      <div className="col-span-2 flex flex-col items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
+                        <span>Lesson Closure with appreciation,</span>
+                        <span>Reward and recognition</span>
+                      </div>
+                      <div className="col-span-7 p-3">
+                        <input name="closure" value={formData.closure} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" placeholder="Appreciate students..." />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-10">
+                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 Minute</div>
+                      <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
+                        Homework for the day
+                      </div>
+                      <div className="col-span-7 p-3 font-bold text-slate-400 italic text-[10px] flex items-center">
+                        <ClipboardList className="h-3 w-3 mr-2" />
+                        Automated sync from Step 1 Homework Space
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-10">
+                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
+                      <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
+                        Submission of Previous day work check
+                      </div>
+                      <div className="col-span-7 p-3">
+                        <input name="prevDayCheck" value={formData.prevDayCheck} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" placeholder="Check student work..." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Section (Shared with Explanation) */}
+                <div className="grid grid-cols-12 divide-x divide-slate-300 h-48 border-b border-slate-300">
+                  <div className="col-span-4 flex flex-col">
+                    <div className="bg-slate-50 p-2.5 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">Teacher Observation:</div>
+                    <textarea name="teacherObservation" value={formData.teacherObservation} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Write observations here..." />
+                  </div>
+                  <div className="col-span-8 flex flex-col">
+                    <div className="bg-slate-50 p-2.5 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">STUDENTS PERFORMANCE</div>
+                    <div className="flex-1 grid grid-cols-2 divide-x divide-slate-300">
+                      <div className="flex flex-col">
+                        <div className="p-1.5 border-b border-slate-200 text-center font-black text-[9px] text-emerald-600 bg-emerald-50/50 uppercase tracking-widest">GOOD</div>
+                        <textarea name="studentPerformanceGood" value={formData.studentPerformanceGood} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Students who performed well..." />
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="p-1.5 border-b border-slate-200 text-center font-black text-[9px] text-rose-600 bg-rose-50/50 uppercase tracking-widest">BAD</div>
+                        <textarea name="studentPerformanceBad" value={formData.studentPerformanceBad} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Students needing more support..." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-2.5 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">Reviewer Remark and Feedback:</div>
+                <textarea name="reviewerRemark" value={formData.reviewerRemark} onChange={handleChange} className="w-full h-24 p-6 bg-transparent outline-none font-bold text-sm resize-none shadow-inner" placeholder="Principal/Reviewer comments..." />
               </div>
             )}
           </div>
