@@ -74,6 +74,13 @@ const teacherItems = [
   { name: "My Classes", href: "/office/academy-management/classes", icon: School },
   { name: "Attendance", href: "/office/academy-management/attendance", icon: CalendarCheck },
   { name: "Lesson Plans", href: "/office/academy-management/lesson-plan", icon: BookOpen },
+  { type: "section", name: "Admission Management" },
+  { name: "Inquiries", href: "/office/inquiries", icon: FileText },
+  { name: "Admissions Progress", href: "/office/admissions-progress", icon: UserCheck },
+  { name: "Doc Verification & Affidavit", href: "/office/document-verification", icon: Eye },
+  { name: "Entrance Tests", href: "/office/entrance-tests", icon: ClipboardCheck },
+  { name: "Home Visits", href: "/office/home-visits", icon: Users },
+  { name: "Final Approvals", href: "/office/final-admissions", icon: ClipboardCheck },
 ];
 
 const studentItems = [
