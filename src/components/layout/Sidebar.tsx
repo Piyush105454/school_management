@@ -13,6 +13,7 @@ import {
   UserCheck,
   X,
   ClipboardCheck,
+  ClipboardList,
   School,
   UserCog,
   Eye,
@@ -91,6 +92,7 @@ const studentItems = [
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
   { name: "Final Option", href: "/student/final-admission", icon: ClipboardCheck },
   { name: "My Scholarship", href: "/student/scholarship", icon: GraduationCap },
+  { name: "My Homework", href: "/student/homework", icon: ClipboardList },
 ];
 
 interface SidebarProps {

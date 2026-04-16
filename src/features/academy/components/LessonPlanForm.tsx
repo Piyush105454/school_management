@@ -5,7 +5,7 @@ import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool } f
 import { useSearchParams } from "next/navigation";
 import { generateLessonPlanPdf } from "@/features/academy/utils/generateLessonPlanPdf";
 import { saveLessonPlan } from "@/features/academy/actions/lessonPlanActions";
-import { getSubjectUnitsAndChapters } from "@/features/academy/actions/academyActions";
+import { getSubjectUnitsAndChapters, getChapterDivisionsForLesson } from "@/features/academy/actions/academyActions";
 
 interface AcademicClass {
   id: number;
@@ -27,11 +27,13 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
   const searchParams = useSearchParams();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeStep, setActiveStep] = useState(1); // 1: Teacher's Note, 2: Lesson Plan
-  const [lessonPlanMode, setLessonPlanMode] = useState("EXPLANATION"); // EXPLANATION, QA
+  const [activeStep, setActiveStep] = useState(1); // 1: Teacher Preparation, 2: Lesson Plan, 3: Delivery & Sign off
+  const [lessonPlanMode, setLessonPlanMode] = useState("EXPLANATION"); // EXPLANATION, QA, PREPRIMARY
   
   const [unitsWithChapters, setUnitsWithChapters] = useState<any[]>([]);
   const [isLoadingCurriculum, setIsLoadingCurriculum] = useState(false);
+  const [chapterDivisions, setChapterDivisions] = useState<any[]>([]);
+  const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     // Common Meta
@@ -85,15 +87,20 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     const subject = searchParams.get("subject");
     const unitChapter = searchParams.get("unitChapter");
     const pages = searchParams.get("pages");
+    const chapterId = searchParams.get("chapterId");
     const type = searchParams.get("type"); // Optional: for Add Homework mode
 
-    if (className || subject || unitChapter || pages) {
+    if (className || subject || unitChapter || pages || chapterId) {
       setFormData(prev => ({
         ...prev,
         className: className || prev.className,
         subject: subject || prev.subject,
         unitChapterPage: unitChapter && pages ? `${unitChapter}, Pg ${pages}` : (unitChapter || pages || prev.unitChapterPage),
       }));
+
+      if (chapterId) {
+        setSelectedChapterId(parseInt(chapterId, 10));
+      }
 
       if (type === "homework") {
         setActiveStep(1);
@@ -141,6 +148,14 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
           const res = await getSubjectUnitsAndChapters(subjectObj.id);
           if (res.success && res.units) {
             setUnitsWithChapters(res.units);
+            
+            // If we have a selectedChapterId from URL, fetch its divisions
+            if (selectedChapterId) {
+              const divRes = await getChapterDivisionsForLesson(selectedChapterId);
+              if (divRes.success) {
+                setChapterDivisions(divRes.divisions || []);
+              }
+            }
           }
         }
       } catch (error) {
@@ -251,7 +266,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
               : "text-slate-500 hover:text-slate-700"
             }`}
         >
-          1. TEACHER'S NOTE & HOMEWORK
+          1. Teacher Preparation
         </button>
         <button
           onClick={() => setActiveStep(2)}
@@ -260,17 +275,23 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
               : "text-slate-500 hover:text-slate-700"
             }`}
         >
-          2. LESSON PLAN estrategies
+          2. LESSON PLAN
+        </button>
+        <button
+          onClick={() => setActiveStep(3)}
+          className={`px-6 py-2 rounded-lg font-bold text-xs transition-all ${activeStep === 3
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+            }`}
+        >
+          3. LESSON delivery & Sign off
         </button>
       </div>
 
       {/* 2. EXCEL-STYLE HEADER */}
       <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
-        <div className="grid grid-cols-12 border-b border-slate-300 h-16 divide-x divide-slate-300">
-          <div className="col-span-4 flex items-center px-6 bg-slate-50 font-black uppercase tracking-widest text-sm">
-            Academic Management
-          </div>
-          <div className="col-span-8 flex items-center px-4 gap-4 overflow-x-auto">
+        <div className="border-b border-slate-300 h-16">
+          <div className="flex items-center px-4 gap-4 overflow-x-auto h-full">
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">Class:</span>
               <select
@@ -334,6 +355,33 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                 className="w-12 bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1"
               />
             </div>
+
+            {/* Division Selector in Header */}
+            {chapterDivisions.length > 0 && (
+              <div className="flex items-center gap-2 min-w-max ml-4 px-3 py-1 bg-blue-50 border border-blue-100 rounded-lg">
+                <span className="text-[10px] font-black uppercase text-blue-400">Range:</span>
+                <select
+                  value={chapterDivisions.find(d => formData.unitChapterPage.includes(`Pg ${d.pageStart}-${d.pageEnd}`))?.id || ""}
+                  onChange={(e) => {
+                    const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
+                    if (division) {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                      }));
+                    }
+                  }}
+                  className="bg-transparent outline-none font-bold text-[11px] text-blue-600"
+                >
+                  <option value="">Select Range</option>
+                  {chapterDivisions.map((division) => (
+                    <option key={division.id} value={division.id}>
+                      Pg {division.pageStart}—{division.pageEnd}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -344,7 +392,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
             <div className="border border-black">
               {/* 1. TOP HEADER ROW */}
               <div className="grid grid-cols-12 border-b border-black divide-x divide-black h-12">
-                <div className="col-span-6 flex items-center justify-center font-black text-2xl tracking-tight">Teacher's Note</div>
+                <div className="col-span-6 flex items-center justify-center font-black text-2xl tracking-tight uppercase">1A. Teacher's Note</div>
                 <div className="col-span-6 grid grid-cols-3 divide-x divide-black h-full">
                   <div className="flex items-center px-2 text-[10px] font-bold">LP Delivery Day <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{formData.deliveryDay}</span></div>
                   <div className="flex items-center px-2 text-[10px] font-bold">Date: <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{formData.date}</span></div>
@@ -375,21 +423,23 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
               </div>
 
               {/* 3. WRITING SPACE */}
-              <textarea
-                name="teacherNote"
-                value={formData.teacherNote}
-                onChange={handleChange}
-                rows={12}
-                className="w-full p-6 text-base font-medium outline-none resize-none border-none placeholder:text-slate-200"
-                placeholder="Enter your preparation notes here..."
-              />
+              <div className="relative">
+                <textarea
+                  name="teacherNote"
+                  value={formData.teacherNote}
+                  onChange={handleChange}
+                  rows={12}
+                  className="w-full p-6 text-base font-medium outline-none resize-none border-none placeholder:text-slate-200"
+                  placeholder="Enter your preparation notes here..."
+                />
+              </div>
             </div>
 
             {/* Homework Table */}
             <div className="border border-black">
               {/* 1. TOP HEADER ROW */}
               <div className="grid grid-cols-12 border-b border-black divide-x divide-black h-12">
-                <div className="col-span-6 flex items-center justify-center font-black text-xl tracking-tight">Today's Homework (For Students & Parents)</div>
+                <div className="col-span-6 flex items-center justify-center font-black text-xl tracking-tight uppercase">1B. Today's Homework</div>
                 <div className="col-span-6 grid grid-cols-3 divide-x divide-black h-full">
                   <div className="flex items-center px-2 text-[10px] font-bold truncate">Class: <span className="ml-1 border-b border-black flex-1">{formData.className}</span></div>
                   <div className="flex items-center px-2 text-[10px] font-bold truncate">Subject: <span className="ml-1 border-b border-black flex-1">{formData.subject}</span></div>
@@ -427,7 +477,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
               />
             </div>
           </div>
-        ) : (
+        ) : activeStep === 2 ? (
           /* --- STEP 2: LESSON PLAN (EXCEL-STYLE) --- */
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Mode Switcher */}
@@ -437,18 +487,25 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                 className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "EXPLANATION" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                   }`}
               >
-                Lesson Plan (EXPLANATION)
+                2A. Lesson Plan (EXPLANATION)
               </button>
               <button
                 onClick={() => setLessonPlanMode("QA")}
                 className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "QA" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                   }`}
               >
-                Lesson Plan (Q & A)
+                2B. Lesson Plan (Q & A)
+              </button>
+              <button
+                onClick={() => setLessonPlanMode("PREPRIMARY")}
+                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "PREPRIMARY" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                  }`}
+              >
+                2C. PRE-PRIMARY
               </button>
             </div>
 
-            {lessonPlanMode === "EXPLANATION" ? (
+            {lessonPlanMode === "EXPLANATION" || lessonPlanMode === "PREPRIMARY" ? (
               <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
                 {/* Header Row */}
                 <div className="grid grid-cols-12 border-b border-slate-300">
@@ -461,7 +518,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                   </div>
                   <div className="col-span-3 p-6 flex flex-col items-center justify-center bg-slate-50">
                     <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Lesson Plan</p>
-                    <p className="text-lg font-black text-slate-800 uppercase italic">(EXPLANATION)</p>
+                    <p className="text-lg font-black text-slate-800 uppercase italic">({lessonPlanMode === "EXPLANATION" ? "EXPLANATION" : "PRE-PRIMARY"})</p>
                   </div>
                 </div>
 
@@ -479,7 +536,40 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                     <select 
                       name="unitChapterPage" 
                       value={formData.unitChapterPage} 
-                      onChange={handleChange} 
+                      onChange={(e) => {
+                        const selectedValue = e.target.value;
+                        handleChange(e);
+                        
+                        // Find the chapter and fetch its divisions
+                        if (selectedValue && selectedValue !== "custom") {
+                          let foundChapter: any = null;
+                          
+                          for (const unit of unitsWithChapters) {
+                            const chapter = unit.chapters?.find((ch: any) => {
+                              const value = unit.name === "NA" 
+                                ? `${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`
+                                : `${unit.name}, ${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`;
+                              return value === selectedValue;
+                            });
+                            if (chapter) {
+                              foundChapter = chapter;
+                              break;
+                            }
+                          }
+                          
+                          if (foundChapter) {
+                            setSelectedChapterId(foundChapter.id);
+                            getChapterDivisionsForLesson(foundChapter.id).then(res => {
+                              if (res.success) {
+                                setChapterDivisions(res.divisions || []);
+                              }
+                            });
+                          }
+                        } else {
+                          setChapterDivisions([]);
+                          setSelectedChapterId(null);
+                        }
+                      }}
                       className="w-full bg-transparent border-none outline-none font-bold text-sm appearance-none cursor-pointer"
                       disabled={isLoadingCurriculum || !formData.subject}
                     >
@@ -518,6 +608,27 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                     </select>
                   </div>
                 </div>
+
+                {/* Divided Pages Row */}
+                {chapterDivisions.length > 0 && (
+                  <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                    <div className="col-span-1 p-3 flex items-center bg-blue-50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-blue-600">Divided Pages:</div>
+                    <div className="col-span-9 p-3 flex items-center gap-2 flex-wrap">
+                      {chapterDivisions.map((division) => (
+                        <button
+                          key={division.id}
+                          onClick={() => setFormData(prev => ({ 
+                            ...prev, 
+                            unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                          }))}
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
+                        >
+                          Pg {division.pageStart}—{division.pageEnd}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Instruction Table */}
                 <div className="grid grid-cols-12 border-b border-slate-300 bg-slate-800 text-white font-black uppercase tracking-widest text-[8px] h-8 items-center text-center">
@@ -628,31 +739,8 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                   </div>
                 </div>
 
-                {/* Observation Footer */}
-                <div className="grid grid-cols-2 divide-x divide-slate-300 h-40 border-b border-slate-300">
-                  <div className="flex flex-col">
-                    <div className="bg-slate-50 p-2 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500">Teacher Observation:</div>
-                    <textarea name="teacherObservation" value={formData.teacherObservation} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Write observations here..." />
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="bg-slate-50 p-2 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">Student Performance:</div>
-                    <div className="flex-1 grid grid-cols-2 divide-x divide-slate-300">
-                      <div className="flex flex-col">
-                        <div className="p-1 border-b border-slate-100 text-center font-black text-[8px] text-emerald-600 bg-emerald-50/50 uppercase">Good</div>
-                        <textarea name="studentPerformanceGood" value={formData.studentPerformanceGood} onChange={handleChange} className="flex-1 p-3 bg-transparent outline-none font-bold text-[10px] resize-none" placeholder="..." />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="p-1 border-b border-slate-100 text-center font-black text-[8px] text-rose-600 bg-rose-50/50 uppercase">Bad</div>
-                        <textarea name="studentPerformanceBad" value={formData.studentPerformanceBad} onChange={handleChange} className="flex-1 p-3 bg-transparent outline-none font-bold text-[10px] resize-none" placeholder="..." />
-                      </div>
-                    </div>
-                  </div>
                 </div>
-
-                <div className="bg-slate-50 p-2 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500">Reviewer Remark & Feedback:</div>
-                <textarea name="reviewerRemark" value={formData.reviewerRemark} onChange={handleChange} className="w-full h-24 p-6 bg-transparent outline-none font-bold text-sm resize-none shadow-inner" placeholder="..." />
-              </div>
-            ) : (
+              ) : (
               /* --- LESSON PLAN (Q & A) --- */
               <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
                 {/* Header Row */}
@@ -862,58 +950,103 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                   </div>
                 </div>
 
-                {/* Footer Section (Shared with Explanation) */}
-                <div className="grid grid-cols-12 divide-x divide-slate-300 h-48 border-b border-slate-300">
-                  <div className="col-span-4 flex flex-col">
-                    <div className="bg-slate-50 p-2.5 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">Teacher Observation:</div>
-                    <textarea name="teacherObservation" value={formData.teacherObservation} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Write observations here..." />
-                  </div>
-                  <div className="col-span-8 flex flex-col">
-                    <div className="bg-slate-50 p-2.5 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">STUDENTS PERFORMANCE</div>
-                    <div className="flex-1 grid grid-cols-2 divide-x divide-slate-300">
-                      <div className="flex flex-col">
-                        <div className="p-1.5 border-b border-slate-200 text-center font-black text-[9px] text-emerald-600 bg-emerald-50/50 uppercase tracking-widest">GOOD</div>
-                        <textarea name="studentPerformanceGood" value={formData.studentPerformanceGood} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Students who performed well..." />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="p-1.5 border-b border-slate-200 text-center font-black text-[9px] text-rose-600 bg-rose-50/50 uppercase tracking-widest">BAD</div>
-                        <textarea name="studentPerformanceBad" value={formData.studentPerformanceBad} onChange={handleChange} className="flex-1 p-4 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Students needing more support..." />
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="bg-slate-50 p-2.5 border-b border-slate-300 font-black text-[9px] uppercase tracking-widest text-slate-500 text-center">Reviewer Remark and Feedback:</div>
-                <textarea name="reviewerRemark" value={formData.reviewerRemark} onChange={handleChange} className="w-full h-24 p-6 bg-transparent outline-none font-bold text-sm resize-none shadow-inner" placeholder="Principal/Reviewer comments..." />
+                <div className="bg-slate-50 p-6 border-t border-slate-300">
+                  <p className="text-[10px] font-black uppercase text-slate-400 text-center tracking-[0.3em] italic">End of Lesson Plan (Q & A)</p>
+                </div>
               </div>
             )}
+          </div>
+        ) : (
+          /* --- STEP 3: LESSON DELIVERY & SIGN OFF --- */
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
+              <div className="bg-slate-800 text-white p-6 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tight">3. LESSON delivery & Sign off</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Observations & Feedback</p>
+                </div>
+                <Save className="h-6 w-6 opacity-20" />
+              </div>
+
+              {/* Observation Section */}
+              <div className="p-8 border-b border-slate-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3A</div>
+                  <h4 className="font-black text-slate-800 uppercase tracking-tight">Teacher Observation</h4>
+                </div>
+                <textarea 
+                  name="teacherObservation" 
+                  value={formData.teacherObservation} 
+                  onChange={handleChange} 
+                  className="w-full h-40 p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none focus:bg-white focus:border-blue-200 transition-all placeholder:text-slate-300" 
+                  placeholder="Write observations here..." 
+                />
+              </div>
+
+              {/* Student Performance Section */}
+              <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row gap-8">
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-6 w-6 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-black text-[10px] uppercase shadow-sm">Good</div>
+                    <h4 className="font-black text-slate-600 text-xs uppercase tracking-widest">Student Performance (Positive)</h4>
+                  </div>
+                  <textarea 
+                    name="studentPerformanceGood" 
+                    value={formData.studentPerformanceGood} 
+                    onChange={handleChange} 
+                    className="w-full h-32 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-emerald-200 transition-all" 
+                    placeholder="Note positive highlights..." 
+                  />
+                </div>
+                <div className="flex-1 space-y-4 border-l border-slate-100 md:pl-8">
+                  <div className="flex items-center gap-3">
+                    <div className="h-6 w-6 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center font-black text-[10px] uppercase shadow-sm">Bad</div>
+                    <h4 className="font-black text-slate-600 text-xs uppercase tracking-widest">Student Performance (Concerns)</h4>
+                  </div>
+                  <textarea 
+                    name="studentPerformanceBad" 
+                    value={formData.studentPerformanceBad} 
+                    onChange={handleChange} 
+                    className="w-full h-32 p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-rose-200 transition-all" 
+                    placeholder="Note areas for improvement..." 
+                  />
+                </div>
+              </div>
+
+              {/* Reviewer Section */}
+              <div className="p-8 bg-slate-50/30">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-8 bg-slate-800 text-white rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3B</div>
+                  <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer Remark and Signoff</h4>
+                </div>
+                <textarea 
+                  name="reviewerRemark" 
+                  value={formData.reviewerRemark} 
+                  onChange={handleChange} 
+                  className="w-full h-32 p-6 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-sm resize-none shadow-sm focus:border-slate-400 transition-all" 
+                  placeholder="Reviewer feedback goes here..." 
+                />
+                <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
+                  <div className="space-y-1">
+                    <div className="w-48 border-b border-black"></div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Digital Signature</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <div className="w-48 border-b border-black ml-auto"></div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head/Principal Signoff</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* 3. SIMPLIFIED FOOTER */}
-      <div className="border border-slate-300 bg-white p-8 space-y-8">
-        <div className="flex flex-col md:flex-row items-end justify-between gap-8">
-          <div className="flex-1 w-full space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Name & Signature:</label>
-            <input
-              type="text"
-              name="teacherName"
-              value={formData.teacherName}
-              onChange={handleChange}
-              placeholder="Type your name here..."
-              className="w-full border-b border-slate-300 py-2 outline-none font-bold text-lg placeholder:text-slate-200"
-            />
-          </div>
-          <div className="w-full md:w-48 text-center space-y-1">
-            <div className="h-16 border border-dashed border-slate-300 flex items-center justify-center text-slate-200">
-              <PenTool className="h-6 w-6" />
-            </div>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Stamp Area</p>
-          </div>
-        </div>
 
-        <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
+      {/* 3. SIMPLIFIED FOOTER */}
+      <div className="border border-slate-300 bg-white p-8">
+        <div className="flex items-center justify-end gap-3">
           <button
             onClick={handleSave}
             disabled={isSaving}

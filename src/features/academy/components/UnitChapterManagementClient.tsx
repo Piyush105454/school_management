@@ -15,11 +15,13 @@ import {
   ClipboardList,
   MoreVertical,
   Edit2,
-  Table as TableIcon
+  Table as TableIcon,
+  Layers
 } from "lucide-react";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import EditUnitModal from "@/features/academy/components/EditUnitModal";
 import EditChapterModal from "@/features/academy/components/EditChapterModal";
+import DivideChapterModal from "@/features/academy/components/DivideChapterModal";
 import { useRouter } from "next/navigation";
 
 interface Chapter {
@@ -30,6 +32,11 @@ interface Chapter {
   pageStart: number;
   pageEnd: number;
   orderNo: number;
+  divisions?: {
+    id: number;
+    pageStart: number;
+    pageEnd: number;
+  }[];
 }
 
 interface Unit {
@@ -69,6 +76,7 @@ export default function UnitChapterManagementClient({
   // State for controlling modals
   const [editingUnit, setEditingUnit] = useState<{ id: number; name: string } | null>(null);
   const [editingChapter, setEditingChapter] = useState<{ chapter: Chapter; pdfUrl?: string } | null>(null);
+  const [dividingChapter, setDividingChapter] = useState<{ id: number; name: string; pageStart: number; pageEnd: number } | null>(null);
 
   interface DisplayRow {
     unit: Unit;
@@ -105,6 +113,7 @@ export default function UnitChapterManagementClient({
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-20">Ch. No</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Chapter Name</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-32">Pages</th>
+              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-40">Divide Chapter</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-40">View Chapter</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-20">Actions</th>
             </tr>
@@ -179,6 +188,56 @@ export default function UnitChapterManagementClient({
                     )}
                   </td>
 
+                  {/* Divide Chapter */}
+                  <td className="px-6 py-5">
+                    <div className="flex flex-col items-center gap-2">
+                      {chapter && chapter.pageStart && chapter.pageEnd ? (
+                        <>
+                          <button
+                            onClick={() => setDividingChapter({
+                              id: chapter.id,
+                              name: chapter.name,
+                              pageStart: chapter.pageStart,
+                              pageEnd: chapter.pageEnd
+                            })}
+                            className="flex items-center gap-1.5 py-1.5 px-3 bg-white text-purple-600 hover:bg-purple-50 font-black rounded-xl transition-all text-[10px] uppercase tracking-wider border border-purple-100 shadow-sm group active:scale-95"
+                          >
+                            <Layers className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+                            Divide
+                          </button>
+                          
+                          {/* Division Badges for Direct Redirect */}
+                          {chapter.divisions && chapter.divisions.length > 0 && (
+                            <div className="flex flex-wrap justify-center gap-1 mt-1">
+                              {chapter.divisions.map((div) => (
+                                <button
+                                  key={div.id}
+                                  onClick={() => {
+                                    const unitName = isNA ? "" : unit.name;
+                                    const params = new URLSearchParams({
+                                      class: className,
+                                      subject: subjectName,
+                                      chapterId: chapter.id.toString(),
+                                      unitChapter: `${unitName ? unitName + ', ' : ''}${chapter.name}`,
+                                      pages: `${div.pageStart}-${div.pageEnd}`
+                                    });
+                                    router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
+                                  }}
+                                  className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[9px] font-black hover:bg-blue-100 transition-colors"
+                                  title="Create Lesson Plan for this range"
+                                >
+                                  Pg {div.pageStart}-{div.pageEnd}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest italic">N/A</span>
+                      )}
+                    </div>
+                  </td>
+
                   {/* View Chapter */}
                   <td className="px-6 py-5">
                     <div className="flex justify-center">
@@ -214,6 +273,7 @@ export default function UnitChapterManagementClient({
                               const params = new URLSearchParams({
                                 class: className,
                                 subject: subjectName,
+                                chapterId: chapter!.id.toString(),
                                 unitChapter: `${unitName ? unitName + ', ' : ''}${chapter!.name}`,
                                 pages: chapter!.pageStart && chapter!.pageEnd ? `${chapter!.pageStart}-${chapter!.pageEnd}` : ""
                               });
@@ -272,6 +332,17 @@ export default function UnitChapterManagementClient({
           showTrigger={false}
           isOpen={!!editingChapter}
           onClose={() => setEditingChapter(null)}
+        />
+      )}
+
+      {dividingChapter && (
+        <DivideChapterModal
+          isOpen={!!dividingChapter}
+          onClose={() => setDividingChapter(null)}
+          chapterId={dividingChapter.id}
+          chapterName={dividingChapter.name}
+          pageStart={dividingChapter.pageStart}
+          pageEnd={dividingChapter.pageEnd}
         />
       )}
     </div>

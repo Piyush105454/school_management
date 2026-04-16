@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { classes, subjects, units, chapters, students, studentAttendance, chapterPdfs } from "@/db/schema";
+import { classes, subjects, units, chapters, students, studentAttendance, chapterPdfs, chapterDivisions } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -319,6 +319,20 @@ export async function getSubjectUnitsAndChapters(subjectId: number) {
     return { success: true, units: subjectUnits };
   } catch (error: any) {
     console.error("getSubjectUnitsAndChapters error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getChapterDivisionsForLesson(chapterId: number) {
+  try {
+    const divisions = await db.query.chapterDivisions.findMany({
+      where: eq(chapterDivisions.chapterId, chapterId),
+      orderBy: (chapterDivisions, { asc }) => [asc(chapterDivisions.orderNo)],
+    });
+    
+    return { success: true, divisions };
+  } catch (error: any) {
+    console.error("getChapterDivisionsForLesson error:", error);
     return { success: false, error: error.message };
   }
 }

@@ -60,6 +60,11 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
     subjectChapters = await db.query.chapters.findMany({
       where: inArray(chapters.unitId, unitIds),
       orderBy: (chapters, { asc }) => [asc(chapters.orderNo)],
+      with: {
+        divisions: {
+          orderBy: (divisions, { asc }) => [asc(divisions.orderNo)],
+        }
+      }
     });
 
     const chapterIds = subjectChapters.map(c => c.id);
