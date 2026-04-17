@@ -81,7 +81,6 @@ const teacherItems = [
   { name: "Doc Verification & Affidavit", href: "/office/document-verification", icon: Eye },
   { name: "Entrance Tests", href: "/office/entrance-tests", icon: ClipboardCheck },
   { name: "Home Visits", href: "/office/home-visits", icon: Users },
-  { name: "Final Approvals", href: "/office/final-admissions", icon: ClipboardCheck },
 ];
 
 const studentItems = [

@@ -13,7 +13,7 @@ import { OfficeHomeVisitManager } from "./OfficeHomeVisitManager";
 
 export default async function OfficeHomeVisitsPage() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "OFFICE") redirect("/");
+  if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
   const rows = await db
     .select({

@@ -14,7 +14,7 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
   const { step } = await searchParams;
   const stepParam = step ? parseInt(step) : undefined;
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "OFFICE") redirect("/");
+  if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
   const { id: admissionId } = await params;
 

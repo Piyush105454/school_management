@@ -21,7 +21,7 @@ import { OfficeTestManager } from "./OfficeTestManager";
 
 export default async function OfficeEntranceTestsPage() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "OFFICE") redirect("/");
+  if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
   // Use standard join for better stability with Neon pooler/Drizzle 0.45
   const rows = await db

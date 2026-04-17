@@ -1108,7 +1108,7 @@ function SubmissionSuccessStep({
     return String(date);
   };
 
-  const isVerified = initialMeta?.status === "VERIFIED";
+  const isVerified = initialChecklist?.parentAffidavit === "VERIFIED";
   const isPending = initialChecklist?.parentAffidavit === "SUBMITTED";
 
   return (
