@@ -11,13 +11,14 @@ import {
     Clock,
     ClipboardCheck
 } from "lucide-react";
+import { protectRoute } from "@/lib/roleGuard";
 
 export default async function TeacherDashboardPage() {
+    // Protect this route - only TEACHER role can access
+    await protectRoute(["TEACHER"]);
+
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== "TEACHER") {
-        if (session?.user?.role === "OFFICE") redirect("/office/dashboard");
-        redirect("/");
-    }
+    if (!session) redirect("/");
 
     const stats = [
         { name: "My Classes", value: "3", icon: School, color: "text-blue-600", bg: "bg-blue-50" },

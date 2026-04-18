@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { getDashboardUrl, hasRole } from "@/lib/roleUtils";
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,15 @@ export default function DashboardLayout({
 }) {
   const { data: session, status } = useSession();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Role-based route access control
+  const roleRoutes: Record<string, string[]> = {
+    OFFICE: ["/office", "/dashboard"],
+    STUDENT_PARENT: ["/student", "/dashboard"],
+    TEACHER: ["/teacher", "/office/home-visits", "/office/entrance-tests", "/office/document-verification", "/office/admissions"],
+  };
 
   if (status === "loading") {
     return <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
@@ -21,7 +31,20 @@ export default function DashboardLayout({
   }
 
   if (!session) {
-    redirect("/");
+    router.push("/");
+    return null;
+  }
+
+  // Check if user has access to current route
+  const userRole = session.user?.role as string;
+  const allowedRoutes = roleRoutes[userRole] || [];
+  const hasAccess = allowedRoutes.some(route => pathname.startsWith(route));
+
+  if (!hasAccess) {
+    // Redirect to appropriate dashboard
+    const dashboardUrl = getDashboardUrl(userRole as any);
+    router.push(dashboardUrl);
+    return null;
   }
 
   return (

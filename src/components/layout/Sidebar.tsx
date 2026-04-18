@@ -65,6 +65,7 @@ const officeItems = [
   { name: "Manage Timetable", href: "/office/timetable", icon: Clock },
 
   { type: "section", name: "People Management" },
+  { name: "Admin Management", href: "/office/admin-management", icon: UserCog },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
   { name: "Principal Management", href: "/office/school-management/principal", icon: UserCog },
 ];

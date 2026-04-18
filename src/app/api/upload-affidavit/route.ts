@@ -21,10 +21,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing file or admission ID" }, { status: 400 });
     }
 
+    // Check file size
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "File exceeds 5MB limit" }, { status: 413 });
+    }
+
     // Convert file to base64 for storage in DB
     const buffer = Buffer.from(await file.arrayBuffer());
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
+
+    // Check base64 size (should be ~33% larger than original)
+    if (dataUrl.length > 6.5 * 1024 * 1024) {
+      return NextResponse.json({ 
+        error: "File too large after encoding. Try a smaller file or compress it first." 
+      }, { status: 413 });
+    }
 
     // Update database (Upsert)
     await db.insert(studentDocuments).values({
@@ -47,6 +59,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Upload API Error:", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    
+    // Provide specific error messages
+    if (error.message?.includes("ECONNREFUSED")) {
+      return NextResponse.json({ 
+        error: "Database connection failed. Please try again." 
+      }, { status: 503 });
+    }
+    
+    if (error.message?.includes("timeout")) {
+      return NextResponse.json({ 
+        error: "Request timeout. File may be too large." 
+      }, { status: 504 });
+    }
+
+    return NextResponse.json({ 
+      error: error.message || "Internal Server Error" 
+    }, { status: 500 });
   }
 }

@@ -25,8 +25,12 @@ import { studentProfiles, admissionMeta, entranceTests, inquiries, documentCheck
 import { redirect } from "next/navigation";
 import { formatDate, formatTime } from "@/lib/utils";
 import { EntranceTestCard } from "@/features/admissions/components/EntranceTestCard";
+import { protectRoute } from "@/lib/roleGuard";
 
 export default async function StudentDashboard() {
+  // Protect this route - only STUDENT_PARENT role can access
+  await protectRoute(["STUDENT_PARENT"]);
+
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 

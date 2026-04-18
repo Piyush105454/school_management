@@ -9,17 +9,7 @@
 body {
   color: rgb(var(--foreground-rgb));
   background: white;
-}
-
-@theme {
-  --font-inter: var(--font-inter);
-  --font-outfit: var(--font-outfit);
-}
-
-@utility glass-card {
-  background-color: white;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
 @layer base {

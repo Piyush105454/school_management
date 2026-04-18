@@ -63,6 +63,12 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
       return;
     }
 
+    // Check file size before upload
+    if (affidavitFile.size > 5 * 1024 * 1024) {
+      alert("File size exceeds 5MB limit. Please select a smaller file.");
+      return;
+    }
+
     setLoading(true);
     const formData = new FormData();
     formData.append("file", affidavitFile);
@@ -72,7 +78,13 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
       const response = await fetch("/api/upload-affidavit", {
         method: "POST",
         body: formData,
+        signal: AbortSignal.timeout(60000), // 60 second timeout
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error (${response.status}): ${errorText}`);
+      }
 
       const res = await response.json();
       
@@ -95,8 +107,17 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
       }
     } catch (err: any) {
       setLoading(false);
-      alert("Network error: Upload failed. Please try again.");
-      console.error(err);
+      console.error("Upload error details:", err);
+      
+      if (err.name === "AbortError") {
+        alert("Upload timeout. File may be too large or connection is slow. Try a smaller file.");
+      } else if (err.message.includes("413")) {
+        alert("File too large. Maximum size is 5MB.");
+      } else if (err.message.includes("500")) {
+        alert("Server error. Please try again in a few moments.");
+      } else {
+        alert("Upload failed: " + (err.message || "Network error. Please try again."));
+      }
     }
   };
 

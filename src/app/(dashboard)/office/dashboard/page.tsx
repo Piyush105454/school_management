@@ -8,8 +8,12 @@ import Link from "next/link";
 import { db } from "@/db";
 import { inquiries, studentProfiles } from "@/db/schema";
 import { count, eq } from "drizzle-orm";
+import { protectRoute } from "@/lib/roleGuard";
 
 export default async function OfficeDashboard() {
+  // Protect this route - only OFFICE role can access
+  await protectRoute(["OFFICE"]);
+
   const totalInquiriesResult = await db.select({ count: count() }).from(inquiries);
   const shortlistedResult = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "SHORTLISTED"));
   const finalAdmissionsResult = await db.select({ count: count() }).from(studentProfiles).where(eq(studentProfiles.isFullyAdmitted, true));
