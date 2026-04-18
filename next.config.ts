@@ -5,7 +5,9 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '50mb',
     },
+    optimizePackageImports: ['lucide-react', 'clsx', 'tailwind-merge'],
   },
+  productionBrowserSourceMaps: false,
 };
 
 export default nextConfig;

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { 
   Users, 
   FileText, 
@@ -14,21 +15,43 @@ export default async function OfficeDashboard() {
   // Protect this route - only OFFICE role can access
   await protectRoute(["OFFICE"]);
 
-  const totalInquiriesResult = await db.select({ count: count() }).from(inquiries);
-  const shortlistedResult = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "SHORTLISTED"));
-  const finalAdmissionsResult = await db.select({ count: count() }).from(studentProfiles).where(eq(studentProfiles.isFullyAdmitted, true));
-
-  const stats = [
-    { name: "Total Inquiries", value: totalInquiriesResult[0].count.toString(), icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },
-    { name: "Shortlisted", value: shortlistedResult[0].count.toString(), icon: UserPlus, color: "text-green-600", bg: "bg-green-100" },
-    { name: "Final Admissions", value: finalAdmissionsResult[0].count.toString(), icon: Users, color: "text-purple-600", bg: "bg-purple-100" },
+  let stats = [
+    { name: "Total Inquiries", value: "0", icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },
+    { name: "Shortlisted", value: "0", icon: UserPlus, color: "text-green-600", bg: "bg-green-100" },
+    { name: "Final Admissions", value: "0", icon: Users, color: "text-purple-600", bg: "bg-purple-100" },
   ];
+
+  let dbError = false;
+
+  try {
+    const [totalInquiriesResult, shortlistedResult, finalAdmissionsResult] = await Promise.all([
+      db.select({ count: count() }).from(inquiries),
+      db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "SHORTLISTED")),
+      db.select({ count: count() }).from(studentProfiles).where(eq(studentProfiles.isFullyAdmitted, true))
+    ]);
+
+    stats = [
+      { name: "Total Inquiries", value: totalInquiriesResult[0].count.toString(), icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },
+      { name: "Shortlisted", value: shortlistedResult[0].count.toString(), icon: UserPlus, color: "text-green-600", bg: "bg-green-100" },
+      { name: "Final Admissions", value: finalAdmissionsResult[0].count.toString(), icon: Users, color: "text-purple-600", bg: "bg-purple-100" },
+    ];
+  } catch (error) {
+    console.error("Database query failed:", error);
+    dbError = true;
+  }
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Office Dashboard</h1>
         <p className="text-slate-500 mt-1">Welcome back, Admin. Here's what's happening today.</p>
       </div>
+
+      {dbError && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+          <p className="text-red-700 font-bold">Database Quota Exceeded</p>
+          <p className="text-red-600 text-sm">Your database provider (Neon) has limited access to your data. Please upgrade your plan to restore full functionality.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {stats.map((stat) => (

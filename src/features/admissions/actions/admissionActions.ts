@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
 
 function sanitizeBioData(data: any) {
   if (!data) return data;
@@ -50,6 +51,7 @@ function sanitizeBioData(data: any) {
   if (!sanitized.lastName) sanitized.lastName = "-";
   if (!sanitized.gender) sanitized.gender = "M";
   if (!sanitized.caste) sanitized.caste = "GEN";
+  if (!sanitized.dob) sanitized.dob = new Date("2000-01-01"); // Safe fallback for NOT NULL constraint
 
   return sanitized;
 }
@@ -105,6 +107,14 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
       // 1. Student Bio
       if (data.studentBio) {
         const bioData = sanitizeBioData(data.studentBio);
+
+        if (bioData.studentPhoto && bioData.studentPhoto.startsWith("data:")) {
+          bioData.studentPhoto = await uploadToS3(bioData.studentPhoto, {
+            fileName: "photo",
+            admissionId,
+            category: "studentdocuments"
+          });
+        }
 
         await tx.insert(studentBio).values({
           ...bioData,
@@ -179,11 +189,21 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
       // 6. Parents/Guardians (Delete existing and re-insert)
       if (data.parentsGuardians) {
         await tx.delete(parentGuardianDetails).where(eq(parentGuardianDetails.admissionId, admissionId));
-        if (data.parentsGuardians.length > 0) {
-          await tx.insert(parentGuardianDetails).values(
-            data.parentsGuardians.map((p: any) => ({ ...p, admissionId }))
-          );
-        }
+        const processedParents = await Promise.all(data.parentsGuardians.map(async (p: any) => {
+          if (p.photo && p.photo.startsWith("data:")) {
+            const s3Url = await uploadToS3(p.photo, {
+              fileName: `parent_${p.personType}`,
+              admissionId,
+              category: "studentdocuments"
+            });
+            return { ...p, photo: s3Url };
+          }
+          return p;
+        }));
+
+        await tx.insert(parentGuardianDetails).values(
+          processedParents.map((p: any) => ({ ...p, admissionId }))
+        );
       }
 
       // 7. Declaration
@@ -206,13 +226,27 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
       // 8. Documents
       if (data.documents) {
         const sanitizedDocs = sanitizeDocuments(data.documents);
-        if (Object.keys(sanitizedDocs).length > 0) {
+        const folderDocs: any = {};
+        
+        for (const [key, value] of Object.entries(sanitizedDocs)) {
+          if (value && typeof value === 'string' && value.startsWith("data:")) {
+            folderDocs[key] = await uploadToS3(value, {
+              fileName: key,
+              admissionId,
+              category: "studentdocuments"
+            });
+          } else {
+            folderDocs[key] = value;
+          }
+        }
+
+        if (Object.keys(folderDocs).length > 0) {
           await tx.insert(studentDocuments).values({
-            ...sanitizedDocs,
+            ...folderDocs,
             admissionId,
           }).onConflictDoUpdate({
             target: studentDocuments.admissionId,
-            set: sanitizedDocs
+            set: folderDocs
           });
         }
       }
@@ -328,7 +362,9 @@ export async function getDocumentContent(admissionId: string, fieldName: string)
         [fieldName as any]: true
       }
     });
-    return { success: true, content: (doc as any)?.[fieldName] || null };
+    const content = (doc as any)?.[fieldName] || null;
+    const secureUrl = content ? await getSignedDownloadUrl(content) : null;
+    return { success: true, content: secureUrl };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -526,8 +562,20 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           if (data.parentsGuardians) {
             await tx.delete(parentGuardianDetails).where(eq(parentGuardianDetails.admissionId, admissionId));
             if (data.parentsGuardians.length > 0) {
+              const processedParents = await Promise.all(data.parentsGuardians.map(async (p: any) => {
+                if (p.photo && p.photo.startsWith("data:")) {
+                  const s3Url = await uploadToS3(p.photo, {
+                    fileName: `parent_${p.personType}`,
+                    admissionId,
+                    category: "studentdocuments"
+                  });
+                  return { ...p, photo: s3Url };
+                }
+                return p;
+              }));
+                
               await tx.insert(parentGuardianDetails).values(
-                data.parentsGuardians.map((p: any) => ({ ...p, admissionId }))
+                processedParents.map((p: any) => ({ ...p, admissionId }))
               );
             }
           }
@@ -543,10 +591,24 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
         case 8:
           if (data.documents) {
             const sanitizedDocs = sanitizeDocuments(data.documents);
-            if (Object.keys(sanitizedDocs).length > 0) {
-              await tx.insert(studentDocuments).values({ ...sanitizedDocs, admissionId }).onConflictDoUpdate({
+            const folderDocs: any = {};
+            
+            for (const [key, value] of Object.entries(sanitizedDocs)) {
+              if (value && typeof value === 'string' && value.startsWith("data:")) {
+                folderDocs[key] = await uploadToS3(value, {
+                  fileName: key,
+                  admissionId,
+                  category: "studentdocuments"
+                });
+              } else {
+                folderDocs[key] = value;
+              }
+            }
+
+            if (Object.keys(folderDocs).length > 0) {
+              await tx.insert(studentDocuments).values({ ...folderDocs, admissionId }).onConflictDoUpdate({
                 target: studentDocuments.admissionId,
-                set: sanitizedDocs
+                set: folderDocs
               });
             }
           }

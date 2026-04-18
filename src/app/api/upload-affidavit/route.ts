@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { studentDocuments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { uploadToS3 } from "@/lib/s3-service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,32 +22,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing file or admission ID" }, { status: 400 });
     }
 
-    // Check file size
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "File exceeds 5MB limit" }, { status: 413 });
+    // Check file size (1MB limit for affidavits)
+    if (file.size > 1024 * 1024) {
+      return NextResponse.json({ error: "Affidavit exceeds 1MB limit. Please compress it." }, { status: 413 });
     }
 
-    // Convert file to base64 for storage in DB
+    // Convert file to base64 for S3 helper
     const buffer = Buffer.from(await file.arrayBuffer());
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 
-    // Check base64 size (should be ~33% larger than original)
-    if (dataUrl.length > 6.5 * 1024 * 1024) {
-      return NextResponse.json({ 
-        error: "File too large after encoding. Try a smaller file or compress it first." 
-      }, { status: 413 });
-    }
+    // Upload to S3
+    const s3Url = await uploadToS3(dataUrl, {
+      fileName: "affidavit",
+      admissionId,
+      category: "studentdocuments"
+    });
 
-    // Update database (Upsert)
+    if (!s3Url) throw new Error("Failed to upload to S3");
+
+    // Update database (Upsert) - Save the S3 URL
     await db.insert(studentDocuments).values({
       admissionId,
-      affidavit: dataUrl,
+      affidavit: s3Url,
       updatedAt: new Date(),
     }).onConflictDoUpdate({
       target: studentDocuments.admissionId,
       set: {
-        affidavit: dataUrl,
+        affidavit: s3Url,
         updatedAt: new Date(),
       }
     });

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { entranceTests } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
 
 function sanitizeTestData(data: any) {
   if (!data) return data;
@@ -60,6 +61,11 @@ export async function getEntranceTestData(admissionId: string) {
     const data = await db.query.entranceTests.findFirst({
       where: eq(entranceTests.admissionId, admissionId),
     });
+
+    if (data && data.reportLink) {
+      data.reportLink = await getSignedDownloadUrl(data.reportLink) || data.reportLink;
+    }
+
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -74,6 +80,16 @@ export async function updateTestResult(
   reportLink?: string
 ) {
   try {
+    let finalReportLink = reportLink;
+
+    if (reportLink && reportLink.startsWith("data:")) {
+      finalReportLink = await uploadToS3(reportLink, {
+        fileName: "test_report",
+        admissionId,
+        category: "entrancetests"
+      }) || undefined;
+    }
+
     const marks = marksObtained ? parseFloat(marksObtained.toString()) : 0;
     const grace = graceMarks ? parseFloat(graceMarks.toString()) : 0;
     const totalGained = marks + grace;
@@ -88,7 +104,7 @@ export async function updateTestResult(
         marksObtained: marks,
         graceMarks: grace,
         totalMarks: 100, // Fixed Total Marks
-        reportLink: reportLink || null,
+        reportLink: finalReportLink || null,
         resultDate: new Date(),
         updatedAt: new Date(),
       })

@@ -48,8 +48,8 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit. Please select a smaller file.");
+      if (file.size > 1024 * 1024) {
+        alert("Max allowed size for Affidavit is 1 MB. Please compress your PDF/Image.");
         e.target.value = "";
         return;
       }
@@ -64,8 +64,8 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
     }
 
     // Check file size before upload
-    if (affidavitFile.size > 5 * 1024 * 1024) {
-      alert("File size exceeds 5MB limit. Please select a smaller file.");
+    if (affidavitFile.size > 1024 * 1024) {
+      alert("Max allowed size for Affidavit is 1 MB. Please compress your PDF/Image.");
       return;
     }
 
@@ -161,60 +161,12 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
     }
   };
 
-  const handleViewPdf = async () => {
-    let affidavit = currentDocData?.affidavit;
-    
-    if (affidavit === "PRESENT") {
-      setLoading(true);
-      const res = await getAffidavitContent(admissionId);
-      setLoading(false);
-      if (res.success && res.affidavit) {
-        affidavit = res.affidavit;
-      } else {
-        alert("Error loading document: " + (res.error || "Not found"));
-        return;
-      }
-    }
-
-    if (affidavit) {
-      if (affidavit.startsWith("data:application/pdf")) {
-        const base64Data = affidavit.split(",")[1];
-        const byteCharacters = window.atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-      } else {
-        window.open(affidavit, "_blank");
-      }
-    }
+  const handleViewPdf = () => {
+    window.open(`/api/view-doc?id=${admissionId}&field=affidavit&type=affidavit`, "_blank");
   };
 
-  const handleDownload = async () => {
-    let affidavit = currentDocData?.affidavit;
-    
-    if (affidavit === "PRESENT") {
-      setLoading(true);
-      const res = await getAffidavitContent(admissionId);
-      setLoading(false);
-      if (res.success && res.affidavit) {
-        affidavit = res.affidavit;
-      } else {
-        alert("Error loading document: " + (res.error || "Not found"));
-        return;
-      }
-    }
-
-    if (affidavit) {
-      const link = document.createElement("a");
-      link.href = affidavit;
-      link.download = `affidavit_${studentName.replace(/\s+/g, "_")}.pdf`;
-      link.click();
-    }
+  const handleDownload = () => {
+    window.open(`/api/view-doc?id=${admissionId}&field=affidavit&type=affidavit`, "_blank");
   };
 
   return (
@@ -238,7 +190,7 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
           <div className="space-y-2">
             <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">Step 1: Upload Affidavit</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-              Scan and upload your document. PDF format recommended. (Max 5MB)
+              Scan and upload your document. PDF format recommended. (Max 1 MB)
             </p>
           </div>
 
@@ -346,7 +298,7 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
           <div className="space-y-1">
             <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Submission Required</p>
             <p className="text-[10px] font-bold text-amber-700 leading-relaxed uppercase tracking-widest">
-              You must upload AND submit your affidavit to proceed. Max file size: 5MB.
+              You must upload AND submit your affidavit to proceed. Max file size: 1 MB.
             </p>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { studentDocuments, documentChecklists, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
 
 export async function uploadAffidavit(formData: FormData) {
   try {
@@ -14,10 +15,19 @@ export async function uploadAffidavit(formData: FormData) {
       return { success: false, error: "Missing file or admission ID" };
     }
 
-    // Convert file to base64 for storage
+    // Convert file to base64 for storage (needed for our current S3 helper)
     const buffer = await file.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-    const dataUrl = `data:${file.type};base64,${base64}`;
+    const base64Content = Buffer.from(buffer).toString("base64");
+    const dataUrl = `data:${file.type};base64,${base64Content}`;
+
+    // Upload to S3 instead of local state
+    const s3Url = await uploadToS3(dataUrl, {
+      fileName: "affidavit",
+      admissionId,
+      category: "studentdocuments"
+    });
+
+    if (!s3Url) throw new Error("Failed to upload to S3");
 
     // Update database
     const existing = await db.query.studentDocuments.findFirst({
@@ -27,14 +37,14 @@ export async function uploadAffidavit(formData: FormData) {
     if (existing) {
       await db.update(studentDocuments)
         .set({
-          affidavit: dataUrl,
+          affidavit: s3Url,
           updatedAt: new Date(),
         })
         .where(eq(studentDocuments.admissionId, admissionId));
     } else {
       await db.insert(studentDocuments).values({
         admissionId,
-        affidavit: dataUrl,
+        affidavit: s3Url,
       });
     }
 
@@ -83,9 +93,11 @@ export async function submitAffidavit(admissionId: string) {
         }
       });
 
+      // 3. Move student profile to Step 10 (Awaiting Verification)
+      // It should NOT move to 11 yet, as the admin needs to review it at Step 10.
       await tx.update(studentProfiles)
         .set({
-          admissionStep: 11,
+          admissionStep: 10,
         })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
     });
@@ -124,7 +136,8 @@ export async function getAffidavitContent(admissionId: string) {
       return { success: false, error: "Document not found" };
     }
 
-    return { success: true, affidavit: data[0].affidavit };
+    const secureUrl = await getSignedDownloadUrl(data[0].affidavit);
+    return { success: true, affidavit: secureUrl };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

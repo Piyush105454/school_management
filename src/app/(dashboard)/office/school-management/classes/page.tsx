@@ -1,4 +1,5 @@
 import React from "react";
+export const dynamic = 'force-dynamic';
 import Link from "next/link";
 import { db } from "@/db";
 import { inquiries, studentProfiles, admissionMeta } from "@/db/schema";
@@ -8,17 +9,25 @@ import { Users, Presentation } from "lucide-react";
 export default async function ClassManagementPage() {
   const classesList = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
-  // Fetch student counts grouped by class
-  const studentCounts = await db
-    .select({
-      className: inquiries.appliedClass,
-      count: count(),
-    })
-    .from(studentProfiles)
-    .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
-    .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-    .where(eq(studentProfiles.isFullyAdmitted, true))
-    .groupBy(inquiries.appliedClass);
+  let studentCounts: { className: string | null; count: number }[] = [];
+  let dbError = false;
+
+  try {
+    // Fetch student counts grouped by class
+    studentCounts = await db
+      .select({
+        className: inquiries.appliedClass,
+        count: count(),
+      })
+      .from(studentProfiles)
+      .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
+      .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+      .where(eq(studentProfiles.isFullyAdmitted, true))
+      .groupBy(inquiries.appliedClass);
+  } catch (error) {
+    console.error("Database query failed:", error);
+    dbError = true;
+  }
 
   // Map counts to classes List
   const classData = classesList.map((c) => {
@@ -36,6 +45,13 @@ export default async function ClassManagementPage() {
         <h1 className="text-2xl md:text-3xl font-black text-slate-900 font-outfit uppercase tracking-tight">Class Management</h1>
         <p className="text-xs md:text-sm text-slate-500 font-medium">Manage and organize school classes and view admitted students.</p>
       </div>
+
+      {dbError && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+          <p className="text-red-700 font-bold">Database Quota Exceeded</p>
+          <p className="text-red-600 text-sm">Your database provider (Neon) has limited access to your data. Please upgrade your plan to restore full functionality.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classData.map((cls) => (

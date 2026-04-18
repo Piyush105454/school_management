@@ -10,6 +10,8 @@
     "db:seed": "npx tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1032.0",
+    "@aws-sdk/s3-request-presigner": "^3.1032.0",
     "@neondatabase/serverless": "^1.0.2",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
@@ -20,6 +22,7 @@
     "next": "16.1.6",
     "next-auth": "^4.24.13",
     "pdf-lib": "^1.17.1",
+    "postcss": "^8.5.10",
     "postgres": "^3.4.8",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -28,7 +31,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -38,7 +41,7 @@
     "drizzle-kit": "^0.31.9",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5"
   }
 }

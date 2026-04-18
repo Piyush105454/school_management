@@ -2,7 +2,7 @@ import { withAuth } from "next-auth/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
 export default withAuth(
-  function middleware(req: NextRequest & { nextauth: any }) {
+  function proxy(req: NextRequest & { nextauth: any }) {
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
 

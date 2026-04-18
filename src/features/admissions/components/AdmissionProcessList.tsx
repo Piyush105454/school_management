@@ -27,6 +27,7 @@ import { Modal } from "@/components/ui/Modal";
 import { resetStudentPassword } from "../actions/inquiryActions";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { ADMISSION_STEPS, getComputedStep, getStatusText, getStepRedirect } from "../utils/admissionSteps";
 
 interface AdmissionProcessListProps {
   admissions: any[];
@@ -41,66 +42,9 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   const [newCredentials, setNewCredentials] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const getComputedStep = (adm: any) => {
-    // 1. Highest priority: Fully Admitted
-    if (adm.profile?.isFullyAdmitted) return 15;
-
-    // 2. Next: Check for successful milestones
-    const entrance = adm.entranceTest;
-    const home = adm.homeVisit;
-    const scholarship = adm.awardedScholarship;
-
-    // If home visit is passed, they are at Approval stage
-    if (home && home.status === "PASS") return 14;
-    
-    // If scholarship is awarded, treat as Approval stage (since they must be verified)
-    if (scholarship) return 14;
-
-    // If entrance test is passed, they are at Home Visit stage
-    if (entrance && entrance.status === "PASS") return 13;
-
-    // 3. Fallback to the saved step
-    const step = adm.profile?.admissionStep || 1;
-    
-    // Ensure we don't show "Verified" if they've moved onto entrance test/home visit status
-    if (step === 11 && (entrance || home)) {
-      return 12;
-    }
-
-    return step;
-  };
-
-  const getStepRedirect = (adm: any) => {
-    const step = getComputedStep(adm);
-    if (step <= 9) return `/office/admissions/${adm.id}`;
-    if (step === 10 || step === 11) return `/office/admissions/${adm.id}?step=10`;
-    if (step === 12) return `/office/entrance-tests`;
-    if (step === 13) return `/office/home-visits`;
-    if (step === 14) return `/office/final-admissions`;
-    if (step === 15) return `/office/admissions/${adm.id}`;
-    return "#";
-  };
-
   const getStepBadge = (adm: any) => {
     const computedStep = getComputedStep(adm);
-    const stepsConf: Record<number, any> = {
-      1: { name: "Bio Info", icon: Clock, color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-100" },
-      2: { name: "Stats/ID", icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" },
-      3: { name: "Address", icon: MapPin, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-      4: { name: "Academic", icon: BookOpen, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-      5: { name: "Siblings", icon: Users, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
-      6: { name: "Parents", icon: Users, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-100" },
-      7: { name: "Bank", icon: CreditCard, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
-      8: { name: "Docs", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-      9: { name: "Final Review", icon: Clock, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-      10: { name: "Pending Office Review", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-      11: { name: "Document Verification", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-      12: { name: "Entrance Test", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-100" },
-      13: { name: "Home Visit", icon: Shield, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-      14: { name: "Final Approved", icon: CheckCircle2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-      15: { name: "Admitted", icon: CheckCircle2, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
-    };
-    const c = stepsConf[computedStep] || { name: `Step ${computedStep}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
+    const c = (ADMISSION_STEPS as any)[computedStep] || { name: `Step ${computedStep}`, icon: ClipboardCheck, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" };
     const Icon = c.icon;
     const redirectUrl = getStepRedirect(adm);
 
@@ -118,27 +62,46 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   };
 
   const getStatusBadge = (adm: any) => {
-    const computedStep = getComputedStep(adm);
+    const status = getStatusText(adm);
     const hasScholarship = adm.awardedScholarship;
 
-    if (computedStep >= 15) return (
+    const scholarshipBadge = hasScholarship && (
+      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter text-center italic">
+        Scholarship Reward
+      </span>
+    );
+
+    if (status === "Admitted") return (
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider text-center">Admitted</span>
-        {hasScholarship && <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter text-center italic">Scholarship Reward</span>}
+        {scholarshipBadge}
       </div>
     );
-    if (computedStep === 14) return (
+    
+    if (status === "Final Approved") return (
        <div className="flex flex-col gap-1">
           <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase tracking-wider text-center">Final Approved</span>
-          {hasScholarship && <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-tighter text-center italic">Scholarship Reward</span>}
+          {scholarshipBadge}
        </div>
     );
-    if (computedStep === 13) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Home Visit</span>;
-    if (computedStep === 12) return <span className="text-[10px] font-black text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 uppercase tracking-wider">Entrance Test</span>;
-    if (computedStep === 11) return <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Document Verified</span>;
-    if (computedStep === 10) return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Awaiting Verification</span>;
-    if (computedStep === 9) return <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 uppercase tracking-wider">Final Approval Pending</span>;
-    return <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Drafting Application</span>;
+
+    const colors: Record<string, string> = {
+      "Home Visit": "text-amber-600 bg-amber-50 border-amber-100",
+      "Entrance Test": "text-cyan-600 bg-cyan-50 border-cyan-100",
+      "Document Verified": "text-emerald-600 bg-emerald-50 border-emerald-100",
+      "Awaiting Verification": "text-amber-600 bg-amber-50 border-amber-100",
+      "Final Approval Pending": "text-blue-600 bg-blue-50 border-blue-100",
+      "Drafting Application": "text-amber-600 bg-amber-50 border-amber-100",
+    };
+
+    return (
+      <span className={cn(
+        "text-[10px] font-black px-2 py-1 rounded-md border uppercase tracking-wider",
+        colors[status] || "text-slate-600 bg-slate-50 border-slate-100"
+      )}>
+        {status}
+      </span>
+    );
   };
 
 
@@ -165,11 +128,6 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
   return (
     <>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900 font-outfit">Admission Progress</h2>
-          <p className="text-sm text-slate-500 mt-1">Track students who have started their admission forms.</p>
-        </div>
-
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">

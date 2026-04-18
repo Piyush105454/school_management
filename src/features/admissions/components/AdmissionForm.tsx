@@ -768,6 +768,11 @@ function ParentsStep() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Max allowed size for photos is 500 KB. Please compress your image.");
+        e.target.value = "";
+        return;
+      }
       setUploading(prev => ({ ...prev, [index]: true }));
       
       const reader = new FileReader();
@@ -923,6 +928,11 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Max allowed size for documents is 500 KB. Please compress your file.");
+        e.target.value = "";
+        return;
+      }
       setUploading(prev => ({ ...prev, [fieldName]: true }));
       setSaveSuccess(prev => ({ ...prev, [fieldName]: false }));
       
@@ -1202,9 +1212,8 @@ function SubmissionSuccessStep({
                   </div>
               </div>
               <button 
-                onClick={async () => {
-                  const res = await getAffidavitContent(admissionId);
-                  if (res.success && res.affidavit) window.open(res.affidavit, "_blank");
+                onClick={() => {
+                  window.open(`/api/view-doc?id=${admissionId}&field=affidavit&type=affidavit`, "_blank");
                 }}
                 className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 active:scale-95"
               >
@@ -1270,8 +1279,8 @@ function DocumentVerificationStep({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit. Please select a smaller file.");
+      if (file.size > 1024 * 1024) {
+        alert("Max allowed size for Affidavit is 1 MB. Please compress your PDF/Image.");
         e.target.value = "";
         return;
       }
@@ -1338,15 +1347,8 @@ function DocumentVerificationStep({
     }
   };
 
-  const handleViewPdf = async () => {
-    setLoading(true);
-    const res = await getAffidavitContent(admissionId);
-    setLoading(false);
-    if (res.success && res.affidavit) {
-      window.open(res.affidavit, "_blank");
-    } else {
-      alert("Error: " + res.error);
-    }
+  const handleViewPdf = () => {
+    window.open(`/api/view-doc?id=${admissionId}&field=affidavit&type=affidavit`, "_blank");
   };
 
   return (

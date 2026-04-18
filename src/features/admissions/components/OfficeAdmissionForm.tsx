@@ -800,15 +800,8 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect }: { ad
       alert("Error saving remark: " + ((res as any).error));
     }
   };
-  const handlePreview = async (docId: string) => {
-    setFetchingDoc(docId);
-    const res = await getDocumentContent(admissionId, docId);
-    setFetchingDoc(null);
-    if (res.success && res.content) {
-      onPreviewDirect(res.content);
-    } else {
-      alert("Error loading document: " + (res.error || "Document not found"));
-    }
+  const handlePreview = (docId: string) => {
+    window.open(`/api/view-doc?id=${admissionId}&field=${docId}`, "_blank");
   };
 
   const handleDelete = async (docId: string) => {
@@ -1021,22 +1014,29 @@ function DownloadApplicationStep({ data, onDownload, downloading }: { data: any,
 }
 
 function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void }) {
+  const { watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const [fetchingPreview, setFetchingPreview] = useState(false);
+  const [remark, setRemark] = useState((initialData?.admissionMeta?.officeRemarks as string) || "");
+  const [savingRemark, setSavingRemark] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   
   const checklist = initialData?.documentChecklist || {};
   const hasAffidavit = checklist.parentAffidavit === "SUBMITTED" || checklist.parentAffidavit === "VERIFIED";
 
-  const handlePreviewAffidavit = async () => {
-    setFetchingPreview(true);
-    const res = await getDocumentContent(admissionId, "affidavit");
-    setFetchingPreview(null as any); // Reset loading state
-    setFetchingPreview(false);
-    if (res.success && res.content) {
-      onPreviewDirect(res.content);
-    } else {
-      alert("Error loading affidavit: " + (res.error || "Content not found"));
-    }
+  const documents = watch("documents") || {};
+  const isGeneral = initialData?.studentBio?.caste === "GEN";
+
+  const missingDocs = [
+    !documents.studentPhoto && "Student Photo",
+    !documents.affidavit && "Affidavit",
+    (!isGeneral && !documents.casteCertificate) && "Caste Certificate"
+  ].filter(Boolean) as string[];
+
+  const canVerify = missingDocs.length === 0;
+
+  const handlePreviewAffidavit = () => {
+    window.open(`/api/view-doc?id=${admissionId}&field=affidavit&type=affidavit`, "_blank");
   };
 
   const handleApprove = async () => {
@@ -1065,16 +1065,46 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
     }
   };
 
+  const handleSaveRemark = async (unlock: boolean) => {
+    setSavingRemark(true);
+    const res = await saveOfficeRemark(admissionId, remark, unlock);
+    setSavingRemark(false);
+    if (res.success) {
+      alert(unlock ? "Remark saved and Document step UNLOCKED for student!" : "Remark saved successfully.");
+    } else {
+      alert("Error saving remark: " + ((res as any).error));
+    }
+  };
+
+  const handleVerifyAll = async () => {
+    if (!canVerify) {
+      alert("Missing required documents: " + missingDocs.join(", "));
+      return;
+    }
+    if (!confirm("Are all documents verified? This will mark the application as 100% complete.")) return;
+    
+    setVerifying(true);
+    const res = await verifyAdmission(admissionId);
+    setVerifying(false);
+    
+    if (res.success) {
+      alert("Documents Verified Successfully! Application is now 100% complete.");
+      window.location.reload();
+    } else {
+      alert("Error: " + res.error);
+    }
+  };
+
   const isVerified = (initialData?.studentProfile?.admissionStep ?? 0) >= 11;
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="space-y-1">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
+      <div className="space-y-1 text-center">
         <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Affidavit Verification</h3>
         <p className="text-xs md:text-sm text-slate-500 font-medium">Step 10: Review and sign off on submitted documents.</p>
       </div>
 
-      <div className="max-w-xl mx-auto">
+      <div className="w-full">
         {!hasAffidavit ? (
           <div className="bg-amber-50 border border-amber-100 p-10 rounded-3xl text-center space-y-4">
             <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
@@ -1111,6 +1141,7 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
             {!isVerified ? (
               <div className="grid grid-cols-2 gap-4 pt-4">
                 <button 
+                  type="button"
                   onClick={handleReject}
                   disabled={loading}
                   className="py-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-red-100 transition-all flex items-center justify-center gap-2 border border-red-100 shadow-sm shadow-red-500/5"
@@ -1118,6 +1149,7 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Reject
                 </button>
                 <button 
+                  type="button"
                   onClick={handleApprove}
                   disabled={loading}
                   className="py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/20"
@@ -1137,6 +1169,68 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
               </div>
             )}
           </div>
+        )}
+      </div>
+
+      <div className="mt-10 p-6 bg-slate-50 rounded-[32px] border border-blue-100 shadow-inner space-y-6">
+        <div className="flex items-center gap-3 px-2">
+            <ClipboardCheck size={18} className="text-blue-500" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Admission Office Remark</span>
+        </div>
+        
+        <textarea 
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            disabled={savingRemark}
+            className={cn(
+                "w-full text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-2xl p-5 min-h-[120px] focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm",
+                savingRemark && "bg-slate-50 opacity-50"
+            )}
+            placeholder="Type document problems or verification remarks here..."
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+                type="button"
+                onClick={() => handleSaveRemark(false)}
+                disabled={savingRemark}
+                className="px-6 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+                {savingRemark && !verifying ? <Loader2 size={16} className="animate-spin" /> : "Save Remark Only"}
+            </button>
+            <button
+                type="button"
+                onClick={() => handleSaveRemark(true)}
+                disabled={savingRemark}
+                className="px-6 py-4 bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl font-black text-xs hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
+            >
+                <UserCheck size={16} /> Mark Correction Needed
+            </button>
+        </div>
+
+        <button
+            type="button"
+            onClick={handleVerifyAll}
+            disabled={verifying || !canVerify || isVerified}
+            className={cn(
+                "w-full px-6 py-5 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95",
+                isVerified ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default" :
+                canVerify ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed grayscale"
+            )}
+        >
+            {verifying ? <Loader2 size={18} className="animate-spin" /> : isVerified ? <CheckCircle size={18} /> : <Verified size={18} />}
+            {isVerified ? "RECORD VERIFIED" : canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
+        </button>
+
+        {!canVerify && !isVerified && (
+            <div className="bg-red-50/50 border border-red-100 rounded-xl p-3 text-center">
+                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">
+                    Missing: {missingDocs.join(" | ")}
+                </p>
+                <p className="text-[8px] font-bold text-red-400 uppercase tracking-widest mt-0.5">
+                    (Birth Cert, Marksheet, TC and Scholarship Slip are Optional)
+                </p>
+            </div>
         )}
       </div>
     </div>
