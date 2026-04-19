@@ -42,11 +42,10 @@ export async function uploadToS3(
     // --- File Size Validation ---
     const fileSizeInBytes = buffer.length;
     const isAffidavit = options.fileName.toLowerCase().includes("affidavit");
-    const maxSize = isAffidavit ? 1024 * 1024 : 500 * 1024; // 1MB vs 500KB
+    const maxSize = 5 * 1024 * 1024; // Increased to 5MB for all documents
 
     if (fileSizeInBytes > maxSize) {
-      const sizeLabel = isAffidavit ? "1 MB" : "500 KB";
-      throw new Error(`File size exceeds limit (${sizeLabel}). Please compress the file and try again.`);
+      throw new Error(`File size exceeds limit (5MB). Please compress the file and try again.`);
     }
 
     // Determine extension

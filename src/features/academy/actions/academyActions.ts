@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { classes, subjects, units, chapters, students, studentAttendance, chapterPdfs, chapterDivisions } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { uploadToS3 } from "@/lib/s3-service";
 
 // --- CLASS ACTIONS ---
 
@@ -143,14 +144,21 @@ export async function updateChapter(chapterId: number, data: {
       });
 
       if (data.pdfUrl) {
+        // Upload to S3 if it's base64 data
+        const finalUrl = await uploadToS3(data.pdfUrl, {
+          fileName: `chapter_${chapterId}`,
+          category: "academy/chapters",
+          admissionId: chapterId.toString()
+        });
+
         if (existingPdf) {
           await db.update(chapterPdfs)
-            .set({ fileUrl: data.pdfUrl, uploadedBy: "Teacher Update" })
+            .set({ fileUrl: finalUrl, uploadedBy: "Teacher Update" })
             .where(eq(chapterPdfs.id, existingPdf.id));
         } else {
           await db.insert(chapterPdfs).values({
             chapterId,
-            fileUrl: data.pdfUrl,
+            fileUrl: finalUrl,
             uploadedBy: "Teacher Create"
           });
         }

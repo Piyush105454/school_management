@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { homeVisits } from "@/db/schema";
+import { homeVisits, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
@@ -103,6 +103,12 @@ export async function updateHomeVisitStatus(
         visitImage: finalVisitImage,
         homePhoto: finalHomePhoto,
       });
+    }
+    
+    if (status === "PASS") {
+      await db.update(studentProfiles)
+        .set({ admissionStep: 13 })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
     }
 
 

@@ -1,37 +1,28 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { AdmissionProcessList } from "@/features/admissions/components/AdmissionProcessList";
-import { Search, Filter, X } from "lucide-react";
-import { ADMISSION_STEPS, getComputedStep, getStatusText } from "../utils/admissionSteps";
+import { Search, Filter, X, Users } from "lucide-react";
+import { HomeVisitTable } from "./HomeVisitTable";
 
 const CLASSES = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-const STATUSES = [
-  "Drafting Application",
-  "Remarks Sent",
-  "Awaiting Verification",
-  "Document Verified",
-  "Entrance Test",
-  "Home Visit",
-  "Final Approved",
-  "Admitted"
-];
+const STATUSES = ["NOT_SCHEDULED", "PENDING", "PASS", "FAIL"];
 
-export function AdmissionsManager({ 
-  admissions 
+export function HomeVisitDashboard({ 
+  applicants,
+  teachers = []
 }: { 
-  admissions: any[] 
+  applicants: any[],
+  teachers?: any[]
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
-  const [stepFilter, setStepFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  const filteredAdmissions = useMemo(() => {
-    return admissions.filter((adm) => {
-      const studentName = adm.inquiry?.studentName?.toLowerCase() || "";
-      const email = (adm.profile?.user?.email || adm.inquiry?.email || "").toLowerCase();
-      const entryNumber = (adm.entryNumber || "").toLowerCase();
+  const filteredApplicants = useMemo(() => {
+    return applicants.filter((a) => {
+      const studentName = a.inquiry?.studentName?.toLowerCase() || "";
+      const email = (a.studentProfile?.user?.email || a.inquiry?.email || "").toLowerCase();
+      const entryNumber = (a.entryNumber || "").toLowerCase();
       const query = searchQuery.toLowerCase();
 
       // Search match
@@ -41,33 +32,35 @@ export function AdmissionsManager({
       if (!matchesSearch) return false;
 
       // Class filter
-      if (classFilter && adm.inquiry?.appliedClass !== classFilter) return false;
-
-      // Step filter
-      if (stepFilter && String(getComputedStep(adm)) !== stepFilter) return false;
+      if (classFilter && a.inquiry?.appliedClass !== classFilter) return false;
 
       // Status filter
-      if (statusFilter && getStatusText(adm) !== statusFilter) return false;
+      const currentStatus = a.homeVisit?.status || "NOT_SCHEDULED";
+      if (statusFilter && currentStatus !== statusFilter) return false;
 
       return true;
     });
-  }, [admissions, searchQuery, classFilter, stepFilter, statusFilter]);
+  }, [applicants, searchQuery, classFilter, statusFilter]);
 
   const clearFilters = () => {
     setSearchQuery("");
     setClassFilter("");
-    setStepFilter("");
     setStatusFilter("");
   };
 
-  const hasActiveFilters = searchQuery || classFilter || stepFilter || statusFilter;
+  const hasActiveFilters = searchQuery || classFilter || statusFilter;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Admission Progress</h1>
-          <p className="text-slate-500 font-medium text-sm">Track students through the different admission stages.</p>
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+            <Users size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Home Visit Management</h1>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Schedule and manage home visits for applicants.</p>
+          </div>
         </div>
       </div>
 
@@ -90,7 +83,7 @@ export function AdmissionsManager({
           <select 
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">All Classes</option>
             {CLASSES.map(c => (
@@ -98,27 +91,15 @@ export function AdmissionsManager({
             ))}
           </select>
 
-          {/* Step Filter */}
-          <select 
-            value={stepFilter}
-            onChange={(e) => setStepFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            <option value="">All Steps</option>
-            {Object.entries(ADMISSION_STEPS).map(([val, conf]) => (
-              <option key={val} value={val}>{conf.name}</option>
-            ))}
-          </select>
-
           {/* Status Filter */}
           <select 
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">All Statuses</option>
             {STATUSES.map(s => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{s.replace('_', ' ')}</option>
             ))}
           </select>
 
@@ -136,13 +117,13 @@ export function AdmissionsManager({
         {hasActiveFilters && (
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium px-1">
             <Filter className="h-3 w-3" />
-            <span>Showing {filteredAdmissions.length} of {admissions.length} students</span>
+            <span>Showing {filteredApplicants.length} of {applicants.length} applicants</span>
           </div>
         )}
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <AdmissionProcessList admissions={filteredAdmissions} />
+        <HomeVisitTable applicants={filteredApplicants} teachers={teachers} />
       </div>
     </div>
   );

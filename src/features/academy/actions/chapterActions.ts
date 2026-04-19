@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { chapterPdfs, units, chapters } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { uploadToS3 } from "@/lib/s3-service";
 
 export async function uploadChapterPdf(formData: FormData) {
   try {
@@ -12,19 +13,26 @@ export async function uploadChapterPdf(formData: FormData) {
     const chapterIdStr = formData.get("chapterId") as string;
     const uploadedBy = formData.get("uploadedBy") as string;
 
-    if (!chapterIdStr || (!file && !fileUrl)) {
+    const chapterId = parseInt(chapterIdStr);
+    if (!chapterId || (!file && !fileUrl)) {
       return { success: false, error: "Missing file/url or chapter ID" };
     }
 
-    const chapterId = parseInt(chapterIdStr, 10);
     let dataUrl = fileUrl || "";
 
     if (file) {
-      // Convert file to base64 for storage
+      // Convert file to base64 for S3 helper
       const buffer = await file.arrayBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
       dataUrl = `data:${file.type};base64,${base64}`;
     }
+
+    // Upload to S3 if it's a base64 string (handles external URLs automatically)
+    const finalUrl = await uploadToS3(dataUrl, {
+      fileName: `chapter_${chapterId}`,
+      category: "academy/chapters",
+      admissionId: chapterId.toString() // Use chapterId as the reference ID
+    });
 
     // Update database (check if already exists)
     const existing = await db.query.chapterPdfs.findFirst({
@@ -34,7 +42,7 @@ export async function uploadChapterPdf(formData: FormData) {
     if (existing) {
       await db.update(chapterPdfs)
         .set({
-          fileUrl: dataUrl,
+          fileUrl: finalUrl,
           uploadedBy: uploadedBy || "Teacher",
           uploadedAt: new Date(),
         })
@@ -42,7 +50,7 @@ export async function uploadChapterPdf(formData: FormData) {
     } else {
       await db.insert(chapterPdfs).values({
         chapterId,
-        fileUrl: dataUrl,
+        fileUrl: finalUrl,
         uploadedBy: uploadedBy || "Teacher",
       });
     }

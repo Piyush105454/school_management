@@ -73,7 +73,7 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
 
     if (status === "Admitted") return (
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-wider text-center">Admitted</span>
+        <span className="text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-1 rounded-md border border-rose-200 uppercase tracking-wider text-center">Admitted</span>
         {scholarshipBadge}
       </div>
     );
@@ -86,6 +86,7 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
     );
 
     const colors: Record<string, string> = {
+      "Remarks Sent": "text-amber-700 bg-amber-50 border-amber-200 shadow-sm shadow-amber-100/50",
       "Home Visit": "text-amber-600 bg-amber-50 border-amber-100",
       "Entrance Test": "text-cyan-600 bg-cyan-50 border-cyan-100",
       "Document Verified": "text-emerald-600 bg-emerald-50 border-emerald-100",

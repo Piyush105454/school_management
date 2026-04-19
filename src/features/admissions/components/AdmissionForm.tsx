@@ -22,7 +22,9 @@ import {
   Eye,
   Lock,
   Send,
-  Clock
+  Clock,
+  Calendar,
+  MapPinned
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, getDocumentContent } from "../actions/admissionActions";
@@ -84,8 +86,10 @@ const steps = [
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
   { id: 9, name: "Download", icon: Download },
-  { id: 10, name: "Verification", icon: FileText },
-  { id: 11, name: "Complete", icon: CheckCircle },
+  { id: 10, name: "Verify", icon: FileText },
+  { id: 11, name: "Test", icon: Calendar },
+  { id: 12, name: "Visit", icon: MapPinned },
+  { id: 13, name: "Final", icon: CheckCircle },
 ];
 
 export function AdmissionForm({ 
@@ -99,7 +103,7 @@ export function AdmissionForm({
   maxStep?: number,
   initialStep?: number 
 }) {
-  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep > 11 ? 11 : maxStep));
+  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep >= 13 ? 13 : Math.max(1, Math.min(maxStep, 12))));
   const [loading, setLoading] = useState(false);
   const defaults = {
     studentBio: {
@@ -177,10 +181,13 @@ export function AdmissionForm({
       }
 
       methods.reset(mergedData);
+      
+      const targetStep = maxStep && maxStep > 12 ? 12 : maxStep || 1;
+      setCurrentStep(targetStep);
     };
 
     loadData();
-  }, [initialData, methods, admissionId]);
+  }, [initialData, methods, admissionId, maxStep]);
 
   const dob = methods.watch("studentBio.dob");
   React.useEffect(() => {
@@ -225,41 +232,13 @@ export function AdmissionForm({
     }
   };
 
-  const handleSubmitFinal = async () => {
-    if (!confirm("Proceed with final submission? This will lock your application for review.")) return;
-    setLoading(true);
-    try {
-      const res = await submitAffidavit(admissionId);
-      if (res.success) {
-        alert("Final submission complete! Your application is now locked and under review.");
-        window.location.href = `/student/admission?step=11&t=${Date.now()}`;
-      } else {
-        alert("Submission failed: " + (res.error || "Unknown error"));
-      }
-    } catch (err: any) {
-      alert("Error submitting form: " + (err.message || "Network error"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const nextStep = async () => {
     const fieldsByStep: Record<number, any> = {
-      1: "studentBio",
-      2: "studentBio",
-      3: "address",
-      4: "previousAcademic",
-      5: "siblings",
-      6: "parentsGuardians",
-      7: "bankDetails",
-      8: "documents",
-      9: [],
-      10: [],
-      11: "declaration"
+      1: "studentBio", 2: "studentBio", 3: "address", 4: "previousAcademic",
+      5: "siblings", 6: "parentsGuardians", 7: "bankDetails", 8: "documents"
     };
-
     const currentFields = fieldsByStep[currentStep];
-    const isValid = await methods.trigger(currentFields);
+    const isValid = !currentFields || currentFields.length === 0 ? true : await methods.trigger(currentFields);
     
     if (isValid) {
       if (currentStep === 8) {
@@ -273,7 +252,7 @@ export function AdmissionForm({
       setLoading(true);
       // Optimistic move
       const prevStepVal = currentStep;
-      setCurrentStep(prev => Math.min(prev + 1, steps.length));
+      setCurrentStep(prev => Math.min(prev + 1, 13));
       
       // Save data
       const data = methods.getValues();
@@ -389,25 +368,12 @@ export function AdmissionForm({
         </div>
       </div>
       
-      {(currentStep === 9 || maxStep >= 9) && (
-        <div className="flex justify-end max-w-6xl mx-auto px-1 mb-4">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => handleDownloadWithFullData('ADMISSION')}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-black uppercase tracking-widest text-[10px] bg-blue-50/80 backdrop-blur-sm px-5 py-2.5 rounded-xl border border-blue-100/80 transition-all hover:bg-blue-100 hover:shadow-sm disabled:opacity-50"
-          >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Download Application PDF
-          </button>
-        </div>
-      )}
-
       <div className="bg-white rounded-2xl shadow-lg border border-slate-100 mb-6 max-w-6xl mx-auto">
         <div className="p-4 md:p-8 flex flex-col bg-white">
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
               <div className="max-w-3xl mx-auto">
-                <fieldset disabled={maxStep >= 11 && currentStep !== 9} className="contents shadow-none border-none p-0 m-0">
+                <fieldset disabled={maxStep >= 13} className="space-y-4">
                   {currentStep === 1 && <BioStep />}
                   {currentStep === 2 && <ProfileStatsStep />}
                   {currentStep === 3 && <AddressStep />}
@@ -416,24 +382,17 @@ export function AdmissionForm({
                   {currentStep === 6 && <ParentsStep />}
                   {currentStep === 7 && <BankStep />}
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
-                  {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
+                  {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
                   {currentStep === 10 && <DocumentVerificationStep admissionId={admissionId} initialDocData={initialData?.documents} initialChecklistData={initialData?.documentChecklist} studentName={`${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`} />}
+                  {currentStep === 11 && <EntranceTestStatusStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 12 && <HomeVisitStatusStep admissionId={admissionId} initialData={initialData} />}
                 </fieldset>
-                {currentStep === 11 && (
-                  <SubmissionSuccessStep 
-                    data={methods.getValues()} 
-                    onDownload={handleDownloadWithFullData} 
-                    downloading={loading} 
-                    initialMeta={initialData?.admissionMeta} 
-                    initialChecklist={initialData?.documentChecklist}
-                    admissionId={admissionId}
-                  />
-                )}
+                {currentStep >= 13 && maxStep >= 13 && <SubmissionSuccessStep data={initialData} admissionId={admissionId} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
               </div>
             </form>
           </FormProvider>
           
-          {currentStep < 11 && (
+          {currentStep < 13 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button
                 type="button"
@@ -444,34 +403,41 @@ export function AdmissionForm({
                 <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
               </button>
               
-              {maxStep >= 11 && currentStep < 11 ? (
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(11)}
-                  className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all duration-200 shadow-xl shadow-blue-900/10"
-                >
-                  Return to Confirmation <CheckCircle size={22} className="group-hover:scale-110 transition-transform" />
-                </button>
-              ) : currentStep < 10 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="w-full md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all duration-200 shadow-xl shadow-slate-900/10"
-                >
-                  Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmitFinal}
-                  disabled={loading}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-12 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all duration-200 shadow-2xl shadow-blue-600/30 disabled:opacity-70"
-                >
-                  {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (
-                    <>SUBMIT APPLICATION <CheckCircle size={22} /></>
-                  )}
-                </button>
-              ) }
+              <div className="flex gap-3 w-full md:w-auto">
+                 {currentStep < 10 ? (
+                   <button 
+                     type="button" 
+                     onClick={nextStep} 
+                     className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                   >
+                      Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
+                   </button>
+                 ) : currentStep === 10 && maxStep >= 11 ? (
+                    <button 
+                      type="button"
+                      onClick={() => setCurrentStep(11)}
+                      className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30"
+                    >
+                      Check Test Status <ChevronRight size={22} />
+                    </button>
+                 ) : currentStep === 11 && maxStep >= 12 ? (
+                    <button 
+                      type="button"
+                      onClick={() => setCurrentStep(12)}
+                      className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30"
+                    >
+                      Check Visit Status <ChevronRight size={22} />
+                    </button>
+                 ) : currentStep === 12 && maxStep >= 13 ? (
+                  <button 
+                    type="button"
+                    onClick={() => setCurrentStep(13)}
+                    className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-emerald-600 text-white rounded-2xl font-black tracking-tight hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30"
+                  >
+                    View Admission Status <CheckCircle size={22} />
+                  </button>
+                 ) : null}
+               </div>
             </div>
           )}
         </div>
@@ -1452,4 +1418,180 @@ function DownloadApplicationStep({ data, onDownload, downloading }: { data: any,
       </div>
     </div>
   );
+}
+
+function EntranceTestStatusStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  const test = initialData?.entranceTest;
+  const isScheduled = !!test?.testDate;
+  const isPassed = test?.status === "PASS";
+  const isFailed = test?.status === "FAIL";
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
+      <div className="space-y-1 text-center">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Entrance Test Status</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 11: Track your exam schedule and results.</p>
+      </div>
+
+      <div className="bg-white border border-slate-100 p-8 rounded-[32px] shadow-sm space-y-6">
+        {!isScheduled ? (
+          <div className="text-center py-10 space-y-4">
+            <div className="h-16 w-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
+              <Calendar size={32} />
+            </div>
+            <p className="text-sm font-black text-slate-400 uppercase tracking-tight">Test Not Yet Scheduled</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">The school office will schedule your entrance exam soon. Please check back later.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 p-5 bg-blue-50 rounded-2xl border border-blue-100">
+               <div className="h-12 w-12 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+                  <Calendar size={24} />
+               </div>
+               <div>
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Scheduled For</p>
+                  <p className="text-lg font-black text-blue-900 uppercase italic tracking-tight">
+                    {test.testDate}
+                  </p>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Time</p>
+                  <p className="text-sm font-black text-slate-700">{test.testTime}</p>
+               </div>
+               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Location</p>
+                  <p className="text-sm font-black text-slate-700">{test.location}</p>
+               </div>
+            </div>
+
+            <div className={cn(
+              "p-6 rounded-3xl border flex items-center justify-between",
+              isPassed ? "bg-emerald-50 border-emerald-100" :
+              isFailed ? "bg-red-50 border-red-100" : "bg-blue-50/50 border-blue-100/50"
+            )}>
+               <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Exam Result</p>
+                  <p className={cn(
+                    "text-xl font-black uppercase italic tracking-tighter",
+                    isPassed ? "text-emerald-700" : isFailed ? "text-red-700" : "text-blue-700"
+                  )}>
+                    {isPassed ? "PASSED" : isFailed ? "NOT CLEARED" : "AWAITING RESULTS"}
+                  </p>
+               </div>
+               <div className={cn(
+                 "h-12 w-12 rounded-xl flex items-center justify-center text-white",
+                 isPassed ? "bg-emerald-500 shadow-lg shadow-emerald-500/20" :
+                 isFailed ? "bg-red-500 shadow-lg shadow-red-500/20" : "bg-blue-500 shadow-lg shadow-blue-500/20"
+               )}>
+                 {isPassed ? <CheckCircle size={24} /> : isFailed ? <XCircle size={24} /> : <Clock size={24} />}
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HomeVisitStatusStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  const visit = initialData?.homeVisit;
+  const isScheduled = !!visit?.visitDate;
+  const isCompleted = visit?.status === "PASS";
+  
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
+      <div className="space-y-1 text-center">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Home Visit Status</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 12: School team visit to your residence.</p>
+      </div>
+
+      <div className="bg-white border border-slate-100 p-8 rounded-[32px] shadow-sm space-y-6">
+        {!isScheduled ? (
+          <div className="text-center py-10 space-y-4">
+            <div className="h-16 w-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
+              <MapPinned size={32} />
+            </div>
+            <p className="text-sm font-black text-slate-400 uppercase tracking-tight">Visit Not Yet Scheduled</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Our team will schedule a home visit soon after you pass the entrance exam.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
+               <div className="h-12 w-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
+                  <MapPinned size={24} />
+               </div>
+               <div>
+                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Visit Date</p>
+                  <p className="text-lg font-black text-indigo-900 uppercase italic tracking-tight">
+                    {visit.visitDate}
+                  </p>
+               </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between">
+               <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Status</p>
+                  <p className={cn(
+                    "text-xl font-black uppercase italic tracking-tighter",
+                    isCompleted ? "text-emerald-700" : "text-amber-700"
+                  )}>
+                    {isCompleted ? "COMPLETED" : "PENDING"}
+                  </p>
+               </div>
+               <div className={cn(
+                 "h-12 w-12 rounded-xl flex items-center justify-center text-white",
+                 isCompleted ? "bg-emerald-500" : "bg-amber-500"
+               )}>
+                 {isCompleted ? <CheckCircle size={24} /> : <Clock size={24} />}
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function XCircle(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m15 9-6 6" />
+      <path d="m9 9 6 6" />
+    </svg>
+  );
+}
+
+function Verified(props: any) {
+    return (
+      <svg
+        {...props}
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    );
 }

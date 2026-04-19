@@ -24,13 +24,16 @@ import {
   Phone,
   Calendar,
   Clock,
-  MapPinned
+  MapPinned,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission } from "../actions/admissionActions";
 import { rejectAffidavit } from "../actions/documentActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
+import { OfficeTestManager } from "./OfficeTestManager";
+import { OfficeHomeVisitManager } from "./OfficeHomeVisitManager";
 
 
 const steps = [
@@ -43,8 +46,10 @@ const steps = [
   { id: 7, name: "Bank", icon: CreditCard },
   { id: 8, name: "Docs", icon: FileText },
   { id: 9, name: "Review", icon: Download },
-  { id: 10, name: "Verify", icon: UserCheck },
-  { id: 11, name: "Final", icon: CheckCircle },
+  { id: 10, name: "Verify", icon: ClipboardCheck },
+  { id: 11, name: "Test", icon: Calendar },
+  { id: 12, name: "Visit", icon: MapPinned },
+  { id: 13, name: "Final", icon: CheckCircle },
 ];
 
 export function OfficeAdmissionForm({ 
@@ -58,7 +63,7 @@ export function OfficeAdmissionForm({
   maxStep?: number,
   initialStep?: number
 }) {
-  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep >= 11 ? 11 : Math.max(1, Math.min(maxStep, 10))));
+  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep >= 13 ? 13 : Math.max(1, Math.min(maxStep, 12))));
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -150,7 +155,7 @@ export function OfficeAdmissionForm({
         });
       }
       methods.reset(mergedData);
-      const targetStep = maxStep && maxStep > 10 ? 10 : maxStep || 1;
+      const targetStep = maxStep && maxStep > 13 ? 13 : maxStep || 1;
       setCurrentStep(targetStep);
     };
     loadData();
@@ -189,10 +194,11 @@ export function OfficeAdmissionForm({
   const nextStep = async () => {
     const fieldsByStep: Record<number, any> = {
       1: "studentBio", 2: "studentBio", 3: "address", 4: "previousAcademic",
-      5: "siblings", 6: "parentsGuardians", 7: "bankDetails", 8: "documents", 9: "declaration"
+      5: "siblings", 6: "parentsGuardians", 7: "bankDetails", 8: "documents", 9: "declaration",
+      10: [], 11: [], 12: []
     };
     const currentFields = fieldsByStep[currentStep];
-    const isValid = await methods.trigger(currentFields);
+    const isValid = !currentFields || currentFields.length === 0 ? true : await methods.trigger(currentFields);
     if (isValid) {
       if (currentStep === 8) {
         const docs = methods.getValues("documents");
@@ -203,7 +209,7 @@ export function OfficeAdmissionForm({
       }
       setLoading(true);
       const prevStepVal = currentStep;
-      setCurrentStep(prev => Math.min(prev + 1, 9));
+      setCurrentStep(prev => Math.min(prev + 1, 14));
       const data = methods.getValues();
       const stepData: any = { [currentFields]: data[currentFields as keyof typeof data] };
       const saveRes = await saveAdmissionStep(admissionId, stepData, prevStepVal) as any;
@@ -305,7 +311,7 @@ export function OfficeAdmissionForm({
               )}
 
               <div className="max-w-3xl mx-auto">
-                <fieldset disabled={maxStep >= 11 && !isEditMode} className="space-y-4">
+                <fieldset disabled={maxStep >= 13 && !isEditMode} className="space-y-4">
                   {currentStep === 1 && <BioStep />}
                   {currentStep === 2 && <ProfileStatsStep />}
                   {currentStep === 3 && <AddressStep />}
@@ -316,13 +322,16 @@ export function OfficeAdmissionForm({
                   {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateAdmissionPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
                   {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
+                  {currentStep === 11 && <OfficeEntranceTestStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 12 && <OfficeHomeVisitStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 13 && <OfficeFinalStep admissionId={admissionId} initialData={initialData} />}
                 </fieldset>
-                {currentStep >= 11 && maxStep >= 11 && <SubmissionSuccessStep data={initialData} />}
+                {currentStep >= 14 && maxStep >= 14 && <SubmissionSuccessStep data={initialData} />}
               </div>
             </form>
           </FormProvider>
 
-          {currentStep < 11 && (
+          {currentStep < 14 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
               <button 
                 type="button"
@@ -334,7 +343,7 @@ export function OfficeAdmissionForm({
               </button>
               
               <div className="flex gap-3 w-full md:w-auto">
-                 {currentStep < 10 ? (
+                 {currentStep < 13 ? (
                    <button 
                      type="button" 
                      onClick={nextStep} 
@@ -342,13 +351,13 @@ export function OfficeAdmissionForm({
                    >
                       Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
                    </button>
-                 ) : currentStep === 10 && maxStep >= 11 ? (
+                 ) : currentStep === 13 && maxStep >= 14 ? (
                     <button 
                       type="button"
-                      onClick={() => setCurrentStep(11)}
+                      onClick={() => setCurrentStep(14)}
                       className="flex-1 md:w-auto flex items-center justify-center gap-3 px-10 py-3.5 bg-blue-600 text-white rounded-2xl font-black tracking-tight hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30"
                     >
-                      View Final Status <CheckCircle size={22} />
+                      View Success Status <CheckCircle size={22} />
                     </button>
                  ) : null}
               </div>
@@ -1237,15 +1246,57 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
   );
 }
 
-function SubmissionSuccessStep({ data }: { data: any }) {
-  const bio = data.studentBio || {};
-  const formatDate = (date: any) => {
-    if (!date) return "-";
-    if (typeof date === 'string') return date;
-    if (date instanceof Date) return date.toLocaleDateString('en-IN');
-    return String(date);
+function OfficeEntranceTestStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  // Use a wrapper that provides the same interface as OfficeTestManager but formatted for a form step
+  const applicant = {
+    id: admissionId,
+    entryNumber: initialData.admissionMeta?.entryNumber,
+    entranceTest: initialData.entranceTest,
+    inquiry: initialData.admissionMeta?.inquiry,
+    studentProfile: initialData.studentProfile
   };
 
+  // Note: We'll import a simplified version or just use the logic directly here for deep integration
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-4xl mx-auto pb-20">
+      <div className="space-y-1 text-center">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Entrance Test</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 11: Schedule and record test results.</p>
+      </div>
+      
+      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+        <OfficeTestManager applicant={applicant} teachers={[]} />
+      </div>
+    </div>
+  );
+}
+
+function OfficeHomeVisitStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  const applicant = {
+    id: admissionId,
+    entryNumber: initialData.admissionMeta?.entryNumber,
+    homeVisit: initialData.homeVisit,
+    inquiry: initialData.admissionMeta?.inquiry,
+    studentProfile: initialData.studentProfile,
+    entranceTest: initialData.entranceTest
+  };
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-4xl mx-auto pb-20">
+      <div className="space-y-1 text-center">
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Home Visit</h3>
+        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 12: Conduct and document the home observation.</p>
+      </div>
+
+      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+        <OfficeHomeVisitManager applicant={applicant} teachers={[]} />
+      </div>
+    </div>
+  );
+}
+
+function SubmissionSuccessStep({ data }: { data: any }) {
+  const bio = data.studentBio || {};
   return (
     <div className="animate-in zoom-in-95 fade-in duration-500 py-4 md:py-8">
       <div className="text-center space-y-4 md:space-y-6 mb-8 md:mb-12">
@@ -1253,14 +1304,14 @@ function SubmissionSuccessStep({ data }: { data: any }) {
           <Verified size={48} strokeWidth={2.5} />
         </div>
         <div className="space-y-2">
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">Verification Complete</h2>
-          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">All documents have been officially reviewed.</p>
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">Admission Finalized</h2>
+          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">Record has been successfully moved to regular administration.</p>
         </div>
       </div>
 
       <div className="bg-slate-50/50 rounded-[32px] border border-slate-100 p-6 md:p-10 space-y-8 md:space-y-12 shadow-inner text-center">
             <p className="font-black text-2xl uppercase">{bio.firstName} {bio.lastName}</p>
-            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.4em]">Review Complete</p>
+            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.4em]">Process Complete</p>
             
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
                 <button
@@ -1275,3 +1326,115 @@ function SubmissionSuccessStep({ data }: { data: any }) {
     </div>
   );
 }
+function OfficeFinalStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+  const [loading, setLoading] = useState(false);
+  const [approveScholarship, setApproveScholarship] = useState(false);
+  const studentName = initialData?.inquiry?.studentName || "the student";
+  const isAdmitted = initialData?.studentProfile?.isFullyAdmitted;
+
+  const handleFinalize = async () => {
+    if (!confirm(`Are you sure you want to officially ADMIT ${studentName}?${approveScholarship ? ' (with Scholarship)' : ''}`)) return;
+    setLoading(true);
+    const res = await finalizeFinalAdmission(admissionId, approveScholarship, 36000) as any;
+    setLoading(false);
+    if (res.success) {
+      alert("Student Admitted Successfully!");
+      window.location.reload();
+    } else {
+      alert("Error: " + (res.error || "Unknown error"));
+    }
+  };
+
+  return (
+    <div className="space-y-10 py-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+      <div className="text-center space-y-4">
+        <div className="mx-auto h-20 w-20 bg-blue-50 text-blue-600 rounded-[28px] flex items-center justify-center shadow-xl shadow-blue-500/10 border border-blue-100/50">
+          <CheckCircle size={40} strokeWidth={2.5} />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black text-slate-900 uppercase italic tracking-tight font-outfit">Final Admission Approval</h2>
+          <p className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Official enrollment confirmation of {studentName}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[32px] border border-slate-100 p-8 space-y-8 shadow-sm">
+        {!isAdmitted ? (
+          <div className="space-y-8">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-between gap-6">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Fee Route</p>
+                <div className="flex items-center gap-2">
+                  {initialData?.admissionMeta?.appliedScholarship === true && (
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm shadow-emerald-500/10">SCHOLARSHIP APPLIED</span>
+                  )}
+                  {initialData?.admissionMeta?.appliedScholarship === false && (
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-800 border border-blue-200 shadow-sm shadow-blue-500/10">NORMAL FEE SELECTED</span>
+                  )}
+                  {initialData?.admissionMeta?.appliedScholarship === null && (
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200">CHOICE PENDING</span>
+                  )}
+                </div>
+              </div>
+              
+              {initialData?.admissionMeta?.appliedScholarship && (
+                <label className="flex items-center gap-3 cursor-pointer bg-emerald-600 text-white px-5 py-3 rounded-2xl border border-emerald-500 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 group">
+                  <input 
+                    type="checkbox" 
+                    checked={approveScholarship} 
+                    onChange={(e) => setApproveScholarship(e.target.checked)}
+                    className="rounded-lg border-white/20 text-emerald-800 focus:ring-emerald-500 h-5 w-5 bg-white/20"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Approve Scholarship</span>
+                    <span className="text-[8px] font-bold opacity-80 uppercase tracking-wider mt-0.5">36,000 Total Award</span>
+                  </div>
+                </label>
+              )}
+            </div>
+
+            <div className="p-6 bg-blue-50/30 rounded-2xl border border-blue-100/50 space-y-4">
+               <div className="flex items-start gap-4 text-blue-800">
+                  <AlertCircle size={24} className="shrink-0 mt-0.5 opacity-60" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-black uppercase tracking-widest">Confirming Admission</p>
+                    <p className="text-[10px] font-bold opacity-80 leading-relaxed uppercase">By clicking confirm, you are officially registering {studentName} in our school database. This will generate an official scholar number and trigger academic profile creation.</p>
+                  </div>
+               </div>
+            </div>
+
+            <button 
+              onClick={handleFinalize}
+              disabled={loading}
+              className="w-full bg-slate-900 text-white p-6 rounded-[24px] font-black uppercase tracking-[0.2em] text-sm hover:bg-black transition-all flex items-center justify-center gap-5 shadow-2xl shadow-slate-900/40 group active:scale-[0.98] disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} className="group-hover:scale-110 transition-transform" strokeWidth={2.5}/>}
+              Finalize & Admit Student Now
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-12 space-y-6">
+            <div className="h-24 w-24 bg-emerald-100 text-emerald-600 rounded-[32px] flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10">
+              <CheckCircle size={48} strokeWidth={2.5} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black text-emerald-900 uppercase italic font-outfit">Officially Admitted</h3>
+              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.15em]">This candidate is now a regular student of DPS Dhanpuri.</p>
+            </div>
+            <div className="flex justify-center gap-4">
+               <div className="px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center min-w-[140px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scholar ID</p>
+                  <p className="text-lg font-black text-slate-900">{initialData?.studentProfile?.scholarNumber || "SCH-TEMP"}</p>
+               </div>
+               <div className="px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center min-w-[140px]">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry Date</p>
+                  <p className="text-lg font-black text-slate-900 italic font-outfit">{new Date().toLocaleDateString('en-GB')}</p>
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// SHARED COMPONENTS...

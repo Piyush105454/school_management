@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing file or admission ID" }, { status: 400 });
     }
 
-    // Check file size (1MB limit for affidavits)
-    if (file.size > 1024 * 1024) {
-      return NextResponse.json({ error: "Affidavit exceeds 1MB limit. Please compress it." }, { status: 413 });
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "File exceeds 5MB limit. Please compress it." }, { status: 413 });
     }
 
     // Convert file to base64 for S3 helper

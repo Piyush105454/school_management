@@ -33,12 +33,21 @@ export function OfficeFinalManager({ applicant }: { applicant: any }) {
             <div>
                 <h3 className="text-xl font-black text-slate-900 uppercase italic font-outfit leading-none">{studentName}</h3>
                 <div className="flex items-center gap-3 mt-1.5">
-                    <span className={cn(
-                        "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest",
-                        applicant.appliedScholarship ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-blue-100 text-blue-800 border border-blue-200"
-                    )}>
-                        {applicant.appliedScholarship ? "SCHOLARSHIP APPLIED" : "NORMAL FEE"}
-                    </span>
+                    {applicant.appliedScholarship === true && (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm shadow-emerald-500/10">
+                            SCHOLARSHIP APPLIED
+                        </span>
+                    )}
+                    {applicant.appliedScholarship === false && (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-800 border border-blue-200 shadow-sm shadow-blue-500/10">
+                            NORMAL FEE SELECTED
+                        </span>
+                    )}
+                    {applicant.appliedScholarship === null && (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 animate-pulse">
+                            FEE CHOICE PENDING
+                        </span>
+                    )}
                     <p className="text-[10px] font-black text-slate-400 uppercase">Entry: {applicant.entryNumber}</p>
                 </div>
             </div>

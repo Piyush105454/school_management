@@ -50,10 +50,14 @@ export default function AwardClient({ students }: { students: any[] }) {
                 <td className="px-6 py-4 font-medium text-slate-900">{student.studentName}</td>
                 <td className="px-6 py-4 text-xs font-bold uppercase text-slate-500">{student.appliedClass}</td>
                 <td className="px-6 py-4">
-                  {student.appliedScholarship ? (
+                  {student.appliedScholarship === true && (
                     <span className="text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Yes</span>
-                  ) : (
-                    <span className="text-slate-400 font-bold text-[10px] bg-slate-50 px-2 py-1 rounded-md uppercase tracking-wider">No</span>
+                  )}
+                  {student.appliedScholarship === false && (
+                    <span className="text-slate-400 font-bold text-[10px] bg-slate-50 px-2 py-1 rounded-md uppercase tracking-wider whitespace-nowrap">Normal Fee</span>
+                  )}
+                  {student.appliedScholarship === null && (
+                    <span className="text-amber-500 font-bold text-[10px] bg-amber-50 px-2 py-1 rounded-md border border-amber-100 uppercase tracking-wider">Pending</span>
                   )}
                 </td>
                 <td className="px-6 py-4">

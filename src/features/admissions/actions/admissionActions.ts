@@ -13,7 +13,9 @@ import {
   declarations,
   studentProfiles,
   documentChecklists,
-  studentDocuments
+  studentDocuments,
+  entranceTests,
+  homeVisits
 } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -290,7 +292,7 @@ export async function verifyAdmission(admissionId: string) {
     });
 
     await db.update(studentProfiles)
-      .set({ admissionStep: 12 })
+      .set({ admissionStep: 11 })
       .where(eq(studentProfiles.admissionMetaId, admissionId));
 
     revalidatePath("/office/inquiries");
@@ -407,7 +409,7 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
 
 export async function getAdmissionData(admissionId: string, lite: boolean = false) {
   try {
-    const [bio, address, academic, parents, bank, documents, declaration, siblings, checklist] = await Promise.all([
+    const [bio, address, academic, parents, bank, documents, declaration, siblings, checklist, entranceTest, homeVisit] = await Promise.all([
       db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) }),
       db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) }),
       db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) }),
@@ -428,7 +430,9 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       }),
       db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
       db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) }),
-      db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) })
+      db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
+      db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
+      db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) })
     ]);
 
     // If lite mode, we still need to know IF a document exists
@@ -456,14 +460,25 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       });
     }
 
-    // Fetch admissionMeta and its linked inquiry
-    const meta = await db.query.admissionMeta.findFirst({
-      where: eq(admissionMeta.id, admissionId),
-      with: {
-        inquiry: true,
-        studentProfile: true
-      }
-    });
+    // Fetch admissionMeta and its linked inquiry/profile using simpler join
+    const metaRaw = await db
+      .select({
+        admissionMeta: admissionMeta,
+        inquiry: inquiries,
+        studentProfile: studentProfiles
+      })
+      .from(admissionMeta)
+      .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+      .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
+      .where(eq(admissionMeta.id, admissionId))
+      .limit(1);
+
+    const firstRow = metaRaw?.[0];
+    const meta = firstRow ? {
+      ...firstRow.admissionMeta,
+      inquiry: firstRow.inquiry,
+      studentProfile: firstRow.studentProfile
+    } : null;
 
     // Pre-fill studentBio from Inquiry if fields are empty
     let enrichedBio = bio;
@@ -489,7 +504,9 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
         siblings: siblings || [],
         admissionMeta: meta,
         documentChecklist: checklist,
-        studentProfile: meta?.studentProfile
+        studentProfile: meta?.studentProfile,
+        entranceTest,
+        homeVisit
       }
     };
   } catch (error: any) {

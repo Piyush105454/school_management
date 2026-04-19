@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { entranceTests } from "@/db/schema";
+import { entranceTests, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
@@ -103,12 +103,18 @@ export async function updateTestResult(
         remarks,
         marksObtained: marks,
         graceMarks: grace,
-        totalMarks: 100, // Fixed Total Marks
+        totalMarks: 100,
         reportLink: finalReportLink || null,
         resultDate: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(entranceTests.admissionId, admissionId));
+    
+    if (status === "PASS") {
+      await db.update(studentProfiles)
+        .set({ admissionStep: 12 })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+    }
 
 
     revalidatePath("/office/entrance-tests", "page");

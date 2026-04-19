@@ -23,19 +23,31 @@ export async function GET(
       return new NextResponse("PDF not found", { status: 404 });
     }
 
-    // Extract the base64 data from the data URL
-    // Format is typically "data:application/pdf;base64,JVBER..."
-    const matches = pdfRecord.fileUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-    
-    if (!matches || matches.length !== 3) {
-      return new NextResponse("Invalid PDF format in database", { status: 500 });
+    let buffer: Buffer;
+    let contentType: string;
+
+    if (pdfRecord.fileUrl.startsWith("http")) {
+      // Fetch from S3/External URL
+      const response = await fetch(pdfRecord.fileUrl);
+      if (!response.ok) throw new Error("Failed to fetch PDF from storage");
+      
+      const arrayBuffer = await response.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+      contentType = response.headers.get("Content-Type") || "application/pdf";
+    } else {
+      // Extract the base64 data from the data URL (Legacy support)
+      const matches = pdfRecord.fileUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+      
+      if (!matches || matches.length !== 3) {
+        return new NextResponse("Invalid PDF format in database", { status: 500 });
+      }
+
+      contentType = matches[1];
+      const base64Data = matches[2];
+      buffer = Buffer.from(base64Data, 'base64');
     }
 
-    const contentType = matches[1];
-    const base64Data = matches[2];
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': contentType,

@@ -5,12 +5,12 @@ import { applyScholarship } from "@/features/admissions/actions/admissionActions
 import { Loader2, CheckCircle2, Circle, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function ScholarshipToggle({ admissionId, initialApplied }: { admissionId: string, initialApplied: boolean }) {
-  const [agreed, setAgreed] = useState(initialApplied ? true : false);
+export function ScholarshipToggle({ admissionId, initialApplied }: { admissionId: string, initialApplied: boolean | null }) {
+  const [agreed, setAgreed] = useState(initialApplied !== null);
   const [selected, setSelected] = useState<boolean | null>(initialApplied);
   const [loading, setLoading] = useState(false);
-  const [applied, setApplied] = useState(initialApplied);
-  const [isLocked, setIsLocked] = useState(initialApplied ? true : false);
+  const [applied, setApplied] = useState<boolean | null>(initialApplied);
+  const [isLocked, setIsLocked] = useState(initialApplied !== null);
 
   const handleToggle = async () => {
     if (selected === null) return;

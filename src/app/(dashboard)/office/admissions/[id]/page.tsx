@@ -18,20 +18,24 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
 
   const { id: admissionId } = await params;
 
-  const admission = await db.query.admissionMeta.findFirst({
-    where: eq(admissionMeta.id, admissionId),
-    with: {
-      inquiry: true,
-      studentProfile: true
-    }
-  });
-
-  if (!admission) {
+  const initialDataResult = await getAdmissionData(admissionId, true);
+  
+  if (!initialDataResult.success) {
     notFound();
   }
 
-  const initialDataResult = await getAdmissionData(admissionId, true);
-  const initialData = initialDataResult.success ? initialDataResult.data : null;
+  const initialData = initialDataResult.data;
+  
+  if (!initialData) {
+    notFound();
+  }
+  const meta = initialData.admissionMeta;
+  const inquiry = meta?.inquiry;
+  const studentProfile = initialData.studentProfile;
+
+  if (!meta) {
+    notFound();
+  }
 
   return (
     <div className="space-y-6">
@@ -46,10 +50,10 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Office Application Review</p>
           <div className="flex flex-col items-end">
             <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
-              {(admission as any).inquiry?.studentName}
+              {inquiry?.studentName}
             </p>
             <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md mt-1 italic">
-              Applied Class: {(admission as any).inquiry?.appliedClass || "N/A"}
+              Applied Class: {inquiry?.appliedClass || "N/A"}
             </p>
           </div>
         </div>
@@ -58,7 +62,7 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
       <OfficeAdmissionForm 
         admissionId={admissionId} 
         initialData={initialData} 
-        maxStep={(admission as any).studentProfile?.admissionStep || 1} 
+        maxStep={studentProfile?.admissionStep || 1} 
         initialStep={stepParam}
       />
     </div>
