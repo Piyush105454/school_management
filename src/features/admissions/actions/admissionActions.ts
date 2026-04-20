@@ -114,7 +114,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
           bioData.studentPhoto = await uploadToS3(bioData.studentPhoto, {
             fileName: "photo",
             admissionId,
-            category: "studentdocuments"
+            category: "student-documents"
           });
         }
 
@@ -196,7 +196,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
             const s3Url = await uploadToS3(p.photo, {
               fileName: `parent_${p.personType}`,
               admissionId,
-              category: "studentdocuments"
+              category: "student-documents"
             });
             return { ...p, photo: s3Url };
           }
@@ -235,7 +235,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
             folderDocs[key] = await uploadToS3(value, {
               fileName: key,
               admissionId,
-              category: "studentdocuments"
+              category: "student-documents"
             });
           } else {
             folderDocs[key] = value;
@@ -584,7 +584,7 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
                   const s3Url = await uploadToS3(p.photo, {
                     fileName: `parent_${p.personType}`,
                     admissionId,
-                    category: "studentdocuments"
+                    category: "student-documents"
                   });
                   return { ...p, photo: s3Url };
                 }
@@ -615,7 +615,7 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
                 folderDocs[key] = await uploadToS3(value, {
                   fileName: key,
                   admissionId,
-                  category: "studentdocuments"
+                  category: "student-documents"
                 });
               } else {
                 folderDocs[key] = value;

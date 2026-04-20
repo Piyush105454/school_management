@@ -28,7 +28,7 @@ export async function uploadToS3(
 
   try {
     const academicYear = options.academicYear || "2026-27";
-    const category = options.category || "studentdocuments";
+    const category = options.category || "student-documents";
     const admissionId = options.admissionId || "unknown";
 
     // Extract content type and base64 string
@@ -57,7 +57,7 @@ export async function uploadToS3(
     }
 
     const cleanFileName = options.fileName.split('.')[0];
-    const finalKey = `dps/${academicYear}/${category}/${admissionId}_${cleanFileName}.${extension}`;
+    const finalKey = `dps/${academicYear}/${category}/${admissionId}/${cleanFileName}.${extension}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,

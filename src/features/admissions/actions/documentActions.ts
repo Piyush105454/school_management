@@ -24,7 +24,7 @@ export async function uploadAffidavit(formData: FormData) {
     const s3Url = await uploadToS3(dataUrl, {
       fileName: "affidavit",
       admissionId,
-      category: "studentdocuments"
+      category: "student-documents"
     });
 
     if (!s3Url) throw new Error("Failed to upload to S3");

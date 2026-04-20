@@ -86,7 +86,7 @@ export async function updateTestResult(
       finalReportLink = await uploadToS3(reportLink, {
         fileName: "test_report",
         admissionId,
-        category: "entrancetests"
+        category: "entrance-tests"
       }) || undefined;
     }
 

@@ -69,7 +69,7 @@ export async function updateHomeVisitStatus(
       finalVisitImage = await uploadToS3(visitImage, {
         fileName: "visit_image",
         admissionId,
-        category: "homevisits"
+        category: "home-visits"
       }) || undefined;
     }
 
