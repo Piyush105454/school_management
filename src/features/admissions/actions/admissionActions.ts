@@ -103,8 +103,31 @@ function sanitizeDocuments(docs: any) {
 }
 
 
+/**
+ * Fetches human-readable metadata for S3 path construction
+ */
+export async function getS3UploadContext(admissionId: string) {
+  const meta = await db.query.admissionMeta.findFirst({
+    where: eq(admissionMeta.id, admissionId),
+    with: {
+      inquiry: {
+        columns: {
+          appliedClass: true
+        }
+      }
+    }
+  });
+  
+  return {
+    studentId: meta?.entryNumber || admissionId,
+    appliedClass: meta?.inquiry?.appliedClass || "General"
+  };
+}
+
 export async function submitFullAdmissionForm(admissionId: string, data: any, step?: number) {
   try {
+    const s3Context = await getS3UploadContext(admissionId);
+    
     return await db.transaction(async (tx) => {
       // 1. Student Bio
       if (data.studentBio) {
@@ -114,6 +137,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
           bioData.studentPhoto = await uploadToS3(bioData.studentPhoto, {
             fileName: "photo",
             admissionId,
+            ...s3Context,
             category: "student-documents"
           });
         }
@@ -196,6 +220,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
             const s3Url = await uploadToS3(p.photo, {
               fileName: `parent_${p.personType}`,
               admissionId,
+              ...s3Context,
               category: "student-documents"
             });
             return { ...p, photo: s3Url };
@@ -235,6 +260,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
             folderDocs[key] = await uploadToS3(value, {
               fileName: key,
               admissionId,
+              ...s3Context,
               category: "student-documents"
             });
           } else {
@@ -260,11 +286,6 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
           })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
-
-      // ALWAYS clear office remarks when the student is submitting/fixing their form
-      await tx.update(admissionMeta)
-        .set({ officeRemarks: null, updatedAt: new Date() })
-        .where(eq(admissionMeta.id, admissionId));
 
       revalidatePath("/office/inquiries");
       return { success: true };
@@ -396,10 +417,22 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
         await tx.update(studentProfiles)
           .set({ admissionStep: 8 })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
+
+        // Reset checklist so student can re-upload/edit
+        await tx.update(documentChecklists)
+          .set({ 
+            parentAffidavit: "NOT_SUBMITTED", 
+            formReceivedComplete: false,
+            verifiedAt: null 
+          })
+          .where(eq(documentChecklists.admissionId, admissionId));
       }
       
       revalidatePath("/office/inquiries");
+      revalidatePath("/office/document-verification");
       revalidatePath("/student/dashboard");
+      revalidatePath("/student/document-verification");
+      revalidatePath("/student/admission");
       return { success: true };
     });
   } catch (error: any) {
@@ -515,8 +548,12 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
   }
 }
 
-export async function saveAdmissionStep(admissionId: string, data: any, step: number) {
+
+
+export async function saveAdmissionStep(admissionId: string, step: number, data: any) {
   try {
+    const s3Context = await getS3UploadContext(admissionId);
+    
     return await db.transaction(async (tx) => {
       // Partially update based on step
       switch (step) {
@@ -659,11 +696,6 @@ export async function saveAdmissionStep(admissionId: string, data: any, step: nu
           .set({ admissionStep: step + 1 })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
-
-      // ALWAYS clear office remarks when the student is saving a step (fixing their form)
-      await tx.update(admissionMeta)
-        .set({ officeRemarks: null, updatedAt: new Date() })
-        .where(eq(admissionMeta.id, admissionId));
 
       return { success: true };
     });

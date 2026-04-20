@@ -1,10 +1,11 @@
 "use server";
 
 import { db } from "@/db";
-import { studentDocuments, documentChecklists, studentProfiles } from "@/db/schema";
+import { studentDocuments, documentChecklists, studentProfiles, admissionMeta } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { getS3UploadContext } from "./admissionActions";
 
 export async function uploadAffidavit(formData: FormData) {
   try {
@@ -15,6 +16,9 @@ export async function uploadAffidavit(formData: FormData) {
       return { success: false, error: "Missing file or admission ID" };
     }
 
+    // Fetch S3 path metadata (Entry Number and Class)
+    const s3Context = await getS3UploadContext(admissionId);
+
     // Convert file to base64 for storage (needed for our current S3 helper)
     const buffer = await file.arrayBuffer();
     const base64Content = Buffer.from(buffer).toString("base64");
@@ -24,6 +28,7 @@ export async function uploadAffidavit(formData: FormData) {
     const s3Url = await uploadToS3(dataUrl, {
       fileName: "affidavit",
       admissionId,
+      ...s3Context,
       category: "student-documents"
     });
 
@@ -94,15 +99,19 @@ export async function submitAffidavit(admissionId: string) {
       });
 
       // 3. Move student profile to Step 10 (Awaiting Verification)
-      // It should NOT move to 11 yet, as the admin needs to review it at Step 10.
       await tx.update(studentProfiles)
-        .set({
-          admissionStep: 10,
-        })
+        .set({ admissionStep: 10 })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
+
+      // 4. CLEAR office remarks now that student has submitted corrections
+      await tx.update(admissionMeta)
+        .set({ officeRemarks: null, updatedAt: new Date() })
+        .where(eq(admissionMeta.id, admissionId));
     });
 
-    revalidatePath("/student/admission", "page");
+    revalidatePath("/student/admission");
+    revalidatePath("/student/dashboard");
+    revalidatePath("/student/document-verification");
     revalidatePath("/office/admissions/[id]", "page");
     revalidatePath("/office/document-verification", "page");
     return { success: true };
@@ -175,7 +184,7 @@ export async function rejectAffidavit(admissionId: string) {
         .where(eq(studentProfiles.admissionMetaId, admissionId));
     });
 
-    revalidatePath("/student/admission", "page");
+    revalidatePath("/student/admission");
     revalidatePath("/office/admissions/[id]", "page");
     revalidatePath("/office/document-verification", "page");
     return { success: true };

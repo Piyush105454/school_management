@@ -6,6 +6,7 @@ import { studentDocuments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3 } from "@/lib/s3-service";
+import { getS3UploadContext } from "@/features/admissions/actions/admissionActions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing file or admission ID" }, { status: 400 });
     }
 
+    // Fetch S3 path metadata (Entry Number and Class)
+    const s3Context = await getS3UploadContext(admissionId);
+
     // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json({ error: "File exceeds 5MB limit. Please compress it." }, { status: 413 });
@@ -36,7 +40,8 @@ export async function POST(req: NextRequest) {
     const s3Url = await uploadToS3(dataUrl, {
       fileName: "affidavit",
       admissionId,
-      category: "studentdocuments"
+      ...s3Context,
+      category: "student-documents"
     });
 
     if (!s3Url) throw new Error("Failed to upload to S3");

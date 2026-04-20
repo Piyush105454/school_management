@@ -22,9 +22,18 @@ interface DocumentVerificationCardProps {
   checklistData: any;
   admissionId: string;
   studentName: string;
+  officeRemarks?: string | null;
+  admissionStep?: number;
 }
 
-export function DocumentVerificationCard({ docData, checklistData, admissionId, studentName }: DocumentVerificationCardProps) {
+export function DocumentVerificationCard({ 
+  docData, 
+  checklistData, 
+  admissionId, 
+  studentName,
+  officeRemarks,
+  admissionStep
+}: DocumentVerificationCardProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
@@ -171,6 +180,26 @@ export function DocumentVerificationCard({ docData, checklistData, admissionId, 
 
   return (
     <div className="space-y-6">
+      {/* OFFICE REMARK / CORRECTION NEEDED BANNER */}
+      {officeRemarks && admissionStep === 8 && (
+        <div className="max-w-4xl mx-auto mb-2 animate-in slide-in-from-top-4 duration-500">
+          <div className="bg-red-50 border-2 border-red-200 rounded-[32px] p-6 flex items-start gap-5 shadow-xl shadow-red-100/50">
+            <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
+              <AlertCircle className="text-red-600" size={24} />
+            </div>
+            <div className="space-y-1.5 flex-1 pt-1">
+              <h4 className="text-[10px] font-black text-red-900 uppercase tracking-[0.2em]">Correction Required by Office</h4>
+              <p className="text-sm font-bold text-red-700 leading-tight italic">
+                "{officeRemarks}"
+              </p>
+              <p className="text-[10px] font-bold text-red-400 pt-1 uppercase tracking-widest leading-relaxed">
+                Please follow the instructions above and re-submit your documents.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LOCKED STATUS BANNER */}
       {isFinalized && (
         <div className="bg-slate-900 text-white p-6 rounded-[32px] border border-slate-800 flex items-center gap-4 shadow-xl shadow-slate-900/10 animate-in slide-in-from-top duration-500">

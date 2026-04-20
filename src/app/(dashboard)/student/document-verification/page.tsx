@@ -20,6 +20,10 @@ export default async function StudentDocumentVerificationPage() {
       profile: {
         id: studentProfiles.id,
         admissionMetaId: studentProfiles.admissionMetaId,
+        admissionStep: studentProfiles.admissionStep,
+      },
+      admissionMeta: {
+        officeRemarks: admissionMeta.officeRemarks,
       },
       inquiry: {
         studentName: inquiries.studentName,
@@ -79,6 +83,8 @@ export default async function StudentDocumentVerificationPage() {
         checklistData={checklistData}
         admissionId={admissionId}
         studentName={studentName} 
+        officeRemarks={result.admissionMeta?.officeRemarks}
+        admissionStep={result.profile.admissionStep}
       />
     </div>
   );

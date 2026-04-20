@@ -212,7 +212,7 @@ export function OfficeAdmissionForm({
       setCurrentStep(prev => Math.min(prev + 1, 14));
       const data = methods.getValues();
       const stepData: any = { [currentFields]: data[currentFields as keyof typeof data] };
-      const saveRes = await saveAdmissionStep(admissionId, stepData, prevStepVal) as any;
+      const saveRes = await saveAdmissionStep(admissionId, prevStepVal, stepData) as any;
       setLoading(false);
       if (!saveRes.success) {
          console.error("saveAdmissionStep error:", saveRes.error);

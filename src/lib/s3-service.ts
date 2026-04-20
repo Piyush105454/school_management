@@ -13,12 +13,14 @@ export interface UploadOptions {
   fileName: string;
   academicYear?: string;
   category?: string;
-  admissionId?: string;
+  admissionId?: string; // UUID (fallback)
+  studentId?: string;   // Human readable ID (e.g. ADM-2627-0077)
+  appliedClass?: string; // e.g. "Class 3"
 }
 
 /**
  * Uploads a base64 document/image to S3
- * Logic: dps/${year}/${category}/${admissionId}_${fieldName}.${ext}
+ * Logic: dps/${year}/${category}/${appliedClass}/${studentId}/${fileName}.${ext}
  */
 export async function uploadToS3(
   base64Data: string, 
@@ -29,7 +31,14 @@ export async function uploadToS3(
   try {
     const academicYear = options.academicYear || "2026-27";
     const category = options.category || "student-documents";
-    const admissionId = options.admissionId || "unknown";
+    
+    // Sanitize class name (e.g. "Class 3" -> "class-3")
+    const classFolder = options.appliedClass 
+      ? options.appliedClass.toLowerCase().trim().replace(/\s+/g, '-') 
+      : "unassigned";
+
+    // Prefer human-readable studentId over UUID
+    const studentFolder = options.studentId || options.admissionId || "unknown";
 
     // Extract content type and base64 string
     const mimeMatch = base64Data.match(/^data:(.*);base64,(.*)$/);
@@ -41,8 +50,7 @@ export async function uploadToS3(
     
     // --- File Size Validation ---
     const fileSizeInBytes = buffer.length;
-    const isAffidavit = options.fileName.toLowerCase().includes("affidavit");
-    const maxSize = 5 * 1024 * 1024; // Increased to 5MB for all documents
+    const maxSize = 5 * 1024 * 1024; // 5MB
 
     if (fileSizeInBytes > maxSize) {
       throw new Error(`File size exceeds limit (5MB). Please compress the file and try again.`);
@@ -57,7 +65,7 @@ export async function uploadToS3(
     }
 
     const cleanFileName = options.fileName.split('.')[0];
-    const finalKey = `dps/${academicYear}/${category}/${admissionId}/${cleanFileName}.${extension}`;
+    const finalKey = `dps/${academicYear}/${category}/${classFolder}/${studentFolder}/${cleanFileName}.${extension}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,

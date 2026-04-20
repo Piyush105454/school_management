@@ -5,6 +5,7 @@ import { homeVisits, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { getS3UploadContext } from "./admissionActions";
 
 export async function scheduleHomeVisit(admissionId: string, data: any) {
   try {
@@ -65,20 +66,26 @@ export async function updateHomeVisitStatus(
     let finalVisitImage = visitImage;
     let finalHomePhoto = homePhoto;
 
-    if (visitImage && visitImage.startsWith("data:")) {
-      finalVisitImage = await uploadToS3(visitImage, {
-        fileName: "visit_image",
-        admissionId,
-        category: "home-visits"
-      }) || undefined;
-    }
+    if (visitImage && (visitImage.startsWith("data:") || homePhoto?.startsWith("data:"))) {
+      const s3Context = await getS3UploadContext(admissionId);
+      
+      if (visitImage && visitImage.startsWith("data:")) {
+        finalVisitImage = await uploadToS3(visitImage, {
+          fileName: "visit_image",
+          admissionId,
+          ...s3Context,
+          category: "home-visits"
+        }) || undefined;
+      }
 
-    if (homePhoto && homePhoto.startsWith("data:")) {
-      finalHomePhoto = await uploadToS3(homePhoto, {
-        fileName: "home_photo",
-        admissionId,
-        category: "homevisits"
-      }) || undefined;
+      if (homePhoto && homePhoto.startsWith("data:")) {
+        finalHomePhoto = await uploadToS3(homePhoto, {
+          fileName: "home_photo",
+          admissionId,
+          ...s3Context,
+          category: "home-visits"
+        }) || undefined;
+      }
     }
 
     const existing = await db.query.homeVisits.findFirst({

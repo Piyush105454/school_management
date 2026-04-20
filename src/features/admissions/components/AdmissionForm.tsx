@@ -258,7 +258,7 @@ export function AdmissionForm({
       const data = methods.getValues();
       const stepData: any = { [currentFields]: data[currentFields as keyof typeof data] };
       
-      const saveRes = await saveAdmissionStep(admissionId, stepData, prevStepVal) as any;
+      const saveRes = await saveAdmissionStep(admissionId, prevStepVal, stepData) as any;
       setLoading(false);
       
       if (!saveRes.success) {
@@ -383,7 +383,13 @@ export function AdmissionForm({
                   {currentStep === 7 && <BankStep />}
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
-                  {currentStep === 10 && <DocumentVerificationStep admissionId={admissionId} initialDocData={initialData?.documents} initialChecklistData={initialData?.documentChecklist} studentName={`${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`} />}
+                  {currentStep === 10 && <DocumentVerificationStep 
+                    admissionId={admissionId} 
+                    initialDocData={initialData?.documents} 
+                    initialChecklistData={initialData?.documentChecklist} 
+                    studentName={`${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`} 
+                    officeRemarks={initialData?.admissionMeta?.officeRemarks}
+                  />}
                   {currentStep === 11 && <EntranceTestStatusStep admissionId={admissionId} initialData={initialData} />}
                   {currentStep === 12 && <HomeVisitStatusStep admissionId={admissionId} initialData={initialData} />}
                 </fieldset>
@@ -908,7 +914,7 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
           const compressed = await compressImage(reader.result as string);
           setValue(`documents.${fieldName}`, compressed, { shouldValidate: true });
           
-          const saveRes = await saveAdmissionStep(admissionId, { documents: { [fieldName]: compressed } }, 8);
+          const saveRes = await saveAdmissionStep(admissionId, 8, { documents: { [fieldName]: compressed } });
           if (saveRes.success) {
              setSaveSuccess(prev => ({ ...prev, [fieldName]: true }));
           } else {
@@ -1225,12 +1231,14 @@ function DocumentVerificationStep({
   admissionId, 
   initialDocData, 
   initialChecklistData, 
-  studentName 
+  studentName,
+  officeRemarks
 }: { 
   admissionId: string, 
   initialDocData?: any, 
   initialChecklistData?: any, 
-  studentName: string 
+  studentName: string,
+  officeRemarks?: string | null
 }) {
   const { setValue } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -1239,7 +1247,7 @@ function DocumentVerificationStep({
   const [currentDocData, setCurrentDocData] = useState(initialDocData);
   const [currentChecklistData, setCurrentChecklistData] = useState(initialChecklistData);
 
-  const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED";
+  const isFinalized = (currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED") && !officeRemarks;
   const hasUploaded = !!currentDocData?.affidavit;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1325,6 +1333,21 @@ function DocumentVerificationStep({
       </div>
 
       <div className="max-w-xl mx-auto space-y-6">
+        {/* OFFICE REMARK BANNER */}
+        {officeRemarks && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-[32px] p-6 flex items-start gap-4 mb-2 shadow-sm animate-in slide-in-from-top-2 duration-300">
+            <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0 border border-red-200">
+              <AlertCircle className="text-red-600" size={20} />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-[10px] font-black text-red-900 uppercase tracking-tight">Correction Required</h4>
+              <p className="text-xs font-bold text-red-700 leading-tight italic">
+                "{officeRemarks}"
+              </p>
+            </div>
+          </div>
+        )}
+
         {isFinalized && (
           <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 flex items-center gap-4 shadow-xl">
             <div className="h-12 w-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center">

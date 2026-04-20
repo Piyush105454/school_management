@@ -5,6 +5,7 @@ import { entranceTests, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { getS3UploadContext } from "./admissionActions";
 
 function sanitizeTestData(data: any) {
   if (!data) return data;
@@ -83,9 +84,11 @@ export async function updateTestResult(
     let finalReportLink = reportLink;
 
     if (reportLink && reportLink.startsWith("data:")) {
+      const s3Context = await getS3UploadContext(admissionId);
       finalReportLink = await uploadToS3(reportLink, {
         fileName: "test_report",
         admissionId,
+        ...s3Context,
         category: "entrance-tests"
       }) || undefined;
     }

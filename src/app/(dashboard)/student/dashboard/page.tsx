@@ -34,26 +34,20 @@ export default async function StudentDashboard() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
-  // Use standard join for stability and high performance (single roundtrip)
-  const results = await db
-    .select({
-      profile: studentProfiles,
-      admissionMeta: admissionMeta,
-      inquiry: inquiries,
-      documentChecklists: documentChecklists,
-      entranceTest: entranceTests,
-      homeVisit: homeVisits,
-    })
-    .from(studentProfiles)
-    .leftJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
-    .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-    .leftJoin(documentChecklists, eq(admissionMeta.id, documentChecklists.admissionId))
-    .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
-    .leftJoin(homeVisits, eq(admissionMeta.id, homeVisits.admissionId))
-    .where(eq(studentProfiles.userId, session.user.id))
-    .limit(1);
+  // Optimized: Break monolithic 5-way join into focused parallel queries
+  // This prevents the slow join that was causing timeouts (11s render time)
+  const coreProfile = await db.query.studentProfiles.findFirst({
+    where: eq(studentProfiles.userId, session.user.id),
+    with: {
+      admissionMeta: {
+        with: {
+          inquiry: true
+        }
+      }
+    }
+  });
 
-  if (!results.length) {
+  if (!coreProfile) {
     return (
         <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-4">
             <AlertCircle size={48} className="text-slate-300" />
@@ -62,17 +56,24 @@ export default async function StudentDashboard() {
         </div>
     );
   }
+
+  const admissionId = coreProfile.admissionMetaId;
+
+  // Parallel fetch ancillary data - extremely efficient with unique indexed admissionId
+  const [checklist, test, visit] = admissionId ? await Promise.all([
+    db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
+    db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
+    db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) }),
+  ]) : [null, null, null];
   
-  // Map result to a more usable structure
-  const result = results[0];
+  // Reconstruct profile object to match existing UI logic
   const profile = {
-    ...result.profile,
-    admissionMeta: result.admissionMeta ? {
-      ...result.admissionMeta,
-      inquiry: result.inquiry,
-      documentChecklists: result.documentChecklists,
-      entranceTest: result.entranceTest,
-      homeVisit: result.homeVisit,
+    ...coreProfile,
+    admissionMeta: coreProfile.admissionMeta ? {
+      ...coreProfile.admissionMeta,
+      documentChecklists: checklist,
+      entranceTest: test,
+      homeVisit: visit,
     } : null
   };
 
