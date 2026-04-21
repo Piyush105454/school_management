@@ -27,7 +27,8 @@ import {
   MapPinned
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, getDocumentContent } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, getDocumentContent, getDirectUploadUrl } from "../actions/admissionActions";
+import { SmartUploader } from "./SmartUploader";
 import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "../actions/documentActions";
 import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
 
@@ -131,7 +132,8 @@ export function AdmissionForm({
     },
     declaration: {
       declarationAccepted: false,
-      guardianName: ""
+      guardianName: "",
+      appliedScholarship: ""
     },
   };
 
@@ -894,46 +896,10 @@ function BankStep() {
 
 function DocumentsStep({ admissionId }: { admissionId: string }) {
   const { register, watch, setValue, formState: { errors } } = useFormContext();
-  const [uploading, setUploading] = React.useState<Record<string, boolean>>({});
-  const [saveSuccess, setSaveSuccess] = React.useState<Record<string, boolean>>({});
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 500 * 1024) {
-        alert("Max allowed size for documents is 500 KB. Please compress your file.");
-        e.target.value = "";
-        return;
-      }
-      setUploading(prev => ({ ...prev, [fieldName]: true }));
-      setSaveSuccess(prev => ({ ...prev, [fieldName]: false }));
-      
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const compressed = await compressImage(reader.result as string);
-          setValue(`documents.${fieldName}`, compressed, { shouldValidate: true });
-          
-          const saveRes = await saveAdmissionStep(admissionId, 8, { documents: { [fieldName]: compressed } });
-          if (saveRes.success) {
-             setSaveSuccess(prev => ({ ...prev, [fieldName]: true }));
-          } else {
-             alert(`Failed to auto-save ${fieldName}. Please try again.`);
-          }
-        } catch (e) {
-          console.error("Compression error:", e);
-          alert("Error compressing image.");
-        } finally {
-          setUploading(prev => ({ ...prev, [fieldName]: false }));
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const documentList = [
     { id: "birthCertificate", name: "Birth Certificate", hindi: "जन्म प्रमाण पत्र" },
-    { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो" },
+    { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो", required: true },
     { id: "marksheet", name: "Previous Marksheet", hindi: "पिछली कक्षा की अंकसूची" },
     { id: "casteCertificate", name: "Caste Certificate", hindi: "जाति प्रमाण पत्र" },
     { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र" },
@@ -946,76 +912,31 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
         <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: Upload required & optional documents.</p>
       </div>
       
-      <div className="space-y-2 md:space-y-3">
-        {documentList.map((doc) => {
-          const hasError = (errors.documents as any)?.[doc.id];
-          const isUploading = uploading[doc.id];
-          const isSaved = saveSuccess[doc.id];
-          const fileData = watch(`documents.${doc.id}`);
-
-          return (
-            <div key={doc.id} className={cn(
-              "flex items-center justify-between p-3 md:p-4 rounded-xl border bg-white shadow-sm transition-all",
-              hasError ? "border-red-200 bg-red-50/10" : "border-slate-100 hover:border-blue-100"
-            )}>
-              <div className="flex-1 min-w-0 pr-4">
-                <p className={cn("text-[10px] md:text-xs font-black uppercase tracking-tight truncate", hasError ? "text-red-600" : "text-slate-900")}>{doc.name}</p>
-                <p className="text-[9px] md:text-[10px] text-slate-500 font-bold truncate">{doc.hindi}</p>
-                {hasError && <p className="text-[8px] font-black text-red-500 uppercase mt-0.5">Missing</p>}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <input 
-                  type="hidden" 
-                  {...register(`documents.${doc.id}`, { required: doc.id === "studentPhoto" })} 
-                />
-                
-                {fileData ? (
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <span className={cn(
-                      "flex items-center gap-1 text-[8px] md:text-[9px] font-black px-2 md:px-3 py-1 rounded-full border ring-4 transition-all",
-                      isUploading ? "text-amber-600 bg-amber-50 border-amber-100 ring-amber-50/50" :
-                      isSaved ? "text-emerald-600 bg-emerald-50 border-emerald-100 ring-emerald-50/50" : 
-                      "text-blue-600 bg-blue-50 border-blue-100 ring-blue-50/50"
-                    )}>
-                      {isUploading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
-                      {isUploading ? "SAVING..." : isSaved ? "UPLOAD SAVED" : "DONE"}
-                    </span>
-                    <button 
-                      type="button" 
-                      disabled={isUploading}
-                      onClick={() => {
-                        setValue(`documents.${doc.id}`, "", { shouldValidate: true });
-                        setSaveSuccess(prev => ({ ...prev, [doc.id]: false }));
-                      }}
-                      className="text-[8px] md:text-[9px] font-black text-slate-400 hover:text-red-500 uppercase px-2 py-1 transition-colors disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative group">
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      disabled={isUploading}
-                      onChange={(e) => handleFileChange(e, doc.id)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
-                    />
-                    <span className={cn(
-                      "flex items-center gap-1.5 text-[8px] md:text-[9px] font-black px-3 md:px-4 py-1.5 md:py-2 rounded-lg border transition-all uppercase tracking-wider",
-                      hasError ? "text-red-600 bg-red-50 border-red-200" : "text-blue-600 bg-blue-50 border-blue-100 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600",
-                      isUploading && "opacity-50"
-                    )}>
-                      {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} 
-                      {isUploading ? "Reading..." : "Upload"}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="space-y-4">
+        {documentList.map((doc) => (
+          <div key={doc.id}>
+            <SmartUploader
+              admissionId={admissionId}
+              fieldName={doc.id}
+              label={doc.name}
+              hindiLabel={doc.hindi}
+              initialUrl={watch(`documents.${doc.id}`)}
+              onUploadComplete={async (url) => {
+                setValue(`documents.${doc.id}`, url, { shouldValidate: true });
+                await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } });
+              }}
+              onDelete={async () => {
+                setValue(`documents.${doc.id}`, "", { shouldValidate: true });
+                await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: null } });
+              }}
+            />
+            {errors.documents && (errors.documents as any)[doc.id] && (
+              <p className="text-[10px] font-bold text-red-500 uppercase mt-1 ml-4">
+                This document is required
+              </p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1038,6 +959,30 @@ function DeclarationStep() {
         </p>
 
         <div className="space-y-6 md:space-y-8">
+          <div className="space-y-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Choose Fee Route*</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className={cn(
+                "flex flex-col gap-1 p-5 rounded-3xl border-2 cursor-pointer transition-all",
+                watch("declaration.appliedScholarship") === "false" ? "bg-blue-50 border-blue-600 shadow-lg shadow-blue-500/10" : "bg-white border-slate-100 hover:bg-slate-50"
+              )}>
+                <input type="radio" value="false" {...register("declaration.appliedScholarship", { required: "Please select a fee route" })} className="hidden" />
+                <span className={cn("text-xs font-black uppercase italic tracking-tight", watch("declaration.appliedScholarship") === "false" ? "text-blue-900" : "text-slate-900")}>Normal Fee Route</span>
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Standard Admission Fees</span>
+              </label>
+              
+              <label className={cn(
+                "flex flex-col gap-1 p-5 rounded-3xl border-2 cursor-pointer transition-all",
+                watch("declaration.appliedScholarship") === "true" ? "bg-emerald-50 border-emerald-600 shadow-lg shadow-emerald-500/10" : "bg-white border-slate-100 hover:bg-slate-50"
+              )}>
+                <input type="radio" value="true" {...register("declaration.appliedScholarship", { required: "Please select a fee route" })} className="hidden" />
+                <span className={cn("text-xs font-black uppercase italic tracking-tight", watch("declaration.appliedScholarship") === "true" ? "text-emerald-900" : "text-slate-900")}>Scholarship Entry</span>
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Apply for Financial Aid</span>
+              </label>
+            </div>
+            <ErrorMessage error={(errors.declaration as any)?.appliedScholarship} />
+          </div>
+
           <div>
             <label className={cn(
               "flex items-center gap-4 md:gap-5 p-4 md:p-6 rounded-xl md:rounded-3xl cursor-pointer group transition-all",

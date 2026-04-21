@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { homeVisits, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { uploadToS3, getSignedDownloadUrl, deleteFromS3 } from "@/lib/s3-service";
 import { getS3UploadContext } from "./admissionActions";
 
 export async function scheduleHomeVisit(admissionId: string, data: any) {
@@ -46,7 +46,20 @@ export async function getHomeVisitData(admissionId: string) {
 
     if (data) {
       if (data.visitImage) data.visitImage = await getSignedDownloadUrl(data.visitImage) || data.visitImage;
-      if (data.homePhoto) data.homePhoto = await getSignedDownloadUrl(data.homePhoto) || data.homePhoto;
+      if (data.homePhoto) {
+        try {
+          const photos = JSON.parse(data.homePhoto);
+          if (Array.isArray(photos)) {
+            const signedPhotos = await Promise.all(
+              photos.map(async (url: string) => await getSignedDownloadUrl(url) || url)
+            );
+            data.homePhoto = JSON.stringify(signedPhotos);
+          }
+        } catch (e) {
+          // If not JSON, try signing it as a single URL
+          data.homePhoto = await getSignedDownloadUrl(data.homePhoto) || data.homePhoto;
+        }
+      }
     }
 
     return { success: true, data };
@@ -91,6 +104,23 @@ export async function updateHomeVisitStatus(
     const existing = await db.query.homeVisits.findFirst({
       where: eq(homeVisits.admissionId, admissionId),
     });
+
+    // Manual Cleanup Logic (Only delete if explicitly removed, not just replaced)
+    if (existing) {
+      if (existing.visitImage && (visitImage === null || visitImage === "")) {
+        await deleteFromS3(existing.visitImage);
+      }
+      if (existing.homePhoto && (homePhoto === null || homePhoto === "" || homePhoto === "[]")) {
+        try {
+          const oldPhotos = JSON.parse(existing.homePhoto);
+          if (Array.isArray(oldPhotos)) {
+            await Promise.all(oldPhotos.map(p => deleteFromS3(p)));
+          }
+        } catch (e) {
+          await deleteFromS3(existing.homePhoto);
+        }
+      }
+    }
 
     if (existing) {
       await db.update(homeVisits)

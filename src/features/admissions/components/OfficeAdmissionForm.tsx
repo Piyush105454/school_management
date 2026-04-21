@@ -28,7 +28,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute } from "../actions/admissionActions";
 import { rejectAffidavit } from "../actions/documentActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
@@ -56,12 +56,14 @@ export function OfficeAdmissionForm({
   admissionId, 
   initialData, 
   maxStep = 1,
-  initialStep
+  initialStep,
+  teachers = []
 }: { 
   admissionId: string, 
   initialData?: any, 
   maxStep?: number,
-  initialStep?: number
+  initialStep?: number,
+  teachers?: any[]
 }) {
   const [currentStep, setCurrentStep] = useState(initialStep || (maxStep >= 13 ? 13 : Math.max(1, Math.min(maxStep, 12))));
   const [loading, setLoading] = useState(false);
@@ -322,8 +324,8 @@ export function OfficeAdmissionForm({
                   {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateAdmissionPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
                   {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
-                  {currentStep === 11 && <OfficeEntranceTestStep admissionId={admissionId} initialData={initialData} />}
-                  {currentStep === 12 && <OfficeHomeVisitStep admissionId={admissionId} initialData={initialData} />}
+                  {currentStep === 11 && <OfficeEntranceTestStep admissionId={admissionId} initialData={initialData} teachers={teachers} />}
+                  {currentStep === 12 && <OfficeHomeVisitStep admissionId={admissionId} initialData={initialData} teachers={teachers} />}
                   {currentStep === 13 && <OfficeFinalStep admissionId={admissionId} initialData={initialData} />}
                 </fieldset>
                 {currentStep >= 14 && maxStep >= 14 && <SubmissionSuccessStep data={initialData} />}
@@ -1246,7 +1248,7 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
   );
 }
 
-function OfficeEntranceTestStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+function OfficeEntranceTestStep({ admissionId, initialData, teachers = [] }: { admissionId: string, initialData: any, teachers?: any[] }) {
   // Use a wrapper that provides the same interface as OfficeTestManager but formatted for a form step
   const applicant = {
     id: admissionId,
@@ -1265,13 +1267,13 @@ function OfficeEntranceTestStep({ admissionId, initialData }: { admissionId: str
       </div>
       
       <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-        <OfficeTestManager applicant={applicant} teachers={[]} />
+        <OfficeTestManager applicant={applicant} teachers={teachers} />
       </div>
     </div>
   );
 }
 
-function OfficeHomeVisitStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
+function OfficeHomeVisitStep({ admissionId, initialData, teachers = [] }: { admissionId: string, initialData: any, teachers?: any[] }) {
   const applicant = {
     id: admissionId,
     entryNumber: initialData.admissionMeta?.entryNumber,
@@ -1289,7 +1291,7 @@ function OfficeHomeVisitStep({ admissionId, initialData }: { admissionId: string
       </div>
 
       <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-        <OfficeHomeVisitManager applicant={applicant} teachers={[]} />
+        <OfficeHomeVisitManager applicant={applicant} teachers={teachers} />
       </div>
     </div>
   );
@@ -1328,6 +1330,7 @@ function SubmissionSuccessStep({ data }: { data: any }) {
 }
 function OfficeFinalStep({ admissionId, initialData }: { admissionId: string, initialData: any }) {
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [approveScholarship, setApproveScholarship] = useState(false);
   const studentName = initialData?.inquiry?.studentName || "the student";
   const isAdmitted = initialData?.studentProfile?.isFullyAdmitted;
@@ -1339,6 +1342,19 @@ function OfficeFinalStep({ admissionId, initialData }: { admissionId: string, in
     setLoading(false);
     if (res.success) {
       alert("Student Admitted Successfully!");
+      window.location.reload();
+    } else {
+      alert("Error: " + (res.error || "Unknown error"));
+    }
+  };
+
+  const handleResetFeeRoute = async () => {
+    if (!confirm(`Are you sure you want to UNLOCK the fee route? This will reset the selection to PENDING and move the student back to Step 9.`)) return;
+    setResetting(true);
+    const res = await resetFeeRoute(admissionId) as any;
+    setResetting(false);
+    if (res.success) {
+      alert("Fee route unlocked successfully!");
       window.location.reload();
     } else {
       alert("Error: " + (res.error || "Unknown error"));
@@ -1361,22 +1377,36 @@ function OfficeFinalStep({ admissionId, initialData }: { admissionId: string, in
         {!isAdmitted ? (
           <div className="space-y-8">
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-between gap-6">
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Fee Route</p>
-                <div className="flex items-center gap-2">
-                  {initialData?.admissionMeta?.appliedScholarship === true && (
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm shadow-emerald-500/10">SCHOLARSHIP APPLIED</span>
-                  )}
-                  {initialData?.admissionMeta?.appliedScholarship === false && (
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-800 border border-blue-200 shadow-sm shadow-blue-500/10">NORMAL FEE SELECTED</span>
-                  )}
-                  {initialData?.admissionMeta?.appliedScholarship === null && (
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200">CHOICE PENDING</span>
-                  )}
+              <div className="flex items-center gap-6">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Fee Route</p>
+                  <div className="flex items-center gap-2">
+                    {initialData?.admissionMeta?.appliedScholarship === true && (
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm shadow-emerald-500/10">SCHOLARSHIP APPLIED</span>
+                    )}
+                    {initialData?.admissionMeta?.appliedScholarship === false && (
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-800 border border-blue-200 shadow-sm shadow-blue-500/10">NORMAL FEE SELECTED</span>
+                    )}
+                    {initialData?.admissionMeta?.appliedScholarship === null && (
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200">CHOICE PENDING</span>
+                    )}
+                  </div>
                 </div>
+
+                {!isAdmitted && initialData?.admissionMeta?.appliedScholarship !== null && (
+                  <button
+                    type="button"
+                    onClick={handleResetFeeRoute}
+                    disabled={resetting}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all font-black uppercase text-[9px] tracking-widest mt-4 disabled:opacity-50"
+                  >
+                    {resetting ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                    Unlock Fee Option
+                  </button>
+                )}
               </div>
               
-              {initialData?.admissionMeta?.appliedScholarship && (
+              {initialData?.admissionMeta?.appliedScholarship === true && (
                 <label className="flex items-center gap-3 cursor-pointer bg-emerald-600 text-white px-5 py-3 rounded-2xl border border-emerald-500 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 group">
                   <input 
                     type="checkbox" 

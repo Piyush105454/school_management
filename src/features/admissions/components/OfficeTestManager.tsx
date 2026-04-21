@@ -17,6 +17,7 @@ import {
 import { cn, formatDate, formatTime } from "@/lib/utils";
 import { scheduleEntranceTest, updateTestResult } from "@/features/admissions/actions/testActions";
 import { finalizeFinalAdmission } from "@/features/admissions/actions/admissionActions";
+import { SmartUploader } from "./SmartUploader";
 
 export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any, teachers?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -255,13 +256,18 @@ export function OfficeTestManager({ applicant, teachers = [] }: { applicant: any
                      </div>
                   </div>
 
-                  <div className="space-y-1">
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Report Link (Optional)</label>
-                     <input 
-                         placeholder="Drive Link"
-                         value={testData.reportLink || ""}
-                         onChange={(e) => setTestData({ ...testData, reportLink: e.target.value })}
-                         className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  <div className="space-y-4">
+                     <SmartUploader
+                         admissionId={applicant.id}
+                         fieldName="test_report"
+                         label="Entrance Test Report"
+                         hindiLabel="एंट्रेंस टेस्ट रिपोर्ट"
+                         initialUrl={testData.reportLink}
+                         category="entrance-tests"
+                         maxSizeMB={0.5}
+                         onUploadComplete={(url) => setTestData({ ...testData, reportLink: url })}
+                         onDelete={() => setTestData({ ...testData, reportLink: "" })}
+                         accept="application/pdf,image/*"
                      />
                   </div>
 

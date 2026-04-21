@@ -7,6 +7,7 @@ import { studentProfiles, homeVisits, admissionMeta } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { Users, Calendar, Clock, UserCheck, AlertCircle } from "lucide-react";
 import { cn, formatDate, formatTime } from "@/lib/utils";
+import { getHomeVisitData } from "@/features/admissions/actions/homeVisitActions";
 
 export default async function StudentHomeVisitPage() {
   const session = await getServerSession(authOptions);
@@ -25,14 +26,8 @@ export default async function StudentHomeVisitPage() {
   if (!results.length || !results[0].admissionMeta) redirect("/student/dashboard");
 
   const admissionId = results[0].admissionMeta.id;
-
-  const visitResults = await db
-    .select()
-    .from(homeVisits)
-    .where(eq(homeVisits.admissionId, admissionId))
-    .limit(1);
-
-  const visitData = visitResults[0] || null;
+  const visitRes = await getHomeVisitData(admissionId);
+  const visitData = (visitRes.success ? visitRes.data : null) as any;
 
   let teacherDisplay = "Assigned Shortly";
   if (visitData?.teacherName) {

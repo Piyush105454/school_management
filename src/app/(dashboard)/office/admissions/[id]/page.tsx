@@ -9,6 +9,7 @@ import { OfficeAdmissionForm } from "@/features/admissions/components/OfficeAdmi
 import { getAdmissionData } from "@/features/admissions/actions/admissionActions";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { getTeachers } from "@/features/teachers/actions/teacherActions";
 
 export default async function AdminAdmissionViewPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ step?: string }> }) {
   const { step } = await searchParams;
@@ -19,6 +20,7 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
   const { id: admissionId } = await params;
 
   const initialDataResult = await getAdmissionData(admissionId, true);
+  const teachersResult = await getTeachers();
   
   if (!initialDataResult.success) {
     notFound();
@@ -64,6 +66,7 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
         initialData={initialData} 
         maxStep={studentProfile?.admissionStep || 1} 
         initialStep={stepParam}
+        teachers={teachersResult.data || []}
       />
     </div>
   );

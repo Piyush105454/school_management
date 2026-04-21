@@ -17,6 +17,8 @@ const STATUSES = [
   "Admitted"
 ];
 
+const INSTITUTES = ["Dhanpuri Public School", "WES Academy", "Other"];
+
 export function AdmissionsManager({ 
   admissions 
 }: { 
@@ -26,6 +28,7 @@ export function AdmissionsManager({
   const [classFilter, setClassFilter] = useState("");
   const [stepFilter, setStepFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [instituteFilter, setInstituteFilter] = useState("");
 
   const filteredAdmissions = useMemo(() => {
     return admissions.filter((adm) => {
@@ -49,18 +52,22 @@ export function AdmissionsManager({
       // Status filter
       if (statusFilter && getStatusText(adm) !== statusFilter) return false;
 
+      // Institute filter
+      if (instituteFilter && adm.inquiry?.school !== instituteFilter) return false;
+
       return true;
     });
-  }, [admissions, searchQuery, classFilter, stepFilter, statusFilter]);
+  }, [admissions, searchQuery, classFilter, stepFilter, statusFilter, instituteFilter]);
 
   const clearFilters = () => {
     setSearchQuery("");
     setClassFilter("");
     setStepFilter("");
     setStatusFilter("");
+    setInstituteFilter("");
   };
 
-  const hasActiveFilters = searchQuery || classFilter || stepFilter || statusFilter;
+  const hasActiveFilters = searchQuery || classFilter || stepFilter || statusFilter || instituteFilter;
 
   return (
     <div className="space-y-6">
@@ -119,6 +126,18 @@ export function AdmissionsManager({
             <option value="">All Statuses</option>
             {STATUSES.map(s => (
               <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          {/* Institute Filter */}
+          <select 
+            value={instituteFilter}
+            onChange={(e) => setInstituteFilter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="">All Institutes</option>
+            {INSTITUTES.map(i => (
+              <option key={i} value={i}>{i}</option>
             ))}
           </select>
 

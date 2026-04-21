@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { studentDocuments, documentChecklists, studentProfiles, admissionMeta } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { uploadToS3, getSignedDownloadUrl, deleteFromS3 } from "@/lib/s3-service";
 import { getS3UploadContext } from "./admissionActions";
 
 export async function uploadAffidavit(formData: FormData) {
@@ -65,6 +65,18 @@ export async function uploadAffidavit(formData: FormData) {
 
 export async function removeAffidavit(admissionId: string) {
   try {
+    // 1. Fetch current affidavit URL
+    const doc = await db.query.studentDocuments.findFirst({
+      where: eq(studentDocuments.admissionId, admissionId),
+      columns: { affidavit: true }
+    });
+
+    // 2. Perform hard delete if exists
+    if (doc?.affidavit) {
+      await deleteFromS3(doc.affidavit);
+    }
+
+    // 3. Clear DB
     await db.update(studentDocuments)
       .set({
         affidavit: null,

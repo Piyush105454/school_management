@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { entranceTests, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { uploadToS3, getSignedDownloadUrl, deleteFromS3 } from "@/lib/s3-service";
 import { getS3UploadContext } from "./admissionActions";
 
 function sanitizeTestData(data: any) {
@@ -99,6 +99,16 @@ export async function updateTestResult(
     
     // Auto-calculate status based on 33% threshold (Total Marks Fixed at 100)
     const status = totalGained >= 33 ? "PASS" : "FAIL";
+
+    // Manual Cleanup: Check if the user is explicitly removing the file
+    // If reportLink comes in as empty/null, but an old one existed, delete it from S3.
+    const existing = await db.query.entranceTests.findFirst({
+      where: eq(entranceTests.admissionId, admissionId),
+    });
+
+    if (existing?.reportLink && (reportLink === null || reportLink === "")) {
+      await deleteFromS3(existing.reportLink);
+    }
 
     await db.update(entranceTests)
       .set({

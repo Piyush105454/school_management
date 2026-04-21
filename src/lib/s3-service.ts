@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3Client = new S3Client({
@@ -65,7 +65,7 @@ export async function uploadToS3(
     }
 
     const cleanFileName = options.fileName.split('.')[0];
-    const finalKey = `dps/${academicYear}/${category}/${classFolder}/${studentFolder}/${cleanFileName}.${extension}`;
+    const finalKey = `dps/${academicYear}/${category}/${studentFolder}/${cleanFileName}.${extension}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,
@@ -95,11 +95,21 @@ export async function getSignedDownloadUrl(s3UrlOrKey: string) {
   try {
     let key = s3UrlOrKey;
     // Extract key from full URL if provided
-    // https://bucket.s3.region.amazonaws.com/key
     if (s3UrlOrKey.startsWith("http")) {
-      const urlPart = `.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-      if (s3UrlOrKey.includes(urlPart)) {
-        key = s3UrlOrKey.split(urlPart)[1];
+      try {
+        // Handle various S3 URL formats:
+        // 1. https://bucket.s3.region.amazonaws.com/key
+        // 2. https://bucket.s3.amazonaws.com/key
+        const url = new URL(s3UrlOrKey);
+        
+        if (url.hostname.includes("amazonaws.com") && url.hostname.includes(".s3")) {
+           // The key is always the pathname (without leading slash).
+           // IMPORTANT: pathname is URL-encoded, but S3 GetObjectCommand expects the literal (unencoded) key.
+           const rawKey = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+           key = decodeURIComponent(rawKey);
+        }
+      } catch (e) {
+        console.error("URL Parsing failed for key extraction:", e);
       }
     }
 
@@ -113,5 +123,52 @@ export async function getSignedDownloadUrl(s3UrlOrKey: string) {
   } catch (error) {
     console.error("Error generating signed URL:", error);
     return s3UrlOrKey; // Fallback to original
+  }
+}
+
+/**
+ * Generates a presigned URL for the browser to upload directly to S3
+ */
+export async function getPresignedUploadUrl(key: string, contentType: string) {
+  try {
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    // Link valid for 15 minutes
+    return await getSignedUrl(s3Client, command, { expiresIn: 900 });
+  } catch (error) {
+    console.error("Error generating presigned upload URL:", error);
+    throw error;
+  }
+}
+
+/**
+ * Permanently deletes a file from S3
+ */
+export async function deleteFromS3(urlOrKey: string) {
+  if (!urlOrKey || urlOrKey.startsWith("data:")) return;
+
+  try {
+    let key = urlOrKey;
+    // Extract key if it's a full URL
+    if (urlOrKey.startsWith("http")) {
+      const urlPart = `.s3.ap-south-1.amazonaws.com/`;
+      if (urlOrKey.includes(urlPart)) {
+        key = urlOrKey.split(urlPart)[1];
+      }
+    }
+
+    const command = new DeleteObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+    console.log(`[S3] Deleted object: ${key}`);
+  } catch (error) {
+    console.error(`[S3] Error deleting object from S3:`, error);
   }
 }

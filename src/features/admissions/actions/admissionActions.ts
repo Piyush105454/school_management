@@ -19,7 +19,7 @@ import {
 } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { uploadToS3, getSignedDownloadUrl } from "@/lib/s3-service";
+import { uploadToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
 
 function sanitizeBioData(data: any) {
   if (!data) return data;
@@ -93,9 +93,7 @@ function sanitizeDocuments(docs: any) {
   if (!docs) return docs;
   const sanitized = { ...docs };
   Object.keys(sanitized).forEach(key => {
-    if (sanitized[key] === "__EXISTING__") {
-      delete sanitized[key];
-    } else if (sanitized[key] === "") {
+    if (sanitized[key] === "") {
       sanitized[key] = null;
     }
   });
@@ -122,6 +120,50 @@ export async function getS3UploadContext(admissionId: string) {
     studentId: meta?.entryNumber || admissionId,
     appliedClass: meta?.inquiry?.appliedClass || "General"
   };
+}
+
+/**
+ * Generates a presigned URL for direct client-side upload to S3
+ */
+export async function getDirectUploadUrl(
+  admissionId: string, 
+  fileName: string, 
+  contentType: string, 
+  category: string = "student-documents"
+) {
+  try {
+    const s3Context = await getS3UploadContext(admissionId);
+    const academicYear = "2026-27";
+    const studentFolder = s3Context.studentId;
+    
+    // Determine extension
+    let extension = fileName.split('.').pop() || "";
+    if (!extension || extension === fileName) {
+      if (contentType === "application/pdf") extension = "pdf";
+      else if (contentType.startsWith("image/")) extension = contentType.split('/')[1] || "jpg";
+    }
+
+    // Sanitize fileName (remove spaces and special chars)
+    const baseName = fileName.split('.')[0].replace(/[^a-z0-9]/gi, '_');
+    const key = `dps/${academicYear}/${category}/${studentFolder}/${baseName}.${extension}`;
+    
+    const uploadUrl = await getPresignedUploadUrl(key, contentType);
+    const cleanUrl = `https://${process.env.S3_BUCKET_NAME}.s3.ap-south-1.amazonaws.com/${key}`;
+    
+    // Sign the URL for immediate preview in the UI
+    const previewUrl = await getSignedDownloadUrl(cleanUrl) || cleanUrl;
+
+    return { 
+      success: true, 
+      uploadUrl, 
+      publicUrl: cleanUrl,   // THE CLEAN URL FOR STORAGE
+      previewUrl: previewUrl, // THE SIGNED URL FOR PREVIEW
+      key
+    };
+  } catch (error: any) {
+    console.error("getDirectUploadUrl error:", error);
+    return { success: false, error: error.message };
+  }
 }
 
 export async function submitFullAdmissionForm(admissionId: string, data: any, step?: number) {
@@ -376,6 +418,30 @@ export async function applyScholarship(admissionId: string, applied: boolean) {
   }
 }
 
+export async function resetFeeRoute(admissionId: string) {
+  try {
+    return await db.transaction(async (tx) => {
+      // 1. Reset the scholarship application status
+      await tx.update(admissionMeta)
+        .set({ appliedScholarship: null, updatedAt: new Date() })
+        .where(eq(admissionMeta.id, admissionId));
+
+      // 2. Set the student's progress back to Step 9 (Declaration)
+      await tx.update(studentProfiles)
+        .set({ admissionStep: 9 })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+
+      revalidatePath("/office/inquiries");
+      revalidatePath("/student/dashboard");
+      revalidatePath("/student/admission");
+      return { success: true };
+    });
+  } catch (error: any) {
+    console.error("resetFeeRoute error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 
 export async function getDocumentContent(admissionId: string, fieldName: string) {
   try {
@@ -393,14 +459,28 @@ export async function getDocumentContent(admissionId: string, fieldName: string)
   }
 }export async function deleteDocument(admissionId: string, fieldName: string) {
   try {
+    // 1. Fetch existing document to find the S3 URL
+    const doc = await db.query.studentDocuments.findFirst({
+      where: eq(studentDocuments.admissionId, admissionId),
+      columns: { [fieldName as any]: true }
+    });
+    
+    const s3Url = (doc as any)?.[fieldName];
+
+    // 2. Perform hard delete from S3
+    if (s3Url) {
+      await deleteFromS3(s3Url);
+    }
+
+    // 3. Clear DB field
     await db.update(studentDocuments)
       .set({ [fieldName]: null, updatedAt: new Date() })
       .where(eq(studentDocuments.admissionId, admissionId));
     
-    revalidatePath("/office/inquiries");
-    revalidatePath("/student/dashboard");
+    revalidatePath("/office/admissions/[id]", "page");
     return { success: true };
   } catch (error: any) {
+    console.error("deleteDocument error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -450,16 +530,6 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       db.query.studentBankDetails.findFirst({ where: eq(studentBankDetails.admissionId, admissionId) }),
       db.query.studentDocuments.findFirst({ 
         where: eq(studentDocuments.admissionId, admissionId),
-        columns: lite ? {
-          admissionId: true,
-          birthCertificate: false,
-          studentPhoto: false,
-          marksheet: false,
-          casteCertificate: false,
-          affidavit: false,
-          transferCertificate: false,
-          scholarshipSlip: false
-        } : undefined
       }),
       db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
       db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) }),
@@ -468,30 +538,7 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) })
     ]);
 
-    // If lite mode, we still need to know IF a document exists
-    let sanitizedDocs = documents;
-    if (lite && documents) {
-      // Re-fetch only keys to check nullability without fetching massive text data
-      const docRaw = await db.execute(
-        `SELECT 
-          (birth_certificate IS NOT NULL) as "birthCertificate",
-          (student_photo IS NOT NULL) as "studentPhoto",
-          (marksheet IS NOT NULL) as "marksheet",
-          (caste_certificate IS NOT NULL) as "casteCertificate",
-          (affidavit IS NOT NULL) as "affidavit",
-          (transfer_certificate IS NOT NULL) as "transferCertificate",
-          (scholarship_slip IS NOT NULL) as "scholarshipSlip"
-         FROM student_documents WHERE admission_id = '${admissionId}'`
-      );
-      
-      const rows = (docRaw as any).rows || (Array.isArray(docRaw) ? docRaw : []);
-      const existsMap = rows?.[0] || {};
-      sanitizedDocs = {} as any;
-      Object.keys(existsMap).forEach(key => {
-        // If it exists in DB, we put a placeholder "EXISTS" to trigger the UI "DONE" state
-        (sanitizedDocs as any)[key] = (existsMap as any)[key] ? "__EXISTING__" : "";
-      });
-    }
+    const sanitizedDocs = documents;
 
     // Fetch admissionMeta and its linked inquiry/profile using simpler join
     const metaRaw = await db
@@ -522,6 +569,38 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
         lastName: bio?.lastName || meta.inquiry.lastName,
         aadhaarNumber: bio?.aadhaarNumber || meta.inquiry.aadhaarNumber,
       } as any;
+    }
+
+    // --- SECURITY: Sign all private S3 URLs before sending to client ---
+    if (sanitizedDocs) {
+      const docFields = ['birthCertificate', 'studentPhoto', 'marksheet', 'casteCertificate', 'affidavit', 'transferCertificate', 'scholarshipSlip'];
+      for (const f of docFields) {
+        const val = (sanitizedDocs as any)[f];
+        if (val && val !== "__EXISTING__" && !val.startsWith("data:")) {
+          (sanitizedDocs as any)[f] = await getSignedDownloadUrl(val) || val;
+        }
+      }
+    }
+
+    if (homeVisit) {
+      if (homeVisit.visitImage) {
+        homeVisit.visitImage = await getSignedDownloadUrl(homeVisit.visitImage) || homeVisit.visitImage;
+      }
+      if (homeVisit.homePhoto) {
+        try {
+          const photos = JSON.parse(homeVisit.homePhoto);
+          if (Array.isArray(photos)) {
+            const signed = await Promise.all(photos.map(p => getSignedDownloadUrl(p)));
+            homeVisit.homePhoto = JSON.stringify(signed);
+          }
+        } catch (e) {
+          homeVisit.homePhoto = await getSignedDownloadUrl(homeVisit.homePhoto) || homeVisit.homePhoto;
+        }
+      }
+    }
+
+    if (entranceTest && entranceTest.reportLink) {
+      entranceTest.reportLink = await getSignedDownloadUrl(entranceTest.reportLink) || entranceTest.reportLink;
     }
 
     return {
@@ -654,6 +733,17 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                   admissionId,
                   category: "student-documents"
                 });
+              } else if (value === "" || value === null) {
+                // Manual Removal Logic: Fetch existing to see if we should delete from S3
+                const existing = await tx.query.studentDocuments.findFirst({
+                  where: eq(studentDocuments.admissionId, admissionId),
+                  columns: { [key as any]: true }
+                });
+                const oldUrl = (existing as any)?.[key];
+                if (oldUrl) {
+                  await deleteFromS3(oldUrl);
+                }
+                folderDocs[key] = null;
               } else {
                 folderDocs[key] = value;
               }
@@ -697,7 +787,7 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
 
-      return { success: true };
+      return { success: true, error: null };
     });
   } catch (error: any) {
     console.error("saveAdmissionStep error:", error);

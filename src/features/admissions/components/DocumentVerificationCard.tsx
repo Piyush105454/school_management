@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "@/features/admissions/actions/documentActions";
+import { SmartUploader } from "./SmartUploader";
+import { saveAdmissionStep } from "@/features/admissions/actions/admissionActions";
 import { useRouter } from "next/navigation";
 
 interface DocumentVerificationCardProps {
@@ -215,44 +217,36 @@ export function DocumentVerificationCard({
 
       {/* UPLOAD SECTION (Visible only if not uploaded AND not finalized) */}
       {!hasUploaded && !isFinalized && (
-        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="space-y-2">
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">Step 1: Upload Affidavit</h3>
+        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="space-y-2 text-center md:text-left">
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight italic">Step 1: Upload Affidavit</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-              Scan and upload your document. PDF format recommended. (Max 1 MB)
+              Scan and upload your document. PDF format recommended.
             </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-slate-100 rounded-3xl p-10 text-center hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer group relative overflow-hidden">
-              <input
-                type="file"
-                onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                className="hidden"
-                id="affidavit-upload"
-                disabled={loading}
-              />
-              <label htmlFor="affidavit-upload" className="cursor-pointer block">
-                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-inner">
-                  <Upload size={32} />
-                </div>
-                <p className="text-sm font-black text-slate-600 uppercase tracking-tight mb-1">
-                  {affidavitFile ? affidavitFile.name : "Select File"}
-                </p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                  Drag and drop or click to browse
-                </p>
-              </label>
-            </div>
-
-            <button
-              onClick={handleUpload}
-              disabled={loading || !affidavitFile}
-              className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 disabled:opacity-50 disabled:grayscale"
-            >
-              {loading ? <><Loader2 className="animate-spin" size={18} /> Syncing...</> : <><Upload size={18} /> Upload For Review</>}
-            </button>
+          <div className="max-w-xl mx-auto md:mx-0">
+            <SmartUploader
+              admissionId={admissionId}
+              fieldName="affidavit"
+              label="Legal Affidavit"
+              hindiLabel="कानूनी शपथ पत्र"
+              maxSizeMB={1}
+              onUploadComplete={async (url) => {
+                setLoading(true);
+                // We use saveAdmissionStep to update the DB table student_documents.affidavit
+                const res = await saveAdmissionStep(admissionId, 10, { documents: { affidavit: url } });
+                if (res.success) {
+                  setCurrentDocData((prev: any) => ({ ...prev, affidavit: url }));
+                  router.refresh();
+                } else {
+                  const errorMsg = (res as any).error || "Unknown error";
+                  alert("Error saving record: " + errorMsg);
+                }
+                setLoading(false);
+              }}
+              accept="application/pdf,image/*"
+            />
           </div>
         </div>
       )}

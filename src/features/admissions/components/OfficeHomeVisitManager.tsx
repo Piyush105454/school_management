@@ -17,38 +17,7 @@ import {
 import { generateHomeVisitPDF } from "@/features/admissions/utils/generateHomeVisitPDF";
 import { cn, formatDate, formatTime } from "@/lib/utils";
 import { scheduleHomeVisit, updateHomeVisitStatus, getHomeVisitData } from "@/features/admissions/actions/homeVisitActions";
-// Remove finalize component imports to avoid unused warnings
-
-
-const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width *= maxHeight / height;
-          height = maxHeight;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
-    };
-  });
-};
+import { SmartUploader } from "./SmartUploader";
 
 export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant: any, teachers?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -112,66 +81,21 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
 
   }, [isOpen, applicant.id, visitData.visitImage]);
 
-  const handleReportUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 1. Check for PDF only
-    if (file.type !== "application/pdf") {
-      alert("Please upload the Visit Report as a PDF file only.");
-      e.target.value = ""; // Clear input
-      return;
-    }
-
-    // 2. Check for 5MB limit
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File size exceeds 5MB. Please upload a smaller PDF.");
-      e.target.value = ""; // Clear input
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setVisitData({ ...visitData, visitImage: reader.result as string });
-    };
-    reader.readAsDataURL(file);
+  const handleReportUpload = (url: string) => {
+    setVisitData({ ...visitData, visitImage: url });
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      try {
-        const compressed = await compressImage(reader.result as string);
-        setVisitData({ ...visitData, visitImage: compressed });
-      } catch (e) {
-        console.error("Compression error:", e);
-        alert("Error compressing image.");
-      }
-    };
-    reader.readAsDataURL(file);
+  const handlePhotoUpload = (url: string) => {
+    setVisitData((prev: any) => ({
+      ...prev,
+      homePhoto: [...(prev.homePhoto || []), url]
+    }));
   };
 
-  const handleMultipleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const compressed = await compressImage(reader.result as string);
-          setVisitData((prev: any) => ({
-             ...prev,
-             homePhoto: [...(prev.homePhoto || []), compressed]
-          }));
-        } catch (e) {
-          console.error("Compression error:", e);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+  const removePhoto = (idx: number) => {
+    const updated = [...visitData.homePhoto];
+    updated.splice(idx, 1);
+    setVisitData({ ...visitData, homePhoto: updated });
   };
 
 
@@ -357,101 +281,48 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
                     />
                  </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                            <FileText size={12} /> Upload Visit Report (PDF ONLY, MAX 5MB)
-                        </label>
-                        <button 
-                            type="button" 
-                            onClick={async (e) => { 
-                                e.stopPropagation(); 
-                                setDownloadingPdf(true);
-                                try { await generateHomeVisitPDF(applicant); } 
-                                finally { setDownloadingPdf(false); }
-                            }} 
-                            disabled={downloadingPdf}
-                            className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-all flex items-center gap-2"
-                        >
-                            {downloadingPdf ? <Loader2 className="animate-spin" size={10} /> : <Download size={10} />}
-                            Download Report
-                        </button>
-                    </div>
-                    {!visitData.visitImage && (
-                        <input 
-                            type="file"
-                            accept=".pdf"
-                            onChange={handleReportUpload}
-                            className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                        />
-                    )}
-                    {visitData.visitImage && (
-                        <div className="mt-2 rounded-xl border border-slate-100 overflow-hidden max-w-[200px] relative group cursor-pointer bg-slate-50 p-3">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-blue-200">
-                                    <FileText size={20} />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest truncate">Report_Uploaded.pdf</p>
-                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight italic">Click to Remove</p>
-                                </div>
-                            </div>
-                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2 rounded-lg backdrop-blur-[2px]">
-                                <button 
-                                    type="button"
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        const win = window.open();
-                                        if (win) {
-                                            win.document.write(`<iframe src="${visitData.visitImage}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-                                        }
-                                    }}
-                                    className="text-[8px] font-black text-white bg-blue-600 px-3 py-1.5 rounded-md flex items-center gap-1.5 hover:bg-blue-700 transition-colors shadow-lg"
-                                >
-                                    <Eye size={10} /> VIEW
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setVisitData({ ...visitData, visitImage: "" }); }}
-                                    className="text-[8px] font-black text-white bg-red-600 px-3 py-1.5 rounded-md flex items-center gap-1.5 hover:bg-red-700 transition-colors shadow-lg"
-                                >
-                                    <XCircle size={10} /> REMOVE
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                  <div className="space-y-4">
+                     <SmartUploader
+                         admissionId={applicant.id}
+                         fieldName="visit_report"
+                         label="Home Visit Report (PDF)"
+                         hindiLabel="होम विजिट रिपोर्ट (केवल PDF)"
+                         initialUrl={visitData.visitImage}
+                         category="home-visits"
+                         maxSizeMB={0.5}
+                         onUploadComplete={handleReportUpload}
+                         onDelete={() => setVisitData({ ...visitData, visitImage: "" })}
+                         accept="application/pdf"
+                     />
                   </div>
 
-                 <div className="space-y-2">
+                  <div className="space-y-4">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                        <FileText size={12} /> Upload Home Photo (Multiple)
+                        Upload Home Photos (Minimum 1 Required)
                     </label>
-                    <input 
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleMultipleImageChange}
-                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                    />
-                    {Array.isArray(visitData.homePhoto) && visitData.homePhoto.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                            {visitData.homePhoto.map((img: string, idx: number) => (
-                                <div key={idx} className="rounded-xl border border-slate-100 overflow-hidden relative group cursor-pointer" onClick={() => setPreviewImage(img)}>
-                                    <img src={img} alt={`Home Photo ${idx+1}`} className="h-20 w-full object-cover rounded-lg" />
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <span className="text-[8px] font-black text-white bg-red-600 px-2 py-1 rounded-md cursor-pointer" onClick={(e) => {
-                                            e.stopPropagation();
-                                            const updated = [...visitData.homePhoto];
-                                            updated.splice(idx, 1);
-                                            setVisitData({ ...visitData, homePhoto: updated });
-                                        }}>REMOVE</span>
-                                    </div>
-                                </div>
-
-                            ))}
-                        </div>
-                    )}
-                 </div>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                        {/* We allow up to 4 photos for now */}
+                        {[0, 1, 2, 3].map((idx) => (
+                           <SmartUploader
+                             key={idx}
+                             admissionId={applicant.id}
+                             fieldName={`home_photo_${idx}`}
+                             label={visitData.homePhoto?.[idx] ? `Photo ${idx + 1}` : `Add Photo ${idx + 1}`}
+                             initialUrl={visitData.homePhoto?.[idx]}
+                             category="home-visits"
+                             maxSizeMB={0.5}
+                             onUploadComplete={(url) => {
+                               const updated = [...(visitData.homePhoto || [])];
+                               updated[idx] = url;
+                               setVisitData({ ...visitData, homePhoto: updated });
+                             }}
+                             onDelete={() => removePhoto(idx)}
+                             accept="image/*"
+                           />
+                        ))}
+                    </div>
+                  </div>
 
 
 

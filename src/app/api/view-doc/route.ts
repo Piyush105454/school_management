@@ -52,7 +52,13 @@ export async function GET(req: NextRequest) {
 
     // Fetch from S3 and stream back to browser
     const response = await fetch(secureUrl);
-    if (!response.ok) throw new Error("Failed to fetch from S3");
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`S3 Fetch Failed: Status ${response.status} - ${response.statusText}`);
+      console.error(`S3 Error Body: ${errorText}`);
+      throw new Error(`S3 Error: ${response.status} ${response.statusText}`);
+    }
 
     const blob = await response.blob();
     const headers = new Headers();
