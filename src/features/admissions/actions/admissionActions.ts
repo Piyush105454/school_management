@@ -17,7 +17,7 @@ import {
   entranceTests,
   homeVisits
 } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
 
@@ -368,9 +368,27 @@ export async function verifyAdmission(admissionId: string) {
 
 export async function finalizeFinalAdmission(admissionId: string, approveScholarship?: boolean, amount: number = 36000) {
   try {
+    // 1. Fetch status of previous steps for strict validation
+    const [checklist, test, visit] = await Promise.all([
+      db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
+      db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
+      db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) })
+    ]);
+
+    // Validation checks
+    if (checklist?.parentAffidavit !== "VERIFIED") {
+      return { success: false, error: "Documents are NOT VERIFIED. Please complete document verification first." };
+    }
+    if (test?.status !== "PASS") {
+      return { success: false, error: "Entrance Test NOT PASSED. Student must pass the test first." };
+    }
+    if (visit?.status !== "PASS") {
+      return { success: false, error: "Home Visit NOT COMPLETED. Please complete the home visit first." };
+    }
+
     return await db.transaction(async (tx) => {
       await tx.update(studentProfiles)
-        .set({ isFullyAdmitted: true })
+        .set({ isFullyAdmitted: true, admissionStep: 13 })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
 
       if (approveScholarship) {
@@ -400,6 +418,115 @@ export async function awardScholarshipDirect(admissionId: string, amount: number
     revalidatePath("/office/scholarship/award");
     return { success: true };
   } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function revokeScholarshipDirect(admissionId: string) {
+  try {
+    await db.update(admissionMeta)
+      .set({ awardedScholarship: false, scholarshipAmount: 0, updatedAt: new Date() })
+      .where(eq(admissionMeta.id, admissionId));
+
+    revalidatePath("/student/dashboard");
+    revalidatePath("/office/scholarship/award");
+    revalidatePath("/office/inquiries");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function undoAdmissionStep(admissionId: string) {
+  try {
+    const profile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.admissionMetaId, admissionId),
+      columns: { admissionStep: true }
+    });
+
+    if (!profile) throw new Error("Student profile not found");
+
+    const newStep = Math.max(1, profile.admissionStep - 1);
+
+    await db.transaction(async (tx) => {
+      // 1. Update Student Profile
+      await tx.update(studentProfiles)
+        .set({ admissionStep: newStep, isFullyAdmitted: false }) 
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+
+      // 2. Reset Fee choice and scholarship status
+      await tx.update(admissionMeta)
+        .set({ 
+          appliedScholarship: null, 
+          awardedScholarship: false, 
+          scholarshipAmount: 0,
+          updatedAt: new Date()
+        })
+        .where(eq(admissionMeta.id, admissionId));
+    });
+
+    revalidatePath("/office/inquiries");
+    revalidatePath("/student/dashboard");
+    revalidatePath("/student/admission");
+    revalidatePath("/office/final-admissions");
+    revalidatePath("/office/scholarship/award");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * ONE-TIME REPAIR: Syncs admissionStep to 13 for all students who are already 'isFullyAdmitted'.
+ * This fixes the 'Not Verified' issue for students approved in the past.
+ */
+export async function syncFinalAdmissions() {
+  try {
+    const admitted = await db.query.studentProfiles.findMany({
+      where: eq(studentProfiles.isFullyAdmitted, true),
+      with: {
+        admissionMeta: true
+      }
+    });
+
+    if (admitted.length === 0) return { success: true, count: 0 };
+
+    await db.transaction(async (tx) => {
+      for (const profile of admitted) {
+        const admissionId = profile.admissionMetaId;
+        if (!admissionId) continue;
+
+        // 1. Force Step 13
+        await tx.update(studentProfiles)
+          .set({ admissionStep: 13 })
+          .where(eq(studentProfiles.id, profile.id));
+
+        // 2. Ensure Document Checklist is 'VERIFIED'
+        await tx.insert(documentChecklists).values({
+          admissionId,
+          parentAffidavit: "VERIFIED",
+          formReceivedComplete: true,
+          verifiedAt: new Date()
+        }).onConflictDoUpdate({
+          target: documentChecklists.admissionId,
+          set: { parentAffidavit: "VERIFIED", formReceivedComplete: true }
+        });
+
+        // 3. Ensure Entrance Test is 'PASS' (legacy sync)
+        await tx.update(entranceTests)
+          .set({ status: "PASS" })
+          .where(and(
+            eq(entranceTests.admissionId, admissionId),
+            eq(entranceTests.status, "NOT_SCHEDULED")
+          ));
+      }
+    });
+
+    revalidatePath("/student/dashboard");
+    revalidatePath("/office/inquiries");
+    return { success: true, count: admitted.length };
+  } catch (error: any) {
+    console.error("Sync error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -582,6 +709,18 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       }
     }
 
+    if (enrichedBio?.studentPhoto && !enrichedBio.studentPhoto.startsWith("data:")) {
+      enrichedBio.studentPhoto = await getSignedDownloadUrl(enrichedBio.studentPhoto) || enrichedBio.studentPhoto;
+    }
+
+    if (parents && parents.length > 0) {
+      for (const p of parents) {
+        if (p.photo && !p.photo.startsWith("data:")) {
+          p.photo = await getSignedDownloadUrl(p.photo) || p.photo;
+        }
+      }
+    }
+
     if (homeVisit) {
       if (homeVisit.visitImage) {
         homeVisit.visitImage = await getSignedDownloadUrl(homeVisit.visitImage) || homeVisit.visitImage;
@@ -634,12 +773,25 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
     const s3Context = await getS3UploadContext(admissionId);
     
     return await db.transaction(async (tx) => {
+      let stepResult = null;
       // Partially update based on step
       switch (step) {
         case 1:
         case 2:
           if (data.studentBio) {
             const bioData = sanitizeBioData(data.studentBio);
+
+            // Handle studentPhoto upload if it's base64
+            if (bioData.studentPhoto && bioData.studentPhoto.startsWith("data:")) {
+              bioData.studentPhoto = await uploadToS3(bioData.studentPhoto, {
+                fileName: "photo",
+                admissionId,
+                ...s3Context,
+                category: "student-documents"
+              });
+            } else if (bioData.studentPhoto && bioData.studentPhoto.startsWith("http")) {
+              bioData.studentPhoto = bioData.studentPhoto.split('?')[0];
+            }
 
             await tx.insert(studentBio).values({ ...bioData, admissionId }).onConflictDoUpdate({
               target: studentBio.admissionId,
@@ -700,9 +852,13 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                   const s3Url = await uploadToS3(p.photo, {
                     fileName: `parent_${p.personType}`,
                     admissionId,
+                    ...s3Context,
                     category: "student-documents"
                   });
                   return { ...p, photo: s3Url };
+                } else if (p.photo && p.photo.startsWith("http")) {
+                  // Clean signature if present
+                  return { ...p, photo: p.photo.split('?')[0] };
                 }
                 return p;
               }));
@@ -710,6 +866,13 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
               await tx.insert(parentGuardianDetails).values(
                 processedParents.map((p: any) => ({ ...p, admissionId }))
               );
+              // Sign for client preview
+              stepResult = await Promise.all(processedParents.map(async (p: any) => {
+                if (p.photo && p.photo.startsWith("http")) {
+                  return { ...p, photo: await getSignedDownloadUrl(p.photo) || p.photo };
+                }
+                return p;
+              }));
             }
           }
           break;
@@ -731,6 +894,7 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                 folderDocs[key] = await uploadToS3(value, {
                   fileName: key,
                   admissionId,
+                  ...s3Context,
                   category: "student-documents"
                 });
               } else if (value === "" || value === null) {
@@ -744,6 +908,8 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                   await deleteFromS3(oldUrl);
                 }
                 folderDocs[key] = null;
+              } else if (value && typeof value === 'string' && value.startsWith("http")) {
+                folderDocs[key] = value.split('?')[0];
               } else {
                 folderDocs[key] = value;
               }
@@ -787,7 +953,7 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
           .where(eq(studentProfiles.admissionMetaId, admissionId));
       }
 
-      return { success: true, error: null };
+      return { success: true, error: null, updatedData: stepResult };
     });
   } catch (error: any) {
     console.error("saveAdmissionStep error:", error);

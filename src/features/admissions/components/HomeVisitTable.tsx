@@ -8,11 +8,13 @@ import {
   Calendar, 
   Clock, 
   MapPin,
-  AlertCircle
+  AlertCircle,
+  RotateCcw
 } from "lucide-react";
 import { cn, formatDate, formatTime } from "@/lib/utils";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { OfficeHomeVisitManager } from "./OfficeHomeVisitManager";
+import { undoAdmissionStep } from "../actions/admissionActions";
 
 interface HomeVisitTableProps {
   applicants: any[];
@@ -125,16 +127,33 @@ export function HomeVisitTable({ applicants, teachers = [] }: HomeVisitTableProp
                       {getStatusBadge(visit?.status || "NOT_SCHEDULED")}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        className={cn(
-                          "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                          isExpanded 
-                            ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10" 
-                            : "bg-white text-indigo-600 border border-indigo-100 hover:bg-indigo-50"
+                      <div className="flex items-center justify-end gap-2">
+                        {(visit?.status === "PASS" || visit?.status === "FAIL") && (
+                          <button 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm("Move this student back to the previous step (Scheduling)?")) {
+                                const res = await undoAdmissionStep(applicant.id);
+                                if (res.success) window.location.reload();
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                            title="Undo Step"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
                         )}
-                      >
-                        {isExpanded ? "Close" : "Manage"}
-                      </button>
+                        <button 
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                            isExpanded 
+                              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10" 
+                              : "bg-white text-indigo-600 border border-indigo-100 hover:bg-indigo-50"
+                          )}
+                        >
+                          {isExpanded ? "Close" : "Manage"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   

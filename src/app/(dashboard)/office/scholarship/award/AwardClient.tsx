@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { awardScholarshipDirect } from "@/features/admissions/actions/admissionActions";
-import { CheckCircle, Clock, Award } from "lucide-react";
+import { awardScholarshipDirect, revokeScholarshipDirect } from "@/features/admissions/actions/admissionActions";
+import { CheckCircle, Clock, Award, RotateCcw, Loader2 } from "lucide-react";
 
 export default function AwardClient({ students }: { students: any[] }) {
   const [loading, setLoading] = useState<string | null>(null);
@@ -17,6 +17,19 @@ export default function AwardClient({ students }: { students: any[] }) {
       window.location.reload();
     } else {
       alert("Error: " + (res as any).error);
+    }
+  };
+
+  const handleRevoke = async (admissionId: string) => {
+    if (!confirm("Are you sure you want to REVOKE the scholarship for this student? This will clear the awarded amount.")) return;
+    setLoading(admissionId);
+    const res = await revokeScholarshipDirect(admissionId);
+    setLoading(null);
+    if (res.success) {
+      alert("Scholarship Revoked successfully.");
+      window.location.reload();
+    } else {
+      alert("Error revoking scholarship: " + (res as any).error);
     }
   };
 
@@ -78,7 +91,16 @@ export default function AwardClient({ students }: { students: any[] }) {
                       disabled={loading === student.admissionId}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/10 disabled:opacity-50 transition-all flex items-center gap-2"
                     >
-                      {loading === student.admissionId ? "Awarding..." : "Award 36,000"}
+                      {loading === student.admissionId ? <Loader2 className="animate-spin" size={14}/> : "Award 36,000"}
+                    </button>
+                  )}
+                  {student.awardedScholarship && (
+                    <button 
+                      onClick={() => handleRevoke(student.admissionId)}
+                      disabled={loading === student.admissionId}
+                      className="text-red-500 hover:text-red-700 font-bold text-[10px] uppercase tracking-widest flex items-center gap-1 bg-red-50 px-3 py-2 rounded-xl border border-red-100 hover:bg-red-100 transition-all"
+                    >
+                      {loading === student.admissionId ? <Loader2 className="animate-spin" size={12}/> : <><RotateCcw size={12} /> Undo Award</>}
                     </button>
                   )}
                 </td>

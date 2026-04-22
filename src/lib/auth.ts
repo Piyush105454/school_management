@@ -1,8 +1,8 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq, or, sql } from "drizzle-orm";
+import { users, inquiries } from "@/db/schema";
+import { eq, or, sql, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
@@ -16,15 +16,37 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const email = credentials.email.trim().toLowerCase();
-        console.log("LOGIN_ATTEMPT:", email);
+        const identifier = credentials.email.trim();
+        const lowerIdentifier = identifier.toLowerCase();
+        console.log("LOGIN_ATTEMPT:", identifier);
 
-        const user = await db.query.users.findFirst({
-          where: or(
-            sql`lower(${users.email}) = ${email}`,
-            eq(users.phone, email)
-          ),
+        let user: any = null;
+
+        // 1. Try finding by Email first (for everyone)
+        user = await db.query.users.findFirst({
+          where: sql`lower(${users.email}) = ${lowerIdentifier}`,
         });
+
+        // 2. If not found and it looks like a 12-digit Aadhaar, search via student relations
+        if (!user && /^\d{12}$/.test(identifier)) {
+          const match = await db.query.inquiries.findFirst({
+            where: eq(inquiries.aadhaarNumber, identifier),
+            with: {
+              admissionMeta: {
+                with: {
+                  studentProfile: true
+                }
+              }
+            }
+          });
+
+          const userId = match?.admissionMeta?.studentProfile?.userId;
+          if (userId) {
+            user = await db.query.users.findFirst({
+              where: eq(users.id, userId),
+            });
+          }
+        }
 
         console.log("USER_FOUND:", !!user, user?.role);
 

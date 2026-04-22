@@ -7,11 +7,13 @@ import {
   ChevronUp, 
   CheckCircle,
   AlertCircle,
-  BadgeCent
+  BadgeCent,
+  RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { OfficeFinalManager } from "./OfficeFinalManager";
+import { undoAdmissionStep } from "@/features/admissions/actions/admissionActions";
 
 interface FinalAdmissionTableProps {
   applicants: any[];
@@ -42,7 +44,7 @@ export function FinalAdmissionTable({ applicants }: FinalAdmissionTableProps) {
       );
     }
     return (
-      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 animate-pulse whitespace-nowrap">
+      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200 whitespace-nowrap">
         Pending Choice
       </span>
     );
@@ -110,8 +112,23 @@ export function FinalAdmissionTable({ applicants }: FinalAdmissionTableProps) {
                     </td>
                     <td className="px-6 py-5 text-right">
                        {isAdmitted ? (
-                         <div className="flex items-center justify-end gap-2 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
-                            <CheckCircle size={14} /> Admitted
+                         <div className="flex items-center justify-end gap-3">
+                            <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-black uppercase tracking-widest bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                               <CheckCircle size={14} /> Admitted
+                            </div>
+                            <button 
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm("REVERT ADMISSION? This will clear the admitted status and move the student back to the previous step.")) {
+                                  const res = await undoAdmissionStep(applicant.id);
+                                  if (res.success) window.location.reload();
+                                }
+                              }}
+                              className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                              title="Undo Admission"
+                            >
+                              <RotateCcw size={16} />
+                            </button>
                          </div>
                        ) : (
                          <button 

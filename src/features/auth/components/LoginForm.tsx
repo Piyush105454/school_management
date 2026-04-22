@@ -25,7 +25,7 @@ export function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError("Invalid credentials. Please check your email/aadhaar and password.");
       } else {
         router.push("/");
         router.refresh();
@@ -60,7 +60,7 @@ export function LoginForm() {
         <div className="space-y-4">
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-              Email or Phone Number
+              Email or Aadhaar Number
             </label>
             <input
               type="text"
@@ -68,7 +68,7 @@ export function LoginForm() {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-medium"
-              placeholder="Enter your email or phone number"
+              placeholder="Enter your email or 12-digit Aadhaar"
             />
           </div>
           <div>

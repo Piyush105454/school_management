@@ -27,10 +27,11 @@ import {
   Clock,
   MapPinned,
   AlertCircle,
-  Upload
+  Upload,
+  RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute, undoAdmissionStep } from "../actions/admissionActions";
 import { rejectAffidavit } from "../actions/documentActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
@@ -230,13 +231,26 @@ export function OfficeAdmissionForm({
       const prevStepVal = currentStep;
       setCurrentStep(prev => Math.min(prev + 1, 14));
       const data = methods.getValues();
-      const stepData: any = { [currentFields]: data[currentFields as keyof typeof data] };
+      const stepData: any = { [currentFields]: (data as any)[currentFields] };
       const saveRes = await saveAdmissionStep(admissionId, prevStepVal, stepData) as any;
       setLoading(false);
       if (!saveRes.success) {
          console.error("saveAdmissionStep error:", saveRes.error);
          alert("Progress could not be saved to server.");
       }
+    }
+  };
+
+  const handleUndoStep = async () => {
+    if (!confirm("Are you sure you want to MOVE THE STUDENT BACK one step in the database? This affects what the student sees on their dashboard.")) return;
+    setLoading(true);
+    const res = await undoAdmissionStep(admissionId);
+    setLoading(false);
+    if (res.success) {
+      alert("Step undone successfully. Page will reload.");
+      window.location.reload();
+    } else {
+      alert("Error undoing step: " + (res as any).error);
     }
   };
 
@@ -352,14 +366,27 @@ export function OfficeAdmissionForm({
 
           {currentStep < 14 && (
             <div className="mt-10 md:mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200/60 max-w-3xl mx-auto w-full gap-4">
-              <button 
-                type="button"
-                onClick={prevStep} 
-                disabled={currentStep === 1} 
-                className="w-full md:w-auto group flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl text-slate-600 font-bold hover:bg-slate-200/50 transition-all duration-200 disabled:opacity-30 border border-slate-100 md:border-transparent hover:border-slate-200"
-              >
-                <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
-              </button>
+              <div className="flex gap-2 w-full md:w-auto">
+                <button 
+                  type="button"
+                  onClick={prevStep} 
+                  disabled={currentStep === 1} 
+                  className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl text-slate-600 font-bold hover:bg-slate-200/50 transition-all duration-200 disabled:opacity-30 border border-slate-100"
+                >
+                  <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
+                </button>
+                
+                {maxStep > 1 && (
+                  <button 
+                    type="button"
+                    onClick={handleUndoStep}
+                    disabled={loading}
+                    className="flex-1 md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all shadow-sm border border-red-100"
+                  >
+                    <RotateCcw size={14} /> Undo Step
+                  </button>
+                )}
+              </div>
               
               <div className="flex gap-3 w-full md:w-auto">
                  {currentStep < 13 ? (
@@ -768,10 +795,16 @@ function ParentsStep() {
                      </div>
                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, index)} />
                    </label>
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Photo</span>
-                      <p className="text-[9px] text-slate-400 font-medium">{photoValue ? "Available" : "Missing"}</p>
-                   </div>
+                    <div className="flex flex-col">
+                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Photo</span>
+                       <p className="text-[9px] font-medium uppercase tracking-tighter">
+                          {photoValue ? (
+                            <span className="text-emerald-600 font-black">Available</span>
+                          ) : (
+                            <span className="text-red-500 font-black">Missing</span>
+                          )}
+                       </p>
+                    </div>
                 </div>
               </div>
               

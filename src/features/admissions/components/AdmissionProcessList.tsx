@@ -21,10 +21,12 @@ import {
   Check,
   ExternalLink,
   Loader2,
-  FileText
+  FileText,
+  RotateCcw
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { resetStudentPassword } from "../actions/inquiryActions";
+import { undoAdmissionStep } from "../actions/admissionActions";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ADMISSION_STEPS, getComputedStep, getStatusText, getStepRedirect } from "../utils/admissionSteps";
@@ -223,6 +225,22 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                               <Shield size={14} className="text-blue-600" />
                               <span>View Credentials</span>
                             </button>
+
+                            {adm.profile?.isFullyAdmitted && (
+                              <button 
+                                onClick={async () => {
+                                  if (confirm("REVERT ADMISSION? This will move the student back to the Home Visit step and clear their admitted status.")) {
+                                    setOpenMenuId(null);
+                                    const res = await undoAdmissionStep(adm.id);
+                                    if (res.success) window.location.reload();
+                                  }
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer border-t border-slate-50 mt-1"
+                              >
+                                <RotateCcw size={14} className="text-rose-600" />
+                                <span>Undo Admission</span>
+                              </button>
+                            )}
                           </div>
                         </>
                       )}

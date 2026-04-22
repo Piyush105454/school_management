@@ -104,7 +104,8 @@ export function AdmissionForm({
   maxStep?: number,
   initialStep?: number 
 }) {
-  const [currentStep, setCurrentStep] = useState(initialStep || (maxStep >= 13 ? 13 : Math.max(1, Math.min(maxStep, 12))));
+  const isActuallyAdmitted = initialData?.studentProfile?.isFullyAdmitted;
+  const [currentStep, setCurrentStep] = useState(isActuallyAdmitted ? 13 : (initialStep || (maxStep >= 13 ? 13 : Math.max(1, maxStep || 1))));
   const [loading, setLoading] = useState(false);
   const defaults = {
     studentBio: {
@@ -184,7 +185,7 @@ export function AdmissionForm({
 
       methods.reset(mergedData);
       
-      const targetStep = maxStep && maxStep > 12 ? 12 : maxStep || 1;
+      const targetStep = isActuallyAdmitted ? 13 : (initialStep || maxStep || 1);
       setCurrentStep(targetStep);
     };
 
@@ -381,7 +382,7 @@ export function AdmissionForm({
                   {currentStep === 3 && <AddressStep />}
                   {currentStep === 4 && <AcademicStep />}
                   {currentStep === 5 && <SiblingsStep />}
-                  {currentStep === 6 && <ParentsStep />}
+                  {currentStep === 6 && <ParentsStep admissionId={admissionId} />}
                   {currentStep === 7 && <BankStep />}
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
@@ -391,11 +392,20 @@ export function AdmissionForm({
                     initialChecklistData={initialData?.documentChecklist} 
                     studentName={`${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`} 
                     officeRemarks={initialData?.admissionMeta?.officeRemarks}
+                    isActuallyAdmitted={isActuallyAdmitted}
                   />}
                   {currentStep === 11 && <EntranceTestStatusStep admissionId={admissionId} initialData={initialData} />}
                   {currentStep === 12 && <HomeVisitStatusStep admissionId={admissionId} initialData={initialData} />}
                 </fieldset>
-                {currentStep >= 13 && maxStep >= 13 && <SubmissionSuccessStep data={initialData} admissionId={admissionId} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
+                {currentStep >= 13 && (
+                  <SubmissionSuccessStep 
+                    data={initialData} 
+                    admissionId={admissionId} 
+                    onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} 
+                    downloading={loading} 
+                    isActuallyAdmitted={isActuallyAdmitted} 
+                  />
+                )}
               </div>
             </form>
           </FormProvider>
@@ -412,15 +422,15 @@ export function AdmissionForm({
               </button>
               
               <div className="flex gap-3 w-full md:w-auto">
-                 {currentStep < 10 ? (
-                   <button 
-                     type="button" 
-                     onClick={nextStep} 
-                     className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
-                   >
-                      Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
-                   </button>
-                 ) : currentStep === 10 && maxStep >= 11 ? (
+                  {currentStep < 10 ? (
+                    <button 
+                      type="button" 
+                      onClick={nextStep} 
+                      className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                    >
+                       Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  ) : currentStep === 10 && (maxStep >= 11 || isActuallyAdmitted) ? (
                     <button 
                       type="button"
                       onClick={() => setCurrentStep(11)}
@@ -428,7 +438,7 @@ export function AdmissionForm({
                     >
                       Check Test Status <ChevronRight size={22} />
                     </button>
-                 ) : currentStep === 11 && maxStep >= 12 ? (
+                 ) : currentStep === 11 && (maxStep >= 12 || isActuallyAdmitted) ? (
                     <button 
                       type="button"
                       onClick={() => setCurrentStep(12)}
@@ -436,7 +446,7 @@ export function AdmissionForm({
                     >
                       Check Visit Status <ChevronRight size={22} />
                     </button>
-                 ) : currentStep === 12 && maxStep >= 13 ? (
+                 ) : currentStep === 12 && (maxStep >= 13 || isActuallyAdmitted) ? (
                   <button 
                     type="button"
                     onClick={() => setCurrentStep(13)}
@@ -445,7 +455,7 @@ export function AdmissionForm({
                     View Admission Status <CheckCircle size={22} />
                   </button>
                  ) : null}
-               </div>
+                </div>
             </div>
           )}
         </div>
@@ -724,7 +734,7 @@ function AcademicStep() {
   );
 }
 
-function ParentsStep() {
+function ParentsStep({ admissionId }: { admissionId: string }) {
   const { control, register, getValues, setValue, watch, formState: { errors } } = useFormContext();
   const { fields, append } = useFieldArray({ control, name: "parentsGuardians" });
   const [uploading, setUploading] = useState<Record<number, boolean>>({});
@@ -753,7 +763,14 @@ function ParentsStep() {
       reader.onloadend = async () => {
         try {
           const compressed = await compressImage(reader.result as string);
-          setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true });
+          setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true, shouldDirty: true });
+          
+          // Auto-save this individual photo immediately so office can see it
+          const currentParents = getValues("parentsGuardians");
+          const res = await saveAdmissionStep(admissionId, 6, { parentsGuardians: currentParents }) as any;
+          if (res.success && res.updatedData) {
+            setValue("parentsGuardians", res.updatedData, { shouldValidate: true });
+          }
         } catch (e) {
           console.error("Compression error:", e);
           alert("Error compressing image.");
@@ -809,7 +826,17 @@ function ParentsStep() {
                   </label>
                   <div className="flex flex-col">
                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Photo</span>
-                     <p className="text-[9px] text-slate-400 font-medium">{photoValue ? "Uploaded" : "Optional"}</p>
+                     <p className="text-[9px] font-medium uppercase tracking-tighter">
+                        {photoValue ? (
+                          photoValue.startsWith("http") ? (
+                            <span className="text-emerald-600 font-black">Saved</span>
+                          ) : (
+                            <span className="text-amber-600 font-black">Not Saved</span>
+                          )
+                        ) : (
+                          <span className="text-slate-400">Missing</span>
+                        )}
+                     </p>
                   </div>
                 </div>
               </div>
@@ -1016,14 +1043,16 @@ function SubmissionSuccessStep({
   downloading,
   initialMeta,
   initialChecklist,
-  admissionId
+  admissionId,
+  isActuallyAdmitted
 }: { 
   data: any, 
   onDownload: (type: 'ADMISSION' | 'FULL_PACKAGE') => void, 
   downloading: boolean,
   initialMeta?: any,
   initialChecklist?: any,
-  admissionId: string
+  admissionId: string,
+  isActuallyAdmitted?: boolean
 }) {
   const bio = data.studentBio || {};
   const addr = data.address || {};
@@ -1036,8 +1065,8 @@ function SubmissionSuccessStep({
     return String(date);
   };
 
-  const isVerified = initialChecklist?.parentAffidavit === "VERIFIED";
-  const isPending = initialChecklist?.parentAffidavit === "SUBMITTED";
+  const isVerified = initialChecklist?.parentAffidavit === "VERIFIED" || isActuallyAdmitted;
+  const isPending = initialChecklist?.parentAffidavit === "SUBMITTED" && !isActuallyAdmitted;
 
   return (
     <div className="animate-in zoom-in-95 fade-in duration-500 py-4 md:py-8">
@@ -1054,12 +1083,14 @@ function SubmissionSuccessStep({
         </div>
         <div className="space-y-2">
           <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">
-            {isVerified ? "Verification Complete" : 
+            {isActuallyAdmitted ? "Successfully Admitted" : 
+             isVerified ? "Verification Complete" : 
              isPending ? "Verification Pending" : 
              "Not Verified"}
           </h2>
           <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">
-            {isVerified ? "All documents have been officially reviewed." :
+            {isActuallyAdmitted ? "Welcome! You are now an official student." :
+             isVerified ? "All documents have been officially reviewed." :
              isPending ? "Your documents are currently under review." :
              "Please complete the verification step."}
           </p>
@@ -1178,13 +1209,15 @@ function DocumentVerificationStep({
   initialDocData, 
   initialChecklistData, 
   studentName,
-  officeRemarks
+  officeRemarks,
+  isActuallyAdmitted
 }: { 
   admissionId: string, 
   initialDocData?: any, 
   initialChecklistData?: any, 
   studentName: string,
-  officeRemarks?: string | null
+  officeRemarks?: string | null,
+  isActuallyAdmitted?: boolean
 }) {
   const { setValue } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -1274,8 +1307,12 @@ function DocumentVerificationStep({
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1">
-        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">Doc Verification</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium font-bold">Step 10: Upload and verify signed documents.</p>
+        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">
+          {isActuallyAdmitted ? "Verification Completed" : "Doc Verification"}
+        </h3>
+        <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-tight italic">
+          {isActuallyAdmitted ? "Your documents are finalized." : "Step 10: Upload and verify signed documents."}
+        </p>
       </div>
 
       <div className="max-w-xl mx-auto space-y-6">
@@ -1314,8 +1351,8 @@ function DocumentVerificationStep({
                 <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 group-hover:bg-blue-500 group-hover:text-white transition-all">
                   <Upload size={32} />
                 </div>
-                <p className="text-sm font-black text-slate-600 uppercase tracking-tight">{affidavitFile ? affidavitFile.name : "Select Affidavit"}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Click to browse signed copy</p>
+                <p className="text-sm font-black text-slate-600 uppercase tracking-tight">{affidavitFile ? affidavitFile.name : "Select Parent Affidavit"}</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Click to browse signed copy (PDF/JPG)</p>
               </label>
             </div>
             <button onClick={handleUpload} disabled={loading || !affidavitFile} className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
@@ -1331,8 +1368,7 @@ function DocumentVerificationStep({
                 <FileText size={28} />
               </div>
               <div>
-                <h4 className="text-xl font-black uppercase italic tracking-tight">{isFinalized ? "Documents Locked" : "Review Submission"}</h4>
-                <p className="text-[9px] font-bold uppercase tracking-widest">{isFinalized ? "Verified" : "Check details below"}</p>
+                <h4 className="text-xl font-black uppercase italic tracking-tight">{isFinalized ? "Affidavit Locked" : "Review Affidavit"}</h4>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

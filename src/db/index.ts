@@ -13,6 +13,14 @@ const globalForDb = globalThis as unknown as {
   db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 };
 
-export const db = globalForDb.db ?? drizzle(postgres(connectionString), { schema });
+export const db = globalForDb.db ?? drizzle(
+  postgres(connectionString, { 
+    prepare: false,
+    max: 10,
+    idle_timeout: 20,
+    connect_timeout: 10
+  }), 
+  { schema }
+);
 
 if (process.env.NODE_ENV !== "production") globalForDb.db = db;
