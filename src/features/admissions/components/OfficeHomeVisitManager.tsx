@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { generateHomeVisitPDF } from "@/features/admissions/utils/generateHomeVisitPDF";
 import { cn, formatDate, formatTime } from "@/lib/utils";
-import { scheduleHomeVisit, updateHomeVisitStatus, getHomeVisitData } from "@/features/admissions/actions/homeVisitActions";
+import { scheduleHomeVisit, updateHomeVisitStatus, getHomeVisitData, syncHomeVisitField } from "@/features/admissions/actions/homeVisitActions";
 import { SmartUploader } from "./SmartUploader";
 
 export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant: any, teachers?: any[] }) {
@@ -38,6 +38,7 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
     })(),
     status: applicant.homeVisit?.status || "NOT_SCHEDULED"
   });
+  const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
 
@@ -81,21 +82,26 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
 
   }, [isOpen, applicant.id, visitData.visitImage]);
 
-  const handleReportUpload = (url: string) => {
+  const handleReportUpload = async (url: string) => {
     setVisitData({ ...visitData, visitImage: url });
+    await syncHomeVisitField(applicant.id, "visitImage", url);
   };
 
-  const handlePhotoUpload = (url: string) => {
+  const handlePhotoUpload = async (url: string, idx: number) => {
+    const updated = [...(visitData.homePhoto || [])];
+    updated[idx] = url;
     setVisitData((prev: any) => ({
       ...prev,
-      homePhoto: [...(prev.homePhoto || []), url]
+      homePhoto: updated
     }));
+    await syncHomeVisitField(applicant.id, `home_photo_${idx}`, url);
   };
 
-  const removePhoto = (idx: number) => {
+  const removePhoto = async (idx: number) => {
     const updated = [...visitData.homePhoto];
     updated.splice(idx, 1);
     setVisitData({ ...visitData, homePhoto: updated });
+    await syncHomeVisitField(applicant.id, `home_photo_${idx}`, null);
   };
 
 
@@ -284,7 +290,7 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
                   <div className="space-y-4">
                      <SmartUploader
                          admissionId={applicant.id}
-                         fieldName="visit_report"
+                         fieldName="visitImage"
                          label="Home Visit Report (PDF)"
                          hindiLabel="होम विजिट रिपोर्ट (केवल PDF)"
                          initialUrl={visitData.visitImage}
@@ -297,30 +303,57 @@ export function OfficeHomeVisitManager({ applicant, teachers = [] }: { applicant
                   </div>
 
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                        Upload Home Photos (Minimum 1 Required)
-                    </label>
+                    <div className="flex items-center justify-between ml-1">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                          Home Photos (Minimum 1 Required)
+                      </label>
+                      <button 
+                        type="button"
+                        onClick={() => setIsAddingPhoto(!isAddingPhoto)}
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border flex items-center gap-2",
+                          isAddingPhoto 
+                            ? "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100" 
+                            : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"
+                        )}
+                      >
+                        {isAddingPhoto ? "Cancel" : "+ Add Photo"}
+                      </button>
+                    </div>
                     
-                    <div className="grid grid-cols-1 gap-3">
-                        {/* We allow up to 4 photos for now */}
-                        {[0, 1, 2, 3].map((idx) => (
+                    <div className="grid grid-cols-1 gap-6">
+                        {/* Map over existing photos */}
+                        {(visitData.homePhoto || []).map((url: string, idx: number) => (
                            <SmartUploader
-                             key={idx}
+                             key={`photo-${idx}-${url.slice(-10)}`}
                              admissionId={applicant.id}
                              fieldName={`home_photo_${idx}`}
-                             label={visitData.homePhoto?.[idx] ? `Photo ${idx + 1}` : `Add Photo ${idx + 1}`}
-                             initialUrl={visitData.homePhoto?.[idx]}
+                             label={`Home Photo ${idx + 1}`}
+                             initialUrl={url}
                              category="home-visits"
                              maxSizeMB={0.5}
-                             onUploadComplete={(url) => {
-                               const updated = [...(visitData.homePhoto || [])];
-                               updated[idx] = url;
-                               setVisitData({ ...visitData, homePhoto: updated });
-                             }}
+                             onUploadComplete={(newUrl) => handlePhotoUpload(newUrl, idx)}
                              onDelete={() => removePhoto(idx)}
                              accept="image/*"
                            />
                         ))}
+                        
+                        {/* Show ONE empty slot only when button clicked */}
+                        {isAddingPhoto && (
+                           <SmartUploader
+                             key={`photo-new-${visitData.homePhoto.length}`}
+                             admissionId={applicant.id}
+                             fieldName={`home_photo_${(visitData.homePhoto || []).length}`}
+                             label="Capture / Select New Photo"
+                             category="home-visits"
+                             maxSizeMB={0.5}
+                             onUploadComplete={(url) => {
+                               handlePhotoUpload(url, (visitData.homePhoto || []).length);
+                               setIsAddingPhoto(false);
+                             }}
+                             accept="image/*"
+                           />
+                        )}
                     </div>
                   </div>
 

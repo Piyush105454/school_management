@@ -155,9 +155,14 @@ export async function deleteFromS3(urlOrKey: string) {
     let key = urlOrKey;
     // Extract key if it's a full URL
     if (urlOrKey.startsWith("http")) {
-      const urlPart = `.s3.ap-south-1.amazonaws.com/`;
-      if (urlOrKey.includes(urlPart)) {
-        key = urlOrKey.split(urlPart)[1];
+      try {
+        const url = new URL(urlOrKey);
+        if (url.hostname.includes("amazonaws.com") && url.hostname.includes(".s3")) {
+          const rawKey = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+          key = decodeURIComponent(rawKey);
+        }
+      } catch (e) {
+        console.error("URL Parsing failed for delete key extraction:", e);
       }
     }
 

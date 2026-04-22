@@ -30,7 +30,22 @@ export async function GET(req: NextRequest) {
       secureUrl = res.success ? res.affidavit : null;
     } else if (type === "visit") {
       const res = await getHomeVisitData(id);
-      secureUrl = res.success ? (res.data as any)?.[field] : null;
+      if (res.success && res.data) {
+          const data = res.data as any;
+          if (field === "visit_report" || field === "visitImage") {
+              secureUrl = data.visitImage;
+          } else if (field?.startsWith("home_photo_")) {
+              const idx = parseInt(field.split("_").pop() || "0");
+              try {
+                  const photos = JSON.parse(data.homePhoto || "[]");
+                  secureUrl = Array.isArray(photos) ? photos[idx] : data.homePhoto;
+              } catch (e) {
+                  secureUrl = data.homePhoto;
+              }
+          } else {
+              secureUrl = data[field as string];
+          }
+      }
     } else if (type === "test") {
       const res = await getEntranceTestData(id);
       secureUrl = res.success ? (res.data as any)?.[field] : null;
@@ -43,11 +58,20 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Document not found", { status: 404 });
     }
 
-    // If it's still a data URL (legacy), we return it differently or it might be too large
+    // If it's a data URL (inline base64), decode and serve directly as a file.
+    // Redirecting to long data URLs causes ERR_UNSAFE_REDIRECT in many browsers.
     if (secureUrl.startsWith("data:")) {
-        // Redirect to a helper or handle base64
-        // For simplicity, we can let the legacy ones open as they were or handle them here
-        return NextResponse.redirect(secureUrl);
+      const mimeMatch = secureUrl.match(/^data:(.*);base64,(.*)$/);
+      if (mimeMatch) {
+        const contentType = mimeMatch[1];
+        const base64String = mimeMatch[2];
+        const buffer = Buffer.from(base64String, "base64");
+        const headers = new Headers();
+        headers.set("Content-Type", contentType);
+        headers.set("Content-Disposition", `inline; filename="${field}"`);
+        headers.set("Cache-Control", "public, max-age=3600");
+        return new NextResponse(buffer, { headers });
+      }
     }
 
     // Fetch from S3 and stream back to browser

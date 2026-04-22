@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useForm, FormProvider, useFormContext, useFieldArray } from "react-hook-form";
+import imageCompression from "browser-image-compression";
 import { 
   GraduationCap, 
   MapPin, 
@@ -25,7 +26,8 @@ import {
   Calendar,
   Clock,
   MapPinned,
-  AlertCircle
+  AlertCircle,
+  Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute } from "../actions/admissionActions";
@@ -34,6 +36,21 @@ import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 import { OfficeTestManager } from "./OfficeTestManager";
 import { OfficeHomeVisitManager } from "./OfficeHomeVisitManager";
+
+const compressImage = async (base64: string) => {
+  const blob = await (await fetch(base64)).blob();
+  const options = {
+    maxSizeMB: 0.5,
+    maxWidthOrHeight: 1024,
+    useWebWorker: true,
+  };
+  const compressedBlob = await imageCompression(new File([blob], "parent.jpg", { type: "image/jpeg" }), options);
+  return new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(compressedBlob);
+  });
+};
 
 
 const steps = [
@@ -109,8 +126,8 @@ export function OfficeAdmissionForm({
       classLastAttended: "", sessionYear: "", marksObtained: "", totalMarks: "", percentage: "", passFail: "PASS"
     },
     parentsGuardians: [
-      { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" },
-      { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" }
+      { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" },
+      { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" }
     ],
     siblings: [],
     bankDetails: {
@@ -670,17 +687,41 @@ function AcademicStep() {
 }
 
 function ParentsStep() {
-  const { control, register, getValues, formState: { errors } } = useFormContext();
+  const { control, register, getValues, setValue, watch, formState: { errors } } = useFormContext();
   const { fields, append } = useFieldArray({ control, name: "parentsGuardians" });
+  const [uploading, setUploading] = useState<Record<number, boolean>>({});
 
   React.useEffect(() => {
     if (fields.length === 0) {
       append([
-        { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" },
-        { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" }
+        { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" },
+        { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" }
       ]);
     }
   }, [fields, append]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Max allowed size is 500 KB. Image will be compressed.");
+      }
+      setUploading(prev => ({ ...prev, [index]: true }));
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const compressed = await compressImage(reader.result as string);
+          setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true, shouldDirty: true });
+        } catch (e) {
+          console.error("Compression error:", e);
+          alert("Error compressing image.");
+        } finally {
+          setUploading(prev => ({ ...prev, [index]: false }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-4 md:pb-6">
@@ -691,7 +732,7 @@ function ParentsStep() {
         </div>
         <button 
           type="button"
-          onClick={() => append({ personType: "GUARDIAN", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "" })}
+          onClick={() => append({ personType: "GUARDIAN", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" })}
           className="bg-slate-900 text-white px-3 md:px-5 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-bold hover:bg-black transition-all flex items-center gap-2 uppercase tracking-widest"
         >
           <Plus size={14} /> Add Guard
@@ -701,11 +742,38 @@ function ParentsStep() {
       <div className="space-y-4 md:space-y-6">
         {fields.map((field, index) => {
           const parentErrors = (errors.parentsGuardians as any)?.[index];
+          const photoValue = watch(`parentsGuardians.${index}.photo`);
+          const isUploading = uploading[index];
+
           return (
             <div key={field.id} className="p-4 md:p-6 rounded-xl bg-white border border-slate-100 shadow-sm space-y-4 md:space-y-6">
-              <h4 className="inline-flex px-3 py-1 rounded-full bg-slate-900 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
-                {(getValues as any)(`parentsGuardians.${index}.personType`)}
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="inline-flex px-3 py-1 rounded-full bg-slate-900 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
+                  {(getValues as any)(`parentsGuardians.${index}.personType`)}
+                </h4>
+
+                <div className="flex items-center gap-4">
+                   <label className={cn(
+                     "relative cursor-pointer group flex flex-col items-center",
+                     isUploading && "pointer-events-none opacity-50"
+                   )}>
+                     <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center border-2 border-dashed border-slate-300 group-hover:border-blue-500 overflow-hidden relative transition-all shadow-inner">
+                       {photoValue ? (
+                         <img src={photoValue} className="w-full h-full object-cover" alt="Parent preview" />
+                       ) : isUploading ? (
+                         <Loader2 className="animate-spin text-blue-500 h-5 w-5" />
+                       ) : (
+                         <Plus size={18} className="text-slate-400 group-hover:text-blue-500" />
+                       )}
+                     </div>
+                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, index)} />
+                   </label>
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Photo</span>
+                      <p className="text-[9px] text-slate-400 font-medium">{photoValue ? "Available" : "Missing"}</p>
+                   </div>
+                </div>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-1">

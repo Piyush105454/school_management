@@ -27,6 +27,8 @@ export default async function OfficeHomeVisitsPage() {
         visitTime: homeVisits.visitTime,
         teacherName: homeVisits.teacherName,
         remarks: homeVisits.remarks,
+        visitImage: homeVisits.visitImage,
+        homePhoto: homeVisits.homePhoto,
         status: homeVisits.status,
         createdAt: homeVisits.createdAt,
         updatedAt: homeVisits.updatedAt,

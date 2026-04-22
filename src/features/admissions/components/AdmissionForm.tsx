@@ -898,11 +898,11 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
   const { register, watch, setValue, formState: { errors } } = useFormContext();
 
   const documentList = [
-    { id: "birthCertificate", name: "Birth Certificate", hindi: "जन्म प्रमाण पत्र" },
-    { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो", required: true },
-    { id: "marksheet", name: "Previous Marksheet", hindi: "पिछली कक्षा की अंकसूची" },
-    { id: "casteCertificate", name: "Caste Certificate", hindi: "जाति प्रमाण पत्र" },
-    { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र" },
+    { id: "birthCertificate", name: "Birth Certificate", hindi: "जन्म प्रमाण पत्र", accept: "application/pdf" },
+    { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो", required: true, accept: "image/*" },
+    { id: "marksheet", name: "Previous Marksheet", hindi: "पिछली कक्षा की अंकसूची", accept: "application/pdf" },
+    { id: "casteCertificate", name: "Caste Certificate", hindi: "जाति प्रमाण पत्र", accept: "application/pdf" },
+    { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र", accept: "application/pdf" },
   ];
 
   return (
@@ -921,6 +921,7 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
               label={doc.name}
               hindiLabel={doc.hindi}
               initialUrl={watch(`documents.${doc.id}`)}
+              accept={doc.accept}
               onUploadComplete={async (url) => {
                 setValue(`documents.${doc.id}`, url, { shouldValidate: true });
                 await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } });

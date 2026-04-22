@@ -54,6 +54,13 @@ export function SmartUploader({
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
+    // Strict validation for PDF-only fields
+    if (accept === "application/pdf" && !selectedFile.type.includes("pdf")) {
+      setError("Invalid format: Please upload a PDF for this document (e.g. Birth Certificate, Marksheet).");
+      setStatus("idle");
+      return;
+    }
+
     setError(null);
     setFile(selectedFile);
     setOriginalSize(selectedFile.size);
@@ -140,79 +147,89 @@ export function SmartUploader({
   const isExisting = currentUrl && currentUrl !== "__EXISTING__";
 
   return (
-    <div className="group relative overflow-hidden bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 md:p-6 transition-all duration-300 hover:border-slate-300 hover:bg-slate-100/50">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="group relative overflow-hidden bg-white border-2 border-dashed border-slate-200 rounded-[28px] p-5 md:p-6 transition-all duration-300 hover:border-blue-400 hover:bg-blue-50/50 shadow-sm hover:shadow-xl hover:shadow-blue-500/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         
         {/* Label and Info */}
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            <h4 className="font-bold text-slate-800 font-outfit uppercase tracking-tight text-sm md:text-base">
-              {label}
-            </h4>
-            {isExisting && <CheckCircle className="w-5 h-5 text-emerald-500 animate-in zoom-in duration-500" />}
-          </div>
-          {hindiLabel && <p className="text-xs text-slate-500 font-hindi">{hindiLabel}</p>}
-          
-          {/* Size Preview */}
-          {status !== "idle" && originalSize && (
-            <div className="flex items-center gap-3 mt-2">
-              <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full uppercase tracking-tight border border-slate-200">
-                Source: {formatSize(originalSize)}
-              </span>
-              {compressedSize && compressedSize < originalSize ? (
-                <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full uppercase tracking-tight border border-emerald-100 flex items-center gap-1 animate-pulse">
-                  Fixed: {formatSize(compressedSize)} (-{Math.round((1 - compressedSize/originalSize) * 100)}%)
-                </span>
-              ) : compressedSize && compressedSize > (maxSizeMB * 1024 * 1024) ? (
-                <span className="text-[10px] font-black bg-red-50 text-red-600 px-2.5 py-1 rounded-full uppercase tracking-tight border border-red-100 flex items-center gap-1">
-                  <AlertCircle size={10} /> Over Limit
-                </span>
-              ) : (
-                <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full uppercase tracking-tight border border-blue-100 flex items-center gap-1">
-                  <Star size={10} fill="currentColor" /> Perfect Quality
-                </span>
-              )}
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+              isExisting ? "bg-emerald-50 border-emerald-100 text-emerald-500" : "bg-slate-50 border-slate-100 text-slate-400"
+            )}>
+              {category === "home-visits" ? <FileText size={20} /> : <Upload size={20} />}
             </div>
-          )}
+            <div className="min-w-0">
+               <h4 className="font-black text-slate-900 font-outfit uppercase tracking-tight text-sm md:text-base truncate">
+                 {label}
+               </h4>
+               <div className="flex flex-wrap items-center gap-2">
+                 {hindiLabel && <p className="text-[10px] text-slate-400 font-hindi truncate font-medium">{hindiLabel}</p>}
+                 {accept === "application/pdf" && !isExisting && (
+                   <span className="flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-amber-100 shadow-sm animate-pulse">
+                     <AlertCircle size={10} /> PDF ONLY
+                   </span>
+                 )}
+               </div>
+            </div>
+          </div>
         </div>
 
-        {/* Action Button */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons & Thumbnail */}
+        <div className="flex items-center gap-4 shrink-0">
           {isExisting ? (
-            <div className="flex items-center gap-2">
-              <a 
-                href={`/api/view-doc?id=${admissionId}&field=${fieldName}&type=${
-                  category === "student-documents" ? "standard" : 
-                  category === "entrance-tests" ? "test" : 
-                  category === "home-visits" ? "visit" : "standard"
-                }`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 bg-white text-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors"
-                id={`view-doc-${fieldName}`}
-              >
-                <FileText className="w-4 h-4" />
-                View
-              </a>
-              {onDelete && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentUrl(null);
-                    setStatus("idle");
-                    onDelete();
-                  }}
-                  className="p-2 bg-white text-rose-500 rounded-xl hover:bg-rose-50 border border-slate-200 shadow-sm transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Large Thumbnail Preview */}
+              {currentUrl && (currentUrl.includes("image") || currentUrl.match(/\.(jpg|jpeg|png|gif|webp)/i) || currentUrl.startsWith('data:image')) && (
+                 <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-white shrink-0 group-hover:scale-110 transition-transform duration-500">
+                    <img 
+                      src={currentUrl} 
+                      alt="Thumbnail" 
+                      className="h-full w-full object-cover"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                 </div>
               )}
+              
+              <div className="flex items-center gap-2">
+                <a 
+                  href={`/api/view-doc?id=${admissionId}&field=${fieldName}&type=${
+                    category === "student-documents" ? "standard" : 
+                    category === "entrance-tests" ? "test" : 
+                    category === "home-visits" ? "visit" : "standard"
+                  }`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-slate-900/20 hover:bg-black transition-all active:scale-95 shrink-0"
+                  id={`view-doc-${fieldName}`}
+                >
+                  <FileText className="w-4 h-4" />
+                  View
+                </a>
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Are you sure you want to delete this file?")) {
+                        setCurrentUrl(null);
+                        setStatus("idle");
+                        onDelete();
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-3.5 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all active:scale-95 shrink-0 border border-rose-100 font-black text-[10px] uppercase tracking-widest"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <label className={cn(
-              "relative flex items-center justify-center gap-2 cursor-pointer transition-all duration-300",
-              "bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-black tracking-tight uppercase shadow-lg shadow-slate-900/10",
-              "hover:scale-[1.02] active:scale-95",
+              "relative flex items-center justify-center gap-3 cursor-pointer transition-all duration-300",
+              "bg-blue-600 text-white px-8 py-4 rounded-2xl text-[11px] font-black tracking-widest uppercase shadow-xl shadow-blue-600/25",
+              "hover:bg-blue-700 hover:scale-[1.02] active:scale-95",
               uploading && "opacity-50 cursor-not-allowed pointer-events-none"
             )}>
               <input 

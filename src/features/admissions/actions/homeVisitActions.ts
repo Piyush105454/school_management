@@ -158,3 +158,61 @@ export async function updateHomeVisitStatus(
     return { success: false, error: error.message };
   }
 }
+
+export async function syncHomeVisitField(admissionId: string, field: string, value: string | null) {
+  try {
+    const existing = await db.query.homeVisits.findFirst({
+      where: eq(homeVisits.admissionId, admissionId),
+    });
+
+    if (field === "visitImage" || field === "visit_report") {
+      const dbField = "visitImage";
+      if (existing) {
+        // Cleanup old file from S3 if it's being removed or replaced
+        if (existing.visitImage && existing.visitImage !== value) {
+          await deleteFromS3(existing.visitImage);
+        }
+        await db.update(homeVisits).set({ [dbField]: value, updatedAt: new Date() }).where(eq(homeVisits.admissionId, admissionId));
+      } else if (value) {
+        await db.insert(homeVisits).values({ admissionId, [dbField]: value });
+      }
+    } else if (field.startsWith("home_photo_")) {
+      const idx = parseInt(field.split("_").pop() || "0");
+      let photos: string[] = [];
+      try {
+        photos = existing?.homePhoto ? JSON.parse(existing.homePhoto) : [];
+      } catch (e) {
+        photos = existing?.homePhoto ? [existing.homePhoto] : [];
+      }
+      if (!Array.isArray(photos)) photos = [];
+      
+      if (value === null) {
+        // Cleanup from S3
+        const photoToDelete = photos[idx];
+        if (photoToDelete) await deleteFromS3(photoToDelete);
+        photos.splice(idx, 1);
+      } else {
+        // Cleanup old photo if replacing
+        const photoToDelete = photos[idx];
+        if (photoToDelete && photoToDelete !== value) await deleteFromS3(photoToDelete);
+        photos[idx] = value;
+      }
+      
+      const photoStr = JSON.stringify(photos);
+      if (existing) {
+        await db.update(homeVisits).set({ homePhoto: photoStr, updatedAt: new Date() }).where(eq(homeVisits.admissionId, admissionId));
+      } else {
+        await db.insert(homeVisits).values({ admissionId, homePhoto: photoStr });
+      }
+    }
+
+    revalidatePath("/office/home-visits", "page");
+    revalidatePath("/student/dashboard", "page");
+    revalidatePath("/office/admissions/[id]", "page");
+    return { success: true };
+  } catch (error: any) {
+    console.error("syncHomeVisitField error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
