@@ -103,15 +103,16 @@ export function SmartUploader({
             resolve(true);
           } else {
             console.error(`[S3 Error] Status: ${xhr.status}, Response: ${xhr.responseText}`);
-            reject(new Error(`S3 Upload failed with status ${xhr.status}. Please check your connection.`));
+            reject(new Error(`Server Rejected Upload (Error ${xhr.status}). Please take a screenshot and tell the admin.`));
           }
         };
 
         xhr.onerror = () => {
           console.error(`[S3 Network Error] XHR State: ${xhr.readyState}, Status: ${xhr.status}`);
-          reject(new Error("Network error during S3 upload. If you are on an unstable mobile connection, please try again or use Wi-Fi."));
+          reject(new Error(`Connection Failed (Status ${xhr.status}, State ${xhr.readyState}). This usually means a mobile network block or browser security restriction.`));
         };
         
+        // Use a standard header, but now it's not strictly signed so variations won't break it
         xhr.setRequestHeader("Content-Type", finalFile.type || "application/octet-stream");
         xhr.send(finalFile);
       });
@@ -122,10 +123,10 @@ export function SmartUploader({
       onUploadComplete(res.publicUrl!);
     } catch (err: any) {
       console.error("Upload process failed:", err);
-      // More descriptive error for mobile users
-      let userError = err.message || "An unexpected error occurred during upload.";
-      if (userError.includes("Failed to fetch") || userError.includes("Network error")) {
-        userError = "Connection Error: Please check your mobile battery saver or data connection and try again.";
+      // Give more diagnostic info in the UI
+      let userError = err.message || "Unknown Upload Error";
+      if (userError.includes("Failed to fetch")) {
+        userError = "Network Timeout: Your connection dropped. Please try again.";
       }
       setError(userError);
       setStatus("error");

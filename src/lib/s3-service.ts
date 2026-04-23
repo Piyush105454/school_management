@@ -136,7 +136,8 @@ export async function getPresignedUploadUrl(key: string, contentType: string) {
     const command = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,
       Key: key,
-      ContentType: contentType,
+      // We remove ContentType from signature to avoid strict matching issues on mobile
+      // ContentType: contentType,
     });
 
     // Link valid for 15 minutes
