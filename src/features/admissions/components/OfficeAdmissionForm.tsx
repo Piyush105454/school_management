@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { useForm, FormProvider, useFormContext, useFieldArray } from "react-hook-form";
-import imageCompression from "browser-image-compression";
 import { 
   GraduationCap, 
   MapPin, 
@@ -27,32 +26,16 @@ import {
   Clock,
   MapPinned,
   AlertCircle,
-  Upload,
-  RotateCcw
+  Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute, undoAdmissionStep } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute, getDirectUploadUrl } from "../actions/admissionActions";
 import { rejectAffidavit } from "../actions/documentActions";
 import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../actions/testActions";
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 import { OfficeTestManager } from "./OfficeTestManager";
 import { OfficeHomeVisitManager } from "./OfficeHomeVisitManager";
-
-const compressImage = async (base64: string) => {
-  const blob = await (await fetch(base64)).blob();
-  const options = {
-    maxSizeMB: 0.5,
-    maxWidthOrHeight: 1024,
-    useWebWorker: true,
-  };
-  const compressedBlob = await imageCompression(new File([blob], "parent.jpg", { type: "image/jpeg" }), options);
-  return new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(compressedBlob);
-  });
-};
-
+import { ensureCompressed, compressImageToBase64 } from "@/lib/compression";
 
 const steps = [
   { id: 1, name: "Bio Info", icon: GraduationCap },
@@ -241,18 +224,7 @@ export function OfficeAdmissionForm({
     }
   };
 
-  const handleUndoStep = async () => {
-    if (!confirm("Are you sure you want to MOVE THE STUDENT BACK one step in the database? This affects what the student sees on their dashboard.")) return;
-    setLoading(true);
-    const res = await undoAdmissionStep(admissionId);
-    setLoading(false);
-    if (res.success) {
-      alert("Step undone successfully. Page will reload.");
-      window.location.reload();
-    } else {
-      alert("Error undoing step: " + (res as any).error);
-    }
-  };
+
 
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
@@ -375,17 +347,7 @@ export function OfficeAdmissionForm({
                 >
                   <ChevronLeft size={22} className="group-hover:-translate-x-1 transition-transform" /> Previous
                 </button>
-                
-                {maxStep > 1 && (
-                  <button 
-                    type="button"
-                    onClick={handleUndoStep}
-                    disabled={loading}
-                    className="flex-1 md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all shadow-sm border border-red-100"
-                  >
-                    <RotateCcw size={14} /> Undo Step
-                  </button>
-                )}
+
               </div>
               
               <div className="flex gap-3 w-full md:w-auto">
@@ -730,23 +692,28 @@ function ParentsStep() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 500 * 1024) {
-        alert("Max allowed size is 500 KB. Image will be compressed.");
-      }
       setUploading(prev => ({ ...prev, [index]: true }));
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const compressed = await compressImage(reader.result as string);
-          setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true, shouldDirty: true });
-        } catch (e) {
-          console.error("Compression error:", e);
-          alert("Error compressing image.");
-        } finally {
-          setUploading(prev => ({ ...prev, [index]: false }));
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Auto-compress photos to 500KB if they are larger
+        const finalFile = await ensureCompressed(file, 0.5);
+        
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          try {
+            const compressed = reader.result as string;
+            setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true, shouldDirty: true });
+          } catch (e) {
+            console.error("Reader error:", e);
+          } finally {
+            setUploading(prev => ({ ...prev, [index]: false }));
+          }
+        };
+        reader.readAsDataURL(finalFile);
+      } catch (err) {
+        console.error("Compression failed:", err);
+        alert("Failed to process image.");
+        setUploading(prev => ({ ...prev, [index]: false }));
+      }
     }
   };
 
@@ -780,21 +747,57 @@ function ParentsStep() {
                 </h4>
 
                 <div className="flex items-center gap-4">
-                   <label className={cn(
-                     "relative cursor-pointer group flex flex-col items-center",
-                     isUploading && "pointer-events-none opacity-50"
-                   )}>
-                     <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center border-2 border-dashed border-slate-300 group-hover:border-blue-500 overflow-hidden relative transition-all shadow-inner">
+                   <div className="relative group">
+                     <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center border-2 border-slate-200 group-hover:border-blue-400 overflow-hidden relative transition-all shadow-inner">
                        {photoValue ? (
-                         <img src={photoValue} className="w-full h-full object-cover" alt="Parent preview" />
+                         <div className="relative h-full w-full">
+                           <img src={photoValue} className="w-full h-full object-cover" alt="Parent preview" />
+                           {/* Preview Overlay */}
+                           <button 
+                             type="button"
+                             onClick={() => {
+                                if (photoValue.startsWith("data:")) {
+                                  // For temporary base64 preview
+                                  const win = window.open();
+                                  win?.document.write(`<img src="${photoValue}" />`);
+                                } else {
+                                  // For S3 documents, use the Secure Proxy
+                                  const pType = (getValues as any)(`parentsGuardians.${index}.personType`);
+                                  // id will be handled by the backend if we pass the admissionId context, 
+                                  // but here we just need to ensure the URL is correct.
+                                  // The actual admissionId is passed to the main form, we can use window location if needed
+                                  // but let's just use the current form state.
+                                  const searchParams = new URLSearchParams(window.location.search);
+                                  const idFromPath = window.location.pathname.split('/').pop();
+                                  window.open(`/api/view-doc?id=${idFromPath}&field=parent_${pType}&type=standard&v=${Date.now()}`, "_blank");
+                                }
+                             }}
+                             className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                             title="View Photo"
+                           >
+                             <Eye size={16} />
+                           </button>
+                         </div>
                        ) : isUploading ? (
                          <Loader2 className="animate-spin text-blue-500 h-5 w-5" />
                        ) : (
-                         <Plus size={18} className="text-slate-400 group-hover:text-blue-500" />
+                         <div className="flex flex-col items-center">
+                            <Plus size={16} className="text-slate-300" />
+                            <span className="text-[8px] font-black text-slate-300 uppercase">Add</span>
+                         </div>
                        )}
                      </div>
-                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, index)} />
-                   </label>
+                     
+                     {/* Floating Upload Button */}
+                     <label className={cn(
+                        "absolute -bottom-1 -right-1 cursor-pointer bg-white rounded-full p-1.5 border border-slate-200 shadow-sm hover:bg-slate-50 transition-all",
+                        isUploading && "pointer-events-none opacity-50"
+                      )}>
+                       <Upload size={10} className="text-blue-500" />
+                       <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, index)} />
+                     </label>
+                   </div>
+
                     <div className="flex flex-col">
                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Photo</span>
                        <p className="text-[9px] font-medium uppercase tracking-tighter">

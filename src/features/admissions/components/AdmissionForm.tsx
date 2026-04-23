@@ -26,42 +26,14 @@ import {
   Calendar,
   MapPinned
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
-import { submitFullAdmissionForm, saveAdmissionStep, getDocumentContent, getDirectUploadUrl } from "../actions/admissionActions";
+import { submitFullAdmissionForm, saveAdmissionStep, getAdmissionData, getS3UploadContext, getDocumentContent } from "../actions/admissionActions";
+import { ensureCompressed, compressImageToBase64 } from "@/lib/compression";
 import { SmartUploader } from "./SmartUploader";
 import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "../actions/documentActions";
 import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
 
-
-const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width *= maxHeight / height;
-          height = maxHeight;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
-    };
-  });
-};
 
 const inputStyles = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700 text-sm md:text-base";
 const labelStyles = "text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block";
@@ -752,33 +724,36 @@ function ParentsStep({ admissionId }: { admissionId: string }) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 500 * 1024) {
-        alert("Max allowed size for photos is 500 KB. Please compress your image.");
-        e.target.value = "";
-        return;
-      }
       setUploading(prev => ({ ...prev, [index]: true }));
       
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const compressed = await compressImage(reader.result as string);
-          setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true, shouldDirty: true });
-          
-          // Auto-save this individual photo immediately so office can see it
-          const currentParents = getValues("parentsGuardians");
-          const res = await saveAdmissionStep(admissionId, 6, { parentsGuardians: currentParents }) as any;
-          if (res.success && res.updatedData) {
-            setValue("parentsGuardians", res.updatedData, { shouldValidate: true });
+      try {
+        // Auto-compress photos to 500KB if they are larger
+        const finalFile = await ensureCompressed(file, 0.5);
+        
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          try {
+            const compressed = reader.result as string;
+            setValue(`parentsGuardians.${index}.photo`, compressed, { shouldValidate: true, shouldDirty: true });
+            
+            // Auto-save this individual photo immediately so office can see it
+            const currentParents = getValues("parentsGuardians");
+            const res = await saveAdmissionStep(admissionId, 6, { parentsGuardians: currentParents }) as any;
+            if (res.success && res.updatedData) {
+              setValue("parentsGuardians", res.updatedData, { shouldValidate: true });
+            }
+          } catch (e) {
+            console.error("Save error:", e);
+          } finally {
+            setUploading(prev => ({ ...prev, [index]: false }));
           }
-        } catch (e) {
-          console.error("Compression error:", e);
-          alert("Error compressing image.");
-        } finally {
-          setUploading(prev => ({ ...prev, [index]: false }));
-        }
-      };
-      reader.readAsDataURL(file);
+        };
+        reader.readAsDataURL(finalFile);
+      } catch (err) {
+        console.error("Compression failed:", err);
+        alert("Failed to process image.");
+        setUploading(prev => ({ ...prev, [index]: false }));
+      }
     }
   };
 

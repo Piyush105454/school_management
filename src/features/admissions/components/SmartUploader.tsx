@@ -6,6 +6,7 @@ import { Upload, CheckCircle, Loader2, FileText, AlertCircle, Trash2, Star } fro
 import { cn } from "@/lib/utils";
 import { getDirectUploadUrl } from "../actions/admissionActions";
 import { compressPdf } from "@/lib/pdf-service";
+import { ensureCompressed } from "@/lib/compression";
 
 interface SmartUploaderProps {
   admissionId: string;
@@ -67,35 +68,8 @@ export function SmartUploader({
     setStatus("compressing");
 
     try {
-      let finalFile = selectedFile;
-      const limitBytes = maxSizeMB * 1024 * 1024;
-
-      // 1. Compression logic
-      // Only compress if the file is OVER the limit
-      if (selectedFile.size > limitBytes) {
-        if (selectedFile.type.startsWith("image/")) {
-          setCompressionStatus("SHRINKING...");
-          const options = {
-            maxSizeMB: maxSizeMB,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-          };
-          const compressedBlob = await imageCompression(selectedFile, options);
-          finalFile = new File([compressedBlob], selectedFile.name, { type: selectedFile.type });
-        } else if (selectedFile.type === "application/pdf") {
-          setCompressionStatus("OPTIMIZING PDF...");
-          try {
-             finalFile = await compressPdf(selectedFile, maxSizeMB);
-          } catch (e: any) {
-             console.error("PDF compression failed:", e);
-             setError(`PDF Optimization Failed: ${e.message || "File too complex"}`);
-             setStatus("error");
-             setUploading(false);
-             return; // Stop the upload if compression failed but was required
-          }
-        }
-      }
-      
+      setCompressionStatus("OPTIMIZING...");
+      const finalFile = await ensureCompressed(selectedFile, maxSizeMB);
       setCompressedSize(finalFile.size);
 
       // 2. Get Presigned URL
@@ -197,7 +171,7 @@ export function SmartUploader({
                     category === "student-documents" ? "standard" : 
                     category === "entrance-tests" ? "test" : 
                     category === "home-visits" ? "visit" : "standard"
-                  }`} 
+                  }&v=${Date.now()}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-slate-900/20 hover:bg-black transition-all active:scale-95 shrink-0"

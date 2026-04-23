@@ -177,7 +177,7 @@ export async function submitFullAdmissionForm(admissionId: string, data: any, st
 
         if (bioData.studentPhoto && bioData.studentPhoto.startsWith("data:")) {
           bioData.studentPhoto = await uploadToS3(bioData.studentPhoto, {
-            fileName: "photo",
+            fileName: "studentPhoto", // Unified naming with documents
             admissionId,
             ...s3Context,
             category: "student-documents"
@@ -572,19 +572,36 @@ export async function resetFeeRoute(admissionId: string) {
 
 export async function getDocumentContent(admissionId: string, fieldName: string) {
   try {
-    const doc = await db.query.studentDocuments.findFirst({
-      where: eq(studentDocuments.admissionId, admissionId),
-      columns: {
-        [fieldName as any]: true
-      }
-    });
-    const content = (doc as any)?.[fieldName] || null;
+    let content: string | null = null;
+
+    // Special handling for Parent/Guardian photos which are in a separate table
+    if (fieldName.startsWith("parent_")) {
+      const personType = fieldName.replace("parent_", ""); // e.g. FATHER, MOTHER, GUARDIAN
+      const parent = await db.query.parentGuardianDetails.findFirst({
+        where: (pg, { and, eq }) => and(eq(pg.admissionId, admissionId), eq(pg.personType, personType as any)),
+        columns: { photo: true }
+      });
+      content = parent?.photo || null;
+    } else {
+      // Standard student documents
+      const doc = await db.query.studentDocuments.findFirst({
+        where: eq(studentDocuments.admissionId, admissionId),
+        columns: {
+          [fieldName as any]: true
+        }
+      });
+      content = (doc as any)?.[fieldName] || null;
+    }
+
     const secureUrl = content ? await getSignedDownloadUrl(content) : null;
     return { success: true, content: secureUrl };
   } catch (error: any) {
+    console.error("getDocumentContent error:", error);
     return { success: false, error: error.message };
   }
-}export async function deleteDocument(admissionId: string, fieldName: string) {
+}
+
+export async function deleteDocument(admissionId: string, fieldName: string) {
   try {
     // 1. Fetch existing document to find the S3 URL
     const doc = await db.query.studentDocuments.findFirst({
@@ -784,12 +801,13 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
             // Handle studentPhoto upload if it's base64
             if (bioData.studentPhoto && bioData.studentPhoto.startsWith("data:")) {
               bioData.studentPhoto = await uploadToS3(bioData.studentPhoto, {
-                fileName: "photo",
+                fileName: "studentPhoto", // Unified naming
                 admissionId,
                 ...s3Context,
                 category: "student-documents"
               });
             } else if (bioData.studentPhoto && bioData.studentPhoto.startsWith("http")) {
+              // Extract raw S3 URL if a signed one is passed (strips signature)
               bioData.studentPhoto = bioData.studentPhoto.split('?')[0];
             }
 

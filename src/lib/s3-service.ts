@@ -76,7 +76,9 @@ export async function uploadToS3(
 
     await s3Client.send(command);
     
-    const publicUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${finalKey}`;
+    // Construct public URL. Fallback to 's3' if region is not present to avoid double dots
+    const regionSuffix = process.env.AWS_REGION ? `s3.${process.env.AWS_REGION}` : 's3';
+    const publicUrl = `https://${process.env.S3_BUCKET_NAME}.${regionSuffix}.amazonaws.com/${finalKey}`;
     return publicUrl;
   } catch (error) {
     console.error("S3 Upload Error:", error);

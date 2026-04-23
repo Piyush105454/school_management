@@ -155,12 +155,11 @@ export function AdmissionReview({ admissionId, initialData }: AdmissionReviewPro
         {/* Step 8: Documents */}
         <ReviewSection title="Step 8: Document Verification" icon={FileText}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <DocPreview label="Birth Certificate" data={docs.birthCertificate} />
-            <DocPreview label="Student Photo" data={docs.studentPhoto} />
-            <DocPreview label="Marksheet" data={docs.marksheet} />
-            <DocPreview label="Caste Cert" data={docs.casteCertificate} />
-            <DocPreview label="TC" data={docs.transferCertificate} />
-
+            <DocPreview label="Birth Certificate" fieldName="birthCertificate" admissionId={admissionId} data={docs.birthCertificate} />
+            <DocPreview label="Student Photo" fieldName="studentPhoto" admissionId={admissionId} data={docs.studentPhoto} />
+            <DocPreview label="Marksheet" fieldName="marksheet" admissionId={admissionId} data={docs.marksheet} />
+            <DocPreview label="Caste Cert" fieldName="casteCertificate" admissionId={admissionId} data={docs.casteCertificate} />
+            <DocPreview label="TC" fieldName="transferCertificate" admissionId={admissionId} data={docs.transferCertificate} />
           </div>
         </ReviewSection>
       </div>
@@ -207,7 +206,7 @@ function DataField({ label, value }: { label: string, value: any }) {
   );
 }
 
-function DocPreview({ label, data }: { label: string, data: string }) {
+function DocPreview({ label, fieldName, admissionId, data }: { label: string, fieldName: string, admissionId: string, data: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -215,7 +214,11 @@ function DocPreview({ label, data }: { label: string, data: string }) {
       <div className="group border border-slate-100 rounded-lg p-2 bg-slate-50/50 hover:bg-white transition-all flex flex-col gap-2">
         <div className="aspect-square bg-slate-200 rounded-md overflow-hidden relative cursor-pointer" onClick={() => setOpen(true)}>
           {data ? (
-            <img src={data} alt={label} className="h-full w-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+            <img 
+              src={data?.startsWith("data:") ? data : `/api/view-doc?id=${admissionId}&field=${fieldName}&type=standard`} 
+              alt={label} 
+              className="h-full w-full object-cover grayscale group-hover:grayscale-0 transition-all" 
+            />
           ) : (
             <div className="h-full w-full flex items-center justify-center text-slate-400">
               <FileText size={20} />
@@ -230,7 +233,12 @@ function DocPreview({ label, data }: { label: string, data: string }) {
         <div className="flex flex-col text-center">
             <span className="text-[9px] font-black text-slate-600 uppercase truncate">{label}</span>
             {data ? (
-              <a href={data} download={`${label}.png`} className="text-[8px] font-bold text-blue-600 uppercase hover:underline flex items-center justify-center gap-1 mt-0.5">
+              <a 
+                href={`/api/view-doc?id=${admissionId}&field=${fieldName}&type=standard`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-[8px] font-bold text-blue-600 uppercase hover:underline flex items-center justify-center gap-1 mt-0.5"
+              >
                 <Download size={10} /> Get File
               </a>
             ) : (
@@ -242,7 +250,11 @@ function DocPreview({ label, data }: { label: string, data: string }) {
       {open && data && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 p-4 flex items-center justify-center" onClick={() => setOpen(false)}>
           <div className="max-w-3xl w-full bg-white p-2 rounded-xl" onClick={e => e.stopPropagation()}>
-             <img src={data} alt={label} className="max-h-[80vh] w-full object-contain mx-auto" />
+             <img 
+               src={data?.startsWith("data:") ? data : `/api/view-doc?id=${admissionId}&field=${fieldName}&type=standard`} 
+               alt={label} 
+               className="max-h-[80vh] w-full object-contain mx-auto" 
+             />
              <div className="mt-2 flex justify-between items-center px-2 pb-1">
                 <span className="text-xs font-black uppercase text-slate-900">{label}</span>
                 <button onClick={() => setOpen(false)} className="px-4 py-1.5 bg-slate-900 text-white rounded text-[10px] font-black uppercase">Close</button>
