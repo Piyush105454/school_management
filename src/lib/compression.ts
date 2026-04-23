@@ -11,23 +11,24 @@ export async function ensureCompressed(file: File, maxSizeMB: number): Promise<F
     return file; // Already under limit, upload direct
   }
 
-  console.log(`[Compression] File ${file.name} (${(file.size/1024/1024).toFixed(2)}MB) is over limit (${maxSizeMB}MB). Compressing...`);
+  const fileType = file.type || "application/octet-stream";
 
-  if (file.type.startsWith("image/")) {
+  if (fileType.startsWith("image/")) {
     const options = {
       maxSizeMB: maxSizeMB,
       maxWidthOrHeight: 1920,
       useWebWorker: true,
     };
     const compressedBlob = await imageCompression(file, options);
-    return new File([compressedBlob], file.name, { type: file.type });
+    // Use the actual type from the compressed blob (it might have changed from HEIC to JPEG)
+    return new File([compressedBlob], file.name, { type: compressedBlob.type || "image/jpeg" });
   } 
   
-  if (file.type === "application/pdf") {
+  if (fileType === "application/pdf") {
     return await compressPdf(file, maxSizeMB);
   }
 
-  return file; // Fallback for other types
+  return file; 
 }
 
 /**

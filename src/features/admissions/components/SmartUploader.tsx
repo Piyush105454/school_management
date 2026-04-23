@@ -71,6 +71,11 @@ export function SmartUploader({
       setCompressionStatus("OPTIMIZING...");
       const finalFile = await ensureCompressed(selectedFile, maxSizeMB);
       setCompressedSize(finalFile.size);
+      
+      console.log(`[Uploader] Metadata: Name=${finalFile.name}, Type=${finalFile.type}, Size=${(finalFile.size/1024/1024).toFixed(2)}MB`);
+
+      // 1.5. Memory Cooldown (Critical for mobile stability after heavy PDF compression)
+      await new Promise(r => setTimeout(r, 400));
 
       // 2. Get Presigned URL
       setStatus("uploading");
@@ -82,7 +87,6 @@ export function SmartUploader({
       }
 
       // 3. Direct S3 Upload (PUT)
-      // We use XHR to track progress as fetch doesn't support it easily for uploads yet
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", res.uploadUrl!);
@@ -95,13 +99,20 @@ export function SmartUploader({
         };
 
         xhr.onload = () => {
-          if (xhr.status === 200) resolve(true);
-          else reject(new Error(`S3 Upload failed with status ${xhr.status}`));
+          if (xhr.status === 200) {
+            resolve(true);
+          } else {
+            console.error(`[S3 Error] Status: ${xhr.status}, Response: ${xhr.responseText}`);
+            reject(new Error(`S3 Upload failed with status ${xhr.status}. Please check your connection.`));
+          }
         };
 
-        xhr.onerror = () => reject(new Error("Network error during S3 upload"));
+        xhr.onerror = () => {
+          console.error(`[S3 Network Error] XHR State: ${xhr.readyState}, Status: ${xhr.status}`);
+          reject(new Error("Network error during S3 upload. If you are on an unstable mobile connection, please try again or use Wi-Fi."));
+        };
         
-        xhr.setRequestHeader("Content-Type", finalFile.type);
+        xhr.setRequestHeader("Content-Type", finalFile.type || "application/octet-stream");
         xhr.send(finalFile);
       });
 
@@ -111,7 +122,12 @@ export function SmartUploader({
       onUploadComplete(res.publicUrl!);
     } catch (err: any) {
       console.error("Upload process failed:", err);
-      setError(err.message || "An unexpected error occurred during upload.");
+      // More descriptive error for mobile users
+      let userError = err.message || "An unexpected error occurred during upload.";
+      if (userError.includes("Failed to fetch") || userError.includes("Network error")) {
+        userError = "Connection Error: Please check your mobile battery saver or data connection and try again.";
+      }
+      setError(userError);
       setStatus("error");
     } finally {
       setUploading(false);

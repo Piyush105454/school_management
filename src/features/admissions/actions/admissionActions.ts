@@ -137,11 +137,19 @@ export async function getDirectUploadUrl(
     const studentFolder = s3Context.studentId;
     
     // Determine extension
-    let extension = fileName.split('.').pop() || "";
-    if (!extension || extension === fileName) {
+    let extension = fileName.split('.').pop()?.toLowerCase() || "";
+    if (!extension || extension === fileName.toLowerCase()) {
       if (contentType === "application/pdf") extension = "pdf";
+      else if (contentType.includes("jpeg") || contentType.includes("jpg")) extension = "jpg";
+      else if (contentType.includes("png")) extension = "png";
+      else if (contentType.includes("webp")) extension = "webp";
       else if (contentType.startsWith("image/")) extension = contentType.split('/')[1] || "jpg";
+      else extension = "bin";
     }
+
+    // Map common phone extensions to standard ones
+    if (extension === "heic") extension = "jpg"; // After compression we convert to jpg
+    if (extension === "jpeg") extension = "jpg";
 
     // Sanitize fileName (remove spaces and special chars)
     const baseName = fileName.split('.')[0].replace(/[^a-z0-9]/gi, '_');
