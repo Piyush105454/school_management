@@ -19,7 +19,7 @@ import {
 } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { uploadToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
+import { uploadToS3, uploadFileToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
 
 function sanitizeBioData(data: any) {
   if (!data) return data;
@@ -123,6 +123,42 @@ export async function getS3UploadContext(admissionId: string) {
 }
 
 /**
+ * PROXY UPLOAD: Bypasses mobile network blocks by uploading through the server.
+ * Use this as a fallback or primary for mobile robustness.
+ */
+export async function proxyUploadDocument(formData: FormData) {
+  try {
+    const file = formData.get("file") as File;
+    const admissionId = formData.get("admissionId") as string;
+    const category = (formData.get("category") as string) || "student-documents";
+
+    if (!file || !admissionId) throw new Error("Missing file or admission ID");
+
+    const s3Context = await getS3UploadContext(admissionId);
+    const arrayBuffer = await file.arrayBuffer();
+
+    const publicUrl = await uploadFileToS3(arrayBuffer, file.type, {
+      fileName: file.name,
+      admissionId,
+      ...s3Context,
+      category
+    });
+
+    const previewUrl = await getSignedDownloadUrl(publicUrl) || publicUrl;
+
+    return { 
+      success: true, 
+      publicUrl, 
+      previewUrl 
+    };
+  } catch (error: any) {
+    console.error("proxyUploadDocument error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+
+/**
  * Generates a presigned URL for direct client-side upload to S3
  */
 export async function getDirectUploadUrl(
@@ -156,15 +192,16 @@ export async function getDirectUploadUrl(
     const key = `dps/${academicYear}/${category}/${studentFolder}/${baseName}.${extension}`;
     
     const uploadUrl = await getPresignedUploadUrl(key, contentType);
-    const cleanUrl = `https://${process.env.S3_BUCKET_NAME}.s3.ap-south-1.amazonaws.com/${key}`;
+    const regionSuffix = process.env.AWS_REGION ? `s3.${process.env.AWS_REGION}` : 's3';
+    const publicUrl = `https://${process.env.S3_BUCKET_NAME}.${regionSuffix}.amazonaws.com/${key}`;
     
     // Sign the URL for immediate preview in the UI
-    const previewUrl = await getSignedDownloadUrl(cleanUrl) || cleanUrl;
+    const previewUrl = await getSignedDownloadUrl(publicUrl) || publicUrl;
 
     return { 
       success: true, 
       uploadUrl, 
-      publicUrl: cleanUrl,   // THE CLEAN URL FOR STORAGE
+      publicUrl: publicUrl,   // THE CLEAN URL FOR STORAGE
       previewUrl: previewUrl, // THE SIGNED URL FOR PREVIEW
       key
     };

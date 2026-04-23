@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import imageCompression from "browser-image-compression";
 import { Upload, CheckCircle, Loader2, FileText, AlertCircle, Trash2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDirectUploadUrl } from "../actions/admissionActions";
+import { getDirectUploadUrl, proxyUploadDocument } from "../actions/admissionActions";
 import { compressPdf } from "@/lib/pdf-service";
 import { ensureCompressed } from "@/lib/compression";
 
@@ -77,47 +77,25 @@ export function SmartUploader({
       // 1.5. Memory Cooldown (Critical for mobile stability after heavy PDF compression)
       await new Promise(r => setTimeout(r, 400));
 
-      // 2. Get Presigned URL
+      // 2. Upload through Server Proxy (Fixes mobile Status 0 / Network blocks)
       setStatus("uploading");
       setUploading(true);
-      const res = await getDirectUploadUrl(admissionId, selectedFile.name, finalFile.type, category);
+      setProgress(50); // Artificial progress since server actions don't show real progress yet
       
-      if (!res.success || !res.uploadUrl) {
-        throw new Error(res.error || "Failed to get upload permission");
+      const formData = new FormData();
+      formData.append("file", finalFile);
+      formData.append("admissionId", admissionId);
+      formData.append("category", category);
+
+      const res = await proxyUploadDocument(formData);
+      
+      if (!res.success) {
+        throw new Error(res.error || "Failed to upload via proxy");
       }
 
-      // 3. Direct S3 Upload (PUT)
-      await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", res.uploadUrl!);
-        
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const pct = Math.round((event.loaded / event.total) * 100);
-            setProgress(pct);
-          }
-        };
+      setProgress(100);
 
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            resolve(true);
-          } else {
-            console.error(`[S3 Error] Status: ${xhr.status}, Response: ${xhr.responseText}`);
-            reject(new Error(`Server Rejected Upload (Error ${xhr.status}). Please take a screenshot and tell the admin.`));
-          }
-        };
-
-        xhr.onerror = () => {
-          console.error(`[S3 Network Error] XHR State: ${xhr.readyState}, Status: ${xhr.status}`);
-          reject(new Error(`Connection Failed (Status ${xhr.status}, State ${xhr.readyState}). This usually means a mobile network block or browser security restriction.`));
-        };
-        
-        // Use a standard header, but now it's not strictly signed so variations won't break it
-        xhr.setRequestHeader("Content-Type", finalFile.type || "application/octet-stream");
-        xhr.send(finalFile);
-      });
-
-      // 4. Success handling
+      // 3. Success handling
       setStatus("success");
       setCurrentUrl(res.previewUrl!);
       onUploadComplete(res.publicUrl!);

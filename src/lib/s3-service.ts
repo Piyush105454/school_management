@@ -19,28 +19,58 @@ export interface UploadOptions {
 }
 
 /**
+ * Uploads a raw Buffer/File to S3 directly from the server
+ */
+export async function uploadFileToS3(
+  fileData: Buffer | ArrayBuffer,
+  contentType: string,
+  options: UploadOptions
+) {
+  try {
+    const academicYear = options.academicYear || "2026-27";
+    const category = options.category || "student-documents";
+    const studentFolder = options.studentId || options.admissionId || "unknown";
+
+    // Determine extension
+    let extension = options.fileName.split('.').pop() || "";
+    if (!extension || extension === options.fileName) {
+      if (contentType === "application/pdf") extension = "pdf";
+      else if (contentType.startsWith("image/")) extension = contentType.split('/')[1] || "jpg";
+    }
+
+    const cleanFileName = options.fileName.split('.')[0].replace(/[^a-z0-9]/gi, '_');
+    const finalKey = `dps/${academicYear}/${category}/${studentFolder}/${cleanFileName}.${extension}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: finalKey,
+      Body: Buffer.from(fileData as ArrayBuffer),
+      ContentType: contentType,
+    });
+
+    await s3Client.send(command);
+    
+    // Construct public URL
+    const regionSuffix = process.env.AWS_REGION ? `s3.${process.env.AWS_REGION}` : 's3';
+    const publicUrl = `https://${process.env.S3_BUCKET_NAME}.${regionSuffix}.amazonaws.com/${finalKey}`;
+    return publicUrl;
+  } catch (error) {
+    console.error("S3 Proxy Upload Error:", error);
+    throw error;
+  }
+}
+
+/**
  * Uploads a base64 document/image to S3
- * Logic: dps/${year}/${category}/${appliedClass}/${studentId}/${fileName}.${ext}
+ * Pipeline uses the raw buffer uploader above
  */
 export async function uploadToS3(
   base64Data: string, 
   options: UploadOptions
 ) {
-  if (!base64Data || base64Data.startsWith("http")) return base64Data; // Already a URL or empty
+  if (!base64Data || base64Data.startsWith("http")) return base64Data;
 
   try {
-    const academicYear = options.academicYear || "2026-27";
-    const category = options.category || "student-documents";
-    
-    // Sanitize class name (e.g. "Class 3" -> "class-3")
-    const classFolder = options.appliedClass 
-      ? options.appliedClass.toLowerCase().trim().replace(/\s+/g, '-') 
-      : "unassigned";
-
-    // Prefer human-readable studentId over UUID
-    const studentFolder = options.studentId || options.admissionId || "unknown";
-
-    // Extract content type and base64 string
     const mimeMatch = base64Data.match(/^data:(.*);base64,(.*)$/);
     if (!mimeMatch) return base64Data;
 
@@ -48,40 +78,9 @@ export async function uploadToS3(
     const base64String = mimeMatch[2];
     const buffer = Buffer.from(base64String, "base64");
     
-    // --- File Size Validation ---
-    const fileSizeInBytes = buffer.length;
-    const maxSize = 5 * 1024 * 1024; // 5MB
-
-    if (fileSizeInBytes > maxSize) {
-      throw new Error(`File size exceeds limit (5MB). Please compress the file and try again.`);
-    }
-
-    // Determine extension
-    let extension = options.fileName.split('.').pop() || "";
-    if (!extension || extension === options.fileName) {
-      if (contentType === "application/pdf") extension = "pdf";
-      else if (contentType.startsWith("image/")) extension = contentType.split('/')[1] || "jpg";
-      else extension = "bin";
-    }
-
-    const cleanFileName = options.fileName.split('.')[0];
-    const finalKey = `dps/${academicYear}/${category}/${studentFolder}/${cleanFileName}.${extension}`;
-
-    const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: finalKey,
-      Body: buffer,
-      ContentType: contentType,
-    });
-
-    await s3Client.send(command);
-    
-    // Construct public URL. Fallback to 's3' if region is not present to avoid double dots
-    const regionSuffix = process.env.AWS_REGION ? `s3.${process.env.AWS_REGION}` : 's3';
-    const publicUrl = `https://${process.env.S3_BUCKET_NAME}.${regionSuffix}.amazonaws.com/${finalKey}`;
-    return publicUrl;
+    return await uploadFileToS3(buffer, contentType, options);
   } catch (error) {
-    console.error("S3 Upload Error:", error);
+    console.error("S3 Base64 Upload Error:", error);
     throw error;
   }
 }
