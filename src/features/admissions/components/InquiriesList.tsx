@@ -160,8 +160,8 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                       {inq.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap">
-                    {new Date(inq.createdAt).toLocaleDateString()}
+                  <td className="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap" suppressHydrationWarning>
+                    {new Date(inq.createdAt).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">

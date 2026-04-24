@@ -21,7 +21,10 @@ export default function DashboardLayout({
   const roleRoutes: Record<string, string[]> = {
     OFFICE: ["/office", "/dashboard"],
     STUDENT_PARENT: ["/student", "/dashboard"],
-    TEACHER: ["/teacher", "/office/home-visits", "/office/entrance-tests", "/office/document-verification", "/office/admissions"],
+    TEACHER: [
+      "/teacher", 
+      "/office"
+    ],
   };
 
   if (status === "loading") {

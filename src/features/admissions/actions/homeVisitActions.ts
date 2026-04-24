@@ -216,3 +216,22 @@ export async function syncHomeVisitField(admissionId: string, field: string, val
   }
 }
 
+
+export async function updateHomeVisitAdminRemarks(admissionId: string, remarks: string) {
+  try {
+    await db.update(homeVisits)
+      .set({
+        adminRemarks: remarks,
+        status: "PENDING", // Force status back to PENDING for corrective action
+        updatedAt: new Date(),
+      })
+      .where(eq(homeVisits.admissionId, admissionId));
+
+    revalidatePath("/office/home-visits", "page");
+    revalidatePath("/student/dashboard", "page");
+    revalidatePath("/office/admissions/[id]", "page");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}

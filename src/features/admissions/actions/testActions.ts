@@ -137,3 +137,49 @@ export async function updateTestResult(
     return { success: false, error: error.message };
   }
 }
+
+export async function updateEntranceTestAdminRemarks(admissionId: string, remarks: string) {
+  try {
+    await db.update(entranceTests)
+      .set({
+        adminRemarks: remarks,
+        status: "PENDING", // Force status back to PENDING for corrective action
+        updatedAt: new Date(),
+      })
+      .where(eq(entranceTests.admissionId, admissionId));
+
+    revalidatePath("/office/admissions/[id]", "page");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function syncEntranceTestField(admissionId: string, field: string, value: string | null) {
+  try {
+    const existing = await db.query.entranceTests.findFirst({
+      where: eq(entranceTests.admissionId, admissionId),
+    });
+
+    if (field === "test_report" || field === "reportLink") {
+      if (existing) {
+        if (existing.reportLink && existing.reportLink !== value) {
+          await deleteFromS3(existing.reportLink);
+        }
+        await db.update(entranceTests)
+          .set({ reportLink: value, updatedAt: new Date() })
+          .where(eq(entranceTests.admissionId, admissionId));
+      } else if (value) {
+        await db.insert(entranceTests).values({ admissionId, reportLink: value });
+      }
+    }
+
+    revalidatePath("/office/entrance-tests", "page");
+    revalidatePath("/student/entrance-test", "page");
+    revalidatePath("/office/admissions/[id]", "page");
+    return { success: true };
+  } catch (error: any) {
+    console.error("syncEntranceTestField error:", error);
+    return { success: false, error: error.message };
+  }
+}

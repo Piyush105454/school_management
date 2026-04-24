@@ -163,6 +163,7 @@ export function SmartUploader({
               <div className="flex items-center gap-2">
                 <a 
                   href={`/api/view-doc?id=${admissionId}&field=${fieldName}&type=${
+                    fieldName === "affidavit" ? "affidavit" :
                     category === "student-documents" ? "standard" : 
                     category === "entrance-tests" ? "test" : 
                     category === "home-visits" ? "visit" : "standard"
@@ -171,6 +172,7 @@ export function SmartUploader({
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-slate-900/20 hover:bg-black transition-all active:scale-95 shrink-0"
                   id={`view-doc-${fieldName}`}
+                  suppressHydrationWarning
                 >
                   <FileText className="w-4 h-4" />
                   View

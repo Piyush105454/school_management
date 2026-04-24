@@ -674,27 +674,45 @@ export async function deleteDocument(admissionId: string, fieldName: string) {
   }
 }
 
-export async function saveOfficeRemark(admissionId: string, remark: string, unlockDocs: boolean = false) {
+export async function saveOfficeRemark(admissionId: string, remark: string, unlockStep?: number, field: "officeRemarks" | "documentRemarks" | "verificationRemarks" = "officeRemarks") {
   try {
     return await db.transaction(async (tx) => {
       await tx.update(admissionMeta)
-        .set({ officeRemarks: remark, updatedAt: new Date() })
+        .set({ [field]: remark, updatedAt: new Date() })
         .where(eq(admissionMeta.id, admissionId));
       
-      if (unlockDocs) {
-        // If we are unlocking, set the student's progress back to Step 8 (Docs)
+      if (unlockStep) {
+        // If we are unlocking, set the student's progress back to the specified step
         await tx.update(studentProfiles)
-          .set({ admissionStep: 8 })
+          .set({ admissionStep: unlockStep })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
 
-        // Reset checklist so student can re-upload/edit
-        await tx.update(documentChecklists)
-          .set({ 
-            parentAffidavit: "NOT_SUBMITTED", 
-            formReceivedComplete: false,
-            verifiedAt: null 
-          })
-          .where(eq(documentChecklists.admissionId, admissionId));
+        // If unlocking back to Document Upload (8), reset checklist entirely
+        if (unlockStep === 8) {
+          await tx.update(documentChecklists)
+            .set({ 
+              birthCertificate: "NOT_SUBMITTED",
+              previousMarksheet: "NOT_SUBMITTED",
+              studentPhotos3: "NOT_SUBMITTED",
+              casteCertificate: "NOT_SUBMITTED",
+              parentAffidavit: "NOT_SUBMITTED", 
+              scholarshipLetter: "NOT_SUBMITTED",
+              transferCertificate: "NOT_SUBMITTED",
+              formReceivedComplete: false,
+              verifiedAt: null 
+            })
+            .where(eq(documentChecklists.admissionId, admissionId));
+        }
+
+        // If unlocking to Verification (10), reset affidavit status to REJECTED so they re-upload
+        if (unlockStep === 10) {
+           await tx.update(documentChecklists)
+            .set({ 
+              parentAffidavit: "REJECTED", 
+              verifiedAt: null 
+            })
+            .where(eq(documentChecklists.admissionId, admissionId));
+        }
       }
       
       revalidatePath("/office/inquiries");
@@ -948,6 +966,7 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
           }
           break;
         case 8:
+        case 10:
           if (data.documents) {
             const sanitizedDocs = sanitizeDocuments(data.documents);
             const folderDocs: any = {};
@@ -983,6 +1002,18 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                 target: studentDocuments.admissionId,
                 set: folderDocs
               });
+
+              // Special logic for Case 10 (Affidavit): Auto-update checklist to "SUBMITTED"
+              if (folderDocs.affidavit) {
+                await tx.insert(documentChecklists).values({
+                  admissionId,
+                  parentAffidavit: "SUBMITTED",
+                  verifiedAt: new Date()
+                }).onConflictDoUpdate({
+                  target: documentChecklists.admissionId,
+                  set: { parentAffidavit: "SUBMITTED", verifiedAt: new Date() }
+                });
+              }
             }
           }
           break;

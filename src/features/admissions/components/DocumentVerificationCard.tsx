@@ -38,7 +38,6 @@ export function DocumentVerificationCard({
 }: DocumentVerificationCardProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
   
   // Local state for instant feedback
   const [currentDocData, setCurrentDocData] = useState(docData);
@@ -56,81 +55,7 @@ export function DocumentVerificationCard({
   const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED";
   const hasUploaded = !!currentDocData?.affidavit;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 1024 * 1024) {
-        alert("Max allowed size for Affidavit is 1 MB. Please compress your PDF/Image.");
-        e.target.value = "";
-        return;
-      }
-      setAffidavitFile(file);
-    }
-  };
 
-  const handleUpload = async () => {
-    if (!affidavitFile) {
-      alert("Please select a file to upload");
-      return;
-    }
-
-    // Check file size before upload
-    if (affidavitFile.size > 1024 * 1024) {
-      alert("Max allowed size for Affidavit is 1 MB. Please compress your PDF/Image.");
-      return;
-    }
-
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("file", affidavitFile);
-    formData.append("admissionId", admissionId);
-
-    try {
-      const response = await fetch("/api/upload-affidavit", {
-        method: "POST",
-        body: formData,
-        signal: AbortSignal.timeout(60000), // 60 second timeout
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server error (${response.status}): ${errorText}`);
-      }
-
-      const res = await response.json();
-      
-      if (res.success) {
-        // Instant feedback: Generate a preview URL for the local state
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setCurrentDocData((prev: any) => ({
-            ...prev,
-            affidavit: reader.result as string
-          }));
-          setAffidavitFile(null);
-          setLoading(false);
-          router.refresh(); // Sync with server in background
-        };
-        reader.readAsDataURL(affidavitFile);
-      } else {
-        setLoading(false);
-        alert("Error uploading file: " + (res.error || "Unknown error"));
-      }
-    } catch (err: any) {
-      setLoading(false);
-      console.error("Upload error details:", err);
-      
-      if (err.name === "AbortError") {
-        alert("Upload timeout. File may be too large or connection is slow. Try a smaller file.");
-      } else if (err.message.includes("413")) {
-        alert("File too large. Maximum size is 5MB.");
-      } else if (err.message.includes("500")) {
-        alert("Server error. Please try again in a few moments.");
-      } else {
-        alert("Upload failed: " + (err.message || "Network error. Please try again."));
-      }
-    }
-  };
 
   const handleRemove = async () => {
     if (!confirm("Are you sure you want to remove this document?")) return;

@@ -51,6 +51,8 @@ export const admissionMeta = pgTable("admission_meta", {
   awardedScholarship: boolean("awarded_scholarship").default(false).notNull(),
   scholarshipAmount: integer("scholarship_amount").default(0).notNull(),
   officeRemarks: text("office_remarks"),
+  documentRemarks: text("document_remarks"),
+  verificationRemarks: text("verification_remarks"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -208,6 +210,7 @@ export const entranceTests = pgTable("entrance_tests", {
   totalMarks: doublePrecision("total_marks"),
   reportLink: text("report_link"),
   remarks: text("remarks"),
+  adminRemarks: text("admin_remarks"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -372,6 +375,7 @@ export const homeVisits = pgTable("home_visits", {
   visitTime: text("visit_time"),
   teacherName: text("teacher_name"),
   remarks: text("remarks"),
+  adminRemarks: text("admin_remarks"),
   visitImage: text("visit_image"),
   homePhoto: text("home_photo"),
   status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),

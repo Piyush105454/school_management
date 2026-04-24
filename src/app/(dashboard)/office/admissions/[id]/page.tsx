@@ -43,10 +43,10 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
     <div className="space-y-6">
       <div className="flex items-center justify-between px-4">
         <Link 
-          href="/office/inquiries?tab=admissions" 
+          href="/office/admissions-progress" 
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors font-bold text-sm"
         >
-          <ChevronLeft size={20} /> Back to Admissions
+          <ChevronLeft size={20} /> Back to Admissions Progress
         </Link>
         <div className="text-right">
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Office Application Review</p>
@@ -67,6 +67,7 @@ export default async function AdminAdmissionViewPage({ params, searchParams }: {
         maxStep={studentProfile?.admissionStep || 1} 
         initialStep={stepParam}
         teachers={teachersResult.data || []}
+        role={session?.user?.role}
       />
     </div>
   );

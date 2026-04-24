@@ -24,7 +24,8 @@ import {
   Send,
   Clock,
   Calendar,
-  MapPinned
+  MapPinned,
+  ClipboardCheck
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -278,24 +279,55 @@ export function AdmissionForm({
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-info font-inter">
-      {initialData?.admissionMeta?.officeRemarks && (
-        <div className="max-w-6xl mx-auto mb-8 animate-in slide-in-from-top-4 duration-500">
-            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 md:p-6 flex items-start gap-4 shadow-sm">
-                <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
-                    <CheckCircle className="text-red-600" size={20} />
+      <div className="max-w-6xl mx-auto mb-8 space-y-4 animate-in slide-in-from-top-4 duration-500">
+        {initialData?.admissionMeta?.officeRemarks && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-6 md:p-8 flex items-start gap-4 md:gap-6 shadow-xl shadow-red-500/5">
+                <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
+                    <AlertCircle className="text-red-600" size={24} />
                 </div>
-                <div className="space-y-1">
-                    <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Requirement / Correction Needed</h4>
-                    <p className="text-xs font-bold text-red-700 leading-relaxed italic">
+                <div className="space-y-2">
+                    <h4 className="text-[10px] md:text-xs font-black text-red-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                      <AlertCircle size={14} /> General Remark
+                    </h4>
+                    <p className="text-sm md:text-base font-black text-red-700 leading-tight italic font-outfit">
                         "{initialData.admissionMeta.officeRemarks}"
-                    </p>
-                    <p className="text-[10px] font-medium text-red-500 pt-1">
-                        Please update your information/documents as mentioned above.
                     </p>
                 </div>
             </div>
-        </div>
-      )}
+        )}
+
+        {initialData?.admissionMeta?.documentRemarks && (
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-6 md:p-8 flex items-start gap-4 md:gap-6 shadow-xl shadow-amber-500/5">
+                <div className="h-12 w-12 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0 border border-amber-200 shadow-inner">
+                    <FileText className="text-amber-600" size={24} />
+                </div>
+                <div className="space-y-2">
+                    <h4 className="text-[10px] md:text-xs font-black text-amber-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                      <FileText size={14} /> Document Review Feedback
+                    </h4>
+                    <p className="text-sm md:text-base font-black text-amber-700 leading-tight italic font-outfit">
+                        "{initialData.admissionMeta.documentRemarks}"
+                    </p>
+                </div>
+            </div>
+        )}
+
+        {initialData?.admissionMeta?.verificationRemarks && (
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-6 md:p-8 flex items-start gap-4 md:gap-6 shadow-xl shadow-blue-500/5">
+                <div className="h-12 w-12 bg-blue-100 rounded-2xl flex items-center justify-center shrink-0 border border-blue-200 shadow-inner">
+                    <ClipboardCheck className="text-blue-600" size={24} />
+                </div>
+                <div className="space-y-2">
+                    <h4 className="text-[10px] md:text-xs font-black text-blue-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                      <ClipboardCheck size={14} /> Final Verification Remark
+                    </h4>
+                    <p className="text-sm md:text-base font-black text-blue-700 leading-tight italic font-outfit">
+                        "{initialData.admissionMeta.verificationRemarks}"
+                    </p>
+                </div>
+            </div>
+        )}
+      </div>
 
       <div className="max-w-6xl mx-auto mb-10 overflow-x-auto no-scrollbar pb-2">
         <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -364,6 +396,7 @@ export function AdmissionForm({
                     initialChecklistData={initialData?.documentChecklist} 
                     studentName={`${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`} 
                     officeRemarks={initialData?.admissionMeta?.officeRemarks}
+                    studentStep={maxStep}
                     isActuallyAdmitted={isActuallyAdmitted}
                   />}
                   {currentStep === 11 && <EntranceTestStatusStep admissionId={admissionId} initialData={initialData} />}
@@ -1185,6 +1218,7 @@ function DocumentVerificationStep({
   initialChecklistData, 
   studentName,
   officeRemarks,
+  studentStep,
   isActuallyAdmitted
 }: { 
   admissionId: string, 
@@ -1192,57 +1226,18 @@ function DocumentVerificationStep({
   initialChecklistData?: any, 
   studentName: string,
   officeRemarks?: string | null,
+  studentStep: number,
   isActuallyAdmitted?: boolean
 }) {
   const { setValue } = useFormContext();
   const [loading, setLoading] = useState(false);
-  const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
+
   
   const [currentDocData, setCurrentDocData] = useState(initialDocData);
   const [currentChecklistData, setCurrentChecklistData] = useState(initialChecklistData);
 
-  const isFinalized = (currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED") && !officeRemarks;
+  const isFinalized = (currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED") && studentStep > 10;
   const hasUploaded = !!currentDocData?.affidavit;
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 1024 * 1024) {
-        alert("Max allowed size for Affidavit is 1 MB. Please compress your PDF/Image.");
-        e.target.value = "";
-        return;
-      }
-      setAffidavitFile(file);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!affidavitFile) return;
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("file", affidavitFile);
-    formData.append("admissionId", admissionId);
-
-    try {
-      const response = await fetch("/api/upload-affidavit", {
-        method: "POST",
-        body: formData,
-      });
-      const res = await response.json();
-      if (res.success) {
-        setCurrentDocData({ ...currentDocData, affidavit: "UPLOADED" });
-        setValue("documents.affidavit", "__EXISTING__", { shouldDirty: true });
-        setAffidavitFile(null);
-        alert("Document uploaded successfully!");
-      } else {
-        alert("Upload failed: " + res.error);
-      }
-    } catch (err) {
-      alert("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRemove = async () => {
     if (!confirm("Are you sure?")) return;
@@ -1319,20 +1314,26 @@ function DocumentVerificationStep({
         )}
 
         {!hasUploaded && !isFinalized && (
-          <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
-            <div className="border-2 border-dashed border-slate-100 rounded-3xl p-10 text-center hover:border-blue-300 hover:bg-blue-50/5 transition-all cursor-pointer group relative">
-              <input type="file" onChange={handleFileChange} className="hidden" id="form-affidavit" disabled={loading} />
-              <label htmlFor="form-affidavit" className="cursor-pointer block">
-                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                  <Upload size={32} />
-                </div>
-                <p className="text-sm font-black text-slate-600 uppercase tracking-tight">{affidavitFile ? affidavitFile.name : "Select Parent Affidavit"}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Click to browse signed copy (PDF/JPG)</p>
-              </label>
-            </div>
-            <button onClick={handleUpload} disabled={loading || !affidavitFile} className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-              {loading ? <Loader2 className="animate-spin" /> : <Upload size={18} />} Upload for Review
-            </button>
+          <div className="bg-white p-2 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
+             <SmartUploader
+                admissionId={admissionId}
+                fieldName="affidavit"
+                label="Affidavit"
+                hindiLabel="शपथ पत्र"
+                maxSizeMB={1}
+                onUploadComplete={async (url) => {
+                  setLoading(true);
+                  const res = await saveAdmissionStep(admissionId, 10, { documents: { affidavit: url } });
+                  if (res.success) {
+                    setCurrentDocData({ ...currentDocData, affidavit: url });
+                    setValue("documents.affidavit", "__EXISTING__", { shouldDirty: true });
+                  } else {
+                    alert("Error saving record: " + ((res as any).error || "Unknown error"));
+                  }
+                  setLoading(false);
+                }}
+                accept="application/pdf,image/*"
+              />
           </div>
         )}
 
