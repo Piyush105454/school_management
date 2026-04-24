@@ -145,6 +145,66 @@ export default async function StudentDashboard() {
     <div className="space-y-6 md:space-y-8">
       {/* Application Progress Tracker */}
       <div className="bg-white rounded-xl p-4 md:p-8 border border-slate-200">
+        
+        {/* NEW: Final Admission Success & Scholarship Pending Banner */}
+        {isAdmitted && (
+          <div className="max-w-4xl mx-auto mb-8 animate-in zoom-in-95 duration-500">
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[32px] p-8 md:p-10 text-white shadow-2xl shadow-emerald-500/20 group">
+              {/* Decorative elements */}
+              <div className="absolute -right-10 -top-10 h-40 w-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
+              <div className="absolute -left-10 -bottom-10 h-40 w-40 bg-emerald-400/20 rounded-full blur-3xl" />
+              
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div className="h-20 w-20 md:h-24 md:w-24 bg-white/20 backdrop-blur-md rounded-[28px] flex items-center justify-center border border-white/20 shadow-inner shrink-0 scale-110">
+                  <GraduationCap size={48} className="text-white drop-shadow-sm" />
+                </div>
+                <div className="flex-1 text-center md:text-left space-y-3">
+                  <div className="flex flex-col md:flex-row items-center gap-3">
+                    <h2 className="text-3xl md:text-5xl font-black font-outfit uppercase italic tracking-tight leading-none drop-shadow-md">
+                      Congratulations!
+                    </h2>
+                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20">
+                      Admission Approved
+                    </span>
+                  </div>
+                  <p className="text-sm md:text-lg font-bold opacity-90 uppercase tracking-widest max-w-xl leading-snug">
+                    Welcome to DPS Dhanpuri! You are now an officially admitted student. Reach out to the office for your ID card and uniforms.
+                  </p>
+
+                  {/* SCHOLARSHIP SUB-STATUS */}
+                  {isScholarshipApplied && (
+                    <div className="mt-6 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center gap-4">
+                      {isScholarshipAwarded ? (
+                        <div className="flex items-center gap-3 bg-white/10 px-6 py-3 rounded-2xl border border-white/10 w-full md:w-auto">
+                          <Award size={20} className="text-emerald-300" />
+                          <div className="text-left">
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-none text-emerald-200">Scholarship Awarded</p>
+                            <p className="text-sm font-black mt-1">₹{(profile as any).admissionMeta.scholarshipAmount.toLocaleString()} / YEAR</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 bg-amber-500/20 px-6 py-3 rounded-2xl border border-amber-500/20 w-full md:w-auto animate-pulse">
+                          <Clock size={20} className="text-amber-300" />
+                          <div className="text-left">
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-none text-amber-200">Pending Recommendation</p>
+                            <p className="text-sm font-black mt-1 italic uppercase tracking-tight">Pending for Award Scholarship</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!isScholarshipAwarded && (
+                        <p className="text-[9px] font-bold opacity-60 flex-1 text-center md:text-left leading-relaxed uppercase tracking-wider">
+                          Your application is being reviewed by the Scholarship Committee. Results will be announced shortly.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Quick Alert for Office Remarks - Hide if already admitted */}
         {profile.admissionMeta?.officeRemarks && finalAdmissionStatus !== "completed" && (
           <div className="max-w-4xl mx-auto mb-6 animate-in slide-in-from-top-4 duration-500">

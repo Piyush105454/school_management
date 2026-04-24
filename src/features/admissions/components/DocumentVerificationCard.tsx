@@ -52,7 +52,7 @@ export function DocumentVerificationCard({
     setCurrentChecklistData(checklistData);
   }, [checklistData]);
 
-  const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED";
+  const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED";
   const hasUploaded = !!currentDocData?.affidavit;
 
 

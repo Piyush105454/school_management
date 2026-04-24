@@ -1507,12 +1507,43 @@ function OfficeFinalStep({ admissionId, initialData, userRole }: { admissionId: 
           <CheckCircle size={40} strokeWidth={2.5} />
         </div>
         <div className="space-y-1">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {isAdmitted ? (
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-[0.2em] rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-sm">
+                <div className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                Final Admission Approved
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-[0.2em] rounded-full border border-amber-200 flex items-center gap-1.5 shadow-sm">
+                <div className="h-1.5 w-1.5 bg-amber-500 rounded-full" />
+                Final Admission Pending
+              </span>
+            )}
+          </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase italic tracking-tight font-outfit">Final Admission Approval</h2>
           <p className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Official enrollment confirmation of {studentName}</p>
         </div>
       </div>
 
       <div className="bg-white rounded-[32px] border border-slate-100 p-8 space-y-8 shadow-sm">
+        {!isAdmitted && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-50 pb-8 mb-2">
+            {[
+              { label: "Document Verification", completed: initialData?.documentChecklist?.parentAffidavit === "VERIFIED" },
+              { label: "Entrance Test Result", completed: initialData?.entranceTest?.status === "PASS" },
+              { label: "Home Visit Completed", completed: initialData?.homeVisit?.status === "PASS" }
+            ].map((step, idx) => (
+              <div key={idx} className={cn(
+                "p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all",
+                step.completed ? "bg-emerald-50/30 border-emerald-100 text-emerald-800" : "bg-slate-50 border-slate-100 text-slate-400 opacity-60"
+              )}>
+                {step.completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+                <span className="text-[9px] font-black uppercase tracking-widest text-center">{step.label}</span>
+                <span className="text-[8px] font-bold opacity-60 uppercase">{step.completed ? "Complete" : "Required"}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {!isAdmitted ? (
           <div className="space-y-8">
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-between gap-6">

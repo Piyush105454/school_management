@@ -110,9 +110,9 @@ export async function submitAffidavit(admissionId: string) {
         }
       });
 
-      // 3. Move student profile to Step 10 (Awaiting Verification)
+      // 3. Move student profile to Step 11 (Awaiting Verification)
       await tx.update(studentProfiles)
-        .set({ admissionStep: 10 })
+        .set({ admissionStep: 11 })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
 
       // 4. CLEAR office remarks now that student has submitted corrections

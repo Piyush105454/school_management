@@ -105,21 +105,34 @@ function sanitizeDocuments(docs: any) {
  * Fetches human-readable metadata for S3 path construction
  */
 export async function getS3UploadContext(admissionId: string) {
-  const meta = await db.query.admissionMeta.findFirst({
-    where: eq(admissionMeta.id, admissionId),
-    with: {
-      inquiry: {
-        columns: {
-          appliedClass: true
+  let attempt = 0;
+  const maxAttempts = 3;
+
+  while (attempt < maxAttempts) {
+    try {
+      const meta = await db.query.admissionMeta.findFirst({
+        where: eq(admissionMeta.id, admissionId),
+        with: {
+          inquiry: {
+            columns: {
+               appliedClass: true
+            }
+          }
         }
-      }
+      });
+      
+      return {
+        studentId: meta?.entryNumber || admissionId,
+        appliedClass: meta?.inquiry?.appliedClass || "General"
+      };
+    } catch (error) {
+      attempt++;
+      console.error(`getS3UploadContext error (attempt ${attempt}):`, error);
+      if (attempt >= maxAttempts) throw error;
+      await new Promise(r => setTimeout(r, 500 * attempt));
     }
-  });
-  
-  return {
-    studentId: meta?.entryNumber || admissionId,
-    appliedClass: meta?.inquiry?.appliedClass || "General"
-  };
+  }
+  return { studentId: admissionId, appliedClass: "General" };
 }
 
 /**
@@ -728,22 +741,26 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
 }
 
 export async function getAdmissionData(admissionId: string, lite: boolean = false) {
-  try {
-    const [bio, address, academic, parents, bank, documents, declaration, siblings, checklist, entranceTest, homeVisit] = await Promise.all([
-      db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) }),
-      db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) }),
-      db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) }),
-      db.query.parentGuardianDetails.findMany({ where: eq(parentGuardianDetails.admissionId, admissionId) }),
-      db.query.studentBankDetails.findFirst({ where: eq(studentBankDetails.admissionId, admissionId) }),
-      db.query.studentDocuments.findFirst({ 
-        where: eq(studentDocuments.admissionId, admissionId),
-      }),
-      db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
-      db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) }),
-      db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
-      db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
-      db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) })
-    ]);
+  let attempt = 0;
+  const maxAttempts = 3;
+
+  while (attempt < maxAttempts) {
+    try {
+      const [bio, address, academic, parents, bank, documents, declaration, siblings, checklist, entranceTest, homeVisit] = await Promise.all([
+        db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) }),
+        db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) }),
+        db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) }),
+        db.query.parentGuardianDetails.findMany({ where: eq(parentGuardianDetails.admissionId, admissionId) }),
+        db.query.studentBankDetails.findFirst({ where: eq(studentBankDetails.admissionId, admissionId) }),
+        db.query.studentDocuments.findFirst({ 
+          where: eq(studentDocuments.admissionId, admissionId),
+        }),
+        db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
+        db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) }),
+        db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
+        db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
+        db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) })
+      ]);
 
     const sanitizedDocs = documents;
 
@@ -822,28 +839,35 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
       entranceTest.reportLink = await getSignedDownloadUrl(entranceTest.reportLink) || entranceTest.reportLink;
     }
 
-    return {
-      success: true,
-      data: {
-        studentBio: enrichedBio,
-        address,
-        previousAcademic: academic,
-        parentsGuardians: parents,
-        bankDetails: bank,
-        documents: sanitizedDocs,
-        declaration,
-        siblings: siblings || [],
-        admissionMeta: meta,
-        documentChecklist: checklist,
-        studentProfile: meta?.studentProfile,
-        entranceTest,
-        homeVisit
+        return {
+          success: true,
+          data: {
+            studentBio: enrichedBio,
+            address,
+            previousAcademic: academic,
+            parentsGuardians: parents,
+            bankDetails: bank,
+            documents: sanitizedDocs,
+            declaration,
+            siblings: siblings || [],
+            admissionMeta: meta,
+            documentChecklist: checklist,
+            studentProfile: meta?.studentProfile,
+            entranceTest,
+            homeVisit
+          }
+        };
+      } catch (error: any) {
+        attempt++;
+        console.error(`getAdmissionData error (attempt ${attempt}):`, error);
+        if (attempt >= maxAttempts) {
+          return { success: false, error: error.message };
+        }
+        // Wait slightly before retry
+        await new Promise(r => setTimeout(r, 500 * attempt));
       }
-    };
-  } catch (error: any) {
-    console.error("getAdmissionData error:", error);
-    return { success: false, error: error.message };
-  }
+    }
+    return { success: false, error: "Failed to fetch admission data after multiple attempts." };
 }
 
 
@@ -1002,18 +1026,6 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                 target: studentDocuments.admissionId,
                 set: folderDocs
               });
-
-              // Special logic for Case 10 (Affidavit): Auto-update checklist to "SUBMITTED"
-              if (folderDocs.affidavit) {
-                await tx.insert(documentChecklists).values({
-                  admissionId,
-                  parentAffidavit: "SUBMITTED",
-                  verifiedAt: new Date()
-                }).onConflictDoUpdate({
-                  target: documentChecklists.admissionId,
-                  set: { parentAffidavit: "SUBMITTED", verifiedAt: new Date() }
-                });
-              }
             }
           }
           break;
