@@ -1017,7 +1017,10 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
                   fetching={fetchingDoc === doc.id}
                   onPreview={() => handlePreview(doc.id)}
                   onDelete={() => handleDelete(doc.id)}
-                  onUpload={(url) => setValue(`documents.${doc.id}`, url)}
+                  onUpload={async (url) => {
+                    setValue(`documents.${doc.id}`, url);
+                    await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } });
+                  }}
                   isEditMode={isEditMode}
                   isLocked={isVerified}
               />
@@ -1289,7 +1292,10 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isE
                   label="Upload Signed Affidavit"
                   hindiLabel="अभिभावक का शपथ पत्र अपलोड करें"
                   accept="application/pdf"
-                  onUploadComplete={() => window.location.reload()}
+                  onUploadComplete={async (url) => {
+                    await saveAdmissionStep(admissionId, 10, { documents: { affidavit: url } });
+                    window.location.reload();
+                  }}
                />
             </div>
           ) : (

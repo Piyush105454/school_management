@@ -59,6 +59,40 @@ export async function GET(req: NextRequest) {
     }
 
     if (!secureUrl) {
+      console.log(`[Proxy] No URL found in DB for ID: ${id}, Field: ${field}. Attempting blind discovery...`);
+      const meta = await db.query.admissionMeta.findFirst({
+        where: eq(admissionMeta.id, id),
+        columns: { entryNumber: true }
+      });
+      
+      if (meta?.entryNumber || id) {
+        const folders = [meta?.entryNumber, id].filter(Boolean) as string[];
+        const categories = (type === "affidavit" || type === "student-documents" || type === "photo") 
+          ? ["student-documents", "studentdocuments"] 
+          : [type as string];
+        const exts = ["pdf", "jpg", "jpeg", "png"];
+
+        outerLoop: 
+        for (const cat of categories) {
+          for (const folder of folders) {
+            for (const ext of exts) {
+              const guessedKey = `dps/2026-27/${cat}/${folder}/${field}.${ext}`;
+              const guessedUrl = await getSignedDownloadUrl(guessedKey);
+              if (guessedUrl) {
+                const check = await fetch(guessedUrl, { cache: 'no-store' });
+                if (check.ok) {
+                  console.log(`[Proxy] Blind discovery SUCCEEDED: ${guessedKey}`);
+                  secureUrl = guessedUrl;
+                  break outerLoop;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!secureUrl) {
       return new NextResponse("Document not found", { status: 404 });
     }
 
