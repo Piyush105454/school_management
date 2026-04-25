@@ -82,8 +82,9 @@ export async function GET(req: NextRequest) {
     let response = await fetch(secureUrl, { cache: 'no-store' });
     
     // SMART FALLBACK: If 404, try the corrected path (legacy to standard migration)
-    if (response.status === 404 && secureUrl.includes("studentdocuments")) {
-      console.log(`[Proxy] Initial fetch returned 404 for legacy path. Attempting smart fallback for ID: ${id}`);
+    // Most docs use 'student-documents', some legacy might use 'studentdocuments'
+    if (response.status === 404 && (secureUrl.includes("student-documents") || secureUrl.includes("studentdocuments"))) {
+      console.log(`[Proxy] Initial fetch returned 404. Attempting smart fallback for ID: ${id}`);
       
       const meta = await db.query.admissionMeta.findFirst({
         where: eq(admissionMeta.id, id),
@@ -91,12 +92,11 @@ export async function GET(req: NextRequest) {
       });
 
       if (meta?.entryNumber) {
-        // Construct standard path: student-documents/ENTRY_NUMBER/FIELD_ID.ext
-        // We extract the filename and extension from the old failing URL
+        // Construct standard path: dps/2026-27/student-documents/[ENTRY_NUMBER]/[FILENAME]
         const oldUrl = new URL(secureUrl);
         const fileNameWithExt = oldUrl.pathname.split('/').pop() || "";
         
-        // Correct the category and folder
+        // Try the standard path with hyphen
         const fallbackKey = `dps/2026-27/student-documents/${meta.entryNumber}/${fileNameWithExt}`;
         const fallbackUrl = await getSignedDownloadUrl(fallbackKey);
         
@@ -105,6 +105,14 @@ export async function GET(req: NextRequest) {
            const secondChance = await fetch(fallbackUrl, { cache: 'no-store' });
            if (secondChance.ok) {
              response = secondChance;
+           } else {
+             // Second fallback attempt: Try without hyphen in folder just in case
+             const legacyKey = `dps/2026-27/studentdocuments/${meta.entryNumber}/${fileNameWithExt}`;
+             const legacyUrl = await getSignedDownloadUrl(legacyKey);
+             if (legacyUrl) {
+                const thirdChance = await fetch(legacyUrl, { cache: 'no-store' });
+                if (thirdChance.ok) response = thirdChance;
+             }
            }
         }
       }

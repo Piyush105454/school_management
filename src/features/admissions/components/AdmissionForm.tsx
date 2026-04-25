@@ -1452,7 +1452,7 @@ function DocumentVerificationStep({
                   }
                   setLoading(false);
                 }}
-                accept="application/pdf,image/*"
+                accept="application/pdf"
               />
           </div>
         )}

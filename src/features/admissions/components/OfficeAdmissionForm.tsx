@@ -925,13 +925,13 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
   const [fetchingDoc, setFetchingDoc] = useState<string | null>(null);
 
   const documentList = [
-    { id: "birthCertificate", name: "Birth Certificate", hindi: "जन्म प्रमाण पत्र" },
-    { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो" },
-    { id: "marksheet", name: "Previous Marksheet", hindi: "पिछली कक्षा की अंकसूची" },
-    { id: "casteCertificate", name: "Caste Certificate", hindi: "जाति प्रमाण पत्र" },
-    { id: "affidavit", name: "Affidavit", hindi: "शपथ पत्र" },
-    { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र" },
-    { id: "scholarshipSlip", name: "Scholarship Slip", hindi: "छात्रवृत्ति पर्ची" },
+    { id: "birthCertificate", name: "Birth Certificate", hindi: "जन्म प्रमाण पत्र", accept: "application/pdf" },
+    { id: "studentPhoto", name: "Student Photo", hindi: "विद्यार्थी की फोटो", accept: "image/*" },
+    { id: "marksheet", name: "Previous Marksheet", hindi: "पिछली कक्षा की अंकसूची", accept: "application/pdf" },
+    { id: "casteCertificate", name: "Caste Certificate", hindi: "जाति प्रमाण पत्र", accept: "application/pdf" },
+    { id: "affidavit", name: "Affidavit", hindi: "शपथ पत्र", accept: "application/pdf" },
+    { id: "transferCertificate", name: "Transfer Certificate (TC)", hindi: "स्थानांतरण प्रमाण पत्र", accept: "application/pdf" },
+    { id: "scholarshipSlip", name: "Scholarship Slip", hindi: "छात्रवृत्ति पर्ची", accept: "application/pdf" },
   ];
   const [remark, setRemark] = useState((initialData?.admissionMeta?.documentRemarks as string) || "");
   const [savingRemark, setSavingRemark] = useState(false);
@@ -1097,6 +1097,7 @@ function DocumentRow({ doc, admissionId, fileData, fetching, onPreview, onDelete
              fieldName={doc.id}
              label={doc.name}
              hindiLabel={doc.hindi}
+             accept={doc.accept}
              initialUrl={fileData}
              onUploadComplete={onUpload}
              onDelete={onDelete}
@@ -1281,6 +1282,7 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isE
                   fieldName="affidavit"
                   label="Upload Signed Affidavit"
                   hindiLabel="अभिभावक का शपथ पत्र अपलोड करें"
+                  accept="application/pdf"
                   onUploadComplete={() => window.location.reload()}
                />
             </div>
