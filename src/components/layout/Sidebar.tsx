@@ -86,11 +86,10 @@ const teacherItems = [
 
 const studentItems = [
   { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
-  { name: "Admission Form", href: "/student/admission", icon: FileText },
+  { name: "Admission Form & Summary", href: "/student/admission", icon: FileText },
   { name: "Doc Verification & Affidavit Upload", href: "/student/admission?step=10", icon: UserCheck },
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
-  { name: "Final Option", href: "/student/final-admission", icon: ClipboardCheck },
   { name: "My Scholarship", href: "/student/scholarship", icon: GraduationCap },
   { name: "My Homework", href: "/student/homework", icon: ClipboardList },
 ];

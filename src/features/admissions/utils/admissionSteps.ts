@@ -30,32 +30,37 @@ export const ADMISSION_STEPS = {
 };
 
 export function getComputedStep(adm: any) {
-  // 1. Highest priority: Fully Admitted
-  if (adm.profile?.isFullyAdmitted) return 15;
+  // Extract data from shared structure
+  const profile = adm.profile || adm;
+  const meta = adm.admissionMeta || adm;
+  const checklist = meta?.documentChecklists || adm.documentChecklist;
+  const entrance = meta?.entranceTest || adm.entranceTest;
+  const home = meta?.homeVisit || adm.homeVisit;
 
-  // 2. Next: Check for successful milestones
-  const entrance = adm.entranceTest;
-  const home = adm.homeVisit;
-  const scholarship = adm.awardedScholarship;
+  // Milestone Flags
+  const isFormDone = (profile.admissionStep || 0) >= 10;
+  const isVerified = !!checklist?.formReceivedComplete;
+  const isTestPassed = entrance?.status === "PASS";
+  const isHomeVisitPassed = home?.status === "PASS";
+  const isFullyAdmitted = profile.isFullyAdmitted;
 
-  // If home visit is passed, they are at Approval stage
-  if (home && home.status === "PASS") return 14;
-  
-  // If scholarship is awarded, treat as Approval stage (since they must be verified)
-  if (scholarship) return 14;
+  // 1. Fully Admitted (Step 15)
+  if (isFullyAdmitted) return 15;
 
-  // If entrance test is passed, they are at Home Visit stage
-  if (entrance && entrance.status === "PASS") return 13;
+  // 2. Final Approval / Pending Admission (Step 14)
+  if (isHomeVisitPassed && isVerified && isTestPassed) return 14;
 
-  // 3. Fallback to the saved step
-  const step = adm.profile?.admissionStep || 1;
-  
-  // Ensure we don't show "Verified" if they've moved onto entrance test/home visit status
-  if (step === 11 && (entrance || home)) {
-    return 12;
-  }
+  // 3. Home Visit Stage (Step 13)
+  if (isTestPassed && isVerified) return 13;
 
-  return step;
+  // 4. Entrance Test Stage (Step 12)
+  if (isVerified) return 12;
+
+  // 5. Verification Stage (Step 11/10)
+  if (isFormDone) return 10; // "Pending Office Review"
+
+  // 6. Form Progress (Step 1-9)
+  return profile.admissionStep || 1;
 }
 
 export function getStepRedirect(adm: any) {

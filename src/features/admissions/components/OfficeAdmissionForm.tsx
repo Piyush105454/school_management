@@ -27,8 +27,10 @@ import {
   MapPinned,
   AlertCircle,
   Upload,
-  Shield
+  Shield,
+  RotateCcw
 } from "lucide-react";
+import { getComputedStep } from "../utils/admissionSteps";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute, getDirectUploadUrl } from "../actions/admissionActions";
 import { rejectAffidavit } from "../actions/documentActions";
@@ -247,7 +249,7 @@ export function OfficeAdmissionForm({
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-inter">
       <div className="max-w-6xl mx-auto mb-8 space-y-4 animate-in slide-in-from-top-4 duration-500">
-        {initialData?.admissionMeta?.officeRemarks && (
+        {initialData?.admissionMeta?.officeRemarks && !initialData?.documents?.affidavit && (
             <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 md:p-6 flex items-start gap-4 shadow-sm">
                 <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
                     <ClipboardCheck className="text-red-600" size={20} />
@@ -261,7 +263,7 @@ export function OfficeAdmissionForm({
             </div>
         )}
 
-        {initialData?.admissionMeta?.documentRemarks && (
+        {initialData?.admissionMeta?.documentRemarks && !initialData?.documents?.studentPhoto && (
             <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 md:p-6 flex items-start gap-4 shadow-sm">
                 <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
                     <FileText className="text-amber-600" size={20} />
@@ -275,7 +277,7 @@ export function OfficeAdmissionForm({
             </div>
         )}
 
-        {initialData?.admissionMeta?.verificationRemarks && (
+        {initialData?.admissionMeta?.verificationRemarks && !initialData?.documents?.affidavit && (
             <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 md:p-6 flex items-start gap-4 shadow-sm">
                 <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
                     <ClipboardCheck className="text-blue-600" size={20} />
@@ -1239,7 +1241,7 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
     }
   };
 
-  const isVerified = (initialData?.studentProfile?.admissionStep ?? 0) >= 11;
+  const isVerified = checklist.parentAffidavit === "VERIFIED";
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">

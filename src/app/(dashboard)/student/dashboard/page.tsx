@@ -26,6 +26,7 @@ import { redirect } from "next/navigation";
 import { formatDate, formatTime } from "@/lib/utils";
 import { EntranceTestCard } from "@/features/admissions/components/EntranceTestCard";
 import { protectRoute } from "@/lib/roleGuard";
+import { getComputedStep } from "@/features/admissions/utils/admissionSteps";
 
 export default async function StudentDashboard() {
   // Protect this route - only STUDENT_PARENT role can access
@@ -85,11 +86,14 @@ export default async function StudentDashboard() {
   const visitData = (profile as any).admissionMeta?.homeVisit || null;
 
 
-  // --- STRICT SEQUENTIAL LOGIC ---
-  const isFormDone = currentStep >= 10;
-  const isVerified = !!((profile as any).admissionMeta?.documentChecklists?.formReceivedComplete);
-  const isTestPassed = testData?.status === "PASS";
-  const isAdmitted = profile.isFullyAdmitted;
+  // --- SYNCHRONIZED SEQUENTIAL LOGIC ---
+  const computedStep = getComputedStep(profile);
+  
+  const isFormDone = computedStep >= 10;
+  const isVerified = computedStep >= 12;
+  const isTestPassed = computedStep >= 13;
+  const isHomeVisitPassed = computedStep >= 14;
+  const isAdmitted = computedStep >= 15;
   const isScholarshipApplied = (profile as any).admissionMeta?.appliedScholarship;
   const isScholarshipAwarded = !!(profile as any).admissionMeta?.awardedScholarship;
 
@@ -97,16 +101,16 @@ export default async function StudentDashboard() {
   const formStatus = isFormDone ? "completed" : "pending";
   
   const verificationStatus = 
-    (isVerified && isFormDone) ? "completed" : 
+    isVerified ? "completed" : 
     (formStatus === "completed" ? "pending" : "waiting");
 
   const entranceTestStatus = 
-    (isTestPassed && isVerified) ? "completed" :
+    isTestPassed ? "completed" :
     (verificationStatus === "completed" ? "pending" : "waiting");
 
   const homeVisitStatus = 
-    (visitData?.status === "PASS" && entranceTestStatus === "completed") ? "completed" :
-    (entranceTestStatus === "completed") ? "pending" : "waiting";
+    isHomeVisitPassed ? "completed" :
+    (entranceTestStatus === "completed" ? "pending" : "waiting");
 
   const finalAdmissionStatus = 
     isAdmitted ? "completed" :
@@ -147,63 +151,6 @@ export default async function StudentDashboard() {
       <div className="bg-white rounded-xl p-4 md:p-8 border border-slate-200">
         
         {/* NEW: Final Admission Success & Scholarship Pending Banner */}
-        {isAdmitted && (
-          <div className="max-w-4xl mx-auto mb-8 animate-in zoom-in-95 duration-500">
-            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[32px] p-8 md:p-10 text-white shadow-2xl shadow-emerald-500/20 group">
-              {/* Decorative elements */}
-              <div className="absolute -right-10 -top-10 h-40 w-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
-              <div className="absolute -left-10 -bottom-10 h-40 w-40 bg-emerald-400/20 rounded-full blur-3xl" />
-              
-              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                <div className="h-20 w-20 md:h-24 md:w-24 bg-white/20 backdrop-blur-md rounded-[28px] flex items-center justify-center border border-white/20 shadow-inner shrink-0 scale-110">
-                  <GraduationCap size={48} className="text-white drop-shadow-sm" />
-                </div>
-                <div className="flex-1 text-center md:text-left space-y-3">
-                  <div className="flex flex-col md:flex-row items-center gap-3">
-                    <h2 className="text-3xl md:text-5xl font-black font-outfit uppercase italic tracking-tight leading-none drop-shadow-md">
-                      Congratulations!
-                    </h2>
-                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20">
-                      Admission Approved
-                    </span>
-                  </div>
-                  <p className="text-sm md:text-lg font-bold opacity-90 uppercase tracking-widest max-w-xl leading-snug">
-                    Welcome to DPS Dhanpuri! You are now an officially admitted student. Reach out to the office for your ID card and uniforms.
-                  </p>
-
-                  {/* SCHOLARSHIP SUB-STATUS */}
-                  {isScholarshipApplied && (
-                    <div className="mt-6 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center gap-4">
-                      {isScholarshipAwarded ? (
-                        <div className="flex items-center gap-3 bg-white/10 px-6 py-3 rounded-2xl border border-white/10 w-full md:w-auto">
-                          <Award size={20} className="text-emerald-300" />
-                          <div className="text-left">
-                            <p className="text-[10px] font-black uppercase tracking-widest leading-none text-emerald-200">Scholarship Awarded</p>
-                            <p className="text-sm font-black mt-1">₹{(profile as any).admissionMeta.scholarshipAmount.toLocaleString()} / YEAR</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3 bg-amber-500/20 px-6 py-3 rounded-2xl border border-amber-500/20 w-full md:w-auto animate-pulse">
-                          <Clock size={20} className="text-amber-300" />
-                          <div className="text-left">
-                            <p className="text-[10px] font-black uppercase tracking-widest leading-none text-amber-200">Pending Recommendation</p>
-                            <p className="text-sm font-black mt-1 italic uppercase tracking-tight">Pending for Award Scholarship</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {!isScholarshipAwarded && (
-                        <p className="text-[9px] font-bold opacity-60 flex-1 text-center md:text-left leading-relaxed uppercase tracking-wider">
-                          Your application is being reviewed by the Scholarship Committee. Results will be announced shortly.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Quick Alert for Office Remarks - Hide if already admitted */}
         {profile.admissionMeta?.officeRemarks && finalAdmissionStatus !== "completed" && (
@@ -243,6 +190,7 @@ export default async function StudentDashboard() {
                          verificationStatus === "pending" ? "Document Review" :
                          entranceTestStatus === "pending" ? "Entrance Test" :
                          homeVisitStatus === "pending" ? "Home Visit" :
+                         finalAdmissionStatus === "pending" ? "Final Fee Choice" :
                          "Application Finalized"}
                     </h3>
                     <p className="text-xs font-bold opacity-80 uppercase tracking-widest leading-relaxed">
@@ -261,6 +209,7 @@ export default async function StudentDashboard() {
                                  return visitData.teacherName || "Assigned Faculty";
                              } catch(e) { return "Assigned Faculty"; }
                          })()}` : "Awaiting Home Visit schedule from Office.") :
+                         finalAdmissionStatus === "pending" ? "Select your enrollment path (Scholarship vs. Normal Fee) to finalize admission." :
                          "Your application is being finalized by the Principal."}
 
                     </p>
@@ -275,6 +224,11 @@ export default async function StudentDashboard() {
                         {entranceTestStatus === "pending" && (
                             <Link href="/student/entrance-test" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-blue-900/20 active:scale-95">
                                 View Details
+                            </Link>
+                        )}
+                        {finalAdmissionStatus === "pending" && (
+                            <Link href="/student/admission" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-blue-900/20 active:scale-95">
+                                Choose Enrollment
                             </Link>
                         )}
                     </div>
@@ -434,11 +388,22 @@ export default async function StudentDashboard() {
                     <div className="h-20 w-20 bg-emerald-500 text-white rounded-[32px] flex items-center justify-center border-4 border-white shadow-xl shadow-emerald-200">
                         <GraduationCap size={40} />
                     </div>
-                    <div className="space-y-2">
-                        <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tight font-outfit leading-none">Congratulations!</h3>
-                        <p className="text-xs text-emerald-600 font-bold uppercase tracking-widest">Your admission is finalized and admitted.</p>
+                    <div className="space-y-3">
+                        <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tight font-outfit leading-none">
+                            {isScholarshipAwarded ? "Scholarship Awarded!" : 
+                             isScholarshipApplied ? "Scholarship Pending" : "Admission Confirmed"}
+                        </h3>
                         
-                        {(profile as any).admissionMeta?.awardedScholarship && (
+                        <p className={cn(
+                            "text-xs font-bold uppercase tracking-widest",
+                            isScholarshipAwarded ? "text-emerald-600" : "text-amber-600"
+                        )}>
+                            {isScholarshipAwarded ? "Your admission and scholarship are finalized." :
+                             isScholarshipApplied ? "Your admission is approved. Scholarship award is pending review." :
+                             "Your admission is finalized and admitted."}
+                        </p>
+                        
+                        {isScholarshipAwarded && (
                             <div className="mt-4 bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm max-w-sm mx-auto space-y-2 relative overflow-hidden">
                                 <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest flex items-center justify-center gap-2">
                                      You have been awarded
@@ -460,7 +425,17 @@ export default async function StudentDashboard() {
                             </div>
                         )}
                         
-                        <p className="text-[10px] text-slate-400 max-w-sm pt-2 uppercase font-bold tracking-widest">Welcome to our school community!</p>
+                        {!isScholarshipAwarded && isScholarshipApplied && (
+                             <div className="mt-4 bg-amber-50 p-5 rounded-2xl border border-amber-100 shadow-sm max-w-sm mx-auto">
+                                <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Pending Recommendation</p>
+                                <p className="text-sm font-black text-amber-600 mt-1 uppercase italic">Pending for Award Scholarship</p>
+                                <p className="text-[9px] font-bold text-slate-400 mt-3 uppercase leading-relaxed tracking-wider">The principal is finalizing your scholarship amount based on your profile.</p>
+                             </div>
+                        )}
+                        
+                        <p className="text-[10px] text-slate-400 max-w-sm pt-2 uppercase font-bold tracking-widest leading-relaxed">
+                            {isScholarshipApplied && !isScholarshipAwarded ? "Check back soon for the award update." : "Welcome to our school community!"}
+                        </p>
                     </div>
                 </div>
             ) : (

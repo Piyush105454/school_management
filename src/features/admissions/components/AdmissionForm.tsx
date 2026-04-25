@@ -34,6 +34,8 @@ import { ensureCompressed, compressImageToBase64 } from "@/lib/compression";
 import { SmartUploader } from "./SmartUploader";
 import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "../actions/documentActions";
 import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
+import { applyScholarship } from "../actions/admissionActions";
+import { Circle } from "lucide-react";
 
 
 const inputStyles = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-200 placeholder:text-slate-400 font-medium text-slate-700 text-sm md:text-base";
@@ -280,7 +282,8 @@ export function AdmissionForm({
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-8 font-info font-inter">
       <div className="max-w-6xl mx-auto mb-8 space-y-4 animate-in slide-in-from-top-4 duration-500">
-        {initialData?.admissionMeta?.officeRemarks && (
+        {/* Hide general officeRemarks if the student has reached Step 13 or has already uploaded the affidavit in Step 10 */}
+        {initialData?.admissionMeta?.officeRemarks && !initialData?.documents?.affidavit && !isActuallyAdmitted && (
             <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-6 md:p-8 flex items-start gap-4 md:gap-6 shadow-xl shadow-red-500/5">
                 <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
                     <AlertCircle className="text-red-600" size={24} />
@@ -296,7 +299,8 @@ export function AdmissionForm({
             </div>
         )}
 
-        {initialData?.admissionMeta?.documentRemarks && (
+        {/* Hide documentRemarks if Step 8 required documents are present */}
+        {initialData?.admissionMeta?.documentRemarks && !initialData?.documents?.studentPhoto && !isActuallyAdmitted && (
             <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-6 md:p-8 flex items-start gap-4 md:gap-6 shadow-xl shadow-amber-500/5">
                 <div className="h-12 w-12 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0 border border-amber-200 shadow-inner">
                     <FileText className="text-amber-600" size={24} />
@@ -312,7 +316,8 @@ export function AdmissionForm({
             </div>
         )}
 
-        {initialData?.admissionMeta?.verificationRemarks && (
+        {/* Hide verificationRemarks if the affidavit is already uploaded/submitted */}
+        {initialData?.admissionMeta?.verificationRemarks && !initialData?.documents?.affidavit && !isActuallyAdmitted && (
             <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-6 md:p-8 flex items-start gap-4 md:gap-6 shadow-xl shadow-blue-500/5">
                 <div className="h-12 w-12 bg-blue-100 rounded-2xl flex items-center justify-center shrink-0 border border-blue-200 shadow-inner">
                     <ClipboardCheck className="text-blue-600" size={24} />
@@ -389,7 +394,9 @@ export function AdmissionForm({
                   {currentStep === 6 && <ParentsStep admissionId={admissionId} />}
                   {currentStep === 7 && <BankStep />}
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
-                  {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
+                </fieldset>
+                
+                {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={handleDownloadWithFullData} downloading={loading} />}
                   {currentStep === 10 && <DocumentVerificationStep 
                     admissionId={admissionId} 
                     initialDocData={initialData?.documents} 
@@ -401,16 +408,14 @@ export function AdmissionForm({
                   />}
                   {currentStep === 11 && <EntranceTestStatusStep admissionId={admissionId} initialData={initialData} />}
                   {currentStep === 12 && <HomeVisitStatusStep admissionId={admissionId} initialData={initialData} />}
-                </fieldset>
-                {currentStep >= 13 && (
-                  <SubmissionSuccessStep 
+                  {currentStep === 13 && <SubmissionSuccessStep 
                     data={initialData} 
                     admissionId={admissionId} 
-                    onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateMergedApplicationPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} 
+                    onDownload={handleDownloadWithFullData} 
                     downloading={loading} 
+                    initialChecklist={initialData?.documentChecklist}
                     isActuallyAdmitted={isActuallyAdmitted} 
-                  />
-                )}
+                  />}
               </div>
             </form>
           </FormProvider>
@@ -995,29 +1000,6 @@ function DeclarationStep() {
         </p>
 
         <div className="space-y-6 md:space-y-8">
-          <div className="space-y-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Choose Fee Route*</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className={cn(
-                "flex flex-col gap-1 p-5 rounded-3xl border-2 cursor-pointer transition-all",
-                watch("declaration.appliedScholarship") === "false" ? "bg-blue-50 border-blue-600 shadow-lg shadow-blue-500/10" : "bg-white border-slate-100 hover:bg-slate-50"
-              )}>
-                <input type="radio" value="false" {...register("declaration.appliedScholarship", { required: "Please select a fee route" })} className="hidden" />
-                <span className={cn("text-xs font-black uppercase italic tracking-tight", watch("declaration.appliedScholarship") === "false" ? "text-blue-900" : "text-slate-900")}>Normal Fee Route</span>
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Standard Admission Fees</span>
-              </label>
-              
-              <label className={cn(
-                "flex flex-col gap-1 p-5 rounded-3xl border-2 cursor-pointer transition-all",
-                watch("declaration.appliedScholarship") === "true" ? "bg-emerald-50 border-emerald-600 shadow-lg shadow-emerald-500/10" : "bg-white border-slate-100 hover:bg-slate-50"
-              )}>
-                <input type="radio" value="true" {...register("declaration.appliedScholarship", { required: "Please select a fee route" })} className="hidden" />
-                <span className={cn("text-xs font-black uppercase italic tracking-tight", watch("declaration.appliedScholarship") === "true" ? "text-emerald-900" : "text-slate-900")}>Scholarship Entry</span>
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Apply for Financial Aid</span>
-              </label>
-            </div>
-            <ErrorMessage error={(errors.declaration as any)?.appliedScholarship} />
-          </div>
 
           <div>
             <label className={cn(
@@ -1077,32 +1059,25 @@ function SubmissionSuccessStep({
   const isPending = initialChecklist?.parentAffidavit === "SUBMITTED" && !isActuallyAdmitted;
 
   return (
-    <div className="animate-in zoom-in-95 fade-in duration-500 py-4 md:py-8">
-      <div className="text-center space-y-4 md:space-y-6 mb-8 md:mb-12">
-        <div className={cn(
-          "inline-flex items-center justify-center h-20 w-20 md:h-24 md:w-24 rounded-[32px] shadow-xl border",
-          isVerified ? "bg-emerald-50 text-emerald-500 border-emerald-100 shadow-emerald-500/10" :
-          isPending ? "bg-amber-50 text-amber-500 border-amber-100 shadow-amber-500/10" :
-          "bg-slate-100 text-slate-400 border-slate-200"
-        )}>
-          {isVerified ? <CheckCircle size={48} strokeWidth={2.5} /> :
-           isPending ? <Clock size={48} strokeWidth={2.5} /> :
-           <AlertCircle size={48} strokeWidth={2.5} />}
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 font-outfit tracking-tight uppercase italic">
-            {isActuallyAdmitted ? "Successfully Admitted" : 
-             isVerified ? "Verification Complete" : 
-             isPending ? "Verification Pending" : 
-             "Not Verified"}
-          </h2>
-          <p className="text-sm md:text-lg text-slate-500 font-bold uppercase tracking-widest leading-none">
-            {isActuallyAdmitted ? "Welcome! You are now an official student." :
-             isVerified ? "All documents have been officially reviewed." :
-             isPending ? "Your documents are currently under review." :
-             "Please complete the verification step."}
-          </p>
-        </div>
+    <div className="animate-in zoom-in-95 fade-in duration-500 py-4 md:py-8 space-y-8">
+      {/* Definitive Admission Choice (Moved from separate page) */}
+      <div className="bg-white rounded-3xl border border-blue-100 shadow-xl shadow-blue-500/5 overflow-hidden p-6 md:p-8 space-y-6">
+         <div className="flex items-center gap-4 border-b pb-6 border-slate-50">
+            <div className="h-12 w-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <CheckCircle size={24} />
+            </div>
+            <div>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Final Milestone</p>
+                <h2 className="text-xl font-black text-slate-900 uppercase leading-none italic">Enrollment & Fee Choice</h2>
+            </div>
+         </div>
+
+         <FinalAdmissionChoiceInternal 
+            admissionId={admissionId} 
+            initialApplied={data?.admissionMeta?.appliedScholarship}
+            visitPassed={data?.homeVisit?.status === "PASS"}
+            isActuallyAdmitted={isActuallyAdmitted}
+         />
       </div>
 
       <div className="bg-slate-50/50 rounded-[32px] border border-slate-100 p-6 md:p-10 space-y-8 md:space-y-12 shadow-inner">
@@ -1212,6 +1187,131 @@ function SubmissionSuccessStep({
   );
 }
 
+function FinalAdmissionChoiceInternal({ 
+    admissionId, 
+    initialApplied,
+    visitPassed,
+    isActuallyAdmitted = false
+}: { 
+    admissionId: string, 
+    initialApplied: boolean | null,
+    visitPassed: boolean,
+    isActuallyAdmitted?: boolean
+}) {
+    const [agreed, setAgreed] = useState(initialApplied !== null);
+    const [selected, setSelected] = useState<boolean | null>(initialApplied);
+    const [loading, setLoading] = useState(false);
+    const [isLocked, setIsLocked] = useState(isActuallyAdmitted);
+  
+    const handleToggle = async () => {
+      if (selected === null) return;
+      setLoading(true);
+      const res = await applyScholarship(admissionId, selected);
+      setLoading(false);
+      if (res.success) {
+        setIsLocked(true);
+        alert(selected ? "Scholarship Applied Successfully!" : "Normal Fee Option Confirmed!");
+        window.location.reload();
+      } else {
+        alert("Error: " + (res.error || "Unknown error"));
+      }
+    };
+
+    if (!visitPassed) {
+        return (
+            <div className="p-8 bg-blue-50/50 rounded-2xl border border-blue-100 flex flex-col items-center text-center gap-4">
+                <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center text-blue-500 shadow-sm border border-blue-50">
+                    <Clock size={32} />
+                </div>
+                <div>
+                   <h4 className="text-sm font-black text-blue-900 uppercase tracking-tight">Visit Pending</h4>
+                   <p className="text-xs font-bold text-blue-700/60 leading-relaxed uppercase tracking-wider mt-1">
+                       Wait for the office to complete your Home Visit before choosing a fee route.
+                   </p>
+                </div>
+            </div>
+        );
+    }
+  
+    return (
+      <div className="space-y-6">
+          <label className={cn(
+              "flex items-center gap-3 p-4 rounded-xl transition-all border",
+              agreed ? "bg-emerald-50/50 border-emerald-200" : "bg-slate-50 border-slate-100",
+              (isLocked || loading) ? "opacity-75 cursor-not-allowed" : "cursor-pointer hover:bg-slate-100/50"
+          )}>
+              <input 
+                  type="checkbox" 
+                  checked={agreed} 
+                  disabled={isLocked || loading}
+                  onChange={(e) => setAgreed(e.target.checked)} 
+                  className="h-5 w-5 rounded-md border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <span className={cn(
+                  "text-xs font-black uppercase tracking-wide",
+                  agreed ? "text-emerald-800" : "text-slate-700"
+              )}>I Agree to the Admission Guidelines</span>
+              {agreed && <CheckCircle size={18} className="text-emerald-500 ml-auto animate-in zoom-in-50 duration-200" />}
+          </label>
+  
+          {agreed && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                      Choose Enrollment Type {isLocked && <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 uppercase tracking-wider flex items-center gap-1"><Lock size={10}/> Confirmed</span>}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button 
+                          type="button"
+                          onClick={() => !isLocked && setSelected(false)}
+                          disabled={loading || isLocked}
+                          className={cn(
+                              "p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center gap-2",
+                              selected === false ? "border-blue-600 bg-blue-50/20 text-blue-900 shadow-md ring-2 ring-blue-100" : "border-slate-100 bg-white text-slate-400 hover:border-slate-200",
+                              (isLocked || loading) && "opacity-75 cursor-not-allowed"
+                          )}
+                      >
+                          {selected === false ? <CheckCircle className="text-blue-600" size={20} /> : <Circle size={20} className="text-slate-200" />}
+                          <span className="text-xs font-black uppercase tracking-widest">Normal Fee</span>
+                          <span className="text-[9px] font-bold opacity-60">Standard Fee Structure</span>
+                      </button>
+  
+                      <button 
+                          type="button"
+                          onClick={() => !isLocked && setSelected(true)}
+                          disabled={loading || isLocked}
+                          className={cn(
+                              "p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center gap-2",
+                              selected === true ? "border-emerald-600 bg-emerald-50/20 text-emerald-900 shadow-md ring-2 ring-emerald-100" : "border-slate-100 bg-white text-slate-400 hover:border-slate-200",
+                              (isLocked || loading) && "opacity-75 cursor-not-allowed"
+                          )}
+                      >
+                          {selected === true ? <CheckCircle className="text-emerald-600" size={20} /> : <Circle size={20} className="text-slate-200" />}
+                          <span className="text-xs font-black uppercase tracking-widest">Scholarship</span>
+                          <span className="text-[9px] font-bold opacity-60">Apply for Fee Concessions</span>
+                      </button>
+                  </div>
+  
+                  <div className="pt-2">
+                      <button 
+                          type="button"
+                          onClick={handleToggle}
+                          disabled={loading || selected === null || isLocked}
+                          className={cn(
+                              "w-full p-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center gap-2",
+                              (selected === null || loading || isLocked)
+                                  ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                                  : "bg-slate-900 hover:bg-black text-white shadow-lg shadow-slate-900/20 hover:scale-[1.01] active:scale-[0.99]"
+                          )}
+                      >
+                          {loading ? <Loader2 className="animate-spin" size={18} /> : isLocked ? "Choice Confirmed & Locked" : "Confirm Enrollment Choice"}
+                      </button>
+                  </div>
+              </div>
+          )}
+      </div>
+    );
+}
+
 function DocumentVerificationStep({ 
   admissionId, 
   initialDocData, 
@@ -1236,7 +1336,8 @@ function DocumentVerificationStep({
   const [currentDocData, setCurrentDocData] = useState(initialDocData);
   const [currentChecklistData, setCurrentChecklistData] = useState(initialChecklistData);
 
-  const isFinalized = (currentChecklistData?.parentAffidavit === "SUBMITTED" || currentChecklistData?.parentAffidavit === "VERIFIED") && studentStep > 10;
+  const isVerified = currentChecklistData?.parentAffidavit === "VERIFIED";
+  const isFinalized = (currentChecklistData?.parentAffidavit === "SUBMITTED" || isVerified) && studentStep > 10;
   const hasUploaded = !!currentDocData?.affidavit;
 
   const handleRemove = async () => {
@@ -1278,16 +1379,17 @@ function DocumentVerificationStep({
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1">
         <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">
-          {isActuallyAdmitted ? "Verification Completed" : "Doc Verification"}
+          {isVerified || isActuallyAdmitted ? "Verification Completed" : "Doc Verification"}
         </h3>
         <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-tight italic">
-          {isActuallyAdmitted ? "Your documents are finalized." : "Step 10: Upload and verify signed documents."}
+          {isVerified || isActuallyAdmitted ? "Your documents are finalized." : "Step 10: Upload and verify signed documents."}
         </p>
       </div>
 
       <div className="max-w-xl mx-auto space-y-6">
         {/* OFFICE REMARK BANNER */}
-        {officeRemarks && (
+        {/* Hide the correction reminder banner once the student has uploaded a new file */}
+        {officeRemarks && !hasUploaded && (
           <div className="bg-red-50 border-2 border-red-200 rounded-[32px] p-6 flex items-start gap-4 mb-2 shadow-sm animate-in slide-in-from-top-2 duration-300">
             <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0 border border-red-200">
               <AlertCircle className="text-red-600" size={20} />
@@ -1302,14 +1404,32 @@ function DocumentVerificationStep({
         )}
 
         {isFinalized && (
-          <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 flex items-center gap-4 shadow-xl">
-            <div className="h-12 w-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center">
-              <Lock size={24} />
+          <div className={cn(
+             "p-6 rounded-3xl border flex items-center gap-4 shadow-xl transition-all duration-500",
+             isVerified ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-900 text-white border-slate-800"
+          )}>
+            <div className={cn(
+              "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner",
+              isVerified ? "bg-white/20 text-white" : "bg-blue-500 text-white"
+            )}>
+              {isVerified ? <CheckCircle size={24} /> : <Lock size={24} />}
             </div>
             <div>
-              <h4 className="text-lg font-black uppercase italic tracking-tight leading-none">Finalized & Locked</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Submission has been officially locked.</p>
+              <h4 className="text-lg font-black uppercase italic tracking-tight leading-none">
+                {isVerified ? "Verified & Approved" : "Finalized & Locked"}
+              </h4>
+              <p className={cn(
+                "text-[10px] font-bold uppercase tracking-widest mt-1",
+                isVerified ? "text-emerald-100" : "text-slate-400"
+              )}>
+                {isVerified ? "The office has successfully verified your documents." : "Submission has been officially locked for review."}
+              </p>
             </div>
+            {isVerified && (
+               <div className="ml-auto bg-white/20 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/20 animate-pulse">
+                  Office Sanctioned
+               </div>
+            )}
           </div>
         )}
 
@@ -1344,7 +1464,9 @@ function DocumentVerificationStep({
                 <FileText size={28} />
               </div>
               <div>
-                <h4 className="text-xl font-black uppercase italic tracking-tight">{isFinalized ? "Affidavit Locked" : "Review Affidavit"}</h4>
+                <h4 className="text-xl font-black uppercase italic tracking-tight">
+                    {isVerified ? "Document Processed" : isFinalized ? "Affidavit Locked" : "Review Affidavit"}
+                </h4>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

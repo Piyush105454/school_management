@@ -17,7 +17,7 @@ import {
   entranceTests,
   homeVisits
 } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3, uploadFileToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
 
@@ -418,6 +418,9 @@ export async function verifyAdmission(admissionId: string) {
 
     revalidatePath("/office/inquiries");
     revalidatePath("/student/dashboard");
+    revalidatePath("/student/admission");
+    revalidatePath("/office/admissions-progress");
+    revalidatePath(`/office/admissions/${admissionId}`);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -521,6 +524,23 @@ export async function undoAdmissionStep(admissionId: string) {
           updatedAt: new Date()
         })
         .where(eq(admissionMeta.id, admissionId));
+
+      // 3. Reset Milestone Statuses (IMPORTANT for getComputedStep sync)
+      // Reset Entrance Test if it was passed/failed
+      await tx.update(entranceTests)
+        .set({ status: "PENDING" })
+        .where(and(
+          eq(entranceTests.admissionId, admissionId),
+          or(eq(entranceTests.status, "PASS"), eq(entranceTests.status, "FAIL"))
+        ));
+
+      // Reset Home Visit if it was passed/failed
+      await tx.update(homeVisits)
+        .set({ status: "PENDING" })
+        .where(and(
+          eq(homeVisits.admissionId, admissionId),
+          or(eq(homeVisits.status, "PASS"), eq(homeVisits.status, "FAIL"))
+        ));
     });
 
     revalidatePath("/office/inquiries");

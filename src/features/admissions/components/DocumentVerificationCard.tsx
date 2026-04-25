@@ -108,7 +108,7 @@ export function DocumentVerificationCard({
   return (
     <div className="space-y-6">
       {/* OFFICE REMARK / CORRECTION NEEDED BANNER */}
-      {officeRemarks && admissionStep === 8 && (
+      {officeRemarks && !hasUploaded && admissionStep === 8 && (
         <div className="max-w-4xl mx-auto mb-2 animate-in slide-in-from-top-4 duration-500">
           <div className="bg-red-50 border-2 border-red-200 rounded-[32px] p-6 flex items-start gap-5 shadow-xl shadow-red-100/50">
             <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">

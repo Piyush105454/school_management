@@ -32,8 +32,10 @@ export default async function StudentFinalAdmissionPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-700 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Final Admission Option</h1>
-        <p className="text-slate-500 text-sm mt-4 font-medium uppercase tracking-widest">Review conditions and confirm your enrollment type.</p>
+        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase italic underline decoration-emerald-500 decoration-4 underline-offset-8">Definitive Admission Choice</h1>
+        <p className="text-slate-500 text-sm mt-4 font-bold uppercase tracking-widest leading-relaxed">
+          The Final Step: Choose your definitive enrollment type (Scholarship or Normal Fee) to complete your admission.
+        </p>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/20 overflow-hidden p-8 space-y-6">
