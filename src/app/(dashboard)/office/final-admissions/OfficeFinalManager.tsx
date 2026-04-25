@@ -14,7 +14,12 @@ export function OfficeFinalManager({ applicant }: { applicant: any }) {
   const handleFinalize = async () => {
     if (!confirm(`Are you sure you want to officially ADMIT ${studentName}?${approveScholarship ? ' (with Scholarship)' : ''}`)) return;
     setLoading(true);
-    const res = await finalizeFinalAdmission(applicant.id, approveScholarship, 36000);
+    const res = await finalizeFinalAdmission(
+      applicant.id, 
+      applicant.appliedScholarship ?? false, 
+      approveScholarship, 
+      36000
+    );
     setLoading(false);
     if (res.success) {
       alert("Student Admitted Successfully!");

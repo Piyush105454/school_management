@@ -1379,10 +1379,10 @@ function DocumentVerificationStep({
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="space-y-1">
         <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase">
-          {isVerified || isActuallyAdmitted ? "Verification Completed" : "Doc Verification"}
+          {isActuallyAdmitted ? "Verification Completed" : "Doc Verification"}
         </h3>
         <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-tight italic">
-          {isVerified || isActuallyAdmitted ? "Your documents are finalized." : "Step 10: Upload and verify signed documents."}
+          {isActuallyAdmitted ? "Your documents are finalized." : "Step 10: Upload and verify signed documents."}
         </p>
       </div>
 

@@ -13,6 +13,7 @@ export default async function AdmissionsProgressPage() {
       inquiry: true,
       entranceTest: true,
       homeVisit: true,
+      documentChecklists: true,
       studentProfile: {
         with: {
           user: true

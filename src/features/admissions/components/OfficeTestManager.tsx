@@ -114,7 +114,12 @@ export function OfficeTestManager({ applicant, teachers = [], role = "OFFICE" }:
   const handleFinalizeAdmission = async () => {
     if (!confirm(`Are you sure you want to officially ADMIT ${studentName}?`)) return;
     setLoading(true);
-    const res = await finalizeFinalAdmission(applicant.id);
+    const res = await finalizeFinalAdmission(
+      applicant.id, 
+      applicant.appliedScholarship ?? false, 
+      false, 
+      0
+    );
     setLoading(false);
     if (res.success) {
       alert("Student Admitted Successfully!");

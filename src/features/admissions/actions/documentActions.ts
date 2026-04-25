@@ -197,10 +197,8 @@ export async function rejectAffidavit(admissionId: string) {
     });
 
     revalidatePath("/student/admission");
-    revalidatePath("/student/dashboard");
-    revalidatePath(`/office/admissions/${admissionId}`);
-    revalidatePath("/office/document-verification");
-    revalidatePath("/office/admissions-progress");
+    revalidatePath("/office/admissions/[id]", "page");
+    revalidatePath("/office/document-verification", "page");
     return { success: true };
   } catch (error: any) {
     console.error("rejectAffidavit error:", error);

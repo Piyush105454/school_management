@@ -28,9 +28,8 @@ import {
   AlertCircle,
   Upload,
   Shield,
-  RotateCcw
+  Banknote
 } from "lucide-react";
-import { getComputedStep } from "../utils/admissionSteps";
 import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, verifyAdmission, getDocumentContent, deleteDocument, saveOfficeRemark, finalizeFinalAdmission, resetFeeRoute, getDirectUploadUrl } from "../actions/admissionActions";
 import { rejectAffidavit } from "../actions/documentActions";
@@ -38,6 +37,7 @@ import { scheduleEntranceTest, getEntranceTestData, updateTestResult } from "../
 import { generateAdmissionPDF } from "../utils/generateAdmissionPDF";
 import { OfficeTestManager } from "./OfficeTestManager";
 import { OfficeHomeVisitManager } from "./OfficeHomeVisitManager";
+import { SmartUploader } from "./SmartUploader";
 import { ensureCompressed, compressImageToBase64 } from "@/lib/compression";
 
 const steps = [
@@ -330,7 +330,7 @@ export function OfficeAdmissionForm({
         <div className="p-4 md:p-8 flex flex-col bg-white">
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
-              {maxStep >= 10 && role === "OFFICE" && (
+              {role !== "STUDENT" && (
                 <div className="flex justify-end max-w-3xl mx-auto mb-4 px-4 md:px-0">
                   <button 
                     type="button" 
@@ -354,9 +354,9 @@ export function OfficeAdmissionForm({
                   {currentStep === 5 && <SiblingsStep />}
                   {currentStep === 6 && <ParentsStep />}
                   {currentStep === 7 && <BankStep />}
-                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
+                  {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} isEditMode={isEditMode} role={role} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateAdmissionPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
-                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} />}
+                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} isEditMode={isEditMode} />}
                   {currentStep === 11 && <OfficeEntranceTestStep admissionId={admissionId} initialData={initialData} teachers={teachers} role={role} />}
                   {currentStep === 12 && <OfficeHomeVisitStep admissionId={admissionId} initialData={initialData} teachers={teachers} role={role} />}
                   {currentStep === 13 && <OfficeFinalStep admissionId={admissionId} initialData={initialData} userRole={role} />}
@@ -920,7 +920,7 @@ function BankStep() {
     );
 }
 
-function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void }) {
+function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEditMode, role }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void, isEditMode: boolean, role: string }) {
   const { watch, setValue } = useFormContext();
   const [fetchingDoc, setFetchingDoc] = useState<string | null>(null);
 
@@ -1010,10 +1010,13 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect }: { ad
             <DocumentRow 
                 key={doc.id} 
                 doc={doc} 
+                admissionId={admissionId}
                 fileData={fileData} 
                 fetching={fetchingDoc === doc.id}
                 onPreview={() => handlePreview(doc.id)}
                 onDelete={() => handleDelete(doc.id)}
+                onUpload={(url) => setValue(`documents.${doc.id}`, url)}
+                isEditMode={isEditMode}
             />
           );
         })}
@@ -1079,9 +1082,28 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect }: { ad
   );
 }
 
-function DocumentRow({ doc, fileData, fetching, onPreview, onDelete }: { doc: any, fileData: any, fetching: boolean, onPreview: () => void, onDelete: () => void }) {
+function DocumentRow({ doc, admissionId, fileData, fetching, onPreview, onDelete, onUpload, isEditMode }: { doc: any, admissionId: string, fileData: any, fetching: boolean, onPreview: () => void, onDelete: () => void, onUpload: (url: string) => void, isEditMode: boolean }) {
   const { formState: { errors } } = useFormContext();
   const hasError = (errors.documents as any)?.[doc.id];
+  
+  if (isEditMode) {
+    return (
+       <div className={cn(
+         "p-1 rounded-[32px] border-2 border-dashed transition-all",
+         hasError ? "border-red-200 bg-red-50/10" : "border-blue-100 bg-blue-50/20 shadow-sm"
+       )}>
+          <SmartUploader 
+             admissionId={admissionId}
+             fieldName={doc.id}
+             label={doc.name}
+             hindiLabel={doc.hindi}
+             initialUrl={fileData}
+             onUploadComplete={onUpload}
+             onDelete={onDelete}
+          />
+       </div>
+    );
+  }
   
   return (
     <div key={doc.id} className={cn(
@@ -1159,7 +1181,7 @@ function DownloadApplicationStep({ data, onDownload, downloading }: { data: any,
   );
 }
 
-function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void }) {
+function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isEditMode }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void, isEditMode: boolean }) {
   const { watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const [fetchingPreview, setFetchingPreview] = useState(false);
@@ -1241,7 +1263,7 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
     }
   };
 
-  const isVerified = checklist.parentAffidavit === "VERIFIED";
+  const isVerified = (initialData?.studentProfile?.admissionStep ?? 0) >= 11;
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
@@ -1252,13 +1274,25 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect }: {
 
       <div className="w-full">
         {!hasAffidavit ? (
-          <div className="bg-amber-50 border border-amber-100 p-10 rounded-3xl text-center space-y-4">
-            <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
-              <FileText size={32} />
+          isEditMode ? (
+            <div className="p-2 border-2 border-dashed border-blue-200 rounded-[32px] bg-blue-50/30">
+               <SmartUploader 
+                  admissionId={admissionId}
+                  fieldName="affidavit"
+                  label="Upload Signed Affidavit"
+                  hindiLabel="अभिभावक का शपथ पत्र अपलोड करें"
+                  onUploadComplete={() => window.location.reload()}
+               />
             </div>
-            <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Affidavit Not Uploaded</p>
-            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Waiting for student to upload</p>
-          </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-100 p-10 rounded-3xl text-center space-y-4">
+              <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+                <FileText size={32} />
+              </div>
+              <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Affidavit Not Uploaded</p>
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Waiting for student to upload</p>
+            </div>
+          )
         ) : (
           <div className="bg-white border border-slate-100 p-8 rounded-[32px] shadow-sm space-y-6">
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
@@ -1466,23 +1500,40 @@ function SubmissionSuccessStep({ data }: { data: any }) {
 function OfficeFinalStep({ admissionId, initialData, userRole }: { admissionId: string, initialData: any, userRole: string }) {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [approveScholarship, setApproveScholarship] = useState(false);
+  
   const studentName = initialData?.inquiry?.studentName || "the student";
   const isAdmitted = initialData?.studentProfile?.isFullyAdmitted;
   const appliedScholarship = initialData?.admissionMeta?.appliedScholarship;
+  
+  // New combined state for route and award
+  const [finalRoute, setFinalRoute] = useState<boolean>(appliedScholarship ?? false);
+  const [isAwarded, setIsAwarded] = useState<boolean>(initialData?.admissionMeta?.awardedScholarship ?? (appliedScholarship === true));
+  const [scholarshipAmount, setScholarshipAmount] = useState<number>(initialData?.admissionMeta?.scholarshipAmount || 36000);
+  const [editingAdmitted, setEditingAdmitted] = useState(false);
+
+  // Synchronize internal states if admissionMeta changes or when editing
   const isFeeChoicePending = appliedScholarship === null;
 
   const handleFinalize = async () => {
-    if (isFeeChoicePending) {
-        alert("Cannot finalize: Student must select a fee route first.");
-        return;
-    }
-    if (!confirm(`Are you sure you want to officially ADMIT ${studentName}?${approveScholarship ? ' (with Scholarship)' : ''}`)) return;
+    const msg = isAdmitted ? 
+      "Are you sure you want to UPDATE this student's admission status and financial records?" : 
+      `Are you sure you want to officially ADMIT ${studentName}?`;
+      
+    if (!confirm(msg)) return;
+    
     setLoading(true);
-    const res = await finalizeFinalAdmission(admissionId, approveScholarship, 36000) as any;
+    // Explicitly pass ALL parameters to the updated action
+    const res = await finalizeFinalAdmission(
+        admissionId, 
+        finalRoute, 
+        isAwarded, 
+        scholarshipAmount
+    ) as any;
     setLoading(false);
+    
     if (res.success) {
-      alert("Student Admitted Successfully!");
+      alert(isAdmitted ? "Admission Record Synchronized Successfully!" : "Student Admitted Successfully!");
+      setEditingAdmitted(false);
       window.location.reload();
     } else {
       alert("Error: " + (res.error || "Unknown error"));
@@ -1528,133 +1579,195 @@ function OfficeFinalStep({ admissionId, initialData, userRole }: { admissionId: 
       </div>
 
       <div className="bg-white rounded-[32px] border border-slate-100 p-8 space-y-8 shadow-sm">
-        {!isAdmitted && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-50 pb-8 mb-2">
-            {[
-              { label: "Document Verification", completed: initialData?.documentChecklist?.parentAffidavit === "VERIFIED" },
-              { label: "Entrance Test Result", completed: initialData?.entranceTest?.status === "PASS" },
-              { label: "Home Visit Completed", completed: initialData?.homeVisit?.status === "PASS" }
-            ].map((step, idx) => (
-              <div key={idx} className={cn(
-                "p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all",
-                step.completed ? "bg-emerald-50/30 border-emerald-100 text-emerald-800" : "bg-slate-50 border-slate-100 text-slate-400 opacity-60"
-              )}>
-                {step.completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-                <span className="text-[9px] font-black uppercase tracking-widest text-center">{step.label}</span>
-                <span className="text-[8px] font-bold opacity-60 uppercase">{step.completed ? "Complete" : "Required"}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {!isAdmitted ? (
+        {(!isAdmitted || editingAdmitted) ? (
           <div className="space-y-8">
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-between gap-6">
-              <div className="flex items-center gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Fee Route</p>
-                  <div className="flex items-center gap-2">
-                    {appliedScholarship === true && (
-                      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm shadow-emerald-500/10">SCHOLARSHIP APPLIED</span>
-                    )}
-                    {appliedScholarship === false && (
-                      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-800 border border-blue-200 shadow-sm shadow-blue-500/10">NORMAL FEE SELECTED</span>
-                    )}
-                    {isFeeChoicePending && (
-                      <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200">CHOICE PENDING</span>
-                    )}
-                  </div>
+            {/* Prerequisites Checklist */}
+            {!isAdmitted && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-50 pb-8 mb-2">
+                    {[
+                    { label: "Document Verification", completed: initialData?.documentChecklist?.parentAffidavit === "VERIFIED" },
+                    { label: "Entrance Test Result", completed: initialData?.entranceTest?.status === "PASS" },
+                    { label: "Home Visit Completed", completed: initialData?.homeVisit?.status === "PASS" }
+                    ].map((step, idx) => (
+                    <div key={idx} className={cn(
+                        "p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all",
+                        step.completed ? "bg-emerald-50/30 border-emerald-100 text-emerald-800" : "bg-slate-50 border-slate-100 text-slate-400 opacity-60"
+                    )}>
+                        {step.completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+                        <span className="text-[9px] font-black uppercase tracking-widest text-center">{step.label}</span>
+                        <span className="text-[8px] font-bold opacity-60 uppercase">{step.completed ? "Complete" : "Required"}</span>
+                    </div>
+                    ))}
                 </div>
+            )}
 
-                {!isAdmitted && appliedScholarship !== null && userRole === "OFFICE" && (
-                  <button
+            {/* Fee Route Selection (ADMIN OVERRIDE) */}
+            <div className="space-y-4">
+               <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Shield size={14} className="text-blue-500" /> Admin Control: Fee Route Selection
+                  </p>
+                  {isFeeChoicePending && !isAdmitted && (
+                    <span className="text-[9px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 animate-pulse">Waiting for Student Choice</span>
+                  )}
+               </div>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button 
                     type="button"
-                    onClick={handleResetFeeRoute}
-                    disabled={resetting}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all font-black uppercase text-[9px] tracking-widest mt-4 disabled:opacity-50"
+                    onClick={() => {
+                        setFinalRoute(false);
+                        setIsAwarded(false);
+                    }}
+                    className={cn(
+                      "p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
+                      finalRoute === false ? "border-blue-600 bg-blue-50 text-blue-900 shadow-md" : "border-slate-100 bg-white text-slate-400 hover:border-slate-200"
+                    )}
                   >
-                    {resetting ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                    Unlock Fee Option
+                    <span className="text-xs font-black uppercase tracking-tighter">Normal Fee Structure</span>
+                    <span className="text-[9px] font-bold opacity-60">ADMIN OVERRIDE</span>
                   </button>
-                )}
-              </div>
-              
-              {appliedScholarship === true && userRole === "OFFICE" && (
-                <label className="flex items-center gap-3 cursor-pointer bg-emerald-600 text-white px-5 py-3 rounded-2xl border border-emerald-500 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 group">
-                  <input 
-                    type="checkbox" 
-                    checked={approveScholarship} 
-                    onChange={(e) => setApproveScholarship(e.target.checked)}
-                    className="rounded-lg border-white/20 text-emerald-800 focus:ring-emerald-500 h-5 w-5 bg-white/20"
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">Approve Scholarship</span>
-                    <span className="text-[8px] font-bold opacity-80 uppercase tracking-wider mt-0.5">36,000 Total Award</span>
-                  </div>
-                </label>
-              )}
-              {appliedScholarship === true && userRole === "TEACHER" && (
-                <div className="flex flex-col items-end">
-                   <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-md border border-emerald-100">Scholarship Approval Pending</span>
-                   <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Office Action Required</p>
-                </div>
-              )}
+                  <button 
+                    type="button"
+                    onClick={() => {
+                        setFinalRoute(true);
+                        setIsAwarded(true);
+                    }}
+                    className={cn(
+                      "p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
+                      finalRoute === true ? "border-emerald-600 bg-emerald-50 text-emerald-900 shadow-md" : "border-slate-100 bg-white text-slate-400 hover:border-slate-200"
+                    )}
+                  >
+                    <span className="text-xs font-black uppercase tracking-tighter">Scholarship Route</span>
+                    <span className="text-[9px] font-bold opacity-60">ADMIN OVERRIDE</span>
+                  </button>
+               </div>
             </div>
 
-            {isFeeChoicePending ? (
-              <div className="p-10 bg-amber-50 border-2 border-dashed border-amber-200 rounded-[32px] text-center space-y-3">
-                 <AlertCircle size={40} className="text-amber-500 mx-auto opacity-50" />
-                 <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Pending for Fee Choice</p>
-                 <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest max-w-xs mx-auto">Admission cannot be finalized until the student selects between scholarship or normal fee route (Step 9).</p>
-              </div>
-            ) : userRole === "TEACHER" ? (
+            {/* Scholarship Management */}
+            {finalRoute === true && (
+               <div className="bg-emerald-50/50 p-8 rounded-[32px] border border-emerald-100 space-y-6 animate-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-50">
+                            <Verified size={24} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-emerald-900 uppercase tracking-tight">Scholarship Award Settings</h4>
+                            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mt-0.5">Determine benefit eligibility</p>
+                        </div>
+                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer bg-white px-4 py-2.5 rounded-xl border border-emerald-200 hover:bg-emerald-50 transition-all shadow-sm">
+                      <input 
+                        type="checkbox" 
+                        checked={isAwarded} 
+                        onChange={(e) => setIsAwarded(e.target.checked)}
+                        className="rounded-lg border-emerald-300 text-emerald-600 focus:ring-emerald-500 h-5 w-5"
+                      />
+                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Awarded</span>
+                    </label>
+                  </div>
+
+                  {isAwarded && (
+                    <div className="space-y-4 pt-4 border-t border-emerald-100 animate-in fade-in duration-300">
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Award Amount (Scholarship Value)</p>
+                        <div className="relative">
+                           <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />
+                           <input 
+                              type="number"
+                              value={scholarshipAmount}
+                              onChange={(e) => setScholarshipAmount(Number(e.target.value))}
+                              className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-emerald-200 bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-black text-emerald-900 text-xl"
+                              placeholder="36000"
+                           />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                           {[18000, 36000, 48000, 54000, 60000].map(amt => (
+                             <button 
+                                key={amt}
+                                type="button"
+                                onClick={() => setScholarshipAmount(amt)}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border",
+                                  scholarshipAmount === amt ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50"
+                                )}
+                             >
+                               ₹{amt/1000}k
+                             </button>
+                           ))}
+                        </div>
+                    </div>
+                  )}
+               </div>
+            )}
+
+            {userRole === "TEACHER" ? (
               <div className="p-10 bg-blue-50 border-2 border-dashed border-blue-100 rounded-[32px] text-center space-y-3">
                  <Shield size={40} className="text-blue-500 mx-auto opacity-50" />
-                 <p className="text-sm font-black text-blue-900 uppercase tracking-tight">Teacher View Only</p>
-                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest max-w-xs mx-auto">The final admission approval button is restricted to office administrative staff. Please contact the office for finalization.</p>
+                 <p className="text-sm font-black text-blue-900 uppercase tracking-tight">Teacher Access Restricted</p>
+                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest max-w-xs mx-auto">Only office staff can perform final admission and financial awards.</p>
               </div>
             ) : (
-              <>
-                <div className="p-6 bg-blue-50/30 rounded-2xl border border-blue-100/50 space-y-4 shadow-inner">
-                  <div className="flex items-start gap-4 text-blue-800">
-                      <AlertCircle size={24} className="shrink-0 mt-0.5 opacity-60" />
-                      <div className="space-y-1">
-                        <p className="text-xs font-black uppercase tracking-widest leading-none">Confirming Admission</p>
-                        <p className="text-[10px] font-bold opacity-80 leading-relaxed uppercase pt-1.5">By clicking confirm, you are officially registering {studentName} in our school database. This will generate an official scholar number and trigger academic profile creation.</p>
-                      </div>
-                  </div>
-                </div>
-
-                <div className="pt-2">
+              <div className="pt-4 flex flex-col gap-3">
+                <button 
+                  onClick={handleFinalize}
+                  disabled={loading}
+                  className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black uppercase tracking-[0.2em] text-sm hover:bg-black transition-all flex items-center justify-center gap-5 shadow-2xl shadow-slate-900/40 group active:scale-[0.98] disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} className="group-hover:scale-110 transition-transform"/>}
+                  {isAdmitted ? "Save Financial Adjustments" : "Finalize & Officially Admit Student"}
+                </button>
+                {(editingAdmitted || !isAdmitted) && !isFeeChoicePending && (
                   <button 
-                    onClick={handleFinalize}
-                    disabled={loading}
-                    className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black uppercase tracking-[0.2em] text-sm hover:bg-black transition-all flex items-center justify-center gap-5 shadow-2xl shadow-slate-900/40 group active:scale-[0.98] disabled:opacity-50"
+                    onClick={handleResetFeeRoute} 
+                    disabled={resetting}
+                    className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors flex items-center justify-center gap-2"
                   >
-                    {loading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} className="group-hover:scale-110 transition-transform" strokeWidth={2.5}/>}
-                    Finalize & Admit Student Now
+                    {resetting ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />} Unlock / Reset Student Choice
                   </button>
-                </div>
-              </>
+                )}
+                {editingAdmitted && (
+                  <button onClick={() => setEditingAdmitted(false)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel Changes</button>
+                )}
+              </div>
             )}
           </div>
         ) : (
-          <div className="text-center py-12 space-y-6">
+          <div className="text-center py-12 space-y-6 animate-in zoom-in-95 duration-500">
             <div className="h-24 w-24 bg-emerald-100 text-emerald-600 rounded-[32px] flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10">
               <CheckCircle size={48} strokeWidth={2.5} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-2xl font-black text-emerald-900 uppercase italic font-outfit">Officially Admitted</h3>
-              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.15em]">This candidate is now a regular student of DPS Dhanpuri.</p>
+              <h3 className="text-2xl font-black text-emerald-900 uppercase italic font-outfit">Student Officially Admitted</h3>
+              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.15em]">This record is fully synchronized with the school admission register.</p>
             </div>
-            <div className="flex justify-center gap-4">
-               <div className="px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center min-w-[140px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scholar ID</p>
-                  <p className="text-lg font-black text-slate-900">{initialData?.studentProfile?.scholarNumber || "SCH-TEMP"}</p>
+            
+            <div className="bg-slate-50/50 p-8 rounded-[32px] border border-slate-100 max-w-md mx-auto grid grid-cols-1 gap-4">
+               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scholar ID</p>
+                  <p className="text-lg font-black text-slate-900">{initialData?.studentProfile?.scholarNumber || "SCH-PENDING"}</p>
                </div>
-               <div className="px-6 py-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center min-w-[140px]">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry Date</p>
-                  <p className="text-lg font-black text-slate-900 italic font-outfit">{new Date().toLocaleDateString('en-GB')}</p>
+               <div className="flex items-center justify-between pb-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrollment Type</p>
+                  <p className={cn("font-black uppercase text-sm", appliedScholarship ? "text-emerald-600" : "text-blue-600")}>
+                    {appliedScholarship ? "Scholarship Route" : "Normal Fee Structure"}
+                  </p>
                </div>
+               {appliedScholarship && (
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scholarship Award</p>
+                    <p className="text-xl font-black text-emerald-600 italic">₹{scholarshipAmount.toLocaleString()}</p>
+                  </div>
+               )}
+            </div>
+
+            <div className="flex justify-center gap-4 pt-4">
+               <button 
+                  onClick={() => setEditingAdmitted(true)}
+                  className="px-10 py-5 bg-white text-slate-900 border-2 border-slate-200 rounded-3xl font-black uppercase tracking-[0.15em] text-[11px] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-3 shadow-sm active:scale-95"
+               >
+                  <Shield size={18} className="text-blue-500" /> Edit Financial / Route Settings
+               </button>
             </div>
           </div>
         )}

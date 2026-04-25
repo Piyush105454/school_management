@@ -50,16 +50,17 @@ export function getComputedStep(adm: any) {
   // 2. Final Approval / Pending Admission (Step 14)
   if (isHomeVisitPassed && isVerified && isTestPassed) return 14;
 
-  // 3. Home Visit Stage (Step 13)
-  if (isTestPassed && isVerified) return 13;
+  // 5. Verification Stage (Status Detection)
+  if (isVerified) {
+    if (isTestPassed) {
+       if (isHomeVisitPassed) return 14; // Final Approved
+       return 13; // Home Visit Stage
+    }
+    return 12; // Entrance Test Stage
+  }
 
-  // 4. Entrance Test Stage (Step 12)
-  if (isVerified) return 12;
-
-  // 5. Verification Stage (Step 11/10)
-  if (isFormDone) return 10; // "Pending Office Review"
-
-  // 6. Form Progress (Step 1-9)
+  // 6. Pending Verification or Form Progress
+  if (isFormDone) return 10;
   return profile.admissionStep || 1;
 }
 

@@ -418,16 +418,13 @@ export async function verifyAdmission(admissionId: string) {
 
     revalidatePath("/office/inquiries");
     revalidatePath("/student/dashboard");
-    revalidatePath("/student/admission");
-    revalidatePath("/office/admissions-progress");
-    revalidatePath(`/office/admissions/${admissionId}`);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
-export async function finalizeFinalAdmission(admissionId: string, approveScholarship?: boolean, amount: number = 36000) {
+export async function finalizeFinalAdmission(admissionId: string, appliedScholarship: boolean, awardedScholarship: boolean, amount: number = 36000) {
   try {
     // 1. Fetch status of previous steps for strict validation
     const [checklist, test, visit] = await Promise.all([
@@ -452,15 +449,19 @@ export async function finalizeFinalAdmission(admissionId: string, approveScholar
         .set({ isFullyAdmitted: true, admissionStep: 13 })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
 
-      if (approveScholarship) {
-        await tx.update(admissionMeta)
-          .set({ awardedScholarship: true, scholarshipAmount: amount, updatedAt: new Date() })
-          .where(eq(admissionMeta.id, admissionId));
-      }
+      await tx.update(admissionMeta)
+        .set({ 
+          appliedScholarship: appliedScholarship,
+          awardedScholarship: awardedScholarship, 
+          scholarshipAmount: awardedScholarship ? amount : 0, 
+          updatedAt: new Date() 
+        })
+        .where(eq(admissionMeta.id, admissionId));
 
       revalidatePath("/office/inquiries");
       revalidatePath("/student/dashboard");
       revalidatePath("/office/final-admissions");
+      revalidatePath("/office/admissions-progress");
       return { success: true };
     });
   } catch (error: any) {
