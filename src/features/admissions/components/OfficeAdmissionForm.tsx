@@ -995,32 +995,35 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
     }
   };
 
-  return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
-      <div className="space-y-1 text-center">
-        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Review Documents</h3>
-        <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: Verify all uploaded records.</p>
-      </div>
-      
-      <div className="space-y-2 md:space-y-3">
-        {documentList.map((doc) => {
-          const fileData = watch(`documents.${doc.id}`);
-          
-          return (
-            <DocumentRow 
-                key={doc.id} 
-                doc={doc} 
-                admissionId={admissionId}
-                fileData={fileData} 
-                fetching={fetchingDoc === doc.id}
-                onPreview={() => handlePreview(doc.id)}
-                onDelete={() => handleDelete(doc.id)}
-                onUpload={(url) => setValue(`documents.${doc.id}`, url)}
-                isEditMode={isEditMode}
-            />
-          );
-        })}
-      </div>
+    const isVerified = (initialData?.studentProfile?.admissionStep ?? 0) >= 11;
+
+    return (
+      <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
+        <div className="space-y-1 text-center">
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 font-outfit tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Review Documents</h3>
+          <p className="text-xs md:text-sm text-slate-500 font-medium">Step 8: Verify all uploaded records.</p>
+        </div>
+        
+        <div className="space-y-2 md:space-y-3">
+          {documentList.map((doc) => {
+            const fileData = watch(`documents.${doc.id}`);
+            
+            return (
+              <DocumentRow 
+                  key={doc.id} 
+                  doc={doc} 
+                  admissionId={admissionId}
+                  fileData={fileData} 
+                  fetching={fetchingDoc === doc.id}
+                  onPreview={() => handlePreview(doc.id)}
+                  onDelete={() => handleDelete(doc.id)}
+                  onUpload={(url) => setValue(`documents.${doc.id}`, url)}
+                  isEditMode={isEditMode}
+                  isLocked={isVerified}
+              />
+            );
+          })}
+        </div>
 
       <div className="mt-10 p-6 bg-slate-50 rounded-[32px] border border-blue-100 shadow-inner space-y-6">
         <div className="flex items-center gap-3 px-2">
@@ -1057,14 +1060,15 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
         <button
             type="button"
             onClick={handleVerifyAll}
-            disabled={verifying || !canVerify}
+            disabled={verifying || !canVerify || isVerified}
             className={cn(
                 "w-full px-6 py-5 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95",
+                isVerified ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default" :
                 canVerify ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed grayscale"
             )}
         >
-            {verifying ? <Loader2 size={18} className="animate-spin" /> : <Verified size={18} />}
-            {canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
+            {verifying ? <Loader2 size={18} className="animate-spin" /> : isVerified ? <CheckCircle size={18} /> : <Verified size={18} />}
+            {isVerified ? "RECORD VERIFIED" : canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
         </button>
 
         {!canVerify && (
@@ -1082,7 +1086,7 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
   );
 }
 
-function DocumentRow({ doc, admissionId, fileData, fetching, onPreview, onDelete, onUpload, isEditMode }: { doc: any, admissionId: string, fileData: any, fetching: boolean, onPreview: () => void, onDelete: () => void, onUpload: (url: string) => void, isEditMode: boolean }) {
+function DocumentRow({ doc, admissionId, fileData, fetching, onPreview, onDelete, onUpload, isEditMode, isLocked }: { doc: any, admissionId: string, fileData: any, fetching: boolean, onPreview: () => void, onDelete: () => void, onUpload: (url: string) => void, isEditMode: boolean, isLocked?: boolean }) {
   const { formState: { errors } } = useFormContext();
   const hasError = (errors.documents as any)?.[doc.id];
   
@@ -1131,14 +1135,16 @@ function DocumentRow({ doc, admissionId, fileData, fetching, onPreview, onDelete
             >
                 {fetching ? <Loader2 size={14} className="animate-spin" /> : <Eye size={16} />}
             </button>
-            <button 
-                type="button"
-                disabled={fetching}
-                onClick={onDelete}
-                className="h-8 w-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
-            >
-                {fetching ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={16} />}
-            </button>
+            {!isLocked && (
+              <button 
+                  type="button"
+                  disabled={fetching}
+                  onClick={onDelete}
+                  className="h-8 w-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
+              >
+                  {fetching ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={16} />}
+              </button>
+            )}
           </div>
         ) : (
           <span className="text-[8px] md:text-[9px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 uppercase">
