@@ -39,7 +39,7 @@ export async function createInquiry(data: any) {
     // 2. Generate Sequential ID: E[Year] [Sequence] (e.g., E2026-27 001)
     const lastInquiry = await db.query.inquiries.findFirst({
       where: eq(inquiries.academicYear, academicYear),
-      orderBy: (inquiries, { desc }) => [desc(inquiries.entryNumber)],
+      orderBy: (inquiries, { desc }) => [desc(inquiries.createdAt)],
     });
 
     let nextNumberValue = 1;
@@ -234,3 +234,29 @@ export async function deleteInquiry(id: string) {
   }
 }
 
+export async function updateInquiry(id: string, data: any) {
+  try {
+    const academicYear = data.academicYear || "2026-27";
+    
+    await db.update(inquiries)
+      .set({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        studentName: `${data.firstName} ${data.lastName}`,
+        parentName: data.parentName,
+        email: data.email,
+        phone: data.phone,
+        appliedClass: data.appliedClass,
+        school: data.school,
+        academicYear,
+        aadhaarNumber: data.aadhaarNumber,
+        updatedAt: new Date(),
+      })
+      .where(eq(inquiries.id, id));
+
+    revalidatePath("/office/inquiries");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}

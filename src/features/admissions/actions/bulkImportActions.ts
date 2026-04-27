@@ -78,7 +78,8 @@ export async function bulkImportStudentsAction(formData: FormData) {
         const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "N/A";
 
         const parentName = row["Father Name"] || row["Parent Name"] || row["Guardian Name"] || "";
-        const appliedClass = row["Class"] || "";
+        const appliedClassRaw = String(row["Class"] || "").trim();
+        const appliedClass = appliedClassRaw.replace(/^class\s*/i, "").trim();
         const dobRaw = row["DOB"] || row["Date of Birth"] || "";
         const scholarNumber = String(row["Scholar"] || row["Scholar Number"] || "").trim();
 
@@ -130,7 +131,7 @@ export async function bulkImportStudentsAction(formData: FormData) {
           const yearSuffix = academicYear.replace("20", "").replace("-", "");
           const lastInquiry = await tx.query.inquiries.findFirst({
             where: eq(inquiries.academicYear, academicYear),
-            orderBy: (inquiries, { desc }) => [desc(inquiries.entryNumber)],
+            orderBy: (inquiries, { desc }) => [desc(inquiries.createdAt)],
           });
           let nextVal = 1;
           if (lastInquiry?.entryNumber) {
@@ -159,7 +160,7 @@ export async function bulkImportStudentsAction(formData: FormData) {
           // 5. Create AdmissionMeta
           const lastMeta = await tx.query.admissionMeta.findFirst({
             where: eq(admissionMeta.academicYear, academicYear),
-            orderBy: (admissionMeta, { desc }) => [desc(admissionMeta.entryNumber)],
+            orderBy: (admissionMeta, { desc }) => [desc(admissionMeta.createdAt)],
           });
           let nextMetaVal = 1;
           if (lastMeta?.entryNumber) {

@@ -19,8 +19,11 @@ import {
 } from "lucide-react";
 import { OfficeTestManager } from "@/features/admissions/components/OfficeTestManager";
 import { EntranceTestDashboard } from "@/features/admissions/components/EntranceTestDashboard";
+import { protectRoute } from "@/lib/roleGuard";
 
 export default async function OfficeEntranceTestsPage() {
+  await protectRoute(["OFFICE", "TEACHER"]);
+  
   const session = await getServerSession(authOptions);
   if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 

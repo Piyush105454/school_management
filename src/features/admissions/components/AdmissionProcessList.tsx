@@ -159,7 +159,9 @@ export function AdmissionProcessList({ admissions }: AdmissionProcessListProps) 
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-                       Class {adm.inquiry?.appliedClass}
+                       {adm.inquiry?.appliedClass?.toLowerCase().startsWith('class') 
+                         ? adm.inquiry?.appliedClass 
+                         : `Class ${adm.inquiry?.appliedClass || 'N/A'}`}
                     </span>
                   </td>
                   <td className="px-6 py-4">

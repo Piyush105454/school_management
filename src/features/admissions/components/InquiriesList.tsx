@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { shortlistInquiry, resetStudentPassword, deleteInquiry } from "../actions/inquiryActions";
+import { shortlistInquiry, resetStudentPassword, deleteInquiry, updateInquiry } from "../actions/inquiryActions";
 import { 
   UserCheck, 
   Trash2, 
@@ -13,7 +13,8 @@ import {
   Shield,
   Copy,
   Check,
-  ExternalLink
+  ExternalLink,
+  Pencil
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useRouter } from "next/navigation";
@@ -34,6 +35,10 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
   const [resetting, setResetting] = useState(false);
   const [newCredentials, setNewCredentials] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
+  
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingInquiry, setEditingInquiry] = useState<any | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   // Sync state with props when server data changes (via router.refresh)
   React.useEffect(() => {
@@ -148,7 +153,9 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                   <td className="px-6 py-4 text-xs text-slate-600">{inq.phone}</td>
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
-                      {inq.appliedClass}
+                      {inq.appliedClass?.toLowerCase().startsWith('class') 
+                        ? inq.appliedClass 
+                        : `Class ${inq.appliedClass || '---'}`}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -188,6 +195,16 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                           {loadingId === inq.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
                         </button>
                       )}
+                      <button 
+                        onClick={() => {
+                          setEditingInquiry(inq);
+                          setShowEditModal(true);
+                        }}
+                        className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
+                        title="Edit Inquiry"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
                       <button 
                         onClick={() => handleDeleteInquiry(inq.id)}
                         className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
@@ -293,6 +310,114 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
               </Link>
             </div>
           </div>
+        )}
+      </Modal>
+      <Modal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)}
+        title="Edit Inquiry Details"
+      >
+        {editingInquiry && (
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const data = Object.fromEntries(formData.entries());
+              
+              setUpdating(true);
+              const result = await updateInquiry(editingInquiry.id, data) as any;
+              setUpdating(false);
+              
+              if (result.success) {
+                alert("Updated successfully!");
+                setShowEditModal(false);
+                router.refresh();
+              } else {
+                alert("Error: " + result.error);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">First Name</label>
+                <input name="firstName" defaultValue={editingInquiry.firstName} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Last Name</label>
+                <input name="lastName" defaultValue={editingInquiry.lastName} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" required />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase">Parent Name</label>
+              <input name="parentName" defaultValue={editingInquiry.parentName} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Email</label>
+                <input name="email" type="email" defaultValue={editingInquiry.email} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Phone</label>
+                <input name="phone" defaultValue={editingInquiry.phone} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Aadhaar</label>
+                <input name="aadhaarNumber" defaultValue={editingInquiry.aadhaarNumber} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Applied Class</label>
+                <select name="appliedClass" defaultValue={editingInquiry.appliedClass} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                  <option value="">Select Class</option>
+                  <option value="Nursery">Nursery</option>
+                  <option value="LKG">LKG</option>
+                  <option value="UKG">UKG</option>
+                  <option value="1">Class 1</option>
+                  <option value="2">Class 2</option>
+                  <option value="3">Class 3</option>
+                  <option value="4">Class 4</option>
+                  <option value="5">Class 5</option>
+                  <option value="6">Class 6</option>
+                  <option value="7">Class 7</option>
+                  <option value="8">Class 8</option>
+                  <option value="9">Class 9</option>
+                  <option value="10">Class 10</option>
+                  <option value="11">Class 11</option>
+                  <option value="12">Class 12</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase">School / Institute</label>
+              <select name="school" defaultValue={editingInquiry.school} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                 <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                 <option value="WES Academy">WES Academy</option>
+              </select>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button 
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-bold hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                disabled={updating}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+              </button>
+            </div>
+          </form>
         )}
       </Modal>
     </>

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { getDashboardUrl, hasRole } from "@/lib/roleUtils";
+import { getDashboardUrl } from "@/lib/roleUtils";
 
 export default function DashboardLayout({
   children,
@@ -23,7 +23,12 @@ export default function DashboardLayout({
     STUDENT_PARENT: ["/student", "/dashboard"],
     TEACHER: [
       "/teacher", 
-      "/office"
+      "/office/inquiries", 
+      "/office/admissions-progress", 
+      "/office/document-verification", 
+      "/office/entrance-tests", 
+      "/office/home-visits",
+      "/office/academy-management" // Added for class management
     ],
   };
 
@@ -38,16 +43,17 @@ export default function DashboardLayout({
     return null;
   }
 
-  // Check if user has access to current route
-  const userRole = session.user?.role as string;
+  const userRole = (session.user?.role as string) || "";
   const allowedRoutes = roleRoutes[userRole] || [];
   const hasAccess = allowedRoutes.some(route => pathname.startsWith(route));
 
+  // Redirect if no access
   if (!hasAccess) {
-    // Redirect to appropriate dashboard
     const dashboardUrl = getDashboardUrl(userRole as any);
-    router.push(dashboardUrl);
-    return null;
+    if (pathname !== dashboardUrl) {
+      router.push(dashboardUrl);
+      return null;
+    }
   }
 
   return (

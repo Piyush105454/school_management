@@ -6,7 +6,11 @@ import { AdmissionsManager } from "@/features/admissions/components/AdmissionsMa
 
 export const dynamic = "force-dynamic";
 
+import { protectRoute } from "@/lib/roleGuard";
+
 export default async function AdmissionsProgressPage() {
+  await protectRoute(["OFFICE", "TEACHER"]);
+  
   // Re-fetch with everything joined to be safe and fast (single roundtrip)
   const fullResults = await db.query.admissionMeta.findMany({
     with: {

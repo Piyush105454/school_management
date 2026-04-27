@@ -17,7 +17,14 @@ export default withAuth(
     const roleRoutes: Record<string, string[]> = {
       OFFICE: ["/office", "/dashboard"],
       STUDENT_PARENT: ["/student", "/dashboard"],
-      TEACHER: ["/teacher", "/office/home-visits", "/office/entrance-tests", "/office/document-verification", "/office/admissions"],
+      TEACHER: [
+        "/teacher", 
+        "/office/inquiries", 
+        "/office/admissions-progress", 
+        "/office/home-visits", 
+        "/office/entrance-tests", 
+        "/office/document-verification"
+      ],
     };
 
     // Check if user has access to this route

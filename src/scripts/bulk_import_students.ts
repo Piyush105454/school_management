@@ -73,7 +73,8 @@ async function main() {
       const aadhaar = String(row["Aadhar Card"] || row["Aadhaar Card"] || row["Aadhar"] || row["Aadhaar Number"] || "").trim();
       const phone = String(row["Father Mobile"] || row["Phone Number"] || row["Mobile"] || row["Father Number"] || "").trim();
       const parentName = row["Father Name"] || row["Parent Name"] || row["Guardian Name"] || "";
-      const appliedClass = row["Class"] || "";
+      const appliedClassRaw = String(row["Class"] || "").trim();
+      const appliedClass = appliedClassRaw.replace(/^class\s*/i, "").trim();
       const dobRaw = row["DOB"] || row["Date of Birth"] || "";
       const scholarNumber = String(row["Scholar"] || row["Scholar Number"] || "").trim();
 
@@ -157,7 +158,7 @@ async function main() {
           const yearSuffix = academicYear.replace("20", "").replace("-", "");
           const lastInquiry = await tx.query.inquiries.findFirst({
             where: eq(inquiries.academicYear, academicYear),
-            orderBy: (inquiries, { desc }) => [desc(inquiries.entryNumber)],
+            orderBy: (inquiries, { desc }) => [desc(inquiries.createdAt)],
           });
           let nextVal = 1;
           if (lastInquiry?.entryNumber) {
@@ -200,7 +201,7 @@ async function main() {
           const yearSuffix = academicYear.replace("20", "").replace("-", "");
           const lastMeta = await tx.query.admissionMeta.findFirst({
             where: eq(admissionMeta.academicYear, academicYear),
-            orderBy: (admissionMeta, { desc }) => [desc(admissionMeta.entryNumber)],
+            orderBy: (admissionMeta, { desc }) => [desc(admissionMeta.createdAt)],
           });
           let nextMetaVal = 1;
           if (lastMeta?.entryNumber) {
