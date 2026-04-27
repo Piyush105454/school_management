@@ -26,7 +26,7 @@ export const inquiries = pgTable("inquiries", {
   studentName: text("student_name"),
   parentName: text("parent_name").notNull(),
   email: text("email").notNull().unique(),
-  phone: text("phone").notNull().unique(),
+  phone: text("phone").notNull(),
   appliedClass: text("applied_class").notNull(),
   school: text("school"),
   academicYear: text("academic_year").notNull(),

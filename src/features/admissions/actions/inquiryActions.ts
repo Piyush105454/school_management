@@ -16,28 +16,23 @@ export async function createInquiry(data: any) {
       throw new Error("Aadhaar Number must be exactly 12 digits.");
     }
 
-    // 1. Check if user/inquiry already exists (Aadhaar, Email, or Phone)
+    // 1. Check if user/inquiry already exists (Aadhaar or Email)
     const existingInquiry = await db.query.inquiries.findFirst({
       where: or(
         eq(inquiries.email, data.email),
-        eq(inquiries.phone, data.phone),
         eq(inquiries.aadhaarNumber, data.aadhaarNumber)
       ),
     });
 
     if (existingInquiry) {
       if (existingInquiry.email === data.email) throw new Error("An account with this email already exists.");
-      if (existingInquiry.phone === data.phone) throw new Error("An account with this phone number already exists.");
       if (existingInquiry.aadhaarNumber === data.aadhaarNumber) throw new Error("An account with this Aadhaar number already exists.");
     }
 
     const existingUser = await db.query.users.findFirst({
-      where: or(
-        eq(users.email, data.email),
-        eq(users.phone, data.phone)
-      ),
+      where: eq(users.email, data.email),
     });
-    if (existingUser) throw new Error("A user with this email or phone already exists.");
+    if (existingUser) throw new Error("A user with this email already exists.");
 
     const academicYear = data.academicYear || "2026-27";
     
