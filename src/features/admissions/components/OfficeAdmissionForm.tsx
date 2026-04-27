@@ -129,6 +129,7 @@ export function OfficeAdmissionForm({
       declarationAccepted: false,
       guardianName: ""
     },
+    parentSelection: "BOTH"
   };
 
   const methods = useForm({
@@ -161,6 +162,20 @@ export function OfficeAdmissionForm({
              }
           }
         });
+
+        // Detect parentSelection from loaded data
+        if (initialData.parentsGuardians && initialData.parentsGuardians.length > 0) {
+          const singleParent = initialData.parentsGuardians.find((p: any) => p.isSingleParent);
+          if (singleParent) {
+            mergedData.parentSelection = singleParent.personType === "MOTHER" ? "MOTHER_ONLY" : "FATHER_ONLY";
+          } else {
+            const hasFather = initialData.parentsGuardians.some((p: any) => p.personType === "FATHER");
+            const hasMother = initialData.parentsGuardians.some((p: any) => p.personType === "MOTHER");
+            if (hasFather && !hasMother) mergedData.parentSelection = "FATHER_ONLY";
+            else if (!hasFather && hasMother) mergedData.parentSelection = "MOTHER_ONLY";
+            else mergedData.parentSelection = "BOTH";
+          }
+        }
       }
       methods.reset(mergedData);
       const targetStep = maxStep && maxStep > 13 ? 13 : maxStep || 1;
@@ -709,15 +724,29 @@ function ParentsStep() {
   const { control, register, getValues, setValue, watch, formState: { errors } } = useFormContext();
   const { fields, append } = useFieldArray({ control, name: "parentsGuardians" });
   const [uploading, setUploading] = useState<Record<number, boolean>>({});
+  const parentSelection = watch("parentSelection");
 
   React.useEffect(() => {
     if (fields.length === 0) {
       append([
-        { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" },
-        { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" }
+        { personType: "FATHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "", isSingleParent: false },
+        { personType: "MOTHER", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "", isSingleParent: false }
       ]);
     }
   }, [fields, append]);
+
+  const setParentSelection = (val: string) => {
+    setValue("parentSelection", val);
+    const currentParents = getValues("parentsGuardians");
+    
+    // Update isSingleParent flag for each record
+    const updated = currentParents.map((p: any) => ({
+      ...p,
+      isSingleParent: (val === "FATHER_ONLY" && p.personType === "FATHER") || 
+                      (val === "MOTHER_ONLY" && p.personType === "MOTHER")
+    }));
+    setValue("parentsGuardians", updated);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
@@ -756,15 +785,46 @@ function ParentsStep() {
         </div>
         <button 
           type="button"
-          onClick={() => append({ personType: "GUARDIAN", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "" })}
+          onClick={() => append({ personType: "GUARDIAN", name: "", mobileNumber: "", occupation: "", qualification: "", aadhaarNumber: "", samagraNumber: "", photo: "", isSingleParent: false })}
           className="bg-slate-900 text-white px-3 md:px-5 py-1.5 md:py-2 rounded-lg text-[10px] md:text-xs font-bold hover:bg-black transition-all flex items-center gap-2 uppercase tracking-widest"
         >
           <Plus size={14} /> Add Guard
         </button>
       </div>
 
+      {/* Parent Selection Toggle */}
+      <div className="bg-slate-100/50 p-1.5 rounded-2xl flex gap-1.5 max-w-md">
+        {[
+          { id: "BOTH", label: "Both Parents", icon: Users },
+          { id: "FATHER_ONLY", label: "Single Father", icon: UserCheck },
+          { id: "MOTHER_ONLY", label: "Single Mother", icon: UserCheck }
+        ].map((opt) => {
+          const isActive = parentSelection === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setParentSelection(opt.id)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
+                isActive ? "bg-white text-blue-600 shadow-sm border border-slate-200/50" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <opt.icon size={14} />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="space-y-4 md:space-y-6">
         {fields.map((field, index) => {
+          const pType = getValues(`parentsGuardians.${index}.personType`);
+          
+          // Conditionally hide based on selection
+          if (parentSelection === "FATHER_ONLY" && pType === "MOTHER") return null;
+          if (parentSelection === "MOTHER_ONLY" && pType === "FATHER") return null;
+
           const parentErrors = (errors.parentsGuardians as any)?.[index];
           const photoValue = watch(`parentsGuardians.${index}.photo`);
           const isUploading = uploading[index];
@@ -773,7 +833,7 @@ function ParentsStep() {
             <div key={field.id} className="p-4 md:p-6 rounded-xl bg-white border border-slate-100 shadow-sm space-y-4 md:space-y-6">
               <div className="flex items-center justify-between">
                 <h4 className="inline-flex px-3 py-1 rounded-full bg-slate-900 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
-                  {(getValues as any)(`parentsGuardians.${index}.personType`)}
+                  {pType}
                 </h4>
 
                 <div className="flex items-center gap-4">
