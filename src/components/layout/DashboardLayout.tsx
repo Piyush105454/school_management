@@ -7,6 +7,23 @@ import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { getDashboardUrl } from "@/lib/roleUtils";
 
+// Role-based route access control
+const ROLE_ROUTES: Record<string, string[]> = {
+  OFFICE: ["/office", "/dashboard"],
+  STUDENT_PARENT: ["/student", "/dashboard"],
+  TEACHER: [
+    "/teacher", 
+    "/office/inquiries", 
+    "/office/admissions-progress", 
+    "/office/admissions",
+    "/office/document-verification", 
+    "/office/entrance-tests", 
+    "/office/home-visits",
+    "/office/final-admissions", // Added just in case
+    "/office/academy-management" 
+  ],
+};
+
 export default function DashboardLayout({
   children,
 }: {
@@ -16,21 +33,6 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-
-  // Role-based route access control
-  const roleRoutes: Record<string, string[]> = {
-    OFFICE: ["/office", "/dashboard"],
-    STUDENT_PARENT: ["/student", "/dashboard"],
-    TEACHER: [
-      "/teacher", 
-      "/office/inquiries", 
-      "/office/admissions-progress", 
-      "/office/document-verification", 
-      "/office/entrance-tests", 
-      "/office/home-visits",
-      "/office/academy-management" // Added for class management
-    ],
-  };
 
   if (status === "loading") {
     return <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
@@ -43,9 +45,17 @@ export default function DashboardLayout({
     return null;
   }
 
-  const userRole = (session.user?.role as string) || "";
-  const allowedRoutes = roleRoutes[userRole] || [];
-  const hasAccess = allowedRoutes.some(route => pathname.startsWith(route));
+  const userRole = (session.user?.role as string || "").toUpperCase();
+  const allowedRoutes = ROLE_ROUTES[userRole] || [];
+  
+  // Robust access check
+  const hasAccess = allowedRoutes.some(route => {
+    if (pathname === route) return true;
+    if (pathname.startsWith(route + "/")) return true;
+    // Special case for exact prefix matches like /office/admissions and /office/admissions-progress
+    if (pathname.startsWith(route)) return true;
+    return false;
+  });
 
   // Redirect if no access
   if (!hasAccess) {

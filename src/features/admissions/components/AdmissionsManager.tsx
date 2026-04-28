@@ -20,9 +20,11 @@ const STATUSES = [
 const INSTITUTES = ["Dhanpuri Public School", "WES Academy", "Other"];
 
 export function AdmissionsManager({ 
-  admissions 
+  admissions,
+  role
 }: { 
-  admissions: any[] 
+  admissions: any[],
+  role?: string
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
@@ -161,7 +163,10 @@ export function AdmissionsManager({
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <AdmissionProcessList admissions={filteredAdmissions} />
+        <AdmissionProcessList 
+          admissions={filteredAdmissions} 
+          role={role}
+        />
       </div>
     </div>
   );

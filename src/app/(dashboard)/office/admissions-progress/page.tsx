@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 import { protectRoute } from "@/lib/roleGuard";
 
 export default async function AdmissionsProgressPage() {
-  await protectRoute(["OFFICE", "TEACHER"]);
+  const session = await protectRoute(["OFFICE", "TEACHER"]);
+  const role = session.user?.role;
   
   // Re-fetch with everything joined to be safe and fast (single roundtrip)
   const fullResults = await db.query.admissionMeta.findMany({
@@ -34,6 +35,9 @@ export default async function AdmissionsProgressPage() {
   }));
 
   return (
-    <AdmissionsManager admissions={mappedResults} />
+    <AdmissionsManager 
+      admissions={mappedResults} 
+      role={role as any}
+    />
   );
 }

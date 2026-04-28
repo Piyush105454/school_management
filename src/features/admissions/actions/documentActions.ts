@@ -115,9 +115,13 @@ export async function submitAffidavit(admissionId: string) {
         .set({ admissionStep: 11 })
         .where(eq(studentProfiles.admissionMetaId, admissionId));
 
-      // 4. CLEAR office remarks now that student has submitted corrections
+      // 4. CLEAR office & verification remarks now that student has submitted corrections
       await tx.update(admissionMeta)
-        .set({ officeRemarks: null, updatedAt: new Date() })
+        .set({ 
+          officeRemarks: null, 
+          verificationRemarks: null, 
+          updatedAt: new Date() 
+        })
         .where(eq(admissionMeta.id, admissionId));
     });
 
@@ -132,6 +136,37 @@ export async function submitAffidavit(admissionId: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function resubmitDocumentRemarks(admissionId: string) {
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Clear the document remark
+      await tx.update(admissionMeta)
+        .set({ documentRemarks: null, updatedAt: new Date() })
+        .where(eq(admissionMeta.id, admissionId));
+
+      // 2. Put them back in the verification queue
+      await tx.update(documentChecklists)
+        .set({ formReceivedComplete: true })
+        .where(eq(documentChecklists.admissionId, admissionId));
+
+      // 3. Move them back to Step 11 (Awaiting Verification)
+      await tx.update(studentProfiles)
+        .set({ admissionStep: 11 })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+    });
+
+    revalidatePath("/student/admission");
+    revalidatePath("/student/dashboard");
+    revalidatePath("/office/document-verification", "page");
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("resubmitDocumentRemarks error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 
 export async function getDocumentData(admissionId: string) {
   try {
@@ -179,11 +214,13 @@ export async function rejectAffidavit(admissionId: string) {
       await tx.insert(documentChecklists).values({
         admissionId,
         parentAffidavit: "REJECTED" as any,
+        formReceivedComplete: false,
         verifiedAt: new Date(),
       }).onConflictDoUpdate({
         target: documentChecklists.admissionId,
         set: {
           parentAffidavit: "REJECTED" as any,
+          formReceivedComplete: false,
           verifiedAt: new Date(),
         }
       });

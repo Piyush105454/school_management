@@ -98,15 +98,20 @@ export async function getSignedDownloadUrl(s3UrlOrKey: string) {
     // Extract key from full URL if provided
     if (s3UrlOrKey.startsWith("http")) {
       try {
+        const url = new URL(s3UrlOrKey);
         // Handle various S3 URL formats:
         // 1. https://bucket.s3.region.amazonaws.com/key
         // 2. https://bucket.s3.amazonaws.com/key
-        const url = new URL(s3UrlOrKey);
-        
-        if (url.hostname.includes("amazonaws.com") && url.hostname.includes(".s3")) {
-           // The key is always the pathname (without leading slash).
-           // IMPORTANT: pathname is URL-encoded, but S3 GetObjectCommand expects the literal (unencoded) key.
-           const rawKey = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+        if (url.hostname.includes("amazonaws.com")) {
+           // Standard format: bucket.s3.region.amazonaws.com/key OR s3.region.amazonaws.com/bucket/key
+           let rawKey = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+           
+           // If the bucket name is in the path (s3.amazonaws.com/bucket/key), strip it
+           const bucketName = process.env.S3_BUCKET_NAME;
+           if (bucketName && rawKey.startsWith(bucketName + "/")) {
+             rawKey = rawKey.replace(bucketName + "/", "");
+           }
+
            key = decodeURIComponent(rawKey);
         }
       } catch (e) {

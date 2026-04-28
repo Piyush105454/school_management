@@ -361,7 +361,7 @@ export function OfficeAdmissionForm({
               )}
 
               <div className="max-w-3xl mx-auto">
-                <fieldset disabled={maxStep >= 13 && !isEditMode} className="space-y-4">
+                <fieldset disabled={!isEditMode} className="space-y-4">
                   {currentStep === 1 && <BioStep />}
                   {currentStep === 2 && <ProfileStatsStep />}
                   {currentStep === 3 && <AddressStep />}
@@ -369,13 +369,16 @@ export function OfficeAdmissionForm({
                   {currentStep === 5 && <SiblingsStep />}
                   {currentStep === 6 && <ParentsStep />}
                   {currentStep === 7 && <BankStep />}
+                </fieldset>
+                
+                <div className="space-y-4">
                   {currentStep === 8 && <OfficeDocumentsStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} isEditMode={isEditMode} role={role} />}
                   {currentStep === 9 && <DownloadApplicationStep data={methods.getValues()} onDownload={(type: 'ADMISSION' | 'FULL_PACKAGE') => generateAdmissionPDF(methods.getValues(), `${methods.getValues("studentBio.firstName")} ${methods.getValues("studentBio.lastName")}`)} downloading={loading} />}
-                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} isEditMode={isEditMode} />}
+                  {currentStep === 10 && <OfficeVerificationStep admissionId={admissionId} initialData={initialData} onPreviewDirect={openInNewTab} isEditMode={isEditMode} role={role} />}
                   {currentStep === 11 && <OfficeEntranceTestStep admissionId={admissionId} initialData={initialData} teachers={teachers} role={role} />}
                   {currentStep === 12 && <OfficeHomeVisitStep admissionId={admissionId} initialData={initialData} teachers={teachers} role={role} />}
                   {currentStep === 13 && <OfficeFinalStep admissionId={admissionId} initialData={initialData} userRole={role} />}
-                </fieldset>
+                </div>
                 {currentStep >= 14 && maxStep >= 14 && <SubmissionSuccessStep data={initialData} />}
               </div>
             </form>
@@ -1079,7 +1082,7 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
                   onDelete={() => handleDelete(doc.id)}
                   onUpload={async (url) => {
                     setValue(`documents.${doc.id}`, url);
-                    await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } });
+                    await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } }, true);
                   }}
                   isEditMode={isEditMode}
                   isLocked={isVerified}
@@ -1108,7 +1111,7 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
                 disabled={savingRemark}
                 className="px-6 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
             >
-                {savingRemark && !verifying ? <Loader2 size={16} className="animate-spin" /> : "Save Remark Only"}
+                {savingRemark ? <Loader2 size={16} className="animate-spin" /> : "Save Remark Only"}
             </button>
             <button
                 type="button"
@@ -1119,31 +1122,6 @@ function OfficeDocumentsStep({ admissionId, initialData, onPreviewDirect, isEdit
                 <UserCheck size={16} /> Mark Correction Needed
             </button>
         </div>
-
-        <button
-            type="button"
-            onClick={handleVerifyAll}
-            disabled={verifying || !canVerify || isVerified}
-            className={cn(
-                "w-full px-6 py-5 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95",
-                isVerified ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default" :
-                canVerify ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed grayscale"
-            )}
-        >
-            {verifying ? <Loader2 size={18} className="animate-spin" /> : isVerified ? <CheckCircle size={18} /> : <Verified size={18} />}
-            {isVerified ? "RECORD VERIFIED" : canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
-        </button>
-
-        {!canVerify && (
-            <div className="bg-red-50/50 border border-red-100 rounded-xl p-3 text-center">
-                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">
-                    Missing: {missingDocs.join(" | ")}
-                </p>
-                <p className="text-[8px] font-bold text-red-400 uppercase tracking-widest mt-0.5">
-                    (Birth Cert, Marksheet, TC and Scholarship Slip are Optional)
-                </p>
-            </div>
-        )}
       </div>
     </div>
   );
@@ -1251,7 +1229,7 @@ function DownloadApplicationStep({ data, onDownload, downloading }: { data: any,
   );
 }
 
-function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isEditMode }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void, isEditMode: boolean }) {
+function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isEditMode, role = "OFFICE" }: { admissionId: string, initialData: any, onPreviewDirect: (url: string) => void, isEditMode: boolean, role?: string }) {
   const { watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const [fetchingPreview, setFetchingPreview] = useState(false);
@@ -1260,9 +1238,9 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isE
   const [verifying, setVerifying] = useState(false);
   
   const checklist = initialData?.documentChecklist || {};
-  const hasAffidavit = checklist.parentAffidavit === "SUBMITTED" || checklist.parentAffidavit === "VERIFIED";
-
   const documents = watch("documents") || {};
+  const hasAffidavit = checklist.parentAffidavit === "SUBMITTED" || checklist.parentAffidavit === "VERIFIED" || !!documents.affidavit;
+
   const isGeneral = initialData?.studentBio?.caste === "GEN";
 
   const missingDocs = [
@@ -1333,7 +1311,8 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isE
     }
   };
 
-  const isVerified = (initialData?.studentProfile?.admissionStep ?? 0) >= 11;
+  // Source of truth for affidavit is its specific checklist status
+  const isVerified = checklist.parentAffidavit === "VERIFIED";
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto pb-20">
@@ -1462,19 +1441,19 @@ function OfficeVerificationStep({ admissionId, initialData, onPreviewDirect, isE
             </button>
         </div>
 
-        <button
-            type="button"
-            onClick={handleVerifyAll}
-            disabled={verifying || !canVerify || isVerified}
-            className={cn(
-                "w-full px-6 py-5 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95",
-                isVerified ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default" :
-                canVerify ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed grayscale"
-            )}
-        >
-            {verifying ? <Loader2 size={18} className="animate-spin" /> : isVerified ? <CheckCircle size={18} /> : <Verified size={18} />}
-            {isVerified ? "RECORD VERIFIED" : canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
-        </button>
+          <button
+              type="button"
+              onClick={handleVerifyAll}
+              disabled={verifying || !canVerify || isVerified}
+              className={cn(
+                  "w-full px-6 py-5 rounded-[20px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95",
+                  isVerified ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default" :
+                  canVerify ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed grayscale"
+              )}
+          >
+              {verifying ? <Loader2 size={18} className="animate-spin" /> : isVerified ? <CheckCircle size={18} /> : <Verified size={18} />}
+              {isVerified ? "RECORD VERIFIED" : canVerify ? "Complete Verification (100%)" : "Pending Required Records"}
+          </button>
 
         {!canVerify && !isVerified && (
             <div className="bg-red-50/50 border border-red-100 rounded-xl p-3 text-center">
@@ -1835,14 +1814,16 @@ function OfficeFinalStep({ admissionId, initialData, userRole }: { admissionId: 
                )}
             </div>
 
-            <div className="flex justify-center gap-4 pt-4">
-               <button 
-                  onClick={() => setEditingAdmitted(true)}
-                  className="px-10 py-5 bg-white text-slate-900 border-2 border-slate-200 rounded-3xl font-black uppercase tracking-[0.15em] text-[11px] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-3 shadow-sm active:scale-95"
-               >
-                  <Shield size={18} className="text-blue-500" /> Edit Financial / Route Settings
-               </button>
-            </div>
+            {userRole !== "TEACHER" && (
+               <div className="flex justify-center gap-4 pt-4">
+                  <button 
+                     onClick={() => setEditingAdmitted(true)}
+                     className="px-10 py-5 bg-white text-slate-900 border-2 border-slate-200 rounded-3xl font-black uppercase tracking-[0.15em] text-[11px] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-3 shadow-sm active:scale-95"
+                  >
+                     <Shield size={18} className="text-blue-500" /> Edit Financial / Route Settings
+                  </button>
+               </div>
+            )}
           </div>
         )}
       </div>

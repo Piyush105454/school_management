@@ -20,7 +20,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
-import { studentProfiles, admissionMeta, entranceTests, inquiries, documentChecklists, homeVisits } from "@/db/schema";
+import { studentProfiles, admissionMeta, entranceTests, inquiries, documentChecklists, homeVisits, declarations } from "@/db/schema";
 
 import { redirect } from "next/navigation";
 import { formatDate, formatTime } from "@/lib/utils";
@@ -61,11 +61,12 @@ export default async function StudentDashboard() {
   const admissionId = coreProfile.admissionMetaId;
 
   // Parallel fetch ancillary data - extremely efficient with unique indexed admissionId
-  const [checklist, test, visit] = admissionId ? await Promise.all([
+  const [checklist, test, visit, declaration] = admissionId ? await Promise.all([
     db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
     db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
     db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) }),
-  ]) : [null, null, null];
+    db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) })
+  ]) : [null, null, null, null];
   
   // Reconstruct profile object to match existing UI logic
   const profile = {
@@ -75,6 +76,7 @@ export default async function StudentDashboard() {
       documentChecklists: checklist,
       entranceTest: test,
       homeVisit: visit,
+      declarations: declaration
     } : null
   };
 
@@ -89,24 +91,29 @@ export default async function StudentDashboard() {
   // --- SYNCHRONIZED SEQUENTIAL LOGIC ---
   const computedStep = getComputedStep(profile);
   
-  const isFormDone = computedStep >= 10;
-  const isVerified = computedStep >= 12;
-  const isTestPassed = computedStep >= 13;
-  const isHomeVisitPassed = computedStep >= 14;
-  const isAdmitted = computedStep >= 15;
+  const hasDocRemark = !!(profile as any).admissionMeta?.documentRemarks;
+  const hasOfficeRemark = !!(profile as any).admissionMeta?.officeRemarks;
+  const hasDeclaration = !!declaration || hasDocRemark || hasOfficeRemark;
+
+  const isFormDone = computedStep >= 10 || hasDeclaration;
+  const isVerified = computedStep >= 12 || (checklist?.parentAffidavit as any) === "VERIFIED" || (hasDocRemark && (checklist?.parentAffidavit as any) === "VERIFIED");
+  const isTestPassed = computedStep >= 13 || test?.status === "PASS";
+  const isHomeVisitPassed = computedStep >= 14 || visit?.status === "PASS";
+  const isAdmitted = computedStep >= 15 || profile.isFullyAdmitted;
   const isScholarshipApplied = (profile as any).admissionMeta?.appliedScholarship;
   const isScholarshipAwarded = !!(profile as any).admissionMeta?.awardedScholarship;
 
   const inquiryStatus = "completed";
-  const formStatus = isFormDone ? "completed" : "pending";
+  const formStatus = hasDocRemark ? "correction" : isFormDone ? "completed" : "pending";
   
   const verificationStatus = 
+    hasOfficeRemark ? "correction" :
     isVerified ? "completed" : 
-    (formStatus === "completed" ? "pending" : "waiting");
+    (formStatus === "completed" || formStatus === "correction" ? "pending" : "waiting");
 
   const entranceTestStatus = 
     isTestPassed ? "completed" :
-    (verificationStatus === "completed" ? "pending" : "waiting");
+    (verificationStatus === "completed" || verificationStatus === "correction" ? "pending" : "waiting");
 
   const homeVisitStatus = 
     isHomeVisitPassed ? "completed" :
@@ -152,29 +159,77 @@ export default async function StudentDashboard() {
         
         {/* NEW: Final Admission Success & Scholarship Pending Banner */}
 
-        {/* Quick Alert for Office Remarks - Hide if already admitted */}
-        {profile.admissionMeta?.officeRemarks && finalAdmissionStatus !== "completed" && (
-          <div className="max-w-4xl mx-auto mb-6 animate-in slide-in-from-top-4 duration-500">
-            <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-5 md:p-6 flex items-start gap-5 shadow-xl shadow-red-100/50">
-              <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
-                <AlertCircle className="text-red-600" size={24} />
+        {/* Quick Alerts for Various Remarks - Hide if already admitted */}
+        {finalAdmissionStatus !== "completed" && (
+          <div className="max-w-4xl mx-auto mb-6 space-y-4 animate-in slide-in-from-top-4 duration-500">
+            {profile.admissionMeta?.officeRemarks && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-5 md:p-6 flex items-start gap-5 shadow-xl shadow-red-100/50">
+                <div className="h-12 w-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0 border border-red-200 shadow-inner">
+                  <AlertCircle className="text-red-600" size={24} />
+                </div>
+                <div className="space-y-1.5 flex-1 pt-1">
+                  <h4 className="text-[10px] font-black text-red-900 uppercase tracking-[0.2em]">Requirement / Correction Needed</h4>
+                  <p className="text-sm font-bold text-red-700 leading-tight italic">
+                    "{profile.admissionMeta.officeRemarks}"
+                  </p>
+                  <p className="text-[10px] font-bold text-red-400 pt-1 uppercase tracking-widest">
+                    Please update your information/documents as mentioned above.
+                  </p>
+                </div>
+                <Link 
+                  href="/student/admission" 
+                  className="hidden md:flex bg-red-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95 self-center"
+                >
+                  Go to Form
+                </Link>
               </div>
-              <div className="space-y-1.5 flex-1 pt-1">
-                <h4 className="text-[10px] font-black text-red-900 uppercase tracking-[0.2em]">Requirement / Correction Needed</h4>
-                <p className="text-sm font-bold text-red-700 leading-tight italic">
-                  "{profile.admissionMeta.officeRemarks}"
-                </p>
-                <p className="text-[10px] font-bold text-red-400 pt-1 uppercase tracking-widest">
-                  Please update your information/documents as mentioned above.
-                </p>
+            )}
+            
+            {profile.admissionMeta?.documentRemarks && (
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-5 md:p-6 flex items-start gap-5 shadow-xl shadow-amber-100/50">
+                <div className="h-12 w-12 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0 border border-amber-200 shadow-inner">
+                  <FileText className="text-amber-600" size={24} />
+                </div>
+                <div className="space-y-1.5 flex-1 pt-1">
+                  <h4 className="text-[10px] font-black text-amber-900 uppercase tracking-[0.2em]">Document Correction Needed</h4>
+                  <p className="text-sm font-bold text-amber-700 leading-tight italic">
+                    "{profile.admissionMeta.documentRemarks}"
+                  </p>
+                  <p className="text-[10px] font-bold text-amber-500 pt-1 uppercase tracking-widest">
+                    Please update your documents in Step 8.
+                  </p>
+                </div>
+                <Link 
+                  href="/student/admission" 
+                  className="hidden md:flex bg-amber-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg shadow-amber-200 active:scale-95 self-center"
+                >
+                  Go to Documents
+                </Link>
               </div>
-              <Link 
-                href="/student/admission" 
-                className="hidden md:flex bg-red-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95 self-center"
-              >
-                Go to Form
-              </Link>
-            </div>
+            )}
+
+            {profile.admissionMeta?.verificationRemarks && (
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-5 md:p-6 flex items-start gap-5 shadow-xl shadow-blue-100/50">
+                <div className="h-12 w-12 bg-blue-100 rounded-2xl flex items-center justify-center shrink-0 border border-blue-200 shadow-inner">
+                  <ClipboardList className="text-blue-600" size={24} />
+                </div>
+                <div className="space-y-1.5 flex-1 pt-1">
+                  <h4 className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Affidavit Correction Needed</h4>
+                  <p className="text-sm font-bold text-blue-700 leading-tight italic">
+                    "{profile.admissionMeta.verificationRemarks}"
+                  </p>
+                  <p className="text-[10px] font-bold text-blue-400 pt-1 uppercase tracking-widest">
+                    Please upload the corrected affidavit in Step 10.
+                  </p>
+                </div>
+                <Link 
+                  href="/student/admission" 
+                  className="hidden md:flex bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95 self-center"
+                >
+                  Go to Affidavit
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -186,6 +241,8 @@ export default async function StudentDashboard() {
                     <h3 className="text-2xl md:text-3xl font-black font-outfit uppercase italic leading-none tracking-tight">
                         {scholarshipStatus === "completed" ? "Scholarship Awarded" :
                          finalAdmissionStatus === "completed" ? (isScholarshipApplied && !isScholarshipAwarded ? "Scholarship Review" : "Admission Successful") : 
+                         hasDocRemark ? "Document Correction" :
+                         hasOfficeRemark ? "Affidavit Correction" :
                          formStatus === "pending" ? "Admission Form" :
                          verificationStatus === "pending" ? "Document Review" :
                          entranceTestStatus === "pending" ? "Entrance Test" :
@@ -196,6 +253,8 @@ export default async function StudentDashboard() {
                     <p className="text-xs font-bold opacity-80 uppercase tracking-widest leading-relaxed">
                         {scholarshipStatus === "completed" ? "Your scholarship has been approved and applied." :
                          finalAdmissionStatus === "completed" ? (isScholarshipApplied && !isScholarshipAwarded ? "Your admission is confirmed. The Scholarship Committee is now reviewing your application." : "Welcome to the school community. Your admission is now complete.") : 
+                         hasDocRemark ? "Please update your documents in the admission form to proceed." :
+                         hasOfficeRemark ? "Please update your affidavit and signatures to proceed." :
                          formStatus === "pending" ? "Please complete and submit your details." :
                          verificationStatus === "pending" ? "We are verifying your submitted files." :
                          entranceTestStatus === "pending" ? "View your test schedule and location details." :
@@ -216,17 +275,22 @@ export default async function StudentDashboard() {
                 </div>
                 {finalAdmissionStatus !== "completed" && (
                     <div className="flex gap-3 relative z-10 shrink-0">
-                        {formStatus === "pending" && (
+                        {(formStatus === "pending" || hasDocRemark) && (
                             <Link href="/student/admission" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-blue-900/20 active:scale-95">
-                                Start Form
+                                {hasDocRemark ? "Correct Form" : "Start Form"}
                             </Link>
                         )}
-                        {entranceTestStatus === "pending" && (
+                        {verificationStatus === "correction" && (
+                            <Link href="/student/document-verification" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-blue-900/20 active:scale-95">
+                                Correct Affidavit
+                            </Link>
+                        )}
+                        {entranceTestStatus === "pending" && !hasDocRemark && (
                             <Link href="/student/entrance-test" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-blue-900/20 active:scale-95">
                                 View Details
                             </Link>
                         )}
-                        {finalAdmissionStatus === "pending" && (
+                        {finalAdmissionStatus === "pending" && !hasDocRemark && (
                             <Link href="/student/admission" className="bg-white text-blue-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-xl shadow-blue-900/20 active:scale-95">
                                 Choose Enrollment
                             </Link>
@@ -258,13 +322,17 @@ export default async function StudentDashboard() {
                 <div className={cn(
                   "h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center border-2 transition-all",
                   item.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white" :
+                  item.status === "correction" ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-200" :
                   item.status === "pending" ? "bg-amber-400 border-amber-400 text-white shadow-lg shadow-amber-200" :
                   "bg-white border-slate-100 text-slate-300"
                 )}>
-                  {item.status === "completed" ? <CheckCircle2 size={16} /> : <item.icon size={16} />}
+                  {item.status === "completed" ? <CheckCircle2 size={16} /> : 
+                   item.status === "correction" ? <AlertCircle size={16} /> : 
+                   <item.icon size={16} />}
                 </div>
                 <span className={cn(
                   "text-[8px] md:text-[10px] font-bold uppercase tracking-[0.15em] text-center max-w-[80px]",
+                  item.status === "correction" ? "text-red-600" :
                   item.status === "waiting" ? "text-slate-200" : "text-slate-900"
                 )}>{item.name}</span>
              </Link>
@@ -283,24 +351,39 @@ export default async function StudentDashboard() {
                 </div>
             </div>
 
-            {/* If Form is still pending, show the 9 steps roadmap */}
-            {formStatus === "pending" ? (
+            {/* If Form is still pending or needs document correction, show the 9 steps roadmap */}
+            {formStatus === "pending" || hasDocRemark ? (
                 <div className="relative">
                   <div className="absolute left-5 top-3 bottom-0 w-px bg-slate-100"></div>
                   <div className="space-y-4 md:space-y-6">
                     {steps.map((step, i) => {
                       const stepNum = i + 1;
-                      const isComplete = currentStep > stepNum || finalAdmissionStatus === "completed";
-                      const isCurrent = currentStep === stepNum && finalAdmissionStatus !== "completed";
+                      const hasDocRemark = !!profile.admissionMeta?.documentRemarks;
+                      
+                      let isComplete = currentStep > stepNum || finalAdmissionStatus === "completed";
+                      let isCurrent = currentStep === stepNum && finalAdmissionStatus !== "completed";
+                      
+                      if (hasDocRemark) {
+                          if (stepNum === 8) {
+                              isComplete = false;
+                              isCurrent = true;
+                          } else if (stepNum === 9) {
+                              isComplete = true;
+                              isCurrent = false;
+                          }
+                      }
                       
                       return (
                         <div key={step.name} className="flex items-center gap-4 md:gap-8 relative">
                           <div className={cn(
                             "h-10 w-10 md:h-12 md:w-12 rounded-xl border-2 border-slate-50 flex items-center justify-center z-10 transition-colors",
                             isComplete ? 'bg-emerald-500 text-white border-emerald-500' : 
+                            isCurrent && hasDocRemark ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-200' :
                             isCurrent ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-300'
                           )}>
-                            {isComplete ? <CheckCircle2 size={16} /> : <step.icon size={16} />}
+                            {isComplete ? <CheckCircle2 size={16} /> : 
+                             isCurrent && hasDocRemark ? <AlertCircle size={16} /> :
+                             <step.icon size={16} />}
                           </div>
                           <div className="flex-1">
                             <p className={cn(
@@ -309,8 +392,12 @@ export default async function StudentDashboard() {
                             )}>
                               {step.name}
                             </p>
-                            <p className="text-[8px] md:text-[10px] font-bold text-slate-400 mt-0.5 md:mt-1 uppercase tracking-wider">
+                            <p className={cn(
+                                "text-[8px] md:text-[10px] font-bold mt-0.5 md:mt-1 uppercase tracking-wider",
+                                isCurrent && hasDocRemark ? "text-red-500" : "text-slate-400"
+                            )}>
                               {isComplete ? 'COMPLETED' : 
+                               isCurrent && hasDocRemark ? 'CORRECTION NEEDED' :
                                isCurrent ? 'FILL NOW' : 'LOCKED'}
                             </p>
                           </div>

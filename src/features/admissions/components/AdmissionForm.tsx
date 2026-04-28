@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 import { submitFullAdmissionForm, saveAdmissionStep, getAdmissionData, getS3UploadContext, getDocumentContent } from "../actions/admissionActions";
 import { ensureCompressed, compressImageToBase64 } from "@/lib/compression";
 import { SmartUploader } from "./SmartUploader";
-import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent } from "../actions/documentActions";
+import { uploadAffidavit, removeAffidavit, submitAffidavit, getAffidavitContent, resubmitDocumentRemarks } from "../actions/documentActions";
 import { generateAdmissionPDF, generateMergedApplicationPDF } from "../utils/generateAdmissionPDF";
 import { applyScholarship } from "../actions/admissionActions";
 import { Circle } from "lucide-react";
@@ -247,7 +247,15 @@ export function AdmissionForm({
       setLoading(true);
       // Optimistic move
       const prevStepVal = currentStep;
-      setCurrentStep(prev => Math.min(prev + 1, 13));
+      
+      const isAffidavitVerified = initialData?.documentChecklist?.parentAffidavit === "VERIFIED" || initialData?.documentChecklist?.parentAffidavit === "SUBMITTED";
+      const isBypassingToVerification = prevStepVal === 8 && initialData?.admissionMeta?.documentRemarks && isAffidavitVerified;
+
+      if (isBypassingToVerification) {
+         setCurrentStep(11);
+      } else {
+         setCurrentStep(prev => Math.min(prev + 1, 13));
+      }
       
       // Save data
       const data = methods.getValues();
@@ -259,6 +267,16 @@ export function AdmissionForm({
       if (!saveRes.success) {
          console.error("saveAdmissionStep error:", saveRes.error);
          alert("Progress could not be saved to server. Please check your connection.");
+         // Revert step
+         setCurrentStep(prevStepVal);
+      } else if (isBypassingToVerification) {
+         // Use the server action to jump them fully back into the verification queue
+         await resubmitDocumentRemarks(admissionId);
+      } else if (prevStepVal === 8) {
+         // Also explicitly clear the document remark if they are successfully advancing from Step 8
+         try {
+           await fetch(`/api/clear-remark?id=${admissionId}&type=document`, { method: "POST" });
+         } catch(e) {}
       }
     }
   };
@@ -357,7 +375,9 @@ export function AdmissionForm({
             {steps.map((step, index) => {
               const isActive = currentStep === step.id;
               const isPast = (currentStep > step.id);
-              const isUnlocked = maxStep >= step.id;
+              const isAffidavitVerified = initialData?.documentChecklist?.parentAffidavit === "VERIFIED";
+              // If Step 10 is already verified, all steps up to 10 should be unlocked for navigation
+              const isUnlocked = maxStep >= step.id || (step.id <= 10 && isAffidavitVerified);
               
               return (
                 <React.Fragment key={step.id}>
@@ -402,7 +422,7 @@ export function AdmissionForm({
           <FormProvider {...methods}>
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex-1">
               <div className="max-w-3xl mx-auto">
-                <fieldset disabled={maxStep >= 13} className="space-y-4">
+                <fieldset disabled={maxStep >= 13 || !!initialData?.declaration} className="space-y-4">
                   {currentStep === 1 && <BioStep />}
                   {currentStep === 2 && <ProfileStatsStep />}
                   {currentStep === 3 && <AddressStep />}
@@ -410,6 +430,9 @@ export function AdmissionForm({
                   {currentStep === 5 && <SiblingsStep />}
                   {currentStep === 6 && <ParentsStep admissionId={admissionId} />}
                   {currentStep === 7 && <BankStep />}
+                </fieldset>
+
+                <fieldset disabled={maxStep >= 13 || (!!initialData?.declaration && !initialData?.admissionMeta?.documentRemarks)} className="space-y-4">
                   {currentStep === 8 && <DocumentsStep admissionId={admissionId} />}
                 </fieldset>
                 
@@ -453,9 +476,15 @@ export function AdmissionForm({
                     <button 
                       type="button" 
                       onClick={nextStep} 
-                      className="flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                      className={cn(
+                        "flex-1 md:w-auto group flex items-center justify-center gap-3 px-10 py-3.5 rounded-2xl font-bold transition-all shadow-xl",
+                        currentStep === 8 && initialData?.admissionMeta?.documentRemarks
+                          ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20"
+                          : "bg-slate-900 text-white hover:bg-black shadow-slate-900/10"
+                      )}
                     >
-                       Next Step <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
+                       {currentStep === 8 && initialData?.admissionMeta?.documentRemarks ? "Submit Updated Documents" : "Next Step"} 
+                       <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
                     </button>
                   ) : currentStep === 10 && (maxStep >= 11 || isActuallyAdmitted) ? (
                     <button 
@@ -1030,11 +1059,11 @@ function DocumentsStep({ admissionId }: { admissionId: string }) {
               accept={doc.accept}
               onUploadComplete={async (url) => {
                 setValue(`documents.${doc.id}`, url, { shouldValidate: true });
-                await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } });
+                await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: url } }, true);
               }}
               onDelete={async () => {
                 setValue(`documents.${doc.id}`, "", { shouldValidate: true });
-                await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: null } });
+                await saveAdmissionStep(admissionId, 8, { documents: { [doc.id]: null } }, true);
               }}
             />
             {errors.documents && (errors.documents as any)[doc.id] && (
@@ -1403,7 +1432,7 @@ function DocumentVerificationStep({
   const [currentChecklistData, setCurrentChecklistData] = useState(initialChecklistData);
 
   const isVerified = currentChecklistData?.parentAffidavit === "VERIFIED";
-  const isFinalized = (currentChecklistData?.parentAffidavit === "SUBMITTED" || isVerified) && studentStep > 10;
+  const isFinalized = currentChecklistData?.parentAffidavit === "SUBMITTED" || isVerified;
   const hasUploaded = !!currentDocData?.affidavit;
 
   const handleRemove = async () => {
@@ -1509,7 +1538,7 @@ function DocumentVerificationStep({
                 maxSizeMB={1}
                 onUploadComplete={async (url) => {
                   setLoading(true);
-                  const res = await saveAdmissionStep(admissionId, 10, { documents: { affidavit: url } });
+                  const res = await saveAdmissionStep(admissionId, 10, { documents: { affidavit: url } }, true);
                   if (res.success) {
                     setCurrentDocData({ ...currentDocData, affidavit: url });
                     setValue("documents.affidavit", "__EXISTING__", { shouldDirty: true });

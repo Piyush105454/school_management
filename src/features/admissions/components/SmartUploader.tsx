@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import imageCompression from "browser-image-compression";
 import { Upload, CheckCircle, Loader2, FileText, AlertCircle, Trash2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,21 @@ export function SmartUploader({
   const [compressionStatus, setCompressionStatus] = useState<string>("COMPRESSING...");
   const [error, setError] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(initialUrl || null);
+
+  useEffect(() => {
+    if (initialUrl !== undefined) {
+      // Prevent overwriting our generated signed previewUrl with a raw unsigned URL from the parent state
+      if (status === "success" && currentUrl && initialUrl) {
+        const baseCurrent = currentUrl.split('?')[0];
+        const baseInitial = initialUrl.split('?')[0];
+        if (baseCurrent === baseInitial && currentUrl.includes("X-Amz-Signature")) {
+          return; // Keep the signed URL!
+        }
+      }
+      setCurrentUrl(initialUrl || null);
+    }
+  }, [initialUrl, status, currentUrl]);
+
 
   const formatSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -95,10 +110,11 @@ export function SmartUploader({
 
       setProgress(100);
 
-      // 3. Success handling
+      // 3. Success handling - wait for database save to complete!
+      await onUploadComplete(res.publicUrl!);
+      
       setStatus("success");
       setCurrentUrl(res.previewUrl!);
-      onUploadComplete(res.publicUrl!);
     } catch (err: any) {
       console.error("Upload process failed:", err);
       // Give more diagnostic info in the UI

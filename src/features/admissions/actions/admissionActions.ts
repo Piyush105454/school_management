@@ -700,7 +700,24 @@ export async function deleteDocument(admissionId: string, fieldName: string) {
       .set({ [fieldName]: null, updatedAt: new Date() })
       .where(eq(studentDocuments.admissionId, admissionId));
     
+    // 4. If deleting affidavit, reset verification status
+    if (fieldName === "affidavit") {
+      await db.update(documentChecklists)
+        .set({ 
+          parentAffidavit: "REJECTED" as any, 
+          formReceivedComplete: false,
+          verifiedAt: null 
+        })
+        .where(eq(documentChecklists.admissionId, admissionId));
+
+      await db.update(studentProfiles)
+        .set({ admissionStep: 10 })
+        .where(eq(studentProfiles.admissionMetaId, admissionId));
+    }
+
     revalidatePath("/office/admissions/[id]", "page");
+    revalidatePath("/student/dashboard");
+    revalidatePath("/office/document-verification");
     return { success: true };
   } catch (error: any) {
     console.error("deleteDocument error:", error);
@@ -721,7 +738,7 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
           .set({ admissionStep: unlockStep })
           .where(eq(studentProfiles.admissionMetaId, admissionId));
 
-        // If unlocking back to Document Upload (8), reset checklist entirely
+        // If unlocking back to Document Upload (8), reset ONLY Step 8 document statuses
         if (unlockStep === 8) {
           await tx.update(documentChecklists)
             .set({ 
@@ -729,7 +746,7 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
               previousMarksheet: "NOT_SUBMITTED",
               studentPhotos3: "NOT_SUBMITTED",
               casteCertificate: "NOT_SUBMITTED",
-              parentAffidavit: "NOT_SUBMITTED", 
+              // parentAffidavit: "NOT_SUBMITTED", // REMOVED: Isolated Step 10
               scholarshipLetter: "NOT_SUBMITTED",
               transferCertificate: "NOT_SUBMITTED",
               formReceivedComplete: false,
@@ -738,11 +755,12 @@ export async function saveOfficeRemark(admissionId: string, remark: string, unlo
             .where(eq(documentChecklists.admissionId, admissionId));
         }
 
-        // If unlocking to Verification (10), reset affidavit status to REJECTED so they re-upload
+        // If unlocking to Verification (10), reset affidavit status and verification flag
         if (unlockStep === 10) {
            await tx.update(documentChecklists)
             .set({ 
               parentAffidavit: "REJECTED", 
+              formReceivedComplete: false, // ENSURE Step 10 is unlocked
               verifiedAt: null 
             })
             .where(eq(documentChecklists.admissionId, admissionId));
@@ -893,7 +911,7 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
 
 
 
-export async function saveAdmissionStep(admissionId: string, step: number, data: any) {
+export async function saveAdmissionStep(admissionId: string, step: number, data: any, isPartialSave: boolean = false) {
   try {
     const s3Context = await getS3UploadContext(admissionId);
     
@@ -1047,6 +1065,17 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
                 target: studentDocuments.admissionId,
                 set: folderDocs
               });
+
+              // SPECIAL: If affidavit is uploaded (Step 10), update the checklist status so UI switches to Preview mode
+              if (folderDocs.affidavit) {
+                await tx.insert(documentChecklists).values({
+                  admissionId,
+                  parentAffidavit: "SUBMITTED"
+                }).onConflictDoUpdate({
+                  target: documentChecklists.admissionId,
+                  set: { parentAffidavit: "SUBMITTED" }
+                });
+              }
             }
           }
           break;
@@ -1073,8 +1102,9 @@ export async function saveAdmissionStep(admissionId: string, step: number, data:
         .limit(1);
 
       const existingStep = currentProfile?.[0]?.currentStep || 0;
+      const shouldIncrement = !isPartialSave && (step + 1 > existingStep) && step !== 10;
 
-      if (step + 1 > existingStep) {
+      if (shouldIncrement) {
         await tx.update(studentProfiles)
           .set({ admissionStep: step + 1 })
           .where(eq(studentProfiles.admissionMetaId, admissionId));

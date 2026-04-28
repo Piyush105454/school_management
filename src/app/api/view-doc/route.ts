@@ -112,8 +112,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Ensure the URL is presigned if it's an S3 URL
+    let signedUrlToFetch = secureUrl;
+    if (secureUrl.startsWith("http") && secureUrl.includes("amazonaws.com")) {
+        try {
+            const presigned = await getSignedDownloadUrl(secureUrl);
+            if (presigned) signedUrlToFetch = presigned;
+        } catch (e) {
+            console.error("[Proxy] Failed to presign URL:", e);
+        }
+    }
+
     // Fetch from S3 and stream back to browser
-    let response = await fetch(secureUrl, { cache: 'no-store' });
+    let response = await fetch(signedUrlToFetch, { cache: 'no-store' });
     
     // SMART FALLBACK: If 404, try the corrected path (legacy to standard migration)
     // Most docs use 'student-documents', some legacy might use 'studentdocuments'
@@ -160,7 +171,9 @@ export async function GET(req: NextRequest) {
         JSON.stringify({ 
           error: response.status === 404 ? "Document Not Found in S3" : `S3 Access Error (${response.status})`, 
           details: response.statusText,
-          key_requested: secureUrl.split('?')[0].split('/').slice(-3).join('/')
+          key_requested: secureUrl.split('?')[0].split('/').slice(-3).join('/'),
+          status: response.status,
+          url_debug: secureUrl.split('?')[0]
         }),
         { 
           status: response.status, 

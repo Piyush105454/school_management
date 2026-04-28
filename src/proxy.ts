@@ -21,9 +21,12 @@ export default withAuth(
         "/teacher", 
         "/office/inquiries", 
         "/office/admissions-progress", 
+        "/office/admissions",
         "/office/home-visits", 
         "/office/entrance-tests", 
-        "/office/document-verification"
+        "/office/document-verification",
+        "/office/academy-management",
+        "/office/final-admissions"
       ],
     };
 

@@ -22,9 +22,10 @@ import Link from "next/link";
 
 interface InquiriesListProps {
   initialInquiries: any[];
+  role?: string;
 }
 
-export function InquiriesList({ initialInquiries }: InquiriesListProps) {
+export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
   const router = useRouter();
   const [inquiries, setInquiries] = useState(initialInquiries);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -205,13 +206,15 @@ export function InquiriesList({ initialInquiries }: InquiriesListProps) {
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button 
-                        onClick={() => handleDeleteInquiry(inq.id)}
-                        className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
-                        title="Delete Inquiry"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {role !== "TEACHER" && (
+                        <button 
+                          onClick={() => handleDeleteInquiry(inq.id)}
+                          className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
+                          title="Delete Inquiry"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                       <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
                         <MoreVertical className="h-4 w-4" />
                       </button>
