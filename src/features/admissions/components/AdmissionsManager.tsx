@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from "react";
 import { AdmissionProcessList } from "@/features/admissions/components/AdmissionProcessList";
-import { Search, Filter, X } from "lucide-react";
+import { Search, Filter, X, FileSpreadsheet } from "lucide-react";
+import { BulkImportModal } from "./BulkImportModal";
 import { ADMISSION_STEPS, getComputedStep, getStatusText } from "../utils/admissionSteps";
 
 const CLASSES = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -31,6 +32,7 @@ export function AdmissionsManager({
   const [stepFilter, setStepFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [instituteFilter, setInstituteFilter] = useState("");
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const filteredAdmissions = useMemo(() => {
     return admissions.filter((adm) => {
@@ -78,6 +80,13 @@ export function AdmissionsManager({
           <h1 className="text-3xl font-black text-slate-900 font-outfit tracking-tight">Admission Progress</h1>
           <p className="text-slate-500 font-medium text-sm">Track students through the different admission stages.</p>
         </div>
+        <button
+          onClick={() => setIsImportModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl font-bold transition-colors shadow-sm"
+        >
+          <FileSpreadsheet className="h-5 w-5" />
+          Bulk Import Data
+        </button>
       </div>
 
       {/* Filter Bar */}
@@ -168,6 +177,15 @@ export function AdmissionsManager({
           role={role}
         />
       </div>
+
+      <BulkImportModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          // You could optionally refresh the page here to show updated data
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
