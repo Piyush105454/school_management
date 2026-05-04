@@ -8,7 +8,9 @@ import {
   admissionMeta, 
   studentProfiles, 
   studentBio, 
-  parentGuardianDetails 
+  parentGuardianDetails,
+  students,
+  classes
 } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -211,6 +213,35 @@ export async function bulkImportStudentsAction(formData: FormData) {
             mobileNumber: phone,
             relation: "Father",
           });
+
+          // 7. SYNC TO ACADEMY (Attendance Student Table)
+          // Find the class in the academy system
+          const matchedClass = await tx.query.classes.findFirst({
+            where: (c: any, { or, eq }: any) => or(
+              eq(c.name, appliedClass),
+              eq(c.name, `CLASS ${appliedClass}`),
+              eq(c.name, `Class ${appliedClass}`)
+            )
+          });
+
+          if (matchedClass) {
+            const rollNumber = String(row["Roll No"] || row["Roll Number"] || row["Roll"] || "").trim();
+            await tx.insert(students).values({
+              studentId: entryNumberADM,
+              name: name,
+              classId: matchedClass.id,
+              rollNumber: rollNumber || null,
+              scholarNumber: scholarNumber || null,
+            }).onConflictDoUpdate({
+              target: students.studentId,
+              set: { 
+                name: name,
+                classId: matchedClass.id,
+                rollNumber: rollNumber || null,
+                scholarNumber: scholarNumber || null 
+              }
+            });
+          }
         });
 
         successCount++;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { inquiries, studentProfiles, admissionMeta, teachers } from "@/db/schema";
+import { inquiries, studentProfiles, admissionMeta, teachers, classes, students } from "@/db/schema";
 import { count, eq } from "drizzle-orm";
 import { Users, Presentation, BookOpen } from "lucide-react";
 import GlobalExcelImportModal from "@/features/academy/components/GlobalExcelImportModal";
@@ -28,17 +28,17 @@ export default async function ClassManagementPage() {
     }
   }
 
-  // Fetch student counts grouped by class
+
+
+  // Fetch student counts grouped by class from the Academy table
   const studentCounts = await db
     .select({
-      className: inquiries.appliedClass,
+      className: classes.name,
       count: count(),
     })
-    .from(studentProfiles)
-    .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
-    .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-    .where(eq(studentProfiles.isFullyAdmitted, true))
-    .groupBy(inquiries.appliedClass);
+    .from(students)
+    .innerJoin(classes, eq(students.classId, classes.id))
+    .groupBy(classes.name);
 
   // Map counts to classes List
   const classData = classesList.map((c) => {

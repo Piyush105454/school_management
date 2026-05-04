@@ -23,7 +23,8 @@ export default async function AdmissionsProgressPage() {
         with: {
           user: true
         }
-      }
+      },
+      academyStudent: true
     },
     orderBy: [desc(admissionMeta.createdAt)],
   });

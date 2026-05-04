@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, Filter, Search, User, Download, Calendar } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function ClassAttendanceGrid() {
   const searchParams = useSearchParams();
@@ -120,7 +121,8 @@ export default function ClassAttendanceGrid() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50">
-                    <th className="sticky left-0 bg-slate-50 px-4 py-3 text-[10px] uppercase font-black text-slate-400 border-r border-slate-100 min-w-[180px]">Student Name</th>
+                    <th className="sticky left-0 bg-slate-50 px-4 py-3 text-[10px] uppercase font-black text-slate-400 border-r border-slate-100 min-w-[60px]">Roll No</th>
+                    <th className="sticky left-[60px] bg-slate-50 px-4 py-3 text-[10px] uppercase font-black text-slate-400 border-r border-slate-100 min-w-[180px]">Student Name</th>
                     {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => (
                       <th key={d} className="px-2 py-3 text-[10px] font-black text-slate-400 text-center min-w-[32px] border-r border-slate-100 last:border-r-0">
                         {d}
@@ -131,10 +133,13 @@ export default function ClassAttendanceGrid() {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {attendanceData.map((row) => {
-                    const presentCount = Object.values(row.attendance).filter(v => v === "P").length;
+                    const presentCount = Object.values(row.attendance).filter(v => v === "P" || v === "ML").length;
                     return (
                       <tr key={row.studentId} className="hover:bg-slate-50 transition-all group">
-                        <td className="sticky left-0 bg-white group-hover:bg-slate-50 px-4 py-3 border-r border-slate-100">
+                        <td className="sticky left-0 bg-white group-hover:bg-slate-50 px-4 py-3 border-r border-slate-100 text-center text-[10px] font-black text-indigo-600">
+                          {row.rollNumber || "--"}
+                        </td>
+                        <td className="sticky left-[60px] bg-white group-hover:bg-slate-50 px-4 py-3 border-r border-slate-100">
                           <Link href={`./attendance/student/${row.studentId}?month=${month}&year=${year}`} className="flex items-center gap-2">
                             <div className="h-6 w-6 bg-slate-100 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-500">
                               {row.name.charAt(0)}
@@ -145,12 +150,17 @@ export default function ClassAttendanceGrid() {
                         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                           const status = row.attendance[d];
                           return (
-                            <td key={d} className={`p-0 text-center border-r border-slate-100 last:border-r-0`}>
-                              <div className={`h-8 w-full flex items-center justify-center text-[10px] font-black
-                                ${status === "P" ? "text-emerald-600 bg-emerald-50/30" : 
-                                  status === "A" ? "text-rose-600 bg-rose-50/30" : 
-                                  "text-slate-200"}`}
-                              >
+                            <td key={d} className="p-0 text-center border-r border-slate-100 last:border-r-0">
+                              <div className={cn(
+                                "h-9 w-full flex items-center justify-center text-[10px] font-black",
+                                status === "P" && "text-emerald-600 bg-emerald-50",
+                                status === "A" && "text-rose-600 bg-rose-50",
+                                status === "H" && "text-amber-600 bg-amber-50",
+                                status === "L" && "text-blue-600 bg-blue-50",
+                                status === "ML" && "text-indigo-600 bg-indigo-50",
+                                status === "HD" && "text-violet-600 bg-violet-50",
+                                !status && "text-slate-200"
+                              )}>
                                 {status || "-"}
                               </div>
                             </td>

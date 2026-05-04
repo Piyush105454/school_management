@@ -137,6 +137,8 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
                 <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Applied Class</th>
+                <th className="px-6 py-4">Roll No</th>
+                <th className="px-6 py-4">Scholar No</th>
                 <th className="px-6 py-4">Current Step</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Form Progress</th>
@@ -163,6 +165,16 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
                        {adm.inquiry?.appliedClass?.toLowerCase().startsWith('class') 
                          ? adm.inquiry?.appliedClass 
                          : `Class ${adm.inquiry?.appliedClass || 'N/A'}`}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 min-w-[40px] inline-block">
+                      {adm.academyStudent?.rollNumber || "--"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                      {adm.academyStudent?.scholarNumber || "--"}
                     </span>
                   </td>
                   <td className="px-6 py-4">

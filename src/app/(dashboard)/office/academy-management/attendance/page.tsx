@@ -3,9 +3,14 @@
 import React, { useState, useEffect } from "react";
 import { CalendarCheck, ChevronRight, AlertCircle, FileText, Users } from "lucide-react";
 import AttendanceUploader from "@/features/academy/components/AttendanceUploader";
+import StudentMappingUploader from "@/features/academy/components/StudentMappingUploader";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export default function AttendancePage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role !== "TEACHER";
+  
   const [month, setMonth] = useState("April");
   const [year, setYear] = useState(2026);
   const [overallData, setOverallData] = useState<any[]>([]);
@@ -43,9 +48,12 @@ export default function AttendancePage() {
           </h1>
           <p className="text-xs md:text-sm text-slate-500 font-medium">Global tracking and school-wide metrics.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <AttendanceUploader onSuccess={fetchOverall} />
-        </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <StudentMappingUploader />
+            <AttendanceUploader onSuccess={fetchOverall} />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
@@ -82,6 +90,19 @@ export default function AttendancePage() {
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-indigo-400 group-hover:translate-x-1 transition-all" />
+        </Link>
+
+        <Link href="/office/academy-management/attendance/daily" className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-2xl hover:bg-amber-100 transition-all group">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-amber-600 shadow-sm">
+              <CalendarCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-900">Daily Register</p>
+              <p className="text-[10px] text-amber-600 font-medium">Mark Today</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-amber-400 group-hover:translate-x-1 transition-all" />
         </Link>
         <div className="flex items-center justify-center p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
           <div className="text-center">

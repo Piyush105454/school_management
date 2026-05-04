@@ -14,16 +14,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    const data = await db.select({
-      id: studentAttendance.id,
-      date: studentAttendance.date,
+    // 1. Fetch ALL students in this class first
+    const classStudents = await db.select().from(students).where(eq(students.classId, classId));
+
+    // 2. Fetch their attendance records
+    const attendanceRecords = await db.select({
       status: studentAttendance.status,
-      studentId: students.studentId,
-      studentName: students.name,
-      dbStudentId: students.id
+      date: studentAttendance.date,
+      studentId: studentAttendance.studentId // This is the ID from the students table
     })
     .from(studentAttendance)
-    .innerJoin(students, eq(studentAttendance.studentId, students.id))
     .where(
       and(
         eq(studentAttendance.classId, classId),
@@ -32,22 +32,24 @@ export async function GET(req: NextRequest) {
       )
     );
 
-    // Group by student for better grid consumption
-    const grouped = data.reduce((acc: any, curr) => {
-      if (!acc[curr.dbStudentId]) {
-        acc[curr.dbStudentId] = {
-          studentId: curr.studentId,
-          name: curr.studentName,
-          attendance: {}
-        };
-      }
-      const day = new Date(curr.date).getDate();
-      acc[curr.dbStudentId].attendance[day] = curr.status;
-      return acc;
-    }, {});
+    // 3. Merge them so ALL students show up even with no attendance
+    const attendanceMap = new Map();
+    attendanceRecords.forEach(r => {
+      if (!attendanceMap.has(r.studentId)) attendanceMap.set(r.studentId, {});
+      const day = new Date(r.date).getDate();
+      attendanceMap.get(r.studentId)[day] = r.status;
+    });
 
-    return NextResponse.json(Object.values(grouped));
+    const result = classStudents.map(s => ({
+      studentId: s.studentId, // The entry number
+      name: s.name,
+      rollNumber: s.rollNumber,
+      attendance: attendanceMap.get(s.id) || {}
+    }));
+
+    return NextResponse.json(result);
   } catch (error: any) {
+    console.error("Grid API Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

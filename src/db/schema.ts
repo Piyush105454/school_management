@@ -312,106 +312,6 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Relations
-export const inquiriesRelations = relations(inquiries, ({ one }) => ({
-  admissionMeta: one(admissionMeta, {
-    fields: [inquiries.id],
-    references: [admissionMeta.inquiryId],
-  }),
-}));
-
-export const admissionMetaRelations = relations(admissionMeta, ({ one, many }) => ({
-  inquiry: one(inquiries, {
-    fields: [admissionMeta.inquiryId],
-    references: [inquiries.id],
-  }),
-  studentProfile: one(studentProfiles, {
-    fields: [admissionMeta.id],
-    references: [studentProfiles.admissionMetaId],
-  }),
-  studentBio: one(studentBio, {
-    fields: [admissionMeta.id],
-    references: [studentBio.admissionId],
-  }),
-  documentChecklists: one(documentChecklists, {
-    fields: [admissionMeta.id],
-    references: [documentChecklists.admissionId],
-  }),
-  studentDocuments: one(studentDocuments, {
-    fields: [admissionMeta.id],
-    references: [studentDocuments.admissionId],
-  }),
-  entranceTest: one(entranceTests, {
-    fields: [admissionMeta.id],
-    references: [entranceTests.admissionId],
-  }),
-  homeVisit: one(homeVisits, {
-    fields: [admissionMeta.id],
-    references: [homeVisits.admissionId],
-  }),
-  scholarshipAttendance: many(scholarshipAttendance),
-  scholarshipHomework: many(scholarshipHomework),
-  scholarshipGuardian: many(scholarshipGuardian),
-  scholarshipPtm: many(scholarshipPtm),
-  scholarshipRecords: many(scholarshipRecords),
-}));
-
-
-export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
-  user: one(users, {
-    fields: [studentProfiles.userId],
-    references: [users.id],
-  }),
-  admissionMeta: one(admissionMeta, {
-    fields: [studentProfiles.admissionMetaId],
-    references: [admissionMeta.id],
-  }),
-}));
-
-export const homeVisits = pgTable("home_visits", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }).unique(),
-  visitDate: text("visit_date"),
-  visitTime: text("visit_time"),
-  teacherName: text("teacher_name"),
-  remarks: text("remarks"),
-  adminRemarks: text("admin_remarks"),
-  visitImage: text("visit_image"),
-  homePhoto: text("home_photo"),
-  status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),
-
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-
-export const homeVisitsRelations = relations(homeVisits, ({ one }) => ({
-  admissionMeta: one(admissionMeta, {
-    fields: [homeVisits.admissionId],
-    references: [admissionMeta.id],
-  }),
-}));
-
-export const scholarshipAttendanceRelations = relations(scholarshipAttendance, ({ one }) => ({
-  admissionMeta: one(admissionMeta, { fields: [scholarshipAttendance.admissionId], references: [admissionMeta.id] }),
-}));
-
-export const scholarshipHomeworkRelations = relations(scholarshipHomework, ({ one }) => ({
-  admissionMeta: one(admissionMeta, { fields: [scholarshipHomework.admissionId], references: [admissionMeta.id] }),
-}));
-
-export const scholarshipGuardianRelations = relations(scholarshipGuardian, ({ one }) => ({
-  admissionMeta: one(admissionMeta, { fields: [scholarshipGuardian.admissionId], references: [admissionMeta.id] }),
-}));
-
-export const scholarshipPtmRelations = relations(scholarshipPtm, ({ one }) => ({
-  admissionMeta: one(admissionMeta, { fields: [scholarshipPtm.admissionId], references: [admissionMeta.id] }),
-}));
-
-export const scholarshipRecordsRelations = relations(scholarshipRecords, ({ one }) => ({
-  admissionMeta: one(admissionMeta, { fields: [scholarshipRecords.admissionId], references: [admissionMeta.id] }),
-}));
-
 // --- Academy Management ---
 
 export const classes = pgTable("classes", {
@@ -425,6 +325,8 @@ export const students = pgTable("students", {
   classId: integer("class_id").references(() => classes.id),
   studentId: text("student_id").unique().notNull(),
   name: text("name").notNull(),
+  rollNumber: text("roll_number"),
+  scholarNumber: text("scholar_number"),
 });
 
 export const overallAttendance = pgTable("overall_attendance", {
@@ -447,7 +349,7 @@ export const studentAttendance = pgTable("student_attendance", {
   day: text("day"),
   month: text("month"),
   year: integer("year"),
-  status: text("status", { enum: ["P", "A"] }),
+  status: text("status"), // P, A, L, ML, HD, H
 });
 
 export const subjects = pgTable("subjects", {
@@ -566,4 +468,116 @@ export const studentsRelations = relations(students, ({ one }) => ({
     fields: [students.classId],
     references: [classes.id],
   }),
+}));
+
+
+
+export const homeVisits = pgTable("home_visits", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  admissionId: uuid("admission_id").notNull().references(() => admissionMeta.id, { onDelete: 'cascade' }).unique(),
+  visitDate: text("visit_date"),
+  visitTime: text("visit_time"),
+  teacherName: text("teacher_name"),
+  remarks: text("remarks"),
+  adminRemarks: text("admin_remarks"),
+  visitImage: text("visit_image"),
+  homePhoto: text("home_photo"),
+  status: testStatusEnum("status").default("NOT_SCHEDULED").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// --- Relations ---
+
+export const inquiriesRelations = relations(inquiries, ({ one }) => ({
+  admissionMeta: one(admissionMeta),
+}));
+
+export const admissionMetaRelations = relations(admissionMeta, ({ one, many }) => ({
+  inquiry: one(inquiries, {
+    fields: [admissionMeta.inquiryId],
+    references: [inquiries.id],
+  }),
+  studentProfile: one(studentProfiles),
+  studentBio: one(studentBio),
+  documentChecklists: one(documentChecklists),
+  studentDocuments: one(studentDocuments),
+  entranceTest: one(entranceTests),
+  homeVisit: one(homeVisits),
+  scholarshipAttendance: many(scholarshipAttendance),
+  scholarshipHomework: many(scholarshipHomework),
+  scholarshipGuardian: many(scholarshipGuardian),
+  scholarshipPtm: many(scholarshipPtm),
+  scholarshipRecords: many(scholarshipRecords),
+  academyStudent: one(students, {
+    fields: [admissionMeta.entryNumber],
+    references: [students.studentId],
+  }),
+}));
+
+export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [studentProfiles.userId],
+    references: [users.id],
+  }),
+  admissionMeta: one(admissionMeta, {
+    fields: [studentProfiles.admissionMetaId],
+    references: [admissionMeta.id],
+  }),
+}));
+
+export const homeVisitsRelations = relations(homeVisits, ({ one }) => ({
+  admissionMeta: one(admissionMeta, {
+    fields: [homeVisits.admissionId],
+    references: [admissionMeta.id],
+  }),
+}));
+
+export const studentBioRelations = relations(studentBio, ({ one }) => ({
+  admissionMeta: one(admissionMeta, {
+    fields: [studentBio.admissionId],
+    references: [admissionMeta.id],
+  }),
+}));
+
+export const documentChecklistsRelations = relations(documentChecklists, ({ one }) => ({
+  admissionMeta: one(admissionMeta, {
+    fields: [documentChecklists.admissionId],
+    references: [admissionMeta.id],
+  }),
+}));
+
+export const studentDocumentsRelations = relations(studentDocuments, ({ one }) => ({
+  admissionMeta: one(admissionMeta, {
+    fields: [studentDocuments.admissionId],
+    references: [admissionMeta.id],
+  }),
+}));
+
+export const entranceTestsRelations = relations(entranceTests, ({ one }) => ({
+  admissionMeta: one(admissionMeta, {
+    fields: [entranceTests.admissionId],
+    references: [admissionMeta.id],
+  }),
+}));
+
+export const scholarshipAttendanceRelations = relations(scholarshipAttendance, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipAttendance.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipHomeworkRelations = relations(scholarshipHomework, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipHomework.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipGuardianRelations = relations(scholarshipGuardian, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipGuardian.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipPtmRelations = relations(scholarshipPtm, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipPtm.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const scholarshipRecordsRelations = relations(scholarshipRecords, ({ one }) => ({
+  admissionMeta: one(admissionMeta, { fields: [scholarshipRecords.admissionId], references: [admissionMeta.id] }),
 }));
