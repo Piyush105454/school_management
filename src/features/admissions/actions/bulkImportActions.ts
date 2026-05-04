@@ -72,6 +72,9 @@ export async function bulkImportStudentsAction(formData: FormData) {
             continue;
           }
         }
+        
+        // Ensure empty strings are treated as null for unique constraints
+        const finalAadhaar = (aadhaar && aadhaar.length >= 12) ? aadhaar : null;
 
         const nameParts = name.trim().split(/\s+/);
         const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : nameParts[0];
@@ -81,7 +84,8 @@ export async function bulkImportStudentsAction(formData: FormData) {
         const appliedClassRaw = String(row["Class"] || "").trim();
         const appliedClass = appliedClassRaw.replace(/^class\s*/i, "").trim();
         const dobRaw = row["DOB"] || row["Date of Birth"] || "";
-        const scholarNumber = String(row["Scholar"] || row["Scholar Number"] || "").trim();
+        const scholarNumberRaw = String(row["Scholar"] || row["Scholar Number"] || "").trim();
+        const scholarNumber = scholarNumberRaw === "" ? null : scholarNumberRaw;
 
         // Generate or Use Provided Email
         let email = String(row["Email"] || "").trim();
@@ -156,7 +160,7 @@ export async function bulkImportStudentsAction(formData: FormData) {
             school: defaultInstitute,
             academicYear,
             entryNumber: entryNumberENQ,
-            aadhaarNumber: aadhaar,
+            aadhaarNumber: finalAadhaar,
             passwordPlain: defaultPassword,
             status: "SHORTLISTED",
           }).returning();
@@ -197,7 +201,7 @@ export async function bulkImportStudentsAction(formData: FormData) {
             dob,
             age,
             caste: "GEN",
-            aadhaarNumber: aadhaar,
+            aadhaarNumber: finalAadhaar,
           });
 
           await tx.insert(parentGuardianDetails).values({
