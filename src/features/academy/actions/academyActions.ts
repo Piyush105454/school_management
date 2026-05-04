@@ -297,9 +297,6 @@ export async function cleanupSubjectDuplicates() {
 
 export async function getAllAcademicMetadata() {
   try {
-    // ONE-TIME FIX: Add missing book_name column if it doesn't exist
-    await db.execute(sql`ALTER TABLE "subjects" ADD COLUMN IF NOT EXISTS "book_name" text;`);
-
     const allClasses = await db.query.classes.findMany({
       orderBy: (classes, { asc }) => [asc(classes.id)],
     });
