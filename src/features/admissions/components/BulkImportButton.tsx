@@ -40,23 +40,32 @@ export function BulkImportButton() {
         accept=".xlsx, .xls" 
         className="hidden" 
       />
-      <button 
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isImporting}
-        className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-900/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isImporting ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Importing...
-          </>
-        ) : (
-          <>
-            <Upload className="h-5 w-5" />
-            Bulk Import Excel
-          </>
-        )}
-      </button>
+      <div className="flex flex-col gap-2">
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isImporting}
+          className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-900/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isImporting ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            <>
+              <Upload className="h-5 w-5" />
+              Bulk Import Excel
+            </>
+          )}
+        </button>
+        <a 
+          href="/enquiry_import_sample.csv" 
+          download 
+          className="text-[10px] text-center font-bold text-emerald-700 hover:underline uppercase tracking-wider"
+        >
+          Download Enquiry Sample CSV
+        </a>
+      </div>
     </>
   );
 }

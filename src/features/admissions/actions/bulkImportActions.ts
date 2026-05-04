@@ -83,14 +83,18 @@ export async function bulkImportStudentsAction(formData: FormData) {
         const dobRaw = row["DOB"] || row["Date of Birth"] || "";
         const scholarNumber = String(row["Scholar"] || row["Scholar Number"] || "").trim();
 
-        // Generate Email
-        let email = "";
-        if (aadhaar && aadhaar.length >= 12) {
-          email = `${aadhaar}@gmail.com`;
-        } else if (phone && phone.length >= 10) {
-          email = `${phone}@gmail.com`;
-        } else {
-          continue;
+        // Generate or Use Provided Email
+        let email = String(row["Email"] || "").trim();
+        
+        if (!email) {
+          if (aadhaar && aadhaar.length >= 12) {
+            email = `${aadhaar}@gmail.com`;
+          } else if (phone && phone.length >= 10) {
+            email = `${phone}@gmail.com`;
+          } else {
+            console.log(`[SKIP] Student ${name} has no Aadhaar, Phone, or Email.`);
+            continue;
+          }
         }
 
         // Check for Email existence too

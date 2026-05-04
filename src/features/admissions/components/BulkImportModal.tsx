@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { X, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { X, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, Download } from "lucide-react";
 import * as xlsx from "xlsx";
 import { importBulkStudentData } from "@/app/(dashboard)/office/admissions-progress/actions";
 
@@ -136,9 +136,22 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImportModalP
                 />
               </div>
 
-              <div className="bg-amber-50 text-amber-800 p-3 rounded-lg text-xs flex gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <p>Ensure the file has a sheet named <strong>All</strong>. Existing student data will be updated based on matching <strong>Aadhar Card</strong>. Blank cells will not overwrite existing data.</p>
+              <div className="bg-amber-50 text-amber-800 p-3 rounded-lg text-xs space-y-2">
+                <div className="flex gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p>Ensure the file has a sheet named <strong>All</strong>. Existing student data will be updated based on matching <strong>Aadhar Card</strong>. Blank cells will not overwrite existing data.</p>
+                </div>
+                <div className="pt-2 border-t border-amber-200/50 flex justify-between items-center">
+                  <span className="font-medium">Need a template?</span>
+                  <a 
+                    href="/admission_progress_sample.csv" 
+                    download 
+                    className="text-blue-700 font-bold hover:underline flex items-center gap-1"
+                  >
+                    <Download className="h-3 w-3" />
+                    Download Progress Sample
+                  </a>
+                </div>
               </div>
             </div>
           ) : (
