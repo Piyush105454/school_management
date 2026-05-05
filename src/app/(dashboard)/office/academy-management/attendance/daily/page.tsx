@@ -28,12 +28,16 @@ export default async function DailyAttendancePage({
   // 2. If it's a teacher and NO class_id is in URL, use their assigned class
   if (teacherProfile?.classAssigned && !targetClassId) {
     assignedClassName = teacherProfile.classAssigned.split(",")[0].trim();
+    const teacherInstitute = teacherProfile.institute;
     
     const academyClass = await db.query.classes.findFirst({
-      where: (c: any, { or, eq }: any) => or(
-        eq(c.name, assignedClassName),
-        eq(c.name, `CLASS ${assignedClassName}`),
-        eq(c.name, `Class ${assignedClassName}`)
+      where: (c: any, { and, or, eq }: any) => and(
+        or(
+          eq(c.name, assignedClassName),
+          eq(c.name, `CLASS ${assignedClassName}`),
+          eq(c.name, `Class ${assignedClassName}`)
+        ),
+        teacherInstitute ? eq(c.institute, teacherInstitute) : undefined
       )
     });
 
@@ -44,7 +48,13 @@ export default async function DailyAttendancePage({
 
   // 3. If we STILL don't have a targetClassId, show the Class Picker (Admin/Staff View)
   if (!targetClassId) {
-    const allClasses = await db.select().from(classes).orderBy(classes.grade);
+    const teacherInstitute = teacherProfile?.institute;
+    let allClasses = await db.select().from(classes).orderBy(classes.grade);
+
+    // If teacher, filter picker by their institute
+    if (session?.user?.role === "TEACHER" && teacherInstitute) {
+      allClasses = allClasses.filter(c => c.institute === teacherInstitute);
+    }
     return (
       <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-500">
         <div className="flex items-center gap-4">

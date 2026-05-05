@@ -392,6 +392,10 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
                   <option value="10">Class 10</option>
                   <option value="11">Class 11</option>
                   <option value="12">Class 12</option>
+                  <option value="Senior 1st Year">Senior 1st Year</option>
+                  <option value="Senior 2nd Year">Senior 2nd Year</option>
+                  <option value="Senior 3rd Year">Senior 3rd Year</option>
+                  <option value="Senior 4th Year">Senior 4th Year</option>
                 </select>
               </div>
             </div>

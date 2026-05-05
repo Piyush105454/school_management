@@ -12,41 +12,57 @@ import ClassTable from "@/features/academy/components/ClassTable";
 
 export default async function ClassManagementPage() {
   const session = await getServerSession(authOptions);
-  let classesList = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
   
-  // If teacher, filter classesList by assignment
+  // Fetch all classes from DB
+  const dbClasses = await db.query.classes.findMany();
+  
+  // Fetch student counts grouped by class ID
+  const studentCounts = await db
+    .select({
+      classId: students.classId,
+      count: count(),
+    })
+    .from(students)
+    .groupBy(students.classId);
+
+  // Map to classData
+  let classData = dbClasses.map((cls) => {
+    const match = studentCounts.find((sc) => sc.classId === cls.id);
+    return {
+      id: cls.id,
+      name: cls.name,
+      institute: cls.institute || "Dhanpuri Public School",
+      count: match ? match.count : 0,
+    };
+  });
+
+  // If teacher, filter by assigned classes AND institute
   if (session?.user?.role === "TEACHER") {
     const teacherProfile = await db.query.teachers.findFirst({
       where: eq(teachers.userId, session.user.id)
     });
     
-    if (teacherProfile?.classAssigned) {
-      const assigned = teacherProfile.classAssigned.split(",").map(c => c.trim());
-      classesList = classesList.filter(c => assigned.includes(c));
+    if (teacherProfile) {
+      const assigned = teacherProfile.classAssigned 
+        ? teacherProfile.classAssigned.split(",").map(c => c.trim().toLowerCase()) 
+        : [];
+      const teacherInstitute = teacherProfile.institute;
+
+      classData = classData.filter(c => {
+        const nameMatch = assigned.includes(c.name.toLowerCase()) || assigned.includes(c.name.replace(/^Class\s+/i, '').toLowerCase());
+        const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
+        return nameMatch && instituteMatch;
+      });
     } else {
-      classesList = []; // No classes assigned
+      classData = [];
     }
   }
 
-
-
-  // Fetch student counts grouped by class from the Academy table
-  const studentCounts = await db
-    .select({
-      className: classes.name,
-      count: count(),
-    })
-    .from(students)
-    .innerJoin(classes, eq(students.classId, classes.id))
-    .groupBy(classes.name);
-
-  // Map counts to classes List
-  const classData = classesList.map((c) => {
-    const match = studentCounts.find((sc) => String(sc.className) === c);
-    return {
-      name: c,
-      count: match ? match.count : 0,
-    };
+  // Sort by institute then by grade/name
+  classData.sort((a, b) => {
+    if (a.institute < b.institute) return -1;
+    if (a.institute > b.institute) return 1;
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
   });
 
   return (

@@ -8,7 +8,9 @@ import { deleteClass } from "@/features/academy/actions/academyActions";
 import { useRouter } from "next/navigation";
 
 interface ClassData {
+  id: number;
   name: string;
+  institute: string;
   count: number;
 }
 
@@ -58,7 +60,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
                       <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                         {cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
                       </p>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Section A</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{cls.institute}</p>
                     </div>
                   </div>
                 </td>
@@ -72,7 +74,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
                 </td>
                 <td className="px-8 py-5">
                   <Link 
-                    href={`/office/academy-management/classes/${cls.name}/subjects`}
+                    href={`/office/academy-management/classes/${cls.name}/subjects?institute=${encodeURIComponent(cls.institute)}`}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/10 active:scale-95"
                   >
                     <BookOpen className="h-3.5 w-3.5" />
@@ -85,7 +87,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
                       {
                         label: "View Students",
                         icon: <Users className="h-4 w-4" />,
-                        onClick: () => router.push(`/office/school-management/classes/${cls.name}`)
+                        onClick: () => router.push(`/office/school-management/classes/${cls.name}?institute=${encodeURIComponent(cls.institute)}`)
                       },
                       {
                         label: isDeleting === cls.name ? "Deleting..." : "Delete Class",

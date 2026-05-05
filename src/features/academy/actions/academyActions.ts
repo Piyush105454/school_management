@@ -16,7 +16,11 @@ export async function deleteClass(className: string) {
       : className.startsWith("Class ") ? className : `Class ${className}`;
 
     const classRecord = await db.query.classes.findFirst({
-      where: eq(classes.name, dbClassName),
+      where: (cls, { and, eq }) => and(
+        eq(cls.name, dbClassName),
+        // If we want to be specific, we could pass institute here, 
+        // but for now let's find the first one or update the signature
+      )
     });
 
     if (!classRecord) {
@@ -58,8 +62,11 @@ export async function cleanupAcademicData() {
         }
       }
 
-      if (!normalizedMap[normalized]) {
-        normalizedMap[normalized] = cls.id;
+      const institute = cls.institute || "Dhanpuri Public School";
+      const key = `${normalized}|${institute}`;
+
+      if (!normalizedMap[key]) {
+        normalizedMap[key] = cls.id;
         if (cls.name !== normalized) {
           await db.update(classes).set({ name: normalized }).where(eq(classes.id, cls.id));
         }

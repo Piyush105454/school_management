@@ -20,7 +20,7 @@ interface Teacher {
   assignedRole: string | null;
 }
 
-const CLASSES_LIST = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const CLASSES_LIST = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "Senior 1st Year", "Senior 2nd Year", "Senior 3rd Year", "Senior 4th Year"];
 
 export function TeacherManagementClient({ initialTeachers }: { initialTeachers: Teacher[] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -289,12 +289,16 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Institute / Branch</label>
-                <input
-                  placeholder="Enter Institute"
+                <select
                   value={formData.institute}
                   onChange={(e) => setFormData({ ...formData, institute: e.target.value })}
-                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                />
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
+                  required
+                >
+                  <option value="">Select Institute</option>
+                  <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                  <option value="WES Academy">WES Academy</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Role / Designation</label>

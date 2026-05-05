@@ -318,6 +318,7 @@ export const classes = pgTable("classes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   grade: integer("grade").notNull().default(0),
+  institute: text("institute"),
 });
 
 export const students = pgTable("students", {

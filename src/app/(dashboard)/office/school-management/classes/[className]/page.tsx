@@ -5,11 +5,12 @@ import { inquiries, studentProfiles, admissionMeta, studentBio } from "@/db/sche
 import { eq, and } from "drizzle-orm";
 import { ArrowLeft, User, Phone } from "lucide-react";
 
-export default async function ClassStudentsPage({ params }: { params: Promise<{ className: string }> }) {
-  const resolvedParams = await params;
+export default async function ClassStudentsPage({ params, searchParams }: { params: Promise<{ className: string }>, searchParams: Promise<{ institute?: string }> }) {
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const className = decodeURIComponent(resolvedParams.className);
+  const institute = resolvedSearchParams.institute || "Dhanpuri Public School";
 
-  // Fetch students for this class
+  // Fetch students for this class and institute
   const students = await db
     .select({
       id: studentProfiles.id,
@@ -27,7 +28,8 @@ export default async function ClassStudentsPage({ params }: { params: Promise<{ 
     .where(
       and(
         eq(studentProfiles.isFullyAdmitted, true),
-        eq(inquiries.appliedClass, className)
+        eq(inquiries.appliedClass, className),
+        eq(inquiries.school, institute)
       )
     );
 

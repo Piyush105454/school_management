@@ -13,6 +13,22 @@ export default async function AdmissionsProgressPage() {
   const role = session.user?.role;
   
   // Re-fetch with everything joined to be safe and fast (single roundtrip)
+  let filter = undefined;
+  if (role === "TEACHER") {
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: (t, { eq }) => eq(t.userId, session.user.id)
+    });
+    if (teacherProfile?.institute) {
+      // Find inquiries for this institute
+      const inqIds = await db.query.inquiries.findMany({
+        where: (inq, { eq }) => eq(inq.school, teacherProfile.institute!),
+        columns: { id: true }
+      });
+      const ids = inqIds.map(i => i.id);
+      filter = (meta: any, { inArray }: any) => inArray(meta.inquiryId, ids.length > 0 ? ids : ["__NON_EXISTENT__"]);
+    }
+  }
+
   const fullResults = await db.query.admissionMeta.findMany({
     with: {
       inquiry: true,
@@ -26,6 +42,7 @@ export default async function AdmissionsProgressPage() {
       },
       academyStudent: true
     },
+    where: filter,
     orderBy: [desc(admissionMeta.createdAt)],
   });
 

@@ -2,42 +2,73 @@ import React from "react";
 export const dynamic = 'force-dynamic';
 import Link from "next/link";
 import { db } from "@/db";
-import { inquiries, studentProfiles, admissionMeta } from "@/db/schema";
+import { inquiries, studentProfiles, admissionMeta, classes, teachers } from "@/db/schema";
 import { count, eq } from "drizzle-orm";
 import { Users, Presentation } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export default async function ClassManagementPage() {
-  const classesList = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-
-  let studentCounts: { className: string | null; count: number }[] = [];
+  const session = await getServerSession(authOptions);
+  
+  let classData: { id: number; name: string; institute: string; count: number }[] = [];
   let dbError = false;
 
   try {
-    // Fetch student counts grouped by class
-    studentCounts = await db
+    // Fetch all classes from DB
+    const dbClasses = await db.select().from(classes).orderBy(classes.grade);
+    
+    // Fetch student counts grouped by class name AND institute (via inquiry.school)
+    const studentCounts = await db
       .select({
         className: inquiries.appliedClass,
+        school: inquiries.school,
         count: count(),
       })
       .from(studentProfiles)
       .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
       .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
       .where(eq(studentProfiles.isFullyAdmitted, true))
-      .groupBy(inquiries.appliedClass);
+      .groupBy(inquiries.appliedClass, inquiries.school);
+
+    // Map DB classes to counts
+    classData = dbClasses.map((cls) => {
+      const match = studentCounts.find(
+        (sc) => String(sc.className) === cls.name && sc.school === cls.institute
+      );
+      return {
+        id: cls.id,
+        name: cls.name,
+        institute: cls.institute || "Dhanpuri Public School",
+        count: match ? match.count : 0,
+      };
+    });
+
+    // If teacher, filter by assigned classes AND institute
+    if (session?.user?.role === "TEACHER") {
+      const teacherProfile = await db.query.teachers.findFirst({
+        where: eq(teachers.userId, session.user.id)
+      });
+      
+      if (teacherProfile) {
+        const assigned = teacherProfile.classAssigned 
+          ? teacherProfile.classAssigned.split(",").map(c => c.trim().toLowerCase()) 
+          : [];
+        const teacherInstitute = teacherProfile.institute;
+
+        classData = classData.filter(c => {
+          const nameMatch = assigned.includes(c.name.toLowerCase()) || assigned.includes(c.name.replace(/^Class\s+/i, '').toLowerCase());
+          const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
+          return nameMatch && instituteMatch;
+        });
+      } else {
+        classData = [];
+      }
+    }
   } catch (error) {
     console.error("Database query failed:", error);
     dbError = true;
   }
-
-  // Map counts to classes List
-  const classData = classesList.map((c) => {
-    const match = studentCounts.find((sc) => String(sc.className) === c);
-    return {
-      name: c,
-      count: match ? match.count : 0,
-    };
-  });
-
 
   return (
     <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">
@@ -55,13 +86,13 @@ export default async function ClassManagementPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classData.map((cls) => (
-          <div key={cls.name} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+          <div key={`${cls.name}-${cls.institute}`} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                 <Presentation className="h-6 w-6" />
               </div>
-              <span className="text-xs font-black bg-slate-100 text-slate-600 px-3 py-1 rounded-full uppercase tracking-wider">
-                Class
+              <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-3 py-1 rounded-full uppercase tracking-wider">
+                {cls.institute}
               </span>
             </div>
 
@@ -76,7 +107,7 @@ export default async function ClassManagementPage() {
             </div>
 
             <Link 
-              href={`/office/school-management/classes/${cls.name}`}
+              href={`/office/school-management/classes/${cls.name}?institute=${encodeURIComponent(cls.institute)}`}
               className="mt-2 w-full text-center px-4 py-3 bg-slate-900 text-white font-weight-bold rounded-xl hover:bg-slate-800 transition-colors text-sm uppercase tracking-wider font-bold"
             >
               View Students
@@ -87,4 +118,3 @@ export default async function ClassManagementPage() {
     </div>
   );
 }
-

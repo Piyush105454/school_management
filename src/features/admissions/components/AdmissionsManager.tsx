@@ -6,7 +6,7 @@ import { Search, Filter, X, FileSpreadsheet } from "lucide-react";
 import { BulkImportModal } from "./BulkImportModal";
 import { ADMISSION_STEPS, getComputedStep, getStatusText } from "../utils/admissionSteps";
 
-const CLASSES = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const CLASSES = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "Senior 1st Year", "Senior 2nd Year", "Senior 3rd Year", "Senior 4th Year"];
 const STATUSES = [
   "Drafting Application",
   "Remarks Sent",

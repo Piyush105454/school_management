@@ -217,10 +217,13 @@ export async function bulkImportStudentsAction(formData: FormData) {
           // 7. SYNC TO ACADEMY (Attendance Student Table)
           // Find the class in the academy system
           const matchedClass = await tx.query.classes.findFirst({
-            where: (c: any, { or, eq }: any) => or(
-              eq(c.name, appliedClass),
-              eq(c.name, `CLASS ${appliedClass}`),
-              eq(c.name, `Class ${appliedClass}`)
+            where: (c: any, { and, or, eq }: any) => and(
+              or(
+                eq(c.name, appliedClass),
+                eq(c.name, `CLASS ${appliedClass}`),
+                eq(c.name, `Class ${appliedClass}`)
+              ),
+              eq(c.institute, defaultInstitute)
             )
           });
 

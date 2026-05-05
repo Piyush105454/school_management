@@ -208,7 +208,7 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
           grade: derivedGrade
         }).returning({ id: classes.id });
         classId = newClass.id;
-        allClasses.push({ id: classId, name: className, grade: derivedGrade });
+        allClasses.push({ id: classId, name: className, grade: derivedGrade, institute: null });
       }
 
       // Fetch subjects for this class

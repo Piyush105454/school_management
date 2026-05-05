@@ -10,11 +10,15 @@ interface SubjectPageProps {
   params: Promise<{
     className: string;
   }>;
+  searchParams: Promise<{
+    institute?: string;
+  }>;
 }
 
-export default async function SubjectPage({ params }: SubjectPageProps) {
-  const resolvedParams = await params;
+export default async function SubjectPage({ params, searchParams }: SubjectPageProps) {
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const decodedClassNameParam = decodeURIComponent(resolvedParams.className);
+  const institute = resolvedSearchParams.institute || "Dhanpuri Public School";
   
   // Resolve DB class name ("1" -> "Class 1", "Nursery" -> "Nursery")
   const dbClassName =
@@ -22,9 +26,12 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
       ? decodedClassNameParam
       : `Class ${decodedClassNameParam}`;
 
-  // Fetch the class ID
+  // Fetch the class ID with institute context
   const classRecord = await db.query.classes.findFirst({
-    where: eq(classes.name, dbClassName),
+    where: (cls, { and, eq }) => and(
+      eq(cls.name, dbClassName),
+      eq(cls.institute, institute)
+    ),
   });
 
   if (!classRecord) {
