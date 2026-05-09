@@ -89,8 +89,14 @@ export default async function DailyAttendancePage({
   }
 
   // 4. If we have a targetClassId, render the marker
-  const academyClass = await db.query.classes.findFirst({ where: eq(classes.id, targetClassId) });
-  if (!academyClass) return <div className="p-10 text-center font-bold">Class not found.</div>;
+  const teacherInstitute = teacherProfile?.institute;
+  const academyClass = await db.query.classes.findFirst({ 
+    where: (c: any, { and, eq }: any) => and(
+      eq(c.id, targetClassId!),
+      teacherInstitute ? eq(c.institute, teacherInstitute) : undefined
+    )
+  });
+  if (!academyClass) return <div className="p-10 text-center font-bold">Class not found or access denied.</div>;
 
   const classStudents = await db.select({
     id: students.id,

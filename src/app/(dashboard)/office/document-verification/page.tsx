@@ -2,8 +2,8 @@ import React from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { admissionMeta, studentDocuments, inquiries, studentProfiles } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { admissionMeta, studentDocuments, inquiries, studentProfiles, teachers } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { 
   FileText, 
@@ -20,6 +20,14 @@ export default async function OfficeDocumentVerificationPage() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
+  let teacherInstitute = "";
+  if (session.user.role === "TEACHER") {
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: (t, { eq }) => eq(t.userId, session.user.id)
+    });
+    teacherInstitute = teacherProfile?.institute || "";
+  }
+
   const rows = await db
     .select({
       admissionMeta: admissionMeta,
@@ -31,6 +39,7 @@ export default async function OfficeDocumentVerificationPage() {
     .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
     .leftJoin(studentDocuments, eq(admissionMeta.id, studentDocuments.admissionId))
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
+    .where(teacherInstitute ? eq(inquiries.school, teacherInstitute) : undefined)
     .orderBy(desc(admissionMeta.createdAt));
 
   const applicants = rows

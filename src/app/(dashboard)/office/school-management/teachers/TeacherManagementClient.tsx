@@ -20,9 +20,20 @@ interface Teacher {
   assignedRole: string | null;
 }
 
-const CLASSES_LIST = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "Senior 1st Year", "Senior 2nd Year", "Senior 3rd Year", "Senior 4th Year"];
+interface ClassData {
+  id: number;
+  name: string;
+  grade: number;
+  institute: string | null;
+}
 
-export function TeacherManagementClient({ initialTeachers }: { initialTeachers: Teacher[] }) {
+export function TeacherManagementClient({ 
+  initialTeachers, 
+  allClasses 
+}: { 
+  initialTeachers: Teacher[], 
+  allClasses: ClassData[] 
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
@@ -291,7 +302,7 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Institute / Branch</label>
                 <select
                   value={formData.institute}
-                  onChange={(e) => setFormData({ ...formData, institute: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, institute: e.target.value, classAssigned: [] })}
                   className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
                   required
                 >
@@ -347,21 +358,29 @@ export function TeacherManagementClient({ initialTeachers }: { initialTeachers: 
             <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Select Classes Assigned to this Teacher</label>
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
-                {CLASSES_LIST.map((cls) => (
-                  <button
-                    key={cls}
-                    type="button"
-                    onClick={() => toggleClass(cls)}
-                    className={`px-2 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${
-                      formData.classAssigned.includes(cls)
-                        ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
-                    }`}
-                  >
-                    {cls}
-                  </button>
-                ))}
+                {allClasses
+                  .filter(c => !formData.institute || c.institute === formData.institute)
+                  .sort((a, b) => a.grade - b.grade)
+                  .map((cls) => (
+                    <button
+                      key={cls.id}
+                      type="button"
+                      onClick={() => toggleClass(cls.name)}
+                      className={`px-2 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${
+                        formData.classAssigned.includes(cls.name)
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                          : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
+                      }`}
+                    >
+                      {cls.name}
+                    </button>
+                  ))}
               </div>
+              {!formData.institute && (
+                <p className="mt-2 text-[10px] text-amber-500 font-bold uppercase tracking-wider italic">
+                  * Please select an institute first to see available classes.
+                </p>
+              )}
               <p className="mt-4 text-[10px] text-slate-400 font-medium italic">* Selected classes will be the only ones visible to this teacher in their dashboard.</p>
             </div>
           </div>

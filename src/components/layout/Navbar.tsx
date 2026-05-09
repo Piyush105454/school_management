@@ -7,7 +7,24 @@ interface NavbarProps {
   onMenuClick?: () => void;
 }
 
+import { useSession } from "next-auth/react";
+
 export function Navbar({ onMenuClick }: NavbarProps) {
+  const { data: session } = useSession();
+  const [teacherInstitute, setTeacherInstitute] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (session?.user?.role === "TEACHER") {
+      fetch("/api/teacher/profile")
+        .then(res => res.json())
+        .then(data => {
+          if (data.institute) setTeacherInstitute(data.institute);
+        })
+        .catch(err => console.error(err));
+    }
+  }, [session]);
+
+  const schoolName = teacherInstitute || "DPS Dhanpuri";
   return (
     <header className="h-14 md:h-16 border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-30 px-4 md:px-8 flex items-center justify-between">
       <div className="flex items-center gap-4 flex-1">
@@ -29,7 +46,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         
         {/* Mobile School Name */}
         <span className="md:hidden font-bold text-slate-900 text-sm truncate uppercase tracking-tight">
-            DPS Dhanpuri
+            {schoolName}
         </span>
       </div>
 

@@ -25,7 +25,18 @@ export default async function AdmissionsProgressPage() {
         columns: { id: true }
       });
       const ids = inqIds.map(i => i.id);
-      filter = (meta: any, { inArray }: any) => inArray(meta.inquiryId, ids.length > 0 ? ids : ["__NON_EXISTENT__"]);
+      
+      // If no inquiries found for this institute, return empty early to avoid query errors
+      if (ids.length === 0) {
+        return (
+          <AdmissionsManager 
+            admissions={[]} 
+            role={role as any}
+          />
+        );
+      }
+      
+      filter = (meta: any, { inArray }: any) => inArray(meta.inquiryId, ids);
     }
   }
 

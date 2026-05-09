@@ -27,6 +27,14 @@ export default async function OfficeEntranceTestsPage() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
+  let teacherInstitute = "";
+  if (session.user.role === "TEACHER") {
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: (t, { eq }) => eq(t.userId, session.user.id)
+    });
+    teacherInstitute = teacherProfile?.institute || "";
+  }
+
   // Use standard join for better stability with Neon pooler/Drizzle 0.45
   const rows = await db
     .select({
@@ -39,6 +47,7 @@ export default async function OfficeEntranceTestsPage() {
     .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
     .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
+    .where(teacherInstitute ? eq(inquiries.school, teacherInstitute) : undefined)
     .orderBy(desc(admissionMeta.createdAt));
 
   const teachersList = await db.select().from(teachers).orderBy(teachers.name);

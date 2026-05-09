@@ -25,7 +25,9 @@ import {
   Clock,
   Megaphone,
   BookOpen,
-  Heart
+  Heart,
+  AlertCircle,
+  Users2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -55,8 +57,8 @@ const officeItems = [
   { name: "Library & Resources", href: "/office/academy-management/library", icon: FolderOpen },
   { name: "TC Generation", href: "/office/leaver-management/tc", icon: FileText },
 
-  { type: "section", name: "Complaint Management" },
-  { name: "Manage Complaints", href: "/office/complaint-management", icon: Users },
+  { type: "section", name: "Incident Management" },
+  { name: "Manage Incidents", href: "/office/incident-management", icon: AlertCircle },
 
   { type: "section", name: "School Health Program" },
   { name: "Health Records", href: "/office/school-health", icon: Heart },
@@ -68,6 +70,8 @@ const officeItems = [
   { name: "Admin Management", href: "/office/admin-management", icon: UserCog },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
   { name: "Principal Management", href: "/office/school-management/principal", icon: UserCog },
+  { type: "section", name: "Committee Management" },
+  { name: "Manage Committees", href: "/office/committees", icon: Users2 },
 ];
 
 const teacherItems = [
@@ -104,6 +108,20 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   const searchParams = useSearchParams();
   const currentStep = searchParams.get("step");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [teacherInstitute, setTeacherInstitute] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (role === "TEACHER") {
+      fetch("/api/teacher/profile")
+        .then(res => res.json())
+        .then(data => {
+          if (data.institute) setTeacherInstitute(data.institute);
+        })
+        .catch(err => console.error(err));
+    }
+  }, [role]);
+
+  const schoolName = teacherInstitute || "DPS Dhanpuri";
 
   const toggleSection = (sectionName: string) => {
     setCollapsedSections(prev => ({
@@ -131,7 +149,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
             <GraduationCap className="text-blue-600" size={20} />
           </div>
           <div>
-            <h1 className="text-sm font-black text-slate-900 leading-none">DPS Dhanpuri</h1>
+            <h1 className="text-sm font-black text-slate-900 leading-none">{schoolName}</h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">Hub Platform</p>
           </div>
         </div>

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { teachers, users } from "@/db/schema";
+import { teachers, users, classes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { TeacherManagementClient } from "./TeacherManagementClient";
@@ -30,6 +30,7 @@ export default async function TeacherManagementPage() {
     .leftJoin(users, eq(teachers.userId, users.id))
     .orderBy(teachers.name);
 
-  return <TeacherManagementClient initialTeachers={teachersList as any} />;
+  const allClasses = await db.select().from(classes);
+  return <TeacherManagementClient initialTeachers={teachersList as any} allClasses={allClasses} />;
 }
 

@@ -16,6 +16,14 @@ export default async function OfficeHomeVisitsPage() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
+  let teacherInstitute = "";
+  if (session.user.role === "TEACHER") {
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: (t, { eq }) => eq(t.userId, session.user.id)
+    });
+    teacherInstitute = teacherProfile?.institute || "";
+  }
+
   const rows = await db
     .select({
       admissionMeta: admissionMeta,
@@ -41,6 +49,7 @@ export default async function OfficeHomeVisitsPage() {
     .leftJoin(homeVisits, eq(admissionMeta.id, homeVisits.admissionId))
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
     .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
+    .where(teacherInstitute ? eq(inquiries.school, teacherInstitute) : undefined)
     .orderBy(desc(admissionMeta.createdAt));
 
   const teachersList = await db.select().from(teachers).orderBy(teachers.name);
