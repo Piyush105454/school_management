@@ -3,8 +3,13 @@ import { BookOpen, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getAllAcademicMetadata } from "@/features/academy/actions/academyActions";
 
-export default async function LessonPlanPage() {
-  const metadata = await getAllAcademicMetadata();
+export default async function LessonPlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ institute?: string }>;
+}) {
+  const { institute } = await searchParams;
+  const metadata = await getAllAcademicMetadata(institute);
   
   if (!metadata.success) {
     return (

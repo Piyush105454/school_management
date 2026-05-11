@@ -6,6 +6,7 @@ import { Users, BookOpen, Trash2, Presentation, Loader2 } from "lucide-react";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { deleteClass } from "@/features/academy/actions/academyActions";
 import { useRouter } from "next/navigation";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 interface ClassData {
   id: number;
@@ -36,8 +37,27 @@ export default function ClassTable({ classData }: ClassTableProps) {
     }
   };
 
+  const { selectedInstitute, setSelectedInstitute, institutes } = useInstitute();
+
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <div className="px-4 py-2 bg-slate-100 border border-slate-200 rounded-2xl flex items-center gap-2 shadow-sm">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filter:</span>
+          <select 
+            value={selectedInstitute}
+            onChange={(e) => setSelectedInstitute(e.target.value)}
+            className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+          >
+            <option value="ALL">All Institutes</option>
+            {institutes.map(inst => (
+              <option key={inst} value={inst}>{inst}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -102,6 +122,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
             ))}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );

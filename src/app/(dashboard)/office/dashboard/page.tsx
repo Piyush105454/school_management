@@ -7,11 +7,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/db";
-import { inquiries, studentProfiles } from "@/db/schema";
-import { count, eq } from "drizzle-orm";
+import { inquiries, studentProfiles, admissionMeta } from "@/db/schema";
+import { count, eq, and, sql } from "drizzle-orm";
 import { protectRoute } from "@/lib/roleGuard";
 
-export default async function OfficeDashboard() {
+export default async function OfficeDashboard(props: {
+  searchParams: Promise<{ institute?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const selectedInstitute = searchParams.institute;
   // Protect this route - only OFFICE role can access
   await protectRoute(["OFFICE"]);
 
@@ -24,10 +28,20 @@ export default async function OfficeDashboard() {
   let dbError = false;
 
   try {
+    const instituteFilter = selectedInstitute && selectedInstitute !== "ALL" 
+      ? eq(sql`lower(${inquiries.school})`, selectedInstitute.toLowerCase()) 
+      : undefined;
+
     const [totalInquiriesResult, shortlistedResult, finalAdmissionsResult] = await Promise.all([
-      db.select({ count: count() }).from(inquiries),
-      db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "SHORTLISTED")),
-      db.select({ count: count() }).from(studentProfiles).where(eq(studentProfiles.isFullyAdmitted, true))
+      db.select({ count: count() }).from(inquiries).where(instituteFilter),
+      db.select({ count: count() }).from(inquiries).where(
+        instituteFilter ? and(eq(inquiries.status, "SHORTLISTED"), instituteFilter) : eq(inquiries.status, "SHORTLISTED")
+      ),
+      db.select({ count: count() })
+        .from(studentProfiles)
+        .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
+        .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+        .where(and(eq(studentProfiles.isFullyAdmitted, true), instituteFilter || sql`1=1`))
     ]);
 
     stats = [

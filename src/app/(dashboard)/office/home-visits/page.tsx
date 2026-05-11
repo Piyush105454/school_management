@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { admissionMeta, homeVisits, inquiries, studentProfiles, entranceTests, teachers } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { 
   Users, 
@@ -12,7 +12,12 @@ import {
 import { OfficeHomeVisitManager } from "@/features/admissions/components/OfficeHomeVisitManager";
 import { HomeVisitDashboard } from "@/features/admissions/components/HomeVisitDashboard";
 
-export default async function OfficeHomeVisitsPage() {
+export default async function OfficeHomeVisitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ institute?: string }>;
+}) {
+  const { institute: selectedInstitute } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
 
@@ -49,7 +54,18 @@ export default async function OfficeHomeVisitsPage() {
     .leftJoin(homeVisits, eq(admissionMeta.id, homeVisits.admissionId))
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
     .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
-    .where(teacherInstitute ? eq(inquiries.school, teacherInstitute) : undefined)
+    .where(
+      (() => {
+        const conditions = [];
+        if (selectedInstitute && selectedInstitute !== "ALL") {
+          conditions.push(eq(sql`lower(${inquiries.school})`, selectedInstitute.toLowerCase()));
+        }
+        if (teacherInstitute) {
+          conditions.push(eq(inquiries.school, teacherInstitute));
+        }
+        return conditions.length > 0 ? (conditions.length > 1 ? and(...conditions) : conditions[0]) : undefined;
+      })()
+    )
     .orderBy(desc(admissionMeta.createdAt));
 
   const teachersList = await db.select().from(teachers).orderBy(teachers.name);

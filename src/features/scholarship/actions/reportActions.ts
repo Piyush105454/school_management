@@ -1,12 +1,11 @@
 "use server";
 
 import { db } from "@/db";
-import { scholarshipRecords } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { scholarshipRecords, admissionMeta, inquiries } from "@/db/schema";
+import { sql, eq, and } from "drizzle-orm";
 
-export async function getMonthlyReports(): Promise<{ success: true; data: any[] } | { success: false; error: string }> {
+export async function getMonthlyReports(school?: string): Promise<{ success: true; data: any[] } | { success: false; error: string }> {
   try {
-    // Group by month and year, sum amounts, count approved/paid
     const reports = await db
       .select({
         month: scholarshipRecords.month,
@@ -18,6 +17,9 @@ export async function getMonthlyReports(): Promise<{ success: true; data: any[] 
         paidCount: sql<number>`count(case when ${scholarshipRecords.status} = 'PAID' then 1 end)::int`,
       })
       .from(scholarshipRecords)
+      .innerJoin(admissionMeta, eq(scholarshipRecords.admissionId, admissionMeta.id))
+      .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+      .where(school && school !== "ALL" ? eq(inquiries.school, school) : undefined)
       .groupBy(scholarshipRecords.month, scholarshipRecords.year);
 
     return { success: true, data: reports };

@@ -10,7 +10,12 @@ import GlobalExcelImportModal from "@/features/academy/components/GlobalExcelImp
 import ClassTable from "@/features/academy/components/ClassTable";
 
 
-export default async function ClassManagementPage() {
+export default async function ClassManagementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ institute?: string }>;
+}) {
+  const { institute: selectedInstitute } = await searchParams;
   const session = await getServerSession(authOptions);
   
   // Fetch all classes from DB
@@ -56,6 +61,12 @@ export default async function ClassManagementPage() {
     } else {
       classData = [];
     }
+  }
+
+  // Apply Global Institute Filter (if selected and not "ALL")
+  if (selectedInstitute && selectedInstitute !== "ALL") {
+    const target = selectedInstitute.toLowerCase();
+    classData = classData.filter(c => c.institute.toLowerCase() === target);
   }
 
   // Sort by institute then by grade/name

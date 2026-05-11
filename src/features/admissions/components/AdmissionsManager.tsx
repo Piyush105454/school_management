@@ -18,7 +18,7 @@ const STATUSES = [
   "Admitted"
 ];
 
-const INSTITUTES = ["Dhanpuri Public School", "WES Academy", "Other"];
+import { useInstitute } from "@/providers/InstituteProvider";
 
 export function AdmissionsManager({ 
   admissions,
@@ -27,12 +27,18 @@ export function AdmissionsManager({
   admissions: any[],
   role?: string
 }) {
+  const { selectedInstitute, setSelectedInstitute, institutes } = useInstitute();
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [stepFilter, setStepFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [instituteFilter, setInstituteFilter] = useState("");
+  const [instituteFilter, setInstituteFilter] = useState(selectedInstitute === "ALL" ? "" : selectedInstitute);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Sync with global filter
+  React.useEffect(() => {
+    setInstituteFilter(selectedInstitute === "ALL" ? "" : selectedInstitute);
+  }, [selectedInstitute]);
 
   const filteredAdmissions = useMemo(() => {
     return admissions.filter((adm) => {
@@ -143,11 +149,15 @@ export function AdmissionsManager({
           {/* Institute Filter */}
           <select 
             value={instituteFilter}
-            onChange={(e) => setInstituteFilter(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setInstituteFilter(val);
+              setSelectedInstitute(val || "ALL");
+            }}
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">All Institutes</option>
-            {INSTITUTES.map(i => (
+            {institutes.map(i => (
               <option key={i} value={i}>{i}</option>
             ))}
           </select>

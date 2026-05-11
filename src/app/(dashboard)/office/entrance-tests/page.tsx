@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { admissionMeta, entranceTests, inquiries, studentProfiles, teachers } from "@/db/schema";
-import { eq, desc, and, or, isNotNull } from "drizzle-orm";
+import { eq, desc, and, or, isNotNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { 
   ClipboardCheck, 
@@ -21,7 +21,12 @@ import { OfficeTestManager } from "@/features/admissions/components/OfficeTestMa
 import { EntranceTestDashboard } from "@/features/admissions/components/EntranceTestDashboard";
 import { protectRoute } from "@/lib/roleGuard";
 
-export default async function OfficeEntranceTestsPage() {
+export default async function OfficeEntranceTestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ institute?: string }>;
+}) {
+  const { institute: selectedInstitute } = await searchParams;
   await protectRoute(["OFFICE", "TEACHER"]);
   
   const session = await getServerSession(authOptions);
@@ -47,7 +52,20 @@ export default async function OfficeEntranceTestsPage() {
     .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
     .leftJoin(entranceTests, eq(admissionMeta.id, entranceTests.admissionId))
     .leftJoin(studentProfiles, eq(admissionMeta.id, studentProfiles.admissionMetaId))
-    .where(teacherInstitute ? eq(inquiries.school, teacherInstitute) : undefined)
+    .where(
+      (() => {
+        const conditions = [];
+        // Admin Global Filter
+        if (selectedInstitute && selectedInstitute !== "ALL") {
+          conditions.push(eq(sql`lower(${inquiries.school})`, selectedInstitute.toLowerCase()));
+        }
+        // Teacher Restriction
+        if (teacherInstitute) {
+          conditions.push(eq(inquiries.school, teacherInstitute));
+        }
+        return conditions.length > 0 ? and(...conditions) : undefined;
+      })()
+    )
     .orderBy(desc(admissionMeta.createdAt));
 
   const teachersList = await db.select().from(teachers).orderBy(teachers.name);

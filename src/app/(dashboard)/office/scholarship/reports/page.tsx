@@ -1,7 +1,12 @@
 import { getMonthlyReports } from "@/features/scholarship/actions/reportActions";
 
-export default async function ReportsPage() {
-  const reportsResult = await getMonthlyReports();
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ institute?: string }>;
+}) {
+  const { institute } = await searchParams;
+  const reportsResult = await getMonthlyReports(institute);
   const reports = (reportsResult.success && reportsResult.data) ? reportsResult.data : [];
 
   return (

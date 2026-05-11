@@ -302,9 +302,10 @@ export async function cleanupSubjectDuplicates() {
 
 // --- METADATA ACTIONS ---
 
-export async function getAllAcademicMetadata() {
+export async function getAllAcademicMetadata(institute?: string) {
   try {
     const allClasses = await db.query.classes.findMany({
+      where: (classes, { eq }) => institute && institute !== "ALL" ? eq(classes.institute, institute) : undefined,
       orderBy: (classes, { asc }) => [asc(classes.id)],
     });
     const allSubjects = await db.query.subjects.findMany();

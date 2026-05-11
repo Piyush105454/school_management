@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { admissionMeta, inquiries, studentProfiles, studentBio } from "@/db/schema";
 import { eq, and, count } from "drizzle-orm";
 
-export async function getStudentCountsByClass() {
+export async function getStudentCountsByClass(school?: string) {
   try {
     const result = await db
       .select({
@@ -14,7 +14,12 @@ export async function getStudentCountsByClass() {
       .from(studentProfiles)
       .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
       .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-      .where(eq(studentProfiles.isFullyAdmitted, true))
+      .where(
+        and(
+          eq(studentProfiles.isFullyAdmitted, true),
+          school && school !== "ALL" ? eq(inquiries.school, school) : undefined
+        )
+      )
       .groupBy(inquiries.appliedClass);
 
     return { success: true, data: result };
@@ -23,7 +28,7 @@ export async function getStudentCountsByClass() {
   }
 }
 
-export async function getStudentsByClass(className: string) {
+export async function getStudentsByClass(className: string, school?: string) {
   try {
     const students = await db
       .select({
@@ -40,7 +45,8 @@ export async function getStudentsByClass(className: string) {
       .where(
         and(
           eq(studentProfiles.isFullyAdmitted, true),
-          eq(inquiries.appliedClass, className)
+          eq(inquiries.appliedClass, className),
+          school && school !== "ALL" ? eq(inquiries.school, school) : undefined
         )
       );
 

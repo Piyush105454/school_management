@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { getStudentsByClass, getStudentCountsByClass } from "@/features/scholarship/actions/studentActions";
 import Link from "next/link";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 export default function StudentsClient({ classesList }: { classesList: string[] }) {
+  const { selectedInstitute } = useInstitute();
   const [selectedClass, setSelectedClass] = useState("");
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,16 +16,16 @@ export default function StudentsClient({ classesList }: { classesList: string[] 
 
   useEffect(() => {
     loadClassCounts();
-  }, []);
+  }, [selectedInstitute]);
 
   useEffect(() => {
     if (selectedClass) {
       loadStudents();
     }
-  }, [selectedClass]);
+  }, [selectedClass, selectedInstitute]);
 
   const loadClassCounts = async () => {
-    const res = await getStudentCountsByClass();
+    const res = await getStudentCountsByClass(selectedInstitute);
     if (res.success) {
       setClassCounts(classesList.map(c => {
         const match = res.data?.find((d: any) => d.appliedClass === c);
@@ -36,7 +38,7 @@ export default function StudentsClient({ classesList }: { classesList: string[] 
 
   const loadStudents = async () => {
     setLoading(true);
-    const res = await getStudentsByClass(selectedClass);
+    const res = await getStudentsByClass(selectedClass, selectedInstitute);
     if (res.success) setStudents(res.data || []);
     setLoading(false);
   };
