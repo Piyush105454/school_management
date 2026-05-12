@@ -8,7 +8,12 @@ import { Users, Presentation } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export default async function ClassManagementPage() {
+export default async function ClassManagementPage({
+  searchParams
+}: {
+  searchParams: Promise<{ institute?: string }>
+}) {
+  const { institute: selectedInstitute } = await searchParams;
   const session = await getServerSession(authOptions);
   
   let classData: { id: number; name: string; institute: string; count: number }[] = [];
@@ -65,6 +70,12 @@ export default async function ClassManagementPage() {
         classData = [];
       }
     }
+    
+    // Apply global institute filter
+    if (selectedInstitute && selectedInstitute !== "ALL") {
+      const target = selectedInstitute.toLowerCase();
+      classData = classData.filter(c => c.institute.toLowerCase() === target);
+    }
   } catch (error) {
     console.error("Database query failed:", error);
     dbError = true;
@@ -98,7 +109,9 @@ export default async function ClassManagementPage() {
 
             <div className="space-y-1">
               <h2 className="text-xl font-bold text-slate-800">
-                {cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
+                {cls.name.startsWith("Class ") || ["LKG", "UKG", "KG1", "KG2"].includes(cls.name) 
+                  ? cls.name 
+                  : `Class ${cls.name}`}
               </h2>
               <div className="flex items-center gap-2 text-slate-500 text-sm">
                 <Users className="h-4 w-4" />

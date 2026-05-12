@@ -11,7 +11,7 @@ import Link from "next/link";
 export default async function DailyAttendancePage({
   searchParams
 }: {
-  searchParams: Promise<{ class_id?: string }>
+  searchParams: Promise<{ class_id?: string; institute?: string }>
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return <div>Unauthorized</div>;
@@ -48,10 +48,16 @@ export default async function DailyAttendancePage({
 
   // 3. If we STILL don't have a targetClassId, show the Class Picker (Admin/Staff View)
   if (!targetClassId) {
+    const selectedInstitute = params.institute;
     const teacherInstitute = teacherProfile?.institute;
     let allClasses = await db.select().from(classes).orderBy(classes.grade);
 
-    // If teacher, filter picker by their institute
+    // Apply global institute filter
+    if (selectedInstitute && selectedInstitute !== "ALL") {
+      allClasses = allClasses.filter(c => c.institute === selectedInstitute);
+    }
+
+    // If teacher, also filter picker by their institute (if not already filtered)
     if (session?.user?.role === "TEACHER" && teacherInstitute) {
       allClasses = allClasses.filter(c => c.institute === teacherInstitute);
     }

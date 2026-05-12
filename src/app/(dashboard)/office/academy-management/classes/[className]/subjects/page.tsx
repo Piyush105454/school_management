@@ -20,9 +20,9 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
   const decodedClassNameParam = decodeURIComponent(resolvedParams.className);
   const institute = resolvedSearchParams.institute || "Dhanpuri Public School";
   
-  // Resolve DB class name ("1" -> "Class 1", "Nursery" -> "Nursery")
+  // Resolve DB class name ("1" -> "Class 1", "Nursery" -> "Nursery", "KG1" -> "KG1")
   const dbClassName =
-    ["Nursery", "LKG", "UKG"].includes(decodedClassNameParam)
+    ["Nursery", "LKG", "UKG", "KG1", "KG2"].includes(decodedClassNameParam) || decodedClassNameParam.startsWith("Class ")
       ? decodedClassNameParam
       : `Class ${decodedClassNameParam}`;
 

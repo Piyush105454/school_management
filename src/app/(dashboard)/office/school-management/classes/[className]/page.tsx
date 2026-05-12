@@ -44,7 +44,7 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
         </Link>
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 font-outfit uppercase tracking-tight">
-            {className === "Nursery" || className === "LKG" || className === "UKG" ? className : `Class ${className}`} Admitted Students
+            {["Nursery", "LKG", "UKG", "KG1", "KG2"].includes(className) || className.startsWith("Class ") ? className : `Class ${className}`} Admitted Students
           </h1>
           <p className="text-xs md:text-sm text-slate-500 font-medium">List of all active and confirmed students joining this class.</p>
         </div>

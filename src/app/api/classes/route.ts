@@ -5,13 +5,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { eq, asc, and, inArray, or } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const institute = searchParams.get("institute");
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-
     let filter = undefined;
+    
+    // Base filter by institute if provided
+    if (institute && institute !== "ALL") {
+      filter = eq(classes.institute, institute);
+    }
     if (session.user.role === "TEACHER") {
       const teacherProfile = await db.query.teachers.findFirst({
         where: (t, { eq }) => eq(t.userId, session.user.id)
@@ -23,7 +29,6 @@ export async function GET() {
           : [];
         
         if (assignedNames.length === 0) {
-          // If no classes assigned, return nothing
           return NextResponse.json([]);
         }
 
@@ -31,13 +36,16 @@ export async function GET() {
           ...assignedNames,
           ...assignedNames.map(n => `Class ${n}`),
           ...assignedNames.map(n => `CLASS ${n}`),
-          ...assignedNames.map(n => n.replace(/^Class\s+/i, "")) // Handle "Class 1" -> "1"
+          ...assignedNames.map(n => n.replace(/^Class\s+/i, ""))
         ];
 
-        filter = and(
+        const teacherFilter = and(
           teacherProfile.institute ? eq(classes.institute, teacherProfile.institute) : undefined,
           inArray(classes.name, allPotentialNames)
         );
+
+        // Combine with existing institute filter if present
+        filter = filter ? and(filter, teacherFilter) : teacherFilter;
       } else {
         return NextResponse.json([]);
       }

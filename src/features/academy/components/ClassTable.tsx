@@ -2,9 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Users, BookOpen, Trash2, Presentation, Loader2 } from "lucide-react";
+import { Users, BookOpen, Presentation } from "lucide-react";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
-import { deleteClass } from "@/features/academy/actions/academyActions";
 import { useRouter } from "next/navigation";
 import { useInstitute } from "@/providers/InstituteProvider";
 
@@ -21,21 +20,6 @@ interface ClassTableProps {
 
 export default function ClassTable({ classData }: ClassTableProps) {
   const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-
-  const handleDelete = async (className: string) => {
-    if (confirm(`Are you sure you want to delete ${className}? This will remove all associated subjects, units, and chapters.`)) {
-      setIsDeleting(className);
-      const result = await deleteClass(className);
-      setIsDeleting(null);
-      
-      if (result.success) {
-        router.refresh();
-      } else {
-        alert("Error deleting class: " + result.error);
-      }
-    }
-  };
 
   const { selectedInstitute, setSelectedInstitute, institutes } = useInstitute();
 
@@ -78,7 +62,9 @@ export default function ClassTable({ classData }: ClassTableProps) {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {cls.name === "LKG" || cls.name === "UKG" ? cls.name : `Class ${cls.name}`}
+                        {cls.name.startsWith("Class ") || ["LKG", "UKG", "KG1", "KG2"].includes(cls.name) 
+                          ? cls.name 
+                          : `Class ${cls.name}`}
                       </p>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{cls.institute}</p>
                     </div>
@@ -108,12 +94,6 @@ export default function ClassTable({ classData }: ClassTableProps) {
                         label: "View Students",
                         icon: <Users className="h-4 w-4" />,
                         onClick: () => router.push(`/office/school-management/classes/${cls.name}?institute=${encodeURIComponent(cls.institute)}`)
-                      },
-                      {
-                        label: isDeleting === cls.name ? "Deleting..." : "Delete Class",
-                        icon: isDeleting === cls.name ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />,
-                        variant: "danger",
-                        onClick: () => handleDelete(cls.name)
                       }
                     ]}
                   />

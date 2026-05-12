@@ -54,11 +54,13 @@ export async function cleanupAcademicData() {
         continue;
       }
 
-      // Aggressive Format (Standardize to "Class X", "LKG", "UKG")
-      if (!["LKG", "UKG"].includes(normalized)) {
-        const numMatch = normalized.match(/\d+/);
-        if (numMatch) {
-          normalized = `Class ${numMatch[0]}`;
+      // Aggressive Format (Standardize to "Class X", "LKG", "UKG", "KG1", "KG2")
+      if (!["LKG", "UKG", "KG1", "KG2"].includes(normalized)) {
+        if (!normalized.startsWith("Class ")) {
+          const numMatch = normalized.match(/\d+/);
+          if (numMatch) {
+            normalized = `Class ${numMatch[0]}`;
+          }
         }
       }
 

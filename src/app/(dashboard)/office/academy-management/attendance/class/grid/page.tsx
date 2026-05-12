@@ -23,20 +23,28 @@ export default function ClassAttendanceGrid() {
   useEffect(() => {
     // Fetch classes for dropdown
     const fetchClasses = async () => {
-      // In a real app we'd have a specific API for this, 
-      // but for now we can infer from a students list or similar, 
-      // or assuming we have a /api/attendance/classes or just execute a raw select.
-      // For simplicity in this demo, I'll fetch students and extract classes if I had that endpoint.
-      // Actually, I'll just fetch all classes from the classes table.
-      const res = await fetch("/api/classes"); // Assuming this exists or I'll create it.
+      const currentInstitute = searchParams.get("institute");
+      const url = currentInstitute && currentInstitute !== "ALL" 
+        ? `/api/classes?institute=${encodeURIComponent(currentInstitute)}`
+        : "/api/classes";
+        
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setClasses(data);
-        if (data.length > 0 && !classId) setClassId(data[0].id.toString());
+        // If the current classId is not in the new classes list, reset it
+        if (data.length > 0) {
+          const isCurrentIdValid = data.some((c: any) => c.id.toString() === classId);
+          if (!isCurrentIdValid) {
+            setClassId(data[0].id.toString());
+          }
+        } else {
+          setClassId("");
+        }
       }
     };
     fetchClasses();
-  }, []);
+  }, [searchParams.get("institute")]);
 
   useEffect(() => {
     if (!classId) return;
