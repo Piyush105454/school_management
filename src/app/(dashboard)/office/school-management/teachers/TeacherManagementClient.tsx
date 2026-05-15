@@ -1,10 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Users, Phone, Award, CheckCircle, Loader2, Trash2, Edit } from "lucide-react";
+
+import { Plus, Users, Phone, Award, CheckCircle, Loader2, Trash2, Edit, Filter, Search, ShieldAlert } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { createTeacher, updateTeacher, deleteTeacher } from "@/features/teachers/actions/teacherActions";
 import { useRouter } from "next/navigation";
+
+const COMMITTEES = [
+  "Sexual Harassment Committee/Internal Complaints Committee",
+  "Grievance Redressal Committee",
+  "School Management Committee (SMC)",
+  "Academic Committee",
+  "Examination Committee",
+  "Disaster Management Committee",
+  "School Discipline Committee",
+  "Anti-Bullying Committee",
+  "Child Protection Committee",
+  "Cultural & Co-curricular Activities Committee",
+  "Health & Wellness Committee",
+  "Inclusive Education/Special Needs Committee"
+];
 
 interface Teacher {
   id: string;
@@ -18,6 +34,7 @@ interface Teacher {
   incharge: string | null;
   specialization: string | null;
   assignedRole: string | null;
+  committees: string | null;
 }
 
 interface ClassData {
@@ -37,10 +54,13 @@ export function TeacherManagementClient({
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [committeeFilter, setCommitteeFilter] = useState("ALL");
   const [formData, setFormData] = useState({
     name: "",
     contactNumber: "",
     classAssigned: [] as string[],
+    committees: [] as string[],
     institute: "",
     responsibility: "",
     incharge: "",
@@ -57,6 +77,7 @@ export function TeacherManagementClient({
       name: teacher.name,
       contactNumber: teacher.contactNumber || "",
       classAssigned: teacher.classAssigned ? teacher.classAssigned.split(",").map(c => c.trim()) : [],
+      committees: teacher.committees ? teacher.committees.split(",").map(c => c.trim()) : [],
       institute: teacher.institute || "",
       responsibility: teacher.responsibility || "",
       incharge: teacher.incharge || "",
@@ -75,6 +96,7 @@ export function TeacherManagementClient({
       name: "", 
       contactNumber: "", 
       classAssigned: [], 
+      committees: [],
       institute: "",
       responsibility: "",
       incharge: "",
@@ -94,6 +116,15 @@ export function TeacherManagementClient({
     }));
   };
 
+  const toggleCommittee = (committee: string) => {
+    setFormData(prev => ({
+      ...prev,
+      committees: prev.committees.includes(committee) 
+        ? prev.committees.filter(c => c !== committee)
+        : [...prev.committees, committee]
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) return alert("Name is required");
@@ -102,7 +133,8 @@ export function TeacherManagementClient({
     setLoading(true);
     const submissionData = {
       ...formData,
-      classAssigned: formData.classAssigned.join(", ")
+      classAssigned: formData.classAssigned.join(", "),
+      committees: formData.committees.join(", ")
     };
 
     let res;
@@ -140,6 +172,13 @@ export function TeacherManagementClient({
     }
   };
 
+  const filteredTeachers = initialTeachers.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          t.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCommittee = committeeFilter === "ALL" || (t.committees && t.committees.includes(committeeFilter));
+    return matchesSearch && matchesCommittee;
+  });
+
   return (
     <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -155,27 +194,52 @@ export function TeacherManagementClient({
         </button>
       </div>
 
-      {initialTeachers.length === 0 ? (
+      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+          <input 
+            type="text" 
+            placeholder="Search by name or email..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Filter className="text-slate-400 h-4 w-4 shrink-0" />
+          <select 
+            value={committeeFilter}
+            onChange={(e) => setCommitteeFilter(e.target.value)}
+            className="w-full md:w-64 bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="ALL">All Committees</option>
+            {COMMITTEES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {filteredTeachers.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-3xl p-12 flex flex-col items-center justify-center text-center gap-4 shadow-sm">
           <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
             <span className="text-2xl font-black">👩‍🏫</span>
           </div>
-          <p className="text-sm font-black text-slate-800 uppercase tracking-wide">No Teachers Added</p>
-          <p className="text-xs text-slate-400 font-medium max-w-sm">Add teachers to start managing staff records.</p>
+          <p className="text-sm font-black text-slate-800 uppercase tracking-wide">No Teachers Found</p>
+          <p className="text-xs text-slate-400 font-medium max-w-sm">Try adjusting your filters or add a new teacher.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher Info</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Info</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assignments</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Classes</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Committees</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {initialTeachers.map((teacher) => (
+              {filteredTeachers.map((teacher) => (
                 <tr key={teacher.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
@@ -212,9 +276,19 @@ export function TeacherManagementClient({
                         <span className="text-slate-400 text-xs">-</span>
                       )}
                     </div>
-                    {teacher.responsibility && (
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">RESP: {teacher.responsibility}</p>
-                    )}
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex flex-wrap gap-1.5 min-h-[40px] items-center max-w-[300px]">
+                      {teacher.committees ? (
+                        teacher.committees.split(",").map(c => (
+                          <span key={c} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-tight border border-indigo-100">
+                            {c.trim()}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 text-xs">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -350,7 +424,33 @@ export function TeacherManagementClient({
             </div>
           </div>
 
-          {/* Assignments */}
+          {/* Committee Assignments */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-amber-600 rounded-full"></span> Committee Assignments
+            </h3>
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-4">Select Relevant Committees</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {COMMITTEES.map((committee) => (
+                  <button
+                    key={committee}
+                    type="button"
+                    onClick={() => toggleCommittee(committee)}
+                    className={`px-3 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight text-left transition-all ${
+                      formData.committees.includes(committee)
+                        ? "bg-amber-600 border-amber-600 text-white shadow-md shadow-amber-600/20"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-amber-300"
+                    }`}
+                  >
+                    {committee}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Class Assignments */}
           <div className="space-y-4">
             <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
               <span className="h-1 w-4 bg-indigo-600 rounded-full"></span> Class Assignments
@@ -381,7 +481,6 @@ export function TeacherManagementClient({
                   * Please select an institute first to see available classes.
                 </p>
               )}
-              <p className="mt-4 text-[10px] text-slate-400 font-medium italic">* Selected classes will be the only ones visible to this teacher in their dashboard.</p>
             </div>
           </div>
 

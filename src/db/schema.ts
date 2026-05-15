@@ -227,6 +227,7 @@ export const teachers = pgTable("teachers", {
   specialization: text("specialization"),
   assignedRole: text("assigned_role"),
   classAssigned: text("class_assigned"),
+  committees: text("committees"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

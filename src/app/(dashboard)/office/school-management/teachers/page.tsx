@@ -29,6 +29,7 @@ export default async function TeacherManagementPage({
       incharge: teachers.incharge,
       specialization: teachers.specialization,
       assignedRole: teachers.assignedRole,
+      committees: teachers.committees,
       email: users.email,
     })
     .from(teachers)
