@@ -22,7 +22,7 @@ export default function SettingsForm({ initialData, academicYear }: { initialDat
       attendanceAmount: 750,
       homeworkThreshold: 90,
       homeworkAmount: 750,
-      guardianRatingThreshold: 8,
+      guardianRatingThreshold: 5,
       guardianAmount: 750,
       ptmAmount: 750,
     }
@@ -65,7 +65,7 @@ export default function SettingsForm({ initialData, academicYear }: { initialDat
         attendanceAmount: 750,
         homeworkThreshold: 90,
         homeworkAmount: 750,
-        guardianRatingThreshold: 8,
+        guardianRatingThreshold: 5,
         guardianAmount: 750,
         ptmAmount: 750,
       });
@@ -168,8 +168,9 @@ export default function SettingsForm({ initialData, academicYear }: { initialDat
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Guardian Rating Threshold (1-10)</label>
-            <input type="number" {...register("guardianRatingThreshold")} className="mt-1 block w-full border border-slate-300 rounded-md p-2" />
+            <label className="block text-sm font-medium text-slate-700">Guardian Rating Threshold (1-5 points)</label>
+            <input type="number" max={5} min={1} {...register("guardianRatingThreshold")} className="mt-1 block w-full border border-slate-300 rounded-md p-2" />
+            <p className="text-[10px] text-slate-400 mt-1 italic">Based on 5 criteria: Communication, Homework Support, Health/Wellness, School Dev, and Other.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Guardian Amount (₹)</label>

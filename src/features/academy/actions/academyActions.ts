@@ -11,9 +11,11 @@ import { uploadToS3 } from "@/lib/s3-service";
 export async function deleteClass(className: string) {
   try {
     // We expect the class name to match exactly as it is in the classes table
-    const dbClassName = ["LKG", "UKG"].includes(className)
-      ? className
-      : className.startsWith("Class ") ? className : `Class ${className}`;
+    const normalized = className.trim().toUpperCase();
+    const dbClassName = normalized === "LKG" ? "KG1" 
+                      : normalized === "UKG" ? "KG2" 
+                      : ["KG1", "KG2"].includes(normalized) ? normalized
+                      : className.startsWith("Class ") ? className : `Class ${className}`;
 
     const classRecord = await db.query.classes.findFirst({
       where: (cls, { and, eq }) => and(
@@ -54,8 +56,12 @@ export async function cleanupAcademicData() {
         continue;
       }
 
-      // Aggressive Format (Standardize to "Class X", "LKG", "UKG", "KG1", "KG2")
-      if (!["LKG", "UKG", "KG1", "KG2"].includes(normalized)) {
+      // Standardize LKG/UKG to KG1/KG2
+      if (normalized.toUpperCase() === "LKG") normalized = "KG1";
+      if (normalized.toUpperCase() === "UKG") normalized = "KG2";
+
+      // Aggressive Format (Standardize to "Class X", "KG1", "KG2")
+      if (!["KG1", "KG2"].includes(normalized.toUpperCase())) {
         if (!normalized.startsWith("Class ")) {
           const numMatch = normalized.match(/\d+/);
           if (numMatch) {

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, integer, doublePrecision, pgEnum, uuid, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, integer, doublePrecision, pgEnum, uuid, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const roleEnum = pgEnum("role", ["OFFICE", "STUDENT_PARENT", "TEACHER"]);
@@ -8,6 +8,8 @@ export const genderEnum = pgEnum("gender", ["M", "F", "O"]);
 export const casteEnum = pgEnum("caste", ["GEN", "OBC", "ST", "SC"]);
 export const documentStatusEnum = pgEnum("document_status", ["SUBMITTED", "NOT_SUBMITTED", "VERIFIED", "REJECTED"]);
 export const testStatusEnum = pgEnum("test_status", ["NOT_SCHEDULED", "PENDING", "PASS", "FAIL"]);
+export const lessonPlanStatusEnum = pgEnum("lesson_plan_status", ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"]);
+export const homeworkSubmissionStatusEnum = pgEnum("homework_submission_status", ["PENDING", "COMPLETED", "REJECTED"]);
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -341,7 +343,10 @@ export const overallAttendance = pgTable("overall_attendance", {
   present: integer("present"),
   absent: integer("absent"),
   attendancePct: integer("attendance_pct"),
-});
+}, (table) => ({
+  monthYearIdx: index("overall_month_year_idx").on(table.month, table.year),
+  dateIdx: index("overall_date_idx").on(table.date),
+}));
 
 export const studentAttendance = pgTable("student_attendance", {
   id: serial("id").primaryKey(),
@@ -352,7 +357,10 @@ export const studentAttendance = pgTable("student_attendance", {
   month: text("month"),
   year: integer("year"),
   status: text("status"), // P, A, L, ML, HD, H
-});
+}, (table) => ({
+  studentDateIdx: index("student_attendance_date_idx").on(table.studentId, table.date),
+  monthYearIdx: index("student_attendance_month_year_idx").on(table.month, table.year),
+}));
 
 export const subjects = pgTable("subjects", {
   id: serial("id").primaryKey(),
@@ -406,14 +414,37 @@ export const lessonPlans = pgTable("lesson_plans", {
   type: text("type").default("EXPLANATION").notNull(), // EXPLANATION, QA
   step1Data: text("step1_data"), // JSON string
   step2Data: text("step2_data"), // JSON string
+  status: lessonPlanStatusEnum("status").default("DRAFT").notNull(),
+  reviewerId: uuid("reviewer_id").references(() => users.id),
+  reviewerRemark: text("reviewer_remark"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
+export const homeworkSubmissions = pgTable("homework_submissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  lessonPlanId: uuid("lesson_plan_id").notNull().references(() => lessonPlans.id, { onDelete: 'cascade' }),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: 'cascade' }),
+  description: text("description"),
+  imagePath: text("image_path"),
+  status: homeworkSubmissionStatusEnum("status").default("PENDING").notNull(),
+  feedback: text("feedback"),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+});
+
+export const lessonPlansRelations = relations(lessonPlans, ({ one, many }) => ({
   class: one(classes, { fields: [lessonPlans.classId], references: [classes.id] }),
   subject: one(subjects, { fields: [lessonPlans.subjectId], references: [subjects.id] }),
   teacher: one(users, { fields: [lessonPlans.teacherId], references: [users.id] }),
+  submissions: many(homeworkSubmissions),
+}));
+
+export const homeworkSubmissionsRelations = relations(homeworkSubmissions, ({ one }) => ({
+  lessonPlan: one(lessonPlans, { fields: [homeworkSubmissions.lessonPlanId], references: [lessonPlans.id] }),
+  student: one(students, { fields: [homeworkSubmissions.studentId], references: [students.id] }),
+  reviewer: one(users, { fields: [homeworkSubmissions.reviewedBy], references: [users.id] }),
 }));
 
 // Academy Relations
@@ -465,11 +496,12 @@ export const teachersRelations = relations(teachers, ({ one }) => ({
   }),
 }));
 
-export const studentsRelations = relations(students, ({ one }) => ({
+export const studentsRelations = relations(students, ({ one, many }) => ({
   class: one(classes, {
     fields: [students.classId],
     references: [classes.id],
   }),
+  homeworkSubmissions: many(homeworkSubmissions),
 }));
 
 

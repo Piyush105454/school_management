@@ -46,10 +46,12 @@ interface ClassData {
 
 export function TeacherManagementClient({ 
   initialTeachers, 
-  allClasses 
+  allClasses,
+  allSubjects = []
 }: { 
   initialTeachers: Teacher[], 
-  allClasses: ClassData[] 
+  allClasses: ClassData[],
+  allSubjects?: string[]
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -396,12 +398,18 @@ export function TeacherManagementClient({
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Specialization (Subject)</label>
-                <input
-                  placeholder="e.g. Mathematics"
-                  value={formData.specialization}
+                <select
+                  value={formData.specialization || ""}
                   onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                />
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
+                >
+                  <option value="">Select Subject</option>
+                  {allSubjects.map(subject => (
+                    <option key={subject} value={subject}>{subject}</option>
+                  ))}
+                  <option value="General">General</option>
+                  <option value="All Subjects">All Subjects</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Overall Responsibility</label>

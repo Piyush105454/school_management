@@ -80,6 +80,7 @@ const teacherItems = [
   { name: "My Classes", href: "/office/academy-management/classes", icon: School },
   { name: "Attendance", href: "/office/academy-management/attendance", icon: CalendarCheck },
   { name: "Lesson Plans", href: "/office/academy-management/lesson-plan", icon: BookOpen },
+  { name: "My Homework Review", href: "/office/academy-management/homework", icon: ClipboardCheck },
   { type: "section", name: "Admission Management" },
   { name: "Inquiries", href: "/office/inquiries", icon: FileText },
   { name: "Admissions Progress", href: "/office/admissions-progress", icon: UserCheck },
@@ -96,6 +97,7 @@ const studentItems = [
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
   { name: "My Scholarship", href: "/student/scholarship", icon: GraduationCap },
   { name: "My Homework", href: "/student/homework", icon: ClipboardList },
+  { name: "My Attendance", href: "/student/attendance", icon: CalendarCheck },
 ];
 
 interface SidebarProps {
@@ -108,20 +110,35 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   const searchParams = useSearchParams();
   const currentStep = searchParams.get("step");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const [teacherInstitute, setTeacherInstitute] = useState<string | null>(null);
+  const [teacherProfile, setTeacherProfile] = useState<any>(null);
 
   React.useEffect(() => {
     if (role === "TEACHER") {
       fetch("/api/teacher/profile")
         .then(res => res.json())
         .then(data => {
-          if (data.institute) setTeacherInstitute(data.institute);
+          setTeacherProfile(data);
         })
         .catch(err => console.error(err));
     }
   }, [role]);
 
-  const schoolName = teacherInstitute || "DPS Dhanpuri";
+  const items = role === "OFFICE"
+    ? [
+      ...officeItems.slice(0, 1),
+      { type: "section", name: "Admissions" },
+      ...officeItems.slice(1, 43),
+      { name: "Lesson Plan Review", href: "/office/academy-management/lesson-plan/review", icon: ClipboardList },
+      ...officeItems.slice(43)
+    ]
+    : role === "TEACHER"
+      ? [
+          ...teacherItems,
+          ...(teacherProfile?.specialization ? [{ name: "Review Lesson Plans", href: "/office/academy-management/lesson-plan/review", icon: ClipboardList }] : [])
+        ]
+      : studentItems;
+
+  const schoolName = teacherProfile?.institute || "DPS Dhanpuri";
 
   const toggleSection = (sectionName: string) => {
     setCollapsedSections(prev => ({
@@ -129,17 +146,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       [sectionName]: !prev[sectionName]
     }));
   };
-
-  const items = role === "OFFICE"
-    ? [
-      ...officeItems.slice(0, 1),
-      { type: "section", name: "Admissions" },
-      ...officeItems.slice(1, 3),
-      ...officeItems.slice(3)
-    ]
-    : role === "TEACHER"
-      ? teacherItems
-      : studentItems;
 
   return (
     <div className="flex h-full flex-col bg-white text-slate-800 w-72 md:w-64 border-r border-slate-100 shadow-sm shadow-slate-100/10">

@@ -1,11 +1,13 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { eq, desc, and } from "drizzle-orm";
-import { studentProfiles, admissionMeta, lessonPlans, classes, subjects, students } from "@/db/schema";
+import { eq, desc, and, or } from "drizzle-orm";
+import { studentProfiles, admissionMeta, lessonPlans, classes, subjects, students, teachers, homeworkSubmissions } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { ClipboardList, BookOpen, Calendar, Clock, GraduationCap, ArrowRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import HomeworkClient from "./HomeworkClient";
+import { getSignedDownloadUrl } from "@/lib/s3-service";
 
 export default async function StudentHomeworkPage() {
   const session = await getServerSession(authOptions);
@@ -36,15 +38,26 @@ export default async function StudentHomeworkPage() {
   
   // 2. Resolve Class ID from 'students' table using admissionNumber or scholarNumber
   // We check if student exists in the academy 'students' table which has the class assignment
-  const studentEntry = await db.query.students.findFirst({
-    where: (table, { eq, or }) => or(
-      meta?.admissionNumber ? eq(table.studentId, meta.admissionNumber) : undefined,
-      meta?.scholarNumber ? eq(table.studentId, meta.scholarNumber) : undefined
-    ),
-    with: {
-      class: true
-    }
-  });
+  // 2. Resolve Class ID from 'students' table
+  const studentEntryResults = await db
+    .select({
+      id: students.id,
+      studentId: students.studentId,
+      classId: students.classId,
+      class: classes
+    })
+    .from(students)
+    .leftJoin(classes, eq(students.classId, classes.id))
+    .where(
+        or(
+          meta?.admissionNumber ? eq(students.studentId, meta.admissionNumber) : undefined,
+          meta?.scholarNumber ? eq(students.studentId, meta.scholarNumber) : undefined,
+          meta?.entryNumber ? eq(students.studentId, meta.entryNumber) : undefined
+        )
+    )
+    .limit(1);
+
+  const studentEntry = studentEntryResults[0];
 
   if (!studentEntry || !studentEntry.classId) {
     return (
@@ -68,19 +81,29 @@ export default async function StudentHomeworkPage() {
     );
   }
 
-  // 3. Fetch Lesson Plans for this Class (where homework is stored in step1Data)
-  const allLessonPlans = await db.query.lessonPlans.findMany({
-    where: eq(lessonPlans.classId, studentEntry.classId),
-    with: {
-      subject: true,
-      teacher: {
-        with: {
-          teacherProfile: true
-        }
-      },
-    },
-    orderBy: [desc(lessonPlans.date)],
-  });
+  // 3. Fetch Lesson Plans for this Class
+  // 3. Fetch Lesson Plans for this Class
+  const allLessonPlans = await db
+    .select({
+      id: lessonPlans.id,
+      date: lessonPlans.date,
+      step1Data: lessonPlans.step1Data,
+      subject: subjects,
+      teacherProfile: teachers,
+    })
+    .from(lessonPlans)
+    .leftJoin(subjects, eq(lessonPlans.subjectId, subjects.id))
+    .leftJoin(teachers, eq(lessonPlans.teacherId, teachers.userId))
+    .where(eq(lessonPlans.classId, studentEntry.classId as number))
+    .orderBy(desc(lessonPlans.date));
+
+
+
+  // 4. Fetch Student Submissions for these plans
+  const studentSubmissions = await db
+    .select()
+    .from(homeworkSubmissions)
+    .where(eq(homeworkSubmissions.studentId, studentEntry.id));
 
   // Filter out plans that don't have homework data
   const homeworkItems = allLessonPlans.map(lp => {
@@ -89,110 +112,38 @@ export default async function StudentHomeworkPage() {
       step1 = typeof lp.step1Data === 'string' ? JSON.parse(lp.step1Data) : lp.step1Data;
     } catch(e) {}
 
+    const submission = studentSubmissions.find(s => s.lessonPlanId === lp.id);
+    
+    // Construct clean Proxy URL instead of long S3 Signed URL
+    let viewUrl = submission?.imagePath || "";
+    if (viewUrl && viewUrl.startsWith("http")) {
+        viewUrl = `/api/homework/view?path=${encodeURIComponent(viewUrl)}`;
+    }
+
     return {
       id: lp.id,
       date: lp.date,
       subjectName: lp.subject?.name || "General",
       homework: step1.homework || "",
-      teacherName: (lp.teacher as any)?.teacherProfile?.name || "Faculty",
-      unit: step1.unit || ""
+      teacherName: lp.teacherProfile?.name || "Faculty",
+      unit: step1.unit || "",
+      status: submission?.status || "NOT_SUBMITTED",
+      submittedDescription: submission?.description || "",
+      submittedImage: viewUrl
     };
-  }).filter(item => item.homework && item.homework.trim() !== "");
+  });
+
+  const filteredHomeworkItems = homeworkItems.filter(item => item.homework && item.homework.trim() !== "");
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header Section */}
-      <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl">
-        <div className="relative z-10 space-y-4">
-          <div className="flex items-center gap-2 text-blue-400">
-            <ClipboardList size={16} />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Student Portal</span>
-          </div>
-          <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase leading-none">
-            My Homework <br/> <span className="text-blue-500">Dashboard</span>
-          </h1>
-          <div className="flex flex-wrap gap-4 pt-2">
-            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
-              <GraduationCap size={14} className="text-blue-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest">{studentEntry.class?.name || "No Class"}</span>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
-              <Calendar size={14} className="text-blue-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest">{formatDate(new Date().toISOString().split('T')[0])}</span>
-            </div>
-          </div>
-        </div>
-        <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
-          <ClipboardList size={200} />
-        </div>
-      </div>
-
-      {/* Homework Cards */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Assignments</h2>
-          <span className="text-[10px] font-bold text-slate-400">{homeworkItems.length} Tasks Found</span>
-        </div>
-
-        {homeworkItems.length === 0 ? (
-          <div className="bg-white rounded-3xl p-16 border border-slate-100 text-center flex flex-col items-center gap-4">
-             <div className="h-16 w-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center">
-                <BookOpen size={32} />
-             </div>
-             <p className="text-slate-500 font-bold uppercase tracking-widest text-sm italic">No homework assigned yet for this week.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            {homeworkItems.map((item, idx) => (
-              <div key={item.id} className="group bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden hover:border-blue-200 transition-all flex flex-col">
-                {/* Style 1B Style Header */}
-                <div className="border-b border-slate-100">
-                  <div className="grid grid-cols-12 divide-x divide-slate-100 h-14 bg-slate-50/50">
-                    <div className="col-span-8 flex items-center px-6">
-                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] italic mr-2">1B</span>
-                      <h3 className="font-black text-slate-800 uppercase text-xs tracking-tight truncate">{item.subjectName}</h3>
-                    </div>
-                    <div className="col-span-4 flex items-center justify-center bg-slate-800 text-white font-black text-[9px] uppercase tracking-widest">
-                       {item.date}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Content Area */}
-                <div className="p-8 flex-1 space-y-6">
-                   <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm shrink-0">
-                         <BookOpen size={20} />
-                      </div>
-                      <div className="space-y-1">
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Teacher Assignment</p>
-                         <p className="text-sm font-bold text-slate-800 line-clamp-1">{item.teacherName}</p>
-                      </div>
-                   </div>
-
-                   <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 relative shadow-inner min-h-[140px]">
-                      <div className="absolute -top-3 left-4 bg-white px-3 py-1 rounded-lg border border-slate-100 text-[8px] font-black text-blue-500 uppercase tracking-[0.2em]">Work List</div>
-                      <p className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap italic">
-                         {item.homework}
-                      </p>
-                   </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 bg-slate-50/50 border-t border-slate-50 flex items-center justify-between">
-                   <div className="flex items-center gap-2">
-                      <Clock size={12} className="text-slate-300" />
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Prepare for next session</span>
-                   </div>
-                   <div className="h-8 w-8 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:border-blue-200 transition-all cursor-pointer">
-                      <ArrowRight size={14} />
-                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="space-y-6">
+      {/* Homework Dashboard Client */}
+      <HomeworkClient 
+        initialItems={filteredHomeworkItems} 
+        className={studentEntry.class?.name || "No Class"} 
+        studentId={studentEntry.id}
+        studentRoll={studentEntry.studentId}
+      />
     </div>
   );
 }

@@ -10,7 +10,21 @@ const assignments = [
   { name: "Rajni Vishwakarma", committees: "Disaster Management Committee" },
   { name: "Abdul Waseem", committees: "School Discipline Committee, Anti-Bullying Committee, Child Protection Committee" },
   { name: "Saiba Bano", committees: "Cultural & Co-curricular Activities Committee" },
-  { name: "Vacancy", committees: "Health & Wellness Committee, Inclusive Education/Special Needs Committee" }
+  { name: "Vacancy", committees: "Health & Wellness Committee, Inclusive Education/Special Needs Committee" },
+  { name: "Rajim Ali", committees: "" },
+  { name: "Vaishali Dahiya", committees: "" },
+  { name: "Esha Tiwari", committees: "" },
+  { name: "Intern 1", committees: "" },
+  { name: "Intern 2", committees: "" },
+  { name: "Intern 3", committees: "" },
+  { name: "Aruna Mahto", committees: "" },
+  { name: "Munni", committees: "" },
+  { name: "Male Peon", committees: "" },
+  { name: "Afifa Khan", committees: "" },
+  { name: "Muskan Bee", committees: "" },
+  { name: "Aditya Tiwari", committees: "" },
+  { name: "Fazila Ambara", committees: "" },
+  { name: "Riya Soni", committees: "" }
 ];
 
 async function updateCommittees() {
@@ -28,7 +42,14 @@ async function updateCommittees() {
           .where(eq(teachers.id, teacher.id));
         console.log(`✅ Updated: "${teacher.name}" (Matched with "${assign.name}")`);
       } else {
-        console.log(`⚠️ Not found: "${assign.name}"`);
+        // Create the teacher if not found
+        console.log(`➕ Creating missing teacher: "${assign.name}"`);
+        await db.insert(teachers).values({
+          name: assign.name,
+          committees: assign.committees,
+          institute: "Dhanpuri Public School" // Defaulting to DPS as per image
+        });
+        console.log(`✅ Created and assigned: "${assign.name}"`);
       }
     } catch (error: any) {
       console.error(`❌ Error updating "${assign.name}":`, error.message);

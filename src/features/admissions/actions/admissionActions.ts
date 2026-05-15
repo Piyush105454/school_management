@@ -15,7 +15,9 @@ import {
   documentChecklists,
   studentDocuments,
   entranceTests,
-  homeVisits
+  homeVisits,
+  students,
+  classes
 } from "@/db/schema";
 import { eq, desc, and, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -458,6 +460,45 @@ export async function finalizeFinalAdmission(admissionId: string, appliedScholar
         })
         .where(eq(admissionMeta.id, admissionId));
 
+      // --- SYNC TO ACADEMY ---
+      const meta = await tx.query.admissionMeta.findFirst({
+        where: eq(admissionMeta.id, admissionId),
+        with: { inquiry: true }
+      });
+
+      if (meta && meta.inquiry) {
+        const appliedClass = meta.inquiry.appliedClass || "";
+        const studentName = meta.inquiry.studentName || `${meta.inquiry.firstName} ${meta.inquiry.lastName}`;
+        const institute = meta.inquiry.school || "Dhanpuri Public School";
+
+        const matchedClass = await tx.query.classes.findFirst({
+          where: (c, { and, or, eq }) => and(
+            or(
+              eq(c.name, appliedClass),
+              eq(c.name, `CLASS ${appliedClass}`),
+              eq(c.name, `Class ${appliedClass}`)
+            ),
+            eq(c.institute, institute)
+          )
+        });
+
+        if (matchedClass) {
+          await tx.insert(students).values({
+            studentId: meta.entryNumber,
+            name: studentName,
+            classId: matchedClass.id,
+            scholarNumber: meta.scholarNumber || null,
+          }).onConflictDoUpdate({
+            target: students.studentId,
+            set: { 
+              name: studentName,
+              classId: matchedClass.id,
+              scholarNumber: meta.scholarNumber || null 
+            }
+          });
+        }
+      }
+
       revalidatePath("/office/inquiries");
       revalidatePath("/student/dashboard");
       revalidatePath("/office/final-admissions");
@@ -598,6 +639,45 @@ export async function syncFinalAdmissions() {
             eq(entranceTests.admissionId, admissionId),
             eq(entranceTests.status, "NOT_SCHEDULED")
           ));
+
+        // 4. SYNC TO ACADEMY (Crucial for Homework/Attendance Visibility)
+        const metaWithInquiry = await tx.query.admissionMeta.findFirst({
+          where: eq(admissionMeta.id, admissionId),
+          with: { inquiry: true }
+        });
+
+        if (metaWithInquiry && metaWithInquiry.inquiry) {
+          const appliedClass = metaWithInquiry.inquiry.appliedClass || "";
+          const studentName = metaWithInquiry.inquiry.studentName || `${metaWithInquiry.inquiry.firstName} ${metaWithInquiry.inquiry.lastName}`;
+          const institute = metaWithInquiry.inquiry.school || "Dhanpuri Public School";
+
+          const matchedClass = await tx.query.classes.findFirst({
+            where: (c, { and, or, eq }) => and(
+              or(
+                eq(c.name, appliedClass),
+                eq(c.name, `CLASS ${appliedClass}`),
+                eq(c.name, `Class ${appliedClass}`)
+              ),
+              eq(c.institute, institute)
+            )
+          });
+
+          if (matchedClass) {
+            await tx.insert(students).values({
+              studentId: metaWithInquiry.entryNumber,
+              name: studentName,
+              classId: matchedClass.id,
+              scholarNumber: metaWithInquiry.scholarNumber || null,
+            }).onConflictDoUpdate({
+              target: students.studentId,
+              set: { 
+                name: studentName,
+                classId: matchedClass.id,
+                scholarNumber: metaWithInquiry.scholarNumber || null 
+              }
+            });
+          }
+        }
       }
     });
 

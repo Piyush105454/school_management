@@ -21,6 +21,18 @@ export async function POST(req: NextRequest) {
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const timeframes = Array.from(new Set(records.map(r => `${r.date.getMonth()}-${r.date.getFullYear()}`)));
 
+    const normalizeClassName = (name: string) => {
+      const n = name.trim().toUpperCase();
+      if (n === "LKG") return "KG1";
+      if (n === "UKG") return "KG2";
+      return n;
+    };
+
+    // 2. Load all mapping data once (OUTSIDE TRANSACTION to keep it short)
+    const allDbStudents = await db.select().from(students);
+    const allDbClasses = await db.select().from(classes);
+    const classMap = new Map(allDbClasses.map(c => [c.name.toUpperCase(), c.id]));
+
     const result = await db.transaction(async (tx) => {
       // 1. Clear existing for the target months
       for (const tf of timeframes) {
@@ -33,11 +45,6 @@ export async function POST(req: NextRequest) {
           and(eq(overallAttendance.month, mName), eq(overallAttendance.year, y))
         );
       }
-
-      // 2. Load all mapping data once
-      const allDbStudents = await tx.select().from(students);
-      const allDbClasses = await tx.select().from(classes);
-      const classMap = new Map(allDbClasses.map(c => [c.name.toUpperCase(), c.id]));
 
       // 3. Identify New Students and Unique Students in Excel
       const excelStudentsMap = new Map<string, any>();
@@ -64,7 +71,7 @@ export async function POST(req: NextRequest) {
             name: r.name,
             scholarNumber: r.scholarNumber,
             rollNumber: r.rollNumber,
-            classId: classMap.get(r.className?.toUpperCase() || "") || null,
+            classId: classMap.get(normalizeClassName(r.className || "")) || null,
           });
         }
       }
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
         if (sId) {
           attendanceToInsert.push({
             studentId: sId,
-            classId: classMap.get(r.className?.toUpperCase() || "") || null,
+            classId: classMap.get(normalizeClassName(r.className || "")) || null,
             date: r.date,
             day: dNames[r.date.getDay()],
             month: monthNames[r.date.getMonth()],

@@ -21,7 +21,10 @@ export interface GlobalBulkImportRow extends BulkImportRow {
 }
 
 function normalizeAcademicName(name: string) {
-  return name.toLowerCase().replace(/^(class|grade|standard|std)\s+/i, '').trim();
+  let n = name.toLowerCase().replace(/^(class|grade|standard|std)\s+/i, '').trim();
+  if (n === "lkg") return "kg1";
+  if (n === "ukg") return "kg2";
+  return n;
 }
 
 async function importSubjectData(tx: any, subjectId: number, rows: BulkImportRow[], clearExisting = false) {
@@ -202,13 +205,24 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
       if (matchedClass) {
         classId = matchedClass.id;
       } else {
-        const derivedGrade = parseInt(normalizeAcademicName(className)) || 0;
+        // Standardize class name for creation
+        let finalClassName = className.trim();
+        const norm = normalizeAcademicName(finalClassName);
+        if (norm === "kg1") finalClassName = "KG1";
+        else if (norm === "kg2") finalClassName = "KG2";
+        else if (!finalClassName.startsWith("Class ")) {
+           const numMatch = finalClassName.match(/\d+/);
+           if (numMatch) finalClassName = `Class ${numMatch[0]}`;
+        }
+
+        const derivedGrade = norm === "kg1" ? -2 : norm === "kg2" ? -1 : (parseInt(norm) || 0);
+        
         const [newClass] = await db.insert(classes).values({ 
-          name: className,
+          name: finalClassName,
           grade: derivedGrade
         }).returning({ id: classes.id });
         classId = newClass.id;
-        allClasses.push({ id: classId, name: className, grade: derivedGrade, institute: null });
+        allClasses.push({ id: classId, name: finalClassName, grade: derivedGrade, institute: null });
       }
 
       // Fetch subjects for this class

@@ -76,3 +76,13 @@ export async function saveDailyAttendanceAction(data: {
     return { success: false, error: error.message };
   }
 }
+export async function getStudentAttendance(studentId: number) {
+  try {
+    const attendance = await db.select().from(studentAttendance)
+      .where(eq(studentAttendance.studentId, studentId))
+      .orderBy(studentAttendance.date);
+    return { success: true, data: attendance };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}

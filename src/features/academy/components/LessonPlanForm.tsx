@@ -5,6 +5,7 @@ import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool } f
 import { useSearchParams } from "next/navigation";
 import { generateLessonPlanPdf } from "@/features/academy/utils/generateLessonPlanPdf";
 import { saveLessonPlan } from "@/features/academy/actions/lessonPlanActions";
+import { useRouter } from "next/navigation";
 import { getSubjectUnitsAndChapters, getChapterDivisionsForLesson } from "@/features/academy/actions/academyActions";
 
 interface AcademicClass {
@@ -24,6 +25,7 @@ interface LessonPlanFormProps {
 }
 
 export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -179,9 +181,13 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (submitForValidation = false) => {
     if (!formData.className || !formData.subject) {
       alert("Please select Class and Subject first.");
+      return;
+    }
+    
+    if (submitForValidation && !confirm("Are you sure you want to submit this lesson plan for validation? You won't be able to edit it until it's reviewed.")) {
       return;
     }
 
@@ -190,11 +196,12 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
       const classObj = uniqueClasses.find(c => c.name === formData.className);
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
 
-      const res = await saveLessonPlan({
+      const res = await (saveLessonPlan as any)({
         classId: classObj?.id,
         subjectId: subjectObj?.id,
         date: formData.date,
         type: lessonPlanMode,
+        status: submitForValidation ? "SUBMITTED" : "DRAFT",
         step1Data: {
           teacherNote: formData.teacherNote,
           homework: formData.homework
@@ -225,7 +232,12 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
       });
 
       if (res.success) {
-        alert("Lesson Plan saved successfully!");
+        if (submitForValidation) {
+          alert("Lesson Plan submitted for validation successfully!");
+          router.push("/office/academy-management/lesson-plan/review");
+        } else {
+          alert("Lesson Plan saved as Draft!");
+        }
       } else {
         alert("Error saving lesson plan: " + res.error);
       }
@@ -599,36 +611,46 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                       />
                     )}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
-                  <div className="col-span-4 p-3 flex items-center truncate">
-                    <select name="prepDay" value={formData.prepDay} onChange={handleChange} className="bg-transparent font-bold text-sm outline-none">
-                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
-                        <option key={day} value={day}>{day}</option>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                  <div className="col-span-4 p-3 flex items-center">
+                    <select
+                      disabled={chapterDivisions.length === 0}
+                      onChange={(e) => {
+                        const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
+                        if (division) {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                          }));
+                        }
+                      }}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-30 cursor-pointer"
+                    >
+                      <option value="">{chapterDivisions.length > 0 ? "Select Divided Pages" : "No Divisions Available"}</option>
+                      {chapterDivisions.map((division) => (
+                        <option key={division.id} value={division.id}>
+                          Pages {division.pageStart} — {division.pageEnd}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                {/* Divided Pages Row */}
-                {chapterDivisions.length > 0 && (
-                  <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                    <div className="col-span-1 p-3 flex items-center bg-blue-50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-blue-600">Divided Pages:</div>
-                    <div className="col-span-9 p-3 flex items-center gap-2 flex-wrap">
-                      {chapterDivisions.map((division) => (
-                        <button
-                          key={division.id}
-                          onClick={() => setFormData(prev => ({ 
-                            ...prev, 
-                            unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
-                          }))}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
-                        >
-                          Pg {division.pageStart}—{division.pageEnd}
-                        </button>
+                {/* LP Prep Day Row */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300">
+                    <select name="prepDay" value={formData.prepDay} onChange={handleChange} className="w-full bg-transparent font-bold text-sm outline-none">
+                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
+                        <option key={day} value={day}>{day}</option>
                       ))}
-                    </div>
+                    </select>
                   </div>
-                )}
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                  <div className="col-span-4 p-3 flex items-center">
+                    <input type="date" name="prepDate" value={formData.prepDate} onChange={handleChange} className="bg-transparent font-bold text-sm outline-none w-full" />
+                  </div>
+                </div>
 
                 {/* Instruction Table */}
                 <div className="grid grid-cols-12 border-b border-slate-300 bg-slate-800 text-white font-black uppercase tracking-widest text-[8px] h-8 items-center text-center">
@@ -1048,7 +1070,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
       <div className="border border-slate-300 bg-white p-8">
         <div className="flex items-center justify-end gap-3">
           <button
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={isSaving}
             className="px-6 py-3 border border-slate-200 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
           >
@@ -1056,9 +1078,17 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
             Save Draft
           </button>
           <button
+            onClick={() => handleSave(true)}
+            disabled={isSaving}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
+          >
+            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
+            Submit for Validation
+          </button>
+          <button
             onClick={handleGeneratePdf}
             disabled={isGenerating}
-            className="px-8 py-3 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-md flex items-center gap-2"
+            className="px-6 py-3 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-md flex items-center gap-2"
           >
             {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
             Download PDF

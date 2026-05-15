@@ -61,7 +61,7 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
             />
             <KpiRow 
               label="Guardian Rating" 
-              value={data.guardian?.rating || 0} 
+              value={`${data.guardian?.rating || 0}/5`} 
               amount={record.guardianAmount} 
               success={record.guardianAmount > 0} 
             />

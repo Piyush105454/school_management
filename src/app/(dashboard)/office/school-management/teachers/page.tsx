@@ -47,6 +47,12 @@ export default async function TeacherManagementPage({
     classesQuery.where(eq(classes.institute, selectedInstitute));
   }
   const allClasses = await classesQuery.orderBy(classes.grade);
-  return <TeacherManagementClient initialTeachers={teachersList as any} allClasses={allClasses} />;
+
+  const allSubjectsData = await db.query.subjects.findMany({
+    columns: { name: true }
+  });
+  const uniqueSubjects = Array.from(new Set(allSubjectsData.map(s => s.name))).sort();
+
+  return <TeacherManagementClient initialTeachers={teachersList as any} allClasses={allClasses} allSubjects={uniqueSubjects} />;
 }
 

@@ -9,8 +9,9 @@ import {
   scholarshipRecords, 
   scholarshipCriteriaSettings 
 } from "@/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { studentAttendance, students, admissionMeta } from "@/db/schema";
 
 export async function saveKpiData(admissionId: string, month: string, year: string, data: {
   attendance: { totalDays: number; presentDays: number };
@@ -44,11 +45,19 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const attendancePct = data.attendance.totalDays > 0 ? (data.attendance.presentDays / data.attendance.totalDays) * 100 : 0;
     const homeworkPct = data.homework.totalGiven > 0 ? (data.homework.totalDone / data.homework.totalGiven) * 100 : 0;
 
-    // Calculate Amounts
-    const attendanceAmount = attendancePct >= criteria.attendanceThreshold ? criteria.attendanceAmount : 0;
-    const homeworkAmount = homeworkPct >= criteria.homeworkThreshold ? criteria.homeworkAmount : 0;
-    const guardianAmount = data.guardian.rating >= criteria.guardianRatingThreshold ? criteria.guardianAmount : 0;
+    // Calculate Amounts (Proportional Logic)
+    // 1. Attendance: Proportional to percentage (Max amount if 100%)
+    const attendanceAmount = Math.round(attendancePct * (criteria.attendanceAmount / 100));
+
+    // 2. Homework: Proportional to percentage (Max amount if 100%)
+    const homeworkAmount = Math.round(homeworkPct * (criteria.homeworkAmount / 100));
+
+    // 3. Guardian Rating: Each point (tick) adds criteria.guardianAmount / 5 (Usually 150)
+    const guardianAmount = Math.round(data.guardian.rating * (criteria.guardianAmount / 5));
+
+    // 4. PTM: All or nothing
     const ptmAmount = data.ptm.attended ? criteria.ptmAmount : 0;
+
     const totalAmount = attendanceAmount + homeworkAmount + guardianAmount + ptmAmount;
 
     // 2. Save Attendance
@@ -125,11 +134,13 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
 
 export async function getStudentKpiData(admissionId: string, month: string, year: string) {
   try {
-    const attendance = await db.query.scholarshipAttendance.findFirst({ where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.month, month), eq(scholarshipAttendance.year, year)) });
-    const homework = await db.query.scholarshipHomework.findFirst({ where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.month, month), eq(scholarshipHomework.year, year)) });
-    const guardian = await db.query.scholarshipGuardian.findFirst({ where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)) });
-    const ptm = await db.query.scholarshipPtm.findFirst({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)) });
-    const record = await db.query.scholarshipRecords.findFirst({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)) });
+    const [attendance, homework, guardian, ptm, record] = await Promise.all([
+      db.query.scholarshipAttendance.findFirst({ where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.month, month), eq(scholarshipAttendance.year, year)) }),
+      db.query.scholarshipHomework.findFirst({ where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.month, month), eq(scholarshipHomework.year, year)) }),
+      db.query.scholarshipGuardian.findFirst({ where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)) }),
+      db.query.scholarshipPtm.findFirst({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)) }),
+      db.query.scholarshipRecords.findFirst({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)) }),
+    ]);
 
     // Fetch Criteria (Override first, then global)
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
@@ -148,15 +159,51 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       });
     }
 
+    // --- NEW: Fetch Real Academy Attendance Data ---
+    const meta = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.id, admissionId),
+      columns: { entryNumber: true }
+    });
+
+    let realAttendance = null;
+    if (meta?.entryNumber) {
+      const student = await db.query.students.findFirst({
+        where: eq(students.studentId, meta.entryNumber)
+      });
+
+      if (student) {
+        const stats = await db.select({
+          total: sql`count(case when status not in ('H', 'NA') then 1 end)`,
+          present: sql`count(case when status in ('P', 'ML') then 1 end)`,
+        })
+        .from(studentAttendance)
+        .where(and(
+          eq(studentAttendance.studentId, student.id),
+          eq(studentAttendance.month, month),
+          eq(studentAttendance.year, year)
+        ));
+
+        const total = Number(stats[0]?.total || 0);
+        const present = Number(stats[0]?.present || 0);
+        
+        realAttendance = {
+          totalDays: total,
+          presentDays: present,
+          percentage: total > 0 ? (present / total) * 100 : 0
+        };
+      }
+    }
+
     return { 
       success: true, 
       data: { 
-        attendance: attendance || null, 
+        attendance: attendance || realAttendance || null, 
         homework: homework || null, 
         guardian: guardian || null, 
         ptm: ptm || null, 
         record: record || null,
-        criteria: criteria || null
+        criteria: criteria || null,
+        calculatedAttendance: realAttendance // Always provide for pre-filling
       } 
     };
   } catch (error: any) {

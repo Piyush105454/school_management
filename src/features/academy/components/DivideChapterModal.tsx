@@ -85,19 +85,7 @@ export default function DivideChapterModal({
       return;
     }
 
-    // Check if the new range overlaps with existing divisions
-    const hasOverlap = divisions.some(
-      (div) =>
-        (start >= div.pageStart && start <= div.pageEnd) ||
-        (end >= div.pageStart && end <= div.pageEnd) ||
-        (start < div.pageStart && end > div.pageEnd)
-    );
-    if (hasOverlap) {
-      setError(
-        `Pages ${start} — ${end} overlaps with an existing division`
-      );
-      return;
-    }
+    // Overlap validation removed as per user request
 
     try {
       setLoading(true);
