@@ -27,7 +27,9 @@ import {
   BookOpen,
   Heart,
   AlertCircle,
-  Users2
+  Users2,
+  Activity,
+  Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -61,7 +63,11 @@ const officeItems = [
   { name: "Manage Incidents", href: "/office/incident-management", icon: AlertCircle },
 
   { type: "section", name: "School Health Program" },
-  { name: "Health Records", href: "/office/school-health", icon: Heart },
+  { name: "Health Dashboard", href: "/office/school-health/dashboard", icon: LayoutDashboard },
+  { name: "Student Health Records", href: "/office/school-health/records", icon: Heart },
+  { name: "Daily Health Check", href: "/office/school-health/daily-check", icon: Activity },
+  { name: "Wellness & Nutrition", href: "/office/school-health/wellness", icon: Brain },
+  { name: "Settings & Committee", href: "/office/school-health/settings", icon: Settings },
 
   { type: "section", name: "Time Table Management" },
   { name: "Manage Timetable", href: "/office/timetable", icon: Clock },
