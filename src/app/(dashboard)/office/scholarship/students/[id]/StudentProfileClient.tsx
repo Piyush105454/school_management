@@ -14,7 +14,6 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   const [data, setData] = useState<any>(null);
   const [monthlyOverview, setMonthlyOverview] = useState<any[]>([]);
   const [loadingOverview, setLoadingOverview] = useState(false);
-
   const { register, handleSubmit, reset, watch, setValue } = useForm();
   const guardianRating = watch("guardian.rating") || 0;
 
@@ -59,8 +58,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
           presentDays: kpiRes.data.attendance?.presentDays || kpiRes.data.calculatedAttendance?.presentDays || 0,
         },
         homework: {
-          totalGiven: kpiRes.data.homework?.totalGiven || 0,
-          totalDone: kpiRes.data.homework?.totalDone || 0,
+          totalGiven: kpiRes.data.homework?.totalGiven ?? kpiRes.data.calculatedHomework?.totalGiven ?? 0,
+          totalDone: kpiRes.data.homework?.totalDone ?? kpiRes.data.calculatedHomework?.totalDone ?? 0,
         },
         guardian: {
           rating: kpiRes.data.guardian?.rating || 0,
@@ -132,47 +131,51 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         loadingOverview ? (
           <p>Loading monthly overview...</p>
         ) : monthlyOverview.length > 0 ? (
-          <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left text-sm text-slate-700">
-              <thead className="bg-slate-50 text-slate-500 font-bold">
-                <tr>
-                  <th className="px-6 py-4">Month</th>
-                  <th className="px-6 py-4">Attendance %</th>
-                  <th className="px-6 py-4">Homework %</th>
-                  <th className="px-6 py-4">Guardian</th>
-                  <th className="px-6 py-4">PTM</th>
-                  <th className="px-6 py-4">Total Amount</th>
-                  <th className="px-6 py-4">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {monthlyOverview.map((item) => (
-                  <tr key={item.month} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 font-medium text-slate-900">{item.month}</td>
-                    <td className="px-6 py-4">{item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A"}</td>
-                    <td className="px-6 py-4">{item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A"}</td>
-                    <td className="px-6 py-4">{item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A"}</td>
-                    <td className="px-6 py-4">
-                      {item.ptm ? (
-                        item.ptm.attended ? <span className="text-green-600 font-bold flex items-center gap-1">Yes</span> : <span className="text-red-500 flex items-center gap-1">No</span>
-                      ) : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-blue-600">₹{item.record?.totalAmount ?? 0}</td>
-                    <td className="px-6 py-4">
-                      <button 
-                        onClick={() => setSelectedMonth(item.month)}
-                        className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700"
-                      >
-                        Fill Score
-                      </button>
-                    </td>
+          <>
+            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full text-left text-sm text-slate-700">
+                <thead className="bg-slate-50 text-slate-500 font-bold">
+                  <tr>
+                    <th className="px-6 py-4">Month</th>
+                    <th className="px-6 py-4">Attendance %</th>
+                    <th className="px-6 py-4">Homework %</th>
+                    <th className="px-6 py-4">Guardian</th>
+                    <th className="px-6 py-4">PTM</th>
+                    <th className="px-6 py-4">Total Amount</th>
+                    <th className="px-6 py-4">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y">
+                  {monthlyOverview.map((item) => (
+                    <tr key={item.month} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">{item.month}</td>
+                      <td className="px-6 py-4">{item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A"}</td>
+                      <td className="px-6 py-4">{item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A"}</td>
+                      <td className="px-6 py-4">{item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A"}</td>
+                      <td className="px-6 py-4">
+                        {item.ptm ? (
+                          item.ptm.attended ? <span className="text-green-600 font-bold flex items-center gap-1">Yes</span> : <span className="text-red-500 flex items-center gap-1">No</span>
+                        ) : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-blue-600">₹{item.record?.totalAmount ?? 0}</td>
+                      <td className="px-6 py-4">
+                        <button 
+                          onClick={() => setSelectedMonth(item.month)}
+                          className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700"
+                        >
+                          Fill Score
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
-          <p className="text-slate-500 text-center py-10">No data found for this year.</p>
+          <div className="space-y-4">
+            <p className="text-slate-500 text-center py-10">No data found for this year.</p>
+          </div>
         )
       ) : (
         // --- Edit Form View ---
@@ -185,7 +188,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const calcAttendancePct = data?.attendance?.percentage ?? data?.calculatedAttendance?.percentage ?? 0;
             const attendanceReward = Math.round(calcAttendancePct * ((criteria?.attendanceAmount || 750) / 100));
 
-            const calcHomeworkPct = data?.homework?.percentage ?? 0;
+            const calcHomeworkPct = data?.homework?.percentage ?? data?.calculatedHomework?.percentage ?? 0;
+            const calcHomeworkGiven = data?.homework?.totalGiven ?? data?.calculatedHomework?.totalGiven ?? 0;
+            const calcHomeworkDone = data?.homework?.totalDone ?? data?.calculatedHomework?.totalDone ?? 0;
             const homeworkReward = Math.round(calcHomeworkPct * ((criteria?.homeworkAmount || 750) / 100));
 
             const guardianScore = data?.guardian?.rating || guardianRating || 0;
@@ -195,6 +200,13 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const ptmReward = isPtmSuccess ? (criteria?.ptmAmount || 750) : 0;
 
             const totalEarned = attendanceReward + homeworkReward + guardianReward + ptmReward;
+
+            const maxAttendance = criteria?.attendanceAmount ?? 750;
+            const maxHomework = criteria?.homeworkAmount ?? 750;
+            const maxGuardian = criteria?.guardianAmount ?? 750;
+            const maxPtm = criteria?.ptmAmount ?? 750;
+            const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
+            const pendingToPay = maxTotal - totalEarned;
 
             return (
               <div className="space-y-6">
@@ -234,9 +246,17 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                     requiredThreshold={criteria?.homeworkThreshold}
                     maxAmount={criteria?.homeworkAmount}
                   >
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div><label className="text-[10px] text-slate-400">Given</label><input type="number" {...register("homework.totalGiven")} className="w-full border p-1 text-sm rounded mt-0.5" /></div>
-                      <div><label className="text-[10px] text-slate-400">Done</label><input type="number" {...register("homework.totalDone")} className="w-full border p-1 text-sm rounded mt-0.5" /></div>
+                    <div className="grid grid-cols-2 gap-4 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
+                        <p className="text-lg font-black text-slate-700">{calcHomeworkGiven}</p>
+                        <input type="hidden" {...register("homework.totalGiven")} value={calcHomeworkGiven} />
+                      </div>
+                      <div className="text-center border-l border-slate-200">
+                        <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
+                        <p className="text-lg font-black text-emerald-600">{calcHomeworkDone}</p>
+                        <input type="hidden" {...register("homework.totalDone")} value={calcHomeworkDone} />
+                      </div>
                     </div>
                   </KpiCard>
 
@@ -309,9 +329,21 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   </KpiCard>
                 </div>
 
-                <div className="bg-white border p-4 rounded-xl flex justify-between items-center max-w-md shadow-sm">
-                  <span className="font-bold text-slate-700">Total Earned</span>
-                  <span className="text-xl font-black text-blue-600">₹{totalEarned}</span>
+                <div className="bg-white border border-slate-200 p-6 rounded-2xl max-w-md shadow-sm space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm font-bold text-slate-500">
+                      <span>Total School Fee</span>
+                      <span>₹{maxTotal}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
+                      <span>Scholarship Earned</span>
+                      <span>- ₹{totalEarned}</span>
+                    </div>
+                    <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-200 pt-3">
+                      <span>Pending Money to Pay</span>
+                      <span>₹{pendingToPay}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

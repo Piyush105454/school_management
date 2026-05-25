@@ -15,6 +15,8 @@ interface HomeworkItem {
   status: string;
   submittedDescription?: string;
   submittedImage?: string;
+  feedback?: string;
+  rating?: number | null;
 }
 
 export default function HomeworkClient({ 
@@ -303,12 +305,59 @@ export default function HomeworkClient({
                         </div>
                         {selectedItem.status !== 'NOT_SUBMITTED' && (
                              <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${
-                                 selectedItem.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                 selectedItem.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                                 selectedItem.status === 'REJECTED' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
                              }`}>
                                  <CheckCircle2 size={14} /> {selectedItem.status.replace('_', ' ')}
                              </div>
                         )}
                   </div>
+
+                  {/* Teacher Assessment & Rating Box */}
+                  {(selectedItem.feedback || selectedItem.rating) && (
+                      <div className="mb-8 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-4 animate-in slide-in-from-top-4 duration-300">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                              <div>
+                                  <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Teacher Assessment</h5>
+                                  <p className="text-xs font-black uppercase text-slate-900 tracking-tight">
+                                      Status: <span className={selectedItem.status === 'COMPLETED' ? 'text-emerald-600' : 'text-rose-500'}>{selectedItem.status.replace('_', ' ')}</span>
+                                  </p>
+                              </div>
+                              {selectedItem.rating && (
+                                  <div className="flex flex-col items-start md:items-end gap-1">
+                                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Homework Rating</span>
+                                      <div className="flex gap-0.5">
+                                          {[1, 2, 3, 4, 5].map((star) => (
+                                              <svg
+                                                  key={star}
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                  viewBox="0 0 24 24"
+                                                  fill={star <= (selectedItem.rating || 0) ? "currentColor" : "none"}
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                  className="w-4 h-4 text-amber-400 animate-in zoom-in duration-200"
+                                              >
+                                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                              </svg>
+                                          ))}
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+                          {selectedItem.feedback ? (
+                              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-1.5">Review Feedback</p>
+                                  <p className="text-xs font-medium text-slate-700 leading-relaxed italic">
+                                      "{selectedItem.feedback}"
+                                  </p>
+                              </div>
+                          ) : (
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">No written feedback provided.</p>
+                          )}
+                      </div>
+                  )}
 
                   <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

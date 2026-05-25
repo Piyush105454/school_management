@@ -52,6 +52,7 @@ const officeItems = [
   { name: "Attendance Management", href: "/office/academy-management/attendance", icon: CalendarCheck },
   { name: "Class Management", href: "/office/academy-management/classes", icon: School },
   { name: "Lesson Plan Management", href: "/office/academy-management/lesson-plan", icon: BookOpen },
+  { name: "Lesson Plan Review", href: "/office/academy-management/lesson-plan/review", icon: ClipboardList },
   { name: "Homework Management", href: "/office/academy-management/homework", icon: ClipboardCheck },
   { name: "Test & Exam Management", href: "/office/academy-management/exams", icon: ScrollText },
 
@@ -87,6 +88,8 @@ const teacherItems = [
   { name: "Attendance", href: "/office/academy-management/attendance", icon: CalendarCheck },
   { name: "Lesson Plans", href: "/office/academy-management/lesson-plan", icon: BookOpen },
   { name: "My Homework Review", href: "/office/academy-management/homework", icon: ClipboardCheck },
+  { type: "section", name: "Incident Management" },
+  { name: "My Logged Incidents", href: "/teacher/incident-management", icon: AlertCircle },
   { type: "section", name: "Admission Management" },
   { name: "Inquiries", href: "/office/inquiries", icon: FileText },
   { name: "Admissions Progress", href: "/office/admissions-progress", icon: UserCheck },
@@ -102,6 +105,7 @@ const studentItems = [
   { name: "Entrance Test", href: "/student/entrance-test", icon: ClipboardCheck },
   { name: "Home Visit", href: "/student/home-visit", icon: Users },
   { name: "My Scholarship", href: "/student/scholarship", icon: GraduationCap },
+  { name: "My Logged Incidents", href: "/student/incident-management", icon: AlertCircle },
   { name: "My Homework", href: "/student/homework", icon: ClipboardList },
   { name: "My Attendance", href: "/student/attendance", icon: CalendarCheck },
 ];
@@ -133,9 +137,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     ? [
       ...officeItems.slice(0, 1),
       { type: "section", name: "Admissions" },
-      ...officeItems.slice(1, 43),
-      { name: "Lesson Plan Review", href: "/office/academy-management/lesson-plan/review", icon: ClipboardList },
-      ...officeItems.slice(43)
+      ...officeItems.slice(1)
     ]
     : role === "TEACHER"
       ? [

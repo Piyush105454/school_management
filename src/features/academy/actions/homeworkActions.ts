@@ -6,7 +6,9 @@ import {
   lessonPlans, 
   students, 
   admissionMeta,
-  scholarshipHomework
+  scholarshipHomework,
+  classes,
+  subjects
 } from "@/db/schema";
 import { eq, and, sql, desc, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -43,7 +45,7 @@ export async function submitHomeworkAction(formData: FormData) {
   }
 }
 
-export async function reviewHomeworkAction(submissionId: string, status: "COMPLETED" | "REJECTED", feedback: string, reviewerId: string) {
+export async function reviewHomeworkAction(submissionId: string, status: "COMPLETED" | "REJECTED", feedback: string, reviewerId: string, rating?: number | null) {
   try {
     const submissionResults = await db
         .select({
@@ -69,6 +71,7 @@ export async function reviewHomeworkAction(submissionId: string, status: "COMPLE
     await db.update(homeworkSubmissions).set({
       status,
       feedback,
+      rating: rating !== undefined ? rating : null,
       reviewedBy: reviewerId,
       reviewedAt: new Date(),
     }).where(eq(homeworkSubmissions.id, submissionId));
@@ -106,7 +109,7 @@ export async function reviewHomeworkAction(submissionId: string, status: "COMPLE
           const totalAssigned = await db.select({ count: sql`count(*)` })
             .from(lessonPlans)
             .where(and(
-              eq(lessonPlans.classId, lp.classId),
+              eq(lessonPlans.classId, lp.classId as number),
               sql`${lessonPlans.date} LIKE ${`${year}-${monthStr}%`}`
             ));
 
@@ -117,7 +120,7 @@ export async function reviewHomeworkAction(submissionId: string, status: "COMPLE
             .where(and(
                 eq(homeworkSubmissions.studentId, studentId),
                 eq(homeworkSubmissions.status, "COMPLETED"),
-                eq(lessonPlans.classId, lp.classId),
+                eq(lessonPlans.classId, lp.classId as number),
                 sql`${lessonPlans.date} LIKE ${`${year}-${monthStr}%`}`
             ));
 
@@ -233,7 +236,8 @@ export async function getSubmissionsByPlanAction(lessonPlanId: string) {
                 imagePath: viewUrl,
                 status: submission?.status || "NOT_SUBMITTED",
                 submittedAt: submission?.submittedAt,
-                feedback: submission?.feedback || ""
+                feedback: submission?.feedback || "",
+                rating: submission?.rating || null
             };
         });
 

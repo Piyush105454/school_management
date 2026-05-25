@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-import { Plus, Users, Phone, Award, CheckCircle, Loader2, Trash2, Edit, Filter, Search, ShieldAlert } from "lucide-react";
+import { Plus, Users, Phone, Award, CheckCircle, Loader2, Trash2, Edit, Filter, Search, ShieldAlert, AlertCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { createTeacher, updateTeacher, deleteTeacher } from "@/features/teachers/actions/teacherActions";
 import { useRouter } from "next/navigation";
@@ -58,6 +58,31 @@ export function TeacherManagementClient({
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [committeeFilter, setCommitteeFilter] = useState("ALL");
+
+  // Tagged logs states
+  const [isLogsOpen, setIsLogsOpen] = useState(false);
+  const [viewingTeacherLogs, setViewingTeacherLogs] = useState<Teacher | null>(null);
+  const [teacherIncidents, setTeacherIncidents] = useState<any[]>([]);
+  const [loadingTeacherIncidents, setLoadingTeacherIncidents] = useState(false);
+
+  useEffect(() => {
+    if (viewingTeacherLogs) {
+      setLoadingTeacherIncidents(true);
+      import("@/features/academy/actions/incidentActions")
+        .then(async ({ getTeacherIncidentsAction }) => {
+          const res = await getTeacherIncidentsAction(viewingTeacherLogs.id);
+          if (res.success) {
+            setTeacherIncidents(res.data || []);
+          } else {
+            setTeacherIncidents([]);
+          }
+        })
+        .catch(() => setTeacherIncidents([]))
+        .finally(() => setLoadingTeacherIncidents(false));
+    } else {
+      setTeacherIncidents([]);
+    }
+  }, [viewingTeacherLogs]);
   const [formData, setFormData] = useState({
     name: "",
     contactNumber: "",
@@ -295,6 +320,16 @@ export function TeacherManagementClient({
                   <td className="px-6 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        onClick={() => {
+                          setViewingTeacherLogs(teacher);
+                          setIsLogsOpen(true);
+                        }}
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                        title="View Incident/Complain Logs"
+                      >
+                        <ShieldAlert size={16} />
+                      </button>
+                      <button
                         onClick={() => handleEdit(teacher)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
                         title="Edit Teacher"
@@ -500,6 +535,52 @@ export function TeacherManagementClient({
             {loading ? <Loader2 className="animate-spin" size={16} /> : (selectedTeacher ? "Update Teacher Profile" : "Create Teacher Profile")}
           </button>
         </form>
+      </Modal>
+
+      {/* Dynamic Tagged Incident / Complaint Logs Modal */}
+      <Modal isOpen={isLogsOpen} onClose={() => { setIsLogsOpen(false); setViewingTeacherLogs(null); }} title={`Tagged Logs for ${viewingTeacherLogs?.name || "Teacher"}`}>
+        <div className="space-y-4 max-h-[85vh] overflow-y-auto p-1">
+          {loadingTeacherIncidents ? (
+            <div className="py-12 text-center animate-pulse">
+              <Loader2 className="animate-spin mx-auto text-slate-300" size={28} />
+              <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading records...</p>
+            </div>
+          ) : teacherIncidents.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {teacherIncidents.map((inc) => (
+                <div key={inc.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
+                      inc.type === "INCIDENT" ? "bg-rose-50 text-rose-700 border-rose-100" :
+                      inc.type === "COMPLAIN" ? "bg-amber-50 text-amber-700 border-amber-100" : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    }`}>
+                      {inc.type}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      {new Date(inc.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm leading-tight">{inc.title}</h4>
+                    <p className="text-xs text-slate-500 font-medium italic mt-1">"{inc.note}"</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-t border-slate-200 pt-2.5 mt-2">
+                    <span>Category: <span className="text-slate-600 font-black">{inc.category}</span></span>
+                    <span>Priority: <span className="text-slate-600 font-black">{inc.priority}</span></span>
+                    {inc.student && (
+                      <span>Student: <span className="text-blue-600 font-black">{inc.student.name} {inc.class ? `(${inc.class.name})` : ""}</span></span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-12 text-center">
+              <AlertCircle size={28} className="mx-auto text-slate-300 mb-3" />
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">No logged incidents, complaints, or feedback associated with this teacher.</p>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

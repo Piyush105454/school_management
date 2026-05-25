@@ -83,6 +83,53 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     reviewerRemark: "",
   });
 
+  // Prevent copy, cut, paste, and drag-and-drop in all inputs and textareas
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        e.preventDefault();
+        alert("Copy-pasting is disabled in Lesson Plan Management to ensure organic lesson planning.");
+      }
+    };
+
+    const handleCopy = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        e.preventDefault();
+        alert("Copying text is disabled in Lesson Plan Management.");
+      }
+    };
+
+    const handleCut = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        e.preventDefault();
+        alert("Cutting text is disabled in Lesson Plan Management.");
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      const activeEl = e.target as HTMLElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        e.preventDefault();
+        alert("Drag and drop is disabled in Lesson Plan Management.");
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    document.addEventListener("copy", handleCopy);
+    document.addEventListener("cut", handleCut);
+    document.addEventListener("drop", handleDrop);
+
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+      document.removeEventListener("copy", handleCopy);
+      document.removeEventListener("cut", handleCut);
+      document.removeEventListener("drop", handleDrop);
+    };
+  }, []);
+
   // Handle Query Parameters for pre-filling
   useEffect(() => {
     const className = searchParams.get("class");

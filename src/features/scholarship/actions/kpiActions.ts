@@ -11,7 +11,7 @@ import {
 } from "@/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { studentAttendance, students, admissionMeta } from "@/db/schema";
+import { studentAttendance, students, admissionMeta, lessonPlans, homeworkSubmissions } from "@/db/schema";
 
 export async function saveKpiData(admissionId: string, month: string, year: string, data: {
   attendance: { totalDays: number; presentDays: number };
@@ -180,7 +180,7 @@ export async function getStudentKpiData(admissionId: string, month: string, year
         .where(and(
           eq(studentAttendance.studentId, student.id),
           eq(studentAttendance.month, month),
-          eq(studentAttendance.year, year)
+          eq(studentAttendance.year, parseInt(year))
         ));
 
         const total = Number(stats[0]?.total || 0);
@@ -194,6 +194,51 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       }
     }
 
+    // --- NEW: Fetch Real Academy Homework Data ---
+    let realHomework = null;
+    if (meta?.entryNumber) {
+      const student = await db.query.students.findFirst({
+        where: eq(students.studentId, meta.entryNumber)
+      });
+
+      if (student) {
+        // Convert month name to 2-digit number string (e.g. "April" -> "04")
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthIndex = monthNames.indexOf(month);
+        const monthStr = monthIndex >= 0 ? String(monthIndex + 1).padStart(2, '0') : null;
+
+        if (monthStr) {
+          // Total homeworks assigned to this class in this month
+          const totalAssignedResult = await db.select({ count: sql`count(*)` })
+            .from(lessonPlans)
+            .where(and(
+              eq(lessonPlans.classId, student.classId as number),
+              sql`${lessonPlans.date} LIKE ${`${year}-${monthStr}%`}`
+            ));
+
+          // Total completed homeworks by this student in this month
+          const totalCompletedResult = await db.select({ count: sql`count(*)` })
+            .from(homeworkSubmissions)
+            .innerJoin(lessonPlans, eq(homeworkSubmissions.lessonPlanId, lessonPlans.id))
+            .where(and(
+              eq(homeworkSubmissions.studentId, student.id),
+              eq(homeworkSubmissions.status, "COMPLETED"),
+              eq(lessonPlans.classId, student.classId as number),
+              sql`${lessonPlans.date} LIKE ${`${year}-${monthStr}%`}`
+            ));
+
+          const totalGiven = Number(totalAssignedResult[0]?.count || 0);
+          const totalDone = Number(totalCompletedResult[0]?.count || 0);
+
+          realHomework = {
+            totalGiven,
+            totalDone,
+            percentage: totalGiven > 0 ? (totalDone / totalGiven) * 100 : 0
+          };
+        }
+      }
+    }
+
     return { 
       success: true, 
       data: { 
@@ -203,7 +248,8 @@ export async function getStudentKpiData(admissionId: string, month: string, year
         ptm: ptm || null, 
         record: record || null,
         criteria: criteria || null,
-        calculatedAttendance: realAttendance // Always provide for pre-filling
+        calculatedAttendance: realAttendance, // Always provide for pre-filling
+        calculatedHomework: realHomework       // Always provide for pre-filling
       } 
     };
   } catch (error: any) {

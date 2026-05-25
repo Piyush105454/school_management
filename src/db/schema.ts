@@ -429,6 +429,7 @@ export const homeworkSubmissions = pgTable("homework_submissions", {
   imagePath: text("image_path"),
   status: homeworkSubmissionStatusEnum("status").default("PENDING").notNull(),
   feedback: text("feedback"),
+  rating: integer("rating"),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
   reviewedAt: timestamp("reviewed_at"),
   reviewedBy: uuid("reviewed_by").references(() => users.id),
@@ -614,4 +615,25 @@ export const scholarshipPtmRelations = relations(scholarshipPtm, ({ one }) => ({
 
 export const scholarshipRecordsRelations = relations(scholarshipRecords, ({ one }) => ({
   admissionMeta: one(admissionMeta, { fields: [scholarshipRecords.admissionId], references: [admissionMeta.id] }),
+}));
+
+export const incidents = pgTable("incidents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: text("title").notNull(),
+  type: text("type").notNull(), // "INCIDENT" | "COMPLAIN" | "FEEDBACK"
+  note: text("note").notNull(),
+  category: text("category").default("General").notNull(),
+  priority: text("priority").default("Medium").notNull(),
+  status: text("status").default("Open").notNull(),
+  classId: integer("class_id").references(() => classes.id, { onDelete: 'set null' }),
+  studentId: integer("student_id").references(() => students.id, { onDelete: 'set null' }),
+  teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: 'set null' }), // Tagged teacher
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const incidentsRelations = relations(incidents, ({ one }) => ({
+  class: one(classes, { fields: [incidents.classId], references: [classes.id] }),
+  student: one(students, { fields: [incidents.studentId], references: [students.id] }),
+  teacher: one(teachers, { fields: [incidents.teacherId], references: [teachers.id] }),
 }));

@@ -23,6 +23,13 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
   };
 
   const record = data?.record;
+  const criteria = data?.criteria;
+  const maxAttendance = criteria?.attendanceAmount ?? 750;
+  const maxHomework = criteria?.homeworkAmount ?? 750;
+  const maxGuardian = criteria?.guardianAmount ?? 750;
+  const maxPtm = criteria?.ptmAmount ?? 750;
+  const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
+  const pendingToPay = maxTotal - (record?.totalAmount ?? 0);
 
   return (
     <div className="space-y-6 max-w-md mx-auto">
@@ -55,7 +62,7 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
             />
             <KpiRow 
               label="Homework" 
-              value={`${data.homework?.percentage?.toFixed(1) || 0}%`} 
+              value={`${(data.homework?.percentage ?? data.calculatedHomework?.percentage ?? 0).toFixed(1)}%`} 
               amount={record.homeworkAmount} 
               success={record.homeworkAmount > 0} 
             />
@@ -73,13 +80,23 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
             />
           </div>
 
-          <div className="border-t pt-4 flex justify-between items-center font-bold text-lg text-slate-900">
-            <span>Total Earned</span>
-            <span>₹{record.totalAmount}</span>
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex justify-between items-center text-sm font-bold text-slate-500">
+              <span>Total School Fee</span>
+              <span>₹{maxTotal}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
+              <span>Scholarship Earned</span>
+              <span>- ₹{record.totalAmount}</span>
+            </div>
+            <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-100 pt-2">
+              <span>Pending Money to Pay</span>
+              <span>₹{pendingToPay}</span>
+            </div>
           </div>
 
-          <div className="flex justify-between items-center text-sm border-t pt-2 border-slate-100">
-            <span className="text-slate-500">Status</span>
+          <div className="flex justify-between items-center text-sm border-t pt-3 border-slate-100">
+            <span className="text-slate-500">Scholarship Status</span>
             <span className={`font-black uppercase tracking-wider text-xs px-3 py-1 rounded-full ${record.status === "PAID" ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-600"}`}>
               {record.status}
             </span>

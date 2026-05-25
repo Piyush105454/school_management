@@ -42,8 +42,9 @@ interface Submission {
     description: string;
     imagePath: string;
     status: string;
-    submittedAt?: string;
+    submittedAt?: string | Date;
     feedback: string;
+    rating: number | null;
 }
 
 export default function HomeworkManagementClient({ 
@@ -65,6 +66,7 @@ export default function HomeworkManagementClient({
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
 
   const filteredPlans = plans.filter(plan => {
     const d = new Date(plan.date);
@@ -95,7 +97,10 @@ export default function HomeworkManagementClient({
         return;
     }
     setReviewingId(subId);
-    const res = await reviewHomeworkAction(subId, status, feedback, reviewerId);
+    const submission = submissions.find(s => s.id === subId);
+    const subRating = selectedRatings[subId] ?? submission?.rating ?? 5;
+
+    const res = await reviewHomeworkAction(subId, status, feedback || submission?.feedback || "", reviewerId, subRating);
     if (res.success) {
         alert("Status updated!");
         if (selectedPlanId) fetchSubmissions(selectedPlanId);
@@ -232,9 +237,41 @@ export default function HomeworkManagementClient({
                                                     />
                                                     <MessageSquare size={14} className="absolute bottom-3 right-3 text-slate-200" />
                                                 </div>
+                                                
+                                                <div className="flex flex-col gap-1.5 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Rating (1-5 Stars)</p>
+                                                    <div className="flex gap-1">
+                                                        {[1, 2, 3, 4, 5].map((star) => {
+                                                            const currentRating = selectedRatings[sub.id] ?? sub.rating ?? 5;
+                                                            const isFilled = star <= currentRating;
+                                                            return (
+                                                                <button
+                                                                    key={star}
+                                                                    type="button"
+                                                                    onClick={() => setSelectedRatings(prev => ({ ...prev, [sub.id]: star }))}
+                                                                    className="text-amber-400 hover:scale-125 transition-all focus:outline-none"
+                                                                >
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill={isFilled ? "currentColor" : "none"}
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        className="w-5 h-5"
+                                                                    >
+                                                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                                                    </svg>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
                                                 <div className="flex gap-2">
                                                     <button 
-                                                        disabled={sub.status === 'COMPLETED' || reviewingId === sub.id}
+                                                        disabled={reviewingId === sub.id}
                                                         onClick={() => handleReview(sub.id, "COMPLETED")}
                                                         className="flex-1 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50"
                                                     >

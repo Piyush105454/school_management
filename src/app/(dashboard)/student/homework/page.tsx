@@ -129,7 +129,9 @@ export default async function StudentHomeworkPage() {
       unit: step1.unit || "",
       status: submission?.status || "NOT_SUBMITTED",
       submittedDescription: submission?.description || "",
-      submittedImage: viewUrl
+      submittedImage: viewUrl,
+      feedback: submission?.feedback || "",
+      rating: submission?.rating || null
     };
   });
 
