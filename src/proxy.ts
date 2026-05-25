@@ -16,6 +16,7 @@ export default withAuth(
     // Define role-based route access
     const roleRoutes: Record<string, string[]> = {
       OFFICE: ["/office", "/dashboard"],
+      PRINCIPAL: ["/office", "/dashboard"],
       STUDENT_PARENT: ["/student", "/dashboard"],
       TEACHER: [
         "/teacher", 
@@ -39,6 +40,7 @@ export default withAuth(
         // Redirect to appropriate dashboard based on role
         const dashboardMap: Record<string, string> = {
           OFFICE: "/office/dashboard",
+          PRINCIPAL: "/office/dashboard",
           STUDENT_PARENT: "/student/dashboard",
           TEACHER: "/teacher/dashboard",
         };
