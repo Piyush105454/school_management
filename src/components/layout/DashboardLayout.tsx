@@ -10,6 +10,7 @@ import { getDashboardUrl } from "@/lib/roleUtils";
 // Role-based route access control
 const ROLE_ROUTES: Record<string, string[]> = {
   OFFICE: ["/office", "/dashboard"],
+  PRINCIPAL: ["/office", "/dashboard"],
   STUDENT_PARENT: ["/student", "/dashboard"],
   TEACHER: [
     "/teacher", 
