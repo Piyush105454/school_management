@@ -6,26 +6,14 @@ import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
-    const { recordId, razorpay_payment_id, razorpay_order_id, razorpay_signature, isSandbox } = await request.json();
+    const { recordId, razorpay_payment_id, razorpay_order_id, razorpay_signature } = await request.json();
 
     if (!recordId) {
       return NextResponse.json({ error: "Record ID is required" }, { status: 400 });
     }
 
-    if (isSandbox) {
-      // In sandbox mode, verify using a secure system token and update record status
-      await db
-        .update(scholarshipRecords)
-        .set({
-          status: "PAID",
-          updatedAt: new Date()
-        })
-        .where(eq(scholarshipRecords.id, recordId));
-
-      return NextResponse.json({
-        success: true,
-        message: "Sandbox payment verified and record updated successfully"
-      });
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+      return NextResponse.json({ error: "Missing payment confirmation parameters from Razorpay" }, { status: 400 });
     }
 
     // Real signature verification

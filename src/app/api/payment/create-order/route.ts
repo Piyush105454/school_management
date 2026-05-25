@@ -49,47 +49,37 @@ export async function POST(request: Request) {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-    if (keyId && keySecret) {
-      // Real Razorpay order creation
-      const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-      const response = await fetch("https://api.razorpay.com/v1/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${basicAuth}`
-        },
-        body: JSON.stringify({
-          amount: pendingToPay * 100, // in paise
-          currency: "INR",
-          receipt: `rcpt_${record.id.substring(0, 10)}`
-        })
-      });
-
-      const orderData = await response.json();
-      if (!response.ok) {
-        throw new Error(orderData.error?.description || "Razorpay order creation failed");
-      }
-
-      return NextResponse.json({
-        success: true,
-        isSandbox: false,
-        keyId,
-        orderId: orderData.id,
-        amount: pendingToPay * 100,
-        currency: "INR"
-      });
-    } else {
-      // Sandbox fallback mode (No keys in env)
-      const mockOrderId = `order_mock_${Math.random().toString(36).substring(2, 15)}`;
-      return NextResponse.json({
-        success: true,
-        isSandbox: true,
-        keyId: "rzp_test_sandbox",
-        orderId: mockOrderId,
-        amount: pendingToPay,
-        currency: "INR"
-      });
+    if (!keyId || !keySecret) {
+      return NextResponse.json({ error: "Razorpay credentials are not configured on the server" }, { status: 500 });
     }
+
+    // Real Razorpay order creation
+    const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+    const response = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${basicAuth}`
+      },
+      body: JSON.stringify({
+        amount: Math.round(pendingToPay * 100), // in paise
+        currency: "INR",
+        receipt: `rcpt_${record.id.substring(0, 10)}`
+      })
+    });
+
+    const orderData = await response.json();
+    if (!response.ok) {
+      throw new Error(orderData.error?.description || "Razorpay order creation failed");
+    }
+
+    return NextResponse.json({
+      success: true,
+      keyId,
+      orderId: orderData.id,
+      amount: Math.round(pendingToPay * 100),
+      currency: "INR"
+    });
   } catch (error: any) {
     console.error("Payment order creation error:", error);
     return NextResponse.json({ error: error.message || "Failed to initiate payment" }, { status: 500 });
