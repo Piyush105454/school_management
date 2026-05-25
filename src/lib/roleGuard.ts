@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { redirect } from "next/navigation";
 
-export type UserRole = "OFFICE" | "STUDENT_PARENT" | "TEACHER";
+export type UserRole = "OFFICE" | "STUDENT_PARENT" | "TEACHER" | "PRINCIPAL";
 
 /**
  * Protect a page by checking user role
@@ -18,12 +18,16 @@ export async function protectRoute(allowedRoles: UserRole[]) {
 
   const userRole = session.user?.role as UserRole;
 
-  if (!allowedRoles.includes(userRole)) {
+  // Let PRINCIPAL access any page where OFFICE is allowed
+  const isAllowed = allowedRoles.includes(userRole) || (userRole === "PRINCIPAL" && allowedRoles.includes("OFFICE"));
+
+  if (!isAllowed) {
     // Redirect to appropriate dashboard based on role
     const dashboardMap: Record<UserRole, string> = {
       OFFICE: "/office/dashboard",
       STUDENT_PARENT: "/student/dashboard",
       TEACHER: "/teacher/dashboard",
+      PRINCIPAL: "/office/dashboard",
     };
 
     redirect(dashboardMap[userRole] || "/");

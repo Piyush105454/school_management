@@ -15,7 +15,7 @@ export default async function TeacherManagementPage({
 }) {
   const { institute: selectedInstitute } = await searchParams;
   const session = await getServerSession(authOptions);
-  if (!session || session.user?.role !== "OFFICE") redirect("/");
+  if (!session || (session.user?.role !== "OFFICE" && session.user?.role !== "PRINCIPAL")) redirect("/");
 
   const query = db
     .select({

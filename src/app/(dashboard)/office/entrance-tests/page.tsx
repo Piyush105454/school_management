@@ -30,7 +30,7 @@ export default async function OfficeEntranceTestsPage({
   await protectRoute(["OFFICE", "TEACHER"]);
   
   const session = await getServerSession(authOptions);
-  if (!session || (session.user.role !== "OFFICE" && session.user.role !== "TEACHER")) redirect("/");
+  if (!session || (session.user.role !== "OFFICE" && session.user.role !== "PRINCIPAL" && session.user.role !== "TEACHER")) redirect("/");
 
   let teacherInstitute = "";
   if (session.user.role === "TEACHER") {

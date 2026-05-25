@@ -11,7 +11,7 @@ import { FinalAdmissionDashboard } from "./FinalAdmissionDashboard";
 
 export default async function OfficeFinalAdmissionsPage() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "OFFICE") redirect("/");
+  if (!session || (session.user.role !== "OFFICE" && session.user.role !== "PRINCIPAL")) redirect("/");
 
   const rows = await db
     .select({

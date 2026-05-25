@@ -111,7 +111,7 @@ const studentItems = [
 ];
 
 interface SidebarProps {
-  role: "OFFICE" | "STUDENT_PARENT" | "TEACHER";
+  role: "OFFICE" | "STUDENT_PARENT" | "TEACHER" | "PRINCIPAL";
   onClose?: () => void;
 }
 
@@ -133,7 +133,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     }
   }, [role]);
 
-  const items = role === "OFFICE"
+  const items = role === "OFFICE" || (role as string) === "PRINCIPAL"
     ? [
       ...officeItems.slice(0, 1),
       { type: "section", name: "Admissions" },

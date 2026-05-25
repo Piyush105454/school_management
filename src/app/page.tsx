@@ -7,7 +7,7 @@ export default async function Home() {
   const session = await getServerSession(authOptions);
 
   if (session) {
-    if (session.user.role === "OFFICE") {
+    if (session.user.role === "OFFICE" || session.user.role === "PRINCIPAL") {
       redirect("/office/dashboard");
     } else if (session.user.role === "TEACHER") {
       redirect("/teacher/dashboard");

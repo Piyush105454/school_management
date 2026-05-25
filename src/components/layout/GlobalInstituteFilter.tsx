@@ -10,8 +10,8 @@ export function GlobalInstituteFilter() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = React.useState(false);
 
-  // Only show for ADMIN (OFFICE) role
-  if (session?.user?.role !== "OFFICE") return null;
+  // Only show for ADMIN (OFFICE) or PRINCIPAL role
+  if (session?.user?.role !== "OFFICE" && session?.user?.role !== "PRINCIPAL") return null;
 
   return (
     <div className="relative">
