@@ -331,6 +331,7 @@ export const students = pgTable("students", {
   name: text("name").notNull(),
   rollNumber: text("roll_number"),
   scholarNumber: text("scholar_number"),
+  faceEmbedding: text("face_embedding"), // Store JSON-serialized face vector coordinates
 });
 
 export const overallAttendance = pgTable("overall_attendance", {

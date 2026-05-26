@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CalendarCheck, ChevronRight, AlertCircle, FileText, Users } from "lucide-react";
+import { CalendarCheck, ChevronRight, AlertCircle, FileText, Users, Camera } from "lucide-react";
 import AttendanceUploader from "@/features/academy/components/AttendanceUploader";
 import StudentMappingUploader from "@/features/academy/components/StudentMappingUploader";
 import Link from "next/link";
@@ -56,7 +56,7 @@ export default function AttendancePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
         <div className="md:col-span-2 flex items-center gap-4">
           <div className="flex-1 space-y-1">
             <label className="text-[10px] uppercase font-bold text-slate-400 ml-1">Select Month</label>
@@ -103,6 +103,19 @@ export default function AttendancePage() {
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-amber-400 group-hover:translate-x-1 transition-all" />
+        </Link>
+
+        <Link href="/office/academy-management/attendance/scan" className="flex items-center justify-between p-3 bg-rose-50 border border-rose-100 rounded-2xl hover:bg-rose-100 transition-all group">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-rose-600 shadow-sm">
+              <Camera className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-rose-900">Kiosk Scanner</p>
+              <p className="text-[10px] text-rose-600 font-medium">Face Attendance</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-rose-400 group-hover:translate-x-1 transition-all" />
         </Link>
         <div className="flex items-center justify-center p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
           <div className="text-center">
