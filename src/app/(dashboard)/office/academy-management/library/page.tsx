@@ -1,35 +1,74 @@
 import React from "react";
-import { FolderOpen, Plus } from "lucide-react";
+import { protectRoute } from "@/lib/roleGuard";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { db } from "@/db";
+import { resources, resourceIssuances, students, teachers } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
+import LibraryClient from "./LibraryClient";
 
-export default function LibraryPage() {
+export default async function LibraryPage() {
+  await protectRoute(["OFFICE", "TEACHER", "PRINCIPAL"]);
+
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/");
+
+  // 1. Fetch all resources
+  const allResources = await db
+    .select()
+    .from(resources)
+    .orderBy(desc(resources.createdAt));
+
+  // 2. Fetch all issuances with joins
+  const allIssuances = await db
+    .select({
+      id: resourceIssuances.id,
+      resourceId: resourceIssuances.resourceId,
+      recipientType: resourceIssuances.recipientType,
+      studentId: resourceIssuances.studentId,
+      teacherId: resourceIssuances.teacherId,
+      quantityIssued: resourceIssuances.quantityIssued,
+      status: resourceIssuances.status,
+      issuedAt: resourceIssuances.issuedAt,
+      returnedAt: resourceIssuances.returnedAt,
+      resourceName: resources.name,
+      resourceType: resources.type,
+      studentName: students.name,
+      studentRoll: students.rollNumber,
+      teacherName: teachers.name,
+    })
+    .from(resourceIssuances)
+    .innerJoin(resources, eq(resourceIssuances.resourceId, resources.id))
+    .leftJoin(students, eq(resourceIssuances.studentId, students.id))
+    .leftJoin(teachers, eq(resourceIssuances.teacherId, teachers.id))
+    .orderBy(desc(resourceIssuances.issuedAt));
+
+  // 3. Fetch active students for selection
+  const allStudents = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      rollNumber: students.rollNumber,
+    })
+    .from(students)
+    .orderBy(students.name);
+
+  // 4. Fetch active teachers for selection
+  const allTeachers = await db
+    .select({
+      id: teachers.id,
+      name: teachers.name,
+    })
+    .from(teachers)
+    .orderBy(teachers.name);
+
   return (
-    <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">
-      <div className="space-y-1">
-        <h1 className="text-2xl md:text-3xl font-black text-slate-900 font-outfit uppercase tracking-tight">
-          Library & Resources
-        </h1>
-        <p className="text-xs md:text-sm text-slate-500 font-medium">Manage book assignments, digital documents and learning materials.</p>
-      </div>
-
-      <div className="bg-white border border-slate-200 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center gap-4 min-h-[400px] shadow-sm">
-        <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-blue-500/5">
-          <FolderOpen className="h-8 w-8" />
-        </div>
-        
-        <div className="space-y-1 max-w-sm">
-          <h2 className="text-xl font-bold text-slate-800">No Resources Found</h2>
-          <p className="text-sm text-slate-500">
-            The Digital Library is currently empty. Start uploading books, syllabi or resource links to expand the library catalog.
-          </p>
-        </div>
-
-        <button 
-          className="mt-4 flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-weight-bold rounded-2xl hover:bg-blue-700 transition-all font-bold text-sm shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          Add Resource
-        </button>
-      </div>
-    </div>
+    <LibraryClient
+      initialResources={allResources}
+      initialIssuances={allIssuances}
+      students={allStudents}
+      teachers={allTeachers}
+    />
   );
 }

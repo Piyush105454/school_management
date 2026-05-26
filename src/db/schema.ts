@@ -638,3 +638,57 @@ export const incidentsRelations = relations(incidents, ({ one }) => ({
   student: one(students, { fields: [incidents.studentId], references: [students.id] }),
   teacher: one(teachers, { fields: [incidents.teacherId], references: [teachers.id] }),
 }));
+
+export const studentLeaves = pgTable("student_leaves", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  classId: integer("class_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  type: text("type").notNull(), // 'HALF_DAY', 'FULL_DAY'
+  reason: text("reason").notNull(),
+  imageUrl: text("image_url"), // Optional S3 image upload URL
+  status: text("status").default("PENDING").notNull(), // 'PENDING', 'APPROVED', 'REJECTED'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const studentLeavesRelations = relations(studentLeaves, ({ one }) => ({
+  student: one(students, { fields: [studentLeaves.studentId], references: [students.id] }),
+  class: one(classes, { fields: [studentLeaves.classId], references: [classes.id] }),
+}));
+
+export const resources = pgTable("resources", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'BOOK', 'DEVICE', 'EQUIPMENT', 'OTHER'
+  totalQuantity: integer("total_quantity").notNull(),
+  availableQuantity: integer("available_quantity").notNull(),
+  cost: doublePrecision("cost").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const resourceIssuances = pgTable("resource_issuances", {
+  id: serial("id").primaryKey(),
+  resourceId: integer("resource_id").notNull().references(() => resources.id, { onDelete: "cascade" }),
+  recipientType: text("recipient_type").notNull(), // 'STUDENT', 'TEACHER'
+  studentId: integer("student_id").references(() => students.id, { onDelete: "cascade" }),
+  teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: "cascade" }),
+  quantityIssued: integer("quantity_issued").notNull(),
+  status: text("status").default("ISSUED").notNull(), // 'ISSUED', 'RETURNED'
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  returnedAt: timestamp("returned_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const resourcesRelations = relations(resources, ({ many }) => ({
+  issuances: many(resourceIssuances),
+}));
+
+export const resourceIssuancesRelations = relations(resourceIssuances, ({ one }) => ({
+  resource: one(resources, { fields: [resourceIssuances.resourceId], references: [resources.id] }),
+  student: one(students, { fields: [resourceIssuances.studentId], references: [students.id] }),
+  teacher: one(teachers, { fields: [resourceIssuances.teacherId], references: [teachers.id] }),
+}));

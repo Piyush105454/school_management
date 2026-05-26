@@ -57,6 +57,7 @@ const officeItems = [
   { name: "Test & Exam Management", href: "/office/academy-management/exams", icon: ScrollText },
 
   { type: "section", name: "Leave Management" },
+  { name: "Student Leaves", href: "/office/academy-management/leaves", icon: ClipboardList },
   { name: "Library & Resources", href: "/office/academy-management/library", icon: FolderOpen },
   { name: "TC Generation", href: "/office/leaver-management/tc", icon: FileText },
 
@@ -108,6 +109,7 @@ const studentItems = [
   { name: "My Logged Incidents", href: "/student/incident-management", icon: AlertCircle },
   { name: "My Homework", href: "/student/homework", icon: ClipboardList },
   { name: "My Attendance", href: "/student/attendance", icon: CalendarCheck },
+  { name: "Apply Leave", href: "/student/leave", icon: ClipboardCheck },
 ];
 
 interface SidebarProps {
