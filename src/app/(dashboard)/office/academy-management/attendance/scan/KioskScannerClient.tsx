@@ -60,6 +60,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recognitionLoopRef = useRef<number | null>(null);
+  const isLockedRef = useRef(false);
 
   // Synth Chime Beep (Web Audio API)
   const playBeep = (type: "success" | "warn") => {
@@ -171,6 +172,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
   // 3. Camera Streams controllers
   const startCamera = async () => {
     stopCamera();
+    isLockedRef.current = false; // Reset lock reference when camera restarts
     try {
       const constraints = {
         video: {
@@ -221,9 +223,11 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
   // 4. Real-time scanner execution loop
   const startRecognitionLoop = () => {
     const faceapi = (window as any).faceapi;
-    if (!faceapi || !videoRef.current || !canvasRef.current || scannedStudent) return;
+    if (!faceapi || !videoRef.current || !canvasRef.current || isLockedRef.current) return;
 
     const runMatch = async () => {
+      if (isLockedRef.current) return; // Halt loop completely on active lock
+
       if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) {
         recognitionLoopRef.current = requestAnimationFrame(runMatch);
         return;
@@ -325,7 +329,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
       }
 
       // Check loop condition
-      if (!scannedStudent) {
+      if (!isLockedRef.current) {
         recognitionLoopRef.current = requestAnimationFrame(runMatch);
       }
     };
@@ -336,11 +340,15 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
   // 5. Database check-in dispatcher
   const triggerKioskCheckIn = async (studentId: number) => {
     // Lock loop temporarily to prevent multi-marking on server frames
-    if (scannedStudent) return;
+    if (isLockedRef.current) return;
+    isLockedRef.current = true;
     
     // Create optimistic target details
     const student = studentsList.find(s => s.id === studentId);
-    if (!student) return;
+    if (!student) {
+      isLockedRef.current = false;
+      return;
+    }
 
     // Halt camera scan loops
     if (recognitionLoopRef.current) {
@@ -380,10 +388,11 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
       }
     } catch (e: any) {
       alert("Error marking attendance: " + e.message);
+      isLockedRef.current = false;
       resetScanner();
     }
 
-    // Rearm loops automatically after 3 seconds
+    // Rearm loops automatically after 3.5 seconds
     setTimeout(() => {
       resetScanner();
     }, 3500);
@@ -391,6 +400,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
 
   const resetScanner = () => {
     setScannedStudent(null);
+    isLockedRef.current = false; // Release the lock
     if (activeTab === "kiosk" && modelsLoaded) {
       // Clear canvas context
       const canvas = canvasRef.current;
@@ -398,7 +408,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
       if (canvas && ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
-      startRecognitionLoop();
+      startRecognitionLoop(); // Re-trigger loop
     }
   };
 
