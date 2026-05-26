@@ -105,7 +105,7 @@ export default function AttendancePage() {
           <ChevronRight className="h-4 w-4 text-amber-400 group-hover:translate-x-1 transition-all" />
         </Link>
 
-        <Link href="/office/academy-management/attendance/scan" className="flex items-center justify-between p-3 bg-rose-50 border border-rose-100 rounded-2xl hover:bg-rose-100 transition-all group">
+        <Link href="/face-scanner" target="_blank" className="flex items-center justify-between p-3 bg-rose-50 border border-rose-100 rounded-2xl hover:bg-rose-100 transition-all group">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-rose-600 shadow-sm">
               <Camera className="h-5 w-5" />
