@@ -18,6 +18,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
   homework: { totalGiven: number; totalDone: number };
   guardian: { rating: number };
   ptm: { attended: boolean };
+  adjustment?: { amount: number; type: string; note: string };
 }) {
   try {
     // 1. Get Criteria Settings (Try student override first, then global)
@@ -59,6 +60,19 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const ptmAmount = data.ptm.attended ? criteria.ptmAmount : 0;
 
     const totalAmount = attendanceAmount + homeworkAmount + guardianAmount + ptmAmount;
+
+    // Calculate signed adjustment amount for record-keeping
+    let adjustmentAmount = 0;
+    let adjustmentNote = "";
+    if (data.adjustment) {
+      const { amount, type, note } = data.adjustment;
+      if (type === "DISCOUNT") {
+        adjustmentAmount = -Math.abs(amount);
+      } else if (type === "CHARGE") {
+        adjustmentAmount = Math.abs(amount);
+      }
+      adjustmentNote = note || "";
+    }
 
     // 2. Save Attendance
     const existingAttendance = await db.query.scholarshipAttendance.findFirst({
@@ -115,6 +129,8 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       guardianAmount,
       ptmAmount,
       totalAmount,
+      adjustmentAmount,
+      adjustmentNote,
       status: "PENDING" as "PENDING", // Wait, status enum PENDING
     };
 

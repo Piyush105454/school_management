@@ -14,8 +14,18 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   const [data, setData] = useState<any>(null);
   const [monthlyOverview, setMonthlyOverview] = useState<any[]>([]);
   const [loadingOverview, setLoadingOverview] = useState(false);
-  const { register, handleSubmit, reset, watch, setValue } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } = useForm<any>({
+    defaultValues: {
+      attendance: { totalDays: 0, presentDays: 0 },
+      homework: { totalGiven: 0, totalDone: 0 },
+      guardian: { rating: 0 },
+      ptm: { attended: false },
+      adjustment: { type: "NONE", amount: "", note: "" }
+    }
+  });
   const guardianRating = watch("guardian.rating") || 0;
+  const adjType = watch("adjustment.type") || "NONE";
+  const adjAmtInput = Number(watch("adjustment.amount") || 0);
 
   const guardianCategories = [
     "Smooth communication with parent and teacher",
@@ -52,6 +62,14 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
     if (kpiRes.success && kpiRes.data) {
       setData(kpiRes.data);
+      const adjAmt = kpiRes.data.record?.adjustmentAmount || 0;
+      let adjType = "NONE";
+      if (adjAmt < 0) {
+        adjType = "DISCOUNT";
+      } else if (adjAmt > 0) {
+        adjType = "CHARGE";
+      }
+
       reset({
         attendance: {
           totalDays: kpiRes.data.attendance?.totalDays || kpiRes.data.calculatedAttendance?.totalDays || 0,
@@ -66,6 +84,11 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         },
         ptm: {
           attended: kpiRes.data.ptm?.attended || false,
+        },
+        adjustment: {
+          type: adjType,
+          amount: adjAmt !== 0 ? Math.abs(adjAmt) : "",
+          note: kpiRes.data.record?.adjustmentNote || ""
         }
       });
     }
@@ -84,11 +107,31 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       attendance: { totalDays: Number(formData.attendance.totalDays), presentDays: Number(formData.attendance.presentDays) },
       homework: { totalGiven: Number(formData.homework.totalGiven), totalDone: Number(formData.homework.totalDone) },
       guardian: { rating: Number(formData.guardian.rating) },
-      ptm: { attended: formData.ptm.attended === true || formData.ptm.attended === 'true' }
+      ptm: { attended: formData.ptm.attended === true || formData.ptm.attended === 'true' },
+      adjustment: {
+        amount: Number(formData.adjustment?.amount || 0),
+        type: formData.adjustment?.type || "NONE",
+        note: formData.adjustment?.note || ""
+      }
     });
     setLoading(false);
     if (res.success) {
-      setMessage(`Saved Successfully! Total Amount: ₹${res.totalAmount}`);
+      let signedAdj = 0;
+      const type = formData.adjustment?.type || "NONE";
+      const amount = Number(formData.adjustment?.amount || 0);
+      if (type === "DISCOUNT") {
+        signedAdj = -Math.abs(amount);
+      } else if (type === "CHARGE") {
+        signedAdj = Math.abs(amount);
+      }
+      const baseTotal = res.totalAmount || 0;
+      const totalCredit = baseTotal - signedAdj;
+      if (signedAdj !== 0) {
+        const adjText = type === "DISCOUNT" ? `-₹${Math.abs(signedAdj)} discount` : `+₹${Math.abs(signedAdj)} charge`;
+        setMessage(`Saved Successfully! Scholarship: ₹${baseTotal} (${adjText}) | Net Credited: ₹${totalCredit}`);
+      } else {
+        setMessage(`Saved Successfully! Total Amount: ₹${baseTotal}`);
+      }
       loadData(); 
       loadOverview(); // Refresh list as well
     } else {
@@ -157,7 +200,23 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                           item.ptm.attended ? <span className="text-green-600 font-bold flex items-center gap-1">Yes</span> : <span className="text-red-500 flex items-center gap-1">No</span>
                         ) : "N/A"}
                       </td>
-                      <td className="px-6 py-4 font-bold text-blue-600">₹{item.record?.totalAmount ?? 0}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-blue-600">₹{item.record?.totalAmount ?? 0}</span>
+                          {item.record?.adjustmentAmount && item.record.adjustmentAmount !== 0 ? (
+                            <span 
+                              className={`text-[10px] font-black w-fit px-1.5 py-0.5 rounded mt-0.5 ${
+                                item.record.adjustmentAmount < 0 
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                              }`} 
+                              title={item.record.adjustmentNote || "No note provided"}
+                            >
+                              Adj: {item.record.adjustmentAmount < 0 ? "-" : "+"}₹{Math.abs(item.record.adjustmentAmount)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <button 
                           onClick={() => setSelectedMonth(item.month)}
@@ -329,20 +388,100 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   </KpiCard>
                 </div>
 
-                <div className="bg-white border border-slate-200 p-6 rounded-2xl max-w-md shadow-sm space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm font-bold text-slate-500">
-                      <span>Total School Fee</span>
-                      <span>₹{maxTotal}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                  {/* Left Side: Adjustment Settings */}
+                  <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Internal Adjustment Settings</h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Admin/Teacher Only</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
-                      <span>Scholarship Earned</span>
-                      <span>- ₹{totalEarned}</span>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Type</label>
+                        <select {...register("adjustment.type")} className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+                          <option value="NONE">No Adjustment (Use Calculated)</option>
+                          <option value="DISCOUNT">Discount / Waiver (Reduce Pending)</option>
+                          <option value="CHARGE">Additional Charge (Increase Pending)</option>
+                        </select>
+                      </div>
+
+                      <div className={adjType === "NONE" ? "hidden" : "space-y-3"}>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Amount (₹)</label>
+                          <input 
+                            type="number" 
+                            min="0"
+                            {...register("adjustment.amount")} 
+                            placeholder="Enter amount in ₹"
+                            className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Reason / Note (Internal)</label>
+                          <textarea 
+                            rows={2}
+                            {...register("adjustment.note")} 
+                            placeholder="e.g. Student low-income waiver, offline balance adjustment"
+                            className="border p-2.5 rounded-xl text-xs bg-white border-slate-300 w-full font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-200 pt-3">
-                      <span>Pending Money to Pay</span>
-                      <span>₹{pendingToPay}</span>
+                  </div>
+
+                  {/* Right Side: Calculation Summary */}
+                  <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-100">Fee Summary</h4>
+                      <div className="flex justify-between items-center text-sm font-bold text-slate-500 pt-2">
+                        <span>Total School Fee</span>
+                        <span>₹{maxTotal}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
+                        <span>Scholarship Earned</span>
+                        <span>- ₹{totalEarned}</span>
+                      </div>
+                      
+                      {(() => {
+                        const isRecordPaid = record?.status === "PAID";
+                        let signedAdj = 0;
+                        if (adjType === "DISCOUNT") {
+                          signedAdj = -Math.abs(adjAmtInput);
+                        } else if (adjType === "CHARGE") {
+                          signedAdj = Math.abs(adjAmtInput);
+                        }
+                        const originalPending = pendingToPay + signedAdj;
+                        const finalPending = isRecordPaid ? 0 : originalPending;
+                        
+                        return (
+                          <>
+                            {signedAdj !== 0 && (
+                              <div className={`flex justify-between items-center text-sm font-bold ${signedAdj < 0 ? "text-blue-600" : "text-amber-600"}`}>
+                                <span>Adjustment ({adjType === "DISCOUNT" ? "Discount" : "Charge"})</span>
+                                <span>{signedAdj < 0 ? "-" : "+"} ₹{Math.abs(signedAdj)}</span>
+                              </div>
+                            )}
+                            {isRecordPaid && (
+                              <div className="flex justify-between items-center text-sm font-bold text-blue-600">
+                                <span>Amount Paid Online</span>
+                                <span>- ₹{maxTotal - totalEarned}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-200 pt-3">
+                              <span>Pending Money to Pay</span>
+                              <span>₹{finalPending}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
+                    {adjType !== "NONE" && adjAmtInput > 0 && (
+                      <p className="text-[11px] text-slate-400 font-semibold italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
+                        * Note: This adjustment is stored internally for teacher/admin records and is **not** visible to the student.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

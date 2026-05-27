@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const maxGuardian = criteria?.guardianAmount ?? 750;
     const maxPtm = criteria?.ptmAmount ?? 750;
     const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
-    const pendingToPay = maxTotal - record.totalAmount;
+    const pendingToPay = maxTotal - record.totalAmount + record.adjustmentAmount;
 
     if (pendingToPay <= 0) {
       return NextResponse.json({ error: "No pending balance for this record" }, { status: 400 });

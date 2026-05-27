@@ -307,6 +307,9 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   ptmAmount: integer("ptm_amount").notNull(),
   totalAmount: integer("total_amount").notNull(),
 
+  adjustmentAmount: integer("adjustment_amount").default(0).notNull(),
+  adjustmentNote: text("adjustment_note"),
+
   status: scholarshipStatusEnum("status").default("PENDING").notNull(),
   approvedBy: text("approved_by"),
   approvedAt: timestamp("approved_at"),
@@ -692,3 +695,15 @@ export const resourceIssuancesRelations = relations(resourceIssuances, ({ one })
   student: one(students, { fields: [resourceIssuances.studentId], references: [students.id] }),
   teacher: one(teachers, { fields: [resourceIssuances.teacherId], references: [teachers.id] }),
 }));
+
+export const sidebarPermissions = pgTable("sidebar_permissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  permissions: text("permissions").notNull(), // JSON string storing enabled/disabled items/sections
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    userIdIdx: uniqueIndex("sidebar_user_id_idx").on(table.userId),
+  };
+});

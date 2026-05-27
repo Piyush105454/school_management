@@ -29,7 +29,9 @@ import {
   AlertCircle,
   Users2,
   Activity,
-  Brain
+  Brain,
+  Bus,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -74,10 +76,17 @@ const officeItems = [
   { type: "section", name: "Time Table Management" },
   { name: "Manage Timetable", href: "/office/timetable", icon: Clock },
 
+  { type: "section", name: "Transport Management" },
+  { name: "Student Transport", href: "/office/transport/students", icon: Bus },
+
   { type: "section", name: "People Management" },
   { name: "Admin Management", href: "/office/admin-management", icon: UserCog },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
   { name: "Principal Management", href: "/office/school-management/principal", icon: UserCog },
+
+  { type: "section", name: "Access Module Management" },
+  { name: "Access UI Management", href: "/office/access-management", icon: Lock },
+
   { type: "section", name: "Committee Management" },
   { name: "Manage Committees", href: "/office/committees", icon: Users2 },
 ];
@@ -123,6 +132,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   const currentStep = searchParams.get("step");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [teacherProfile, setTeacherProfile] = useState<any>(null);
+  const [permissions, setPermissions] = useState<any>(null);
 
   React.useEffect(() => {
     if (role === "TEACHER") {
@@ -135,18 +145,227 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     }
   }, [role]);
 
-  const items = role === "OFFICE" || (role as string) === "PRINCIPAL"
-    ? [
-      ...officeItems.slice(0, 1),
-      { type: "section", name: "Admissions" },
-      ...officeItems.slice(1)
-    ]
-    : role === "TEACHER"
-      ? [
-          ...teacherItems,
-          ...(teacherProfile?.specialization ? [{ name: "Review Lesson Plans", href: "/office/academy-management/lesson-plan/review", icon: ClipboardList }] : [])
-        ]
-      : studentItems;
+  React.useEffect(() => {
+    fetch("/api/sidebar-permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setPermissions(data.permissions);
+        }
+      })
+      .catch(err => console.error("Error loading sidebar permissions:", err));
+  }, []);
+
+  const MASTER_STRUCTURE = [
+    // Dashboards
+    { href: "/office/dashboard", icon: LayoutDashboard, roleNames: { OFFICE: "Dashboard", PRINCIPAL: "Dashboard" } },
+    { href: "/teacher/dashboard", icon: LayoutDashboard, roleNames: { TEACHER: "Dashboard" } },
+    { href: "/student/dashboard", icon: LayoutDashboard, roleNames: { STUDENT_PARENT: "Dashboard" } },
+
+    // Admissions Category
+    { type: "section", name: "Admissions" },
+    { href: "/office/inquiries", icon: FileText, roleNames: { OFFICE: "Inquiries", PRINCIPAL: "Inquiries", TEACHER: "Inquiries" } },
+    { href: "/office/admissions-progress", icon: UserCheck, roleNames: { OFFICE: "Admissions Progress", PRINCIPAL: "Admissions Progress", TEACHER: "Admissions Progress" } },
+    { href: "/office/document-verification", icon: FileText, roleNames: { OFFICE: "Doc Verification & Affidavit Upload", PRINCIPAL: "Doc Verification & Affidavit Upload", TEACHER: "Doc Verification & Affidavit" } },
+    { href: "/office/entrance-tests", icon: ClipboardCheck, roleNames: { OFFICE: "Entrance Tests", PRINCIPAL: "Entrance Tests", TEACHER: "Entrance Tests" } },
+    { href: "/office/home-visits", icon: Users, roleNames: { OFFICE: "Home Visits", PRINCIPAL: "Home Visits", TEACHER: "Home Visits" } },
+    { href: "/office/final-admissions", icon: ClipboardCheck, roleNames: { OFFICE: "Final Approvals", PRINCIPAL: "Final Approvals" } },
+    { href: "/student/admission", icon: FileText, roleNames: { STUDENT_PARENT: "Admission Form & Summary" } },
+    { href: "/student/admission?step=10", icon: UserCheck, roleNames: { STUDENT_PARENT: "Doc Verification & Affidavit Upload" } },
+    { href: "/student/entrance-test", icon: ClipboardCheck, roleNames: { STUDENT_PARENT: "Entrance Test" } },
+    { href: "/student/home-visit", icon: Users, roleNames: { STUDENT_PARENT: "Home Visit" } },
+
+    // Scholarship Category
+    { type: "section", name: "Scholarship" },
+    { href: "/office/scholarship/award", icon: Award, roleNames: { OFFICE: "Award Scholarship", PRINCIPAL: "Award Scholarship" } },
+    { href: "/office/scholarship/students", icon: GraduationCap, roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships" } },
+    { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
+    { href: "/office/scholarship/settings", icon: Settings, roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
+    { href: "/student/scholarship", icon: GraduationCap, roleNames: { STUDENT_PARENT: "My Scholarship" } },
+
+    // Academy Management Category
+    { type: "section", name: "Academy Management" },
+    { href: "/office/academy-management/attendance", icon: CalendarCheck, roleNames: { OFFICE: "Attendance Management", PRINCIPAL: "Attendance Management", TEACHER: "Attendance" } },
+    { href: "/office/academy-management/classes", icon: School, roleNames: { OFFICE: "Class Management", PRINCIPAL: "Class Management", TEACHER: "My Classes" } },
+    { href: "/office/academy-management/lesson-plan", icon: BookOpen, roleNames: { OFFICE: "Lesson Plan Management", PRINCIPAL: "Lesson Plan Management", TEACHER: "Lesson Plans" } },
+    { href: "/office/academy-management/lesson-plan/review", icon: ClipboardList, roleNames: { OFFICE: "Lesson Plan Review", PRINCIPAL: "Lesson Plan Review", TEACHER: "Review Lesson Plans" } },
+    { href: "/office/academy-management/homework", icon: ClipboardCheck, roleNames: { OFFICE: "Homework Management", PRINCIPAL: "Homework Management", TEACHER: "My Homework Review" } },
+    { href: "/office/academy-management/exams", icon: ScrollText, roleNames: { OFFICE: "Test & Exam Management", PRINCIPAL: "Test & Exam Management" } },
+    { href: "/student/homework", icon: ClipboardList, roleNames: { STUDENT_PARENT: "My Homework" } },
+    { href: "/student/attendance", icon: CalendarCheck, roleNames: { STUDENT_PARENT: "My Attendance" } },
+
+    // Leave Management Category
+    { type: "section", name: "Leave Management" },
+    { href: "/office/academy-management/leaves", icon: ClipboardList, roleNames: { OFFICE: "Student Leaves", PRINCIPAL: "Student Leaves" } },
+    { href: "/office/academy-management/library", icon: FolderOpen, roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
+    { href: "/office/leaver-management/tc", icon: FileText, roleNames: { OFFICE: "TC Generation", PRINCIPAL: "TC Generation" } },
+    { href: "/student/leave", icon: ClipboardCheck, roleNames: { STUDENT_PARENT: "Apply Leave" } },
+
+    // Incident Management Category
+    { type: "section", name: "Incident Management" },
+    { href: "/office/incident-management", icon: AlertCircle, roleNames: { OFFICE: "Manage Incidents", PRINCIPAL: "Manage Incidents" } },
+    { href: "/teacher/incident-management", icon: AlertCircle, roleNames: { TEACHER: "My Logged Incidents" } },
+    { href: "/student/incident-management", icon: AlertCircle, roleNames: { STUDENT_PARENT: "My Logged Incidents" } },
+
+    // School Health Program Category
+    { type: "section", name: "School Health Program" },
+    { href: "/office/school-health/dashboard", icon: LayoutDashboard, roleNames: { OFFICE: "Health Dashboard", PRINCIPAL: "Health Dashboard" } },
+    { href: "/office/school-health/records", icon: Heart, roleNames: { OFFICE: "Student Health Records", PRINCIPAL: "Student Health Records" } },
+    { href: "/office/school-health/daily-check", icon: Activity, roleNames: { OFFICE: "Daily Health Check", PRINCIPAL: "Daily Health Check" } },
+    { href: "/office/school-health/wellness", icon: Brain, roleNames: { OFFICE: "Wellness & Nutrition", PRINCIPAL: "Wellness & Nutrition" } },
+    { href: "/office/school-health/settings", icon: Settings, roleNames: { OFFICE: "Settings & Committee", PRINCIPAL: "Settings & Committee" } },
+
+    // Time Table Management Category
+    { type: "section", name: "Time Table Management" },
+    { href: "/office/timetable", icon: Clock, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
+
+    // Transport Management Category
+    { type: "section", name: "Transport Management" },
+    { href: "/office/transport/students", icon: Bus, roleNames: { OFFICE: "Student Transport", PRINCIPAL: "Student Transport" } },
+
+    // People Management Category
+    { type: "section", name: "People Management" },
+    { href: "/office/admin-management", icon: UserCog, roleNames: { OFFICE: "Admin Management", PRINCIPAL: "Admin Management" } },
+    { href: "/office/school-management/teachers", icon: Users, roleNames: { OFFICE: "Teacher Management", PRINCIPAL: "Teacher Management" } },
+    { href: "/office/school-management/principal", icon: UserCog, roleNames: { OFFICE: "Principal Management", PRINCIPAL: "Principal Management" } },
+
+    // Access Module Category
+    { type: "section", name: "Access Module Management" },
+    { href: "/office/access-management", icon: Lock, roleNames: { OFFICE: "Access UI Management", PRINCIPAL: "Access UI Management" } },
+
+    // Committee Management Category
+    { type: "section", name: "Committee Management" },
+    { href: "/office/committees", icon: Users2, roleNames: { OFFICE: "Manage Committees", PRINCIPAL: "Manage Committees" } },
+  ];
+
+  const isDefaultSectionForRole = (r: string, name: string): boolean => {
+    if (r === "OFFICE" || r === "PRINCIPAL") {
+      return [
+        "Admissions", "Scholarship", "Academy Management", "Leave Management",
+        "Incident Management", "School Health Program", "Time Table Management",
+        "Transport Management", "People Management", "Access Module Management",
+        "Committee Management"
+      ].includes(name);
+    }
+    if (r === "TEACHER") {
+      return ["Class Management", "Incident Management", "Admission Management"].includes(name);
+    }
+    return false;
+  };
+
+  const isDefaultForItem = (r: string, href: string): boolean => {
+    if (r === "OFFICE" || r === "PRINCIPAL") {
+      return [
+        "/office/dashboard",
+        "/office/inquiries",
+        "/office/admissions-progress",
+        "/office/document-verification",
+        "/office/entrance-tests",
+        "/office/home-visits",
+        "/office/final-admissions",
+        "/office/scholarship/award",
+        "/office/scholarship/students",
+        "/office/scholarship/reports",
+        "/office/scholarship/settings",
+        "/office/academy-management/attendance",
+        "/office/academy-management/classes",
+        "/office/academy-management/lesson-plan",
+        "/office/academy-management/lesson-plan/review",
+        "/office/academy-management/homework",
+        "/office/academy-management/exams",
+        "/office/academy-management/leaves",
+        "/office/academy-management/library",
+        "/office/leaver-management/tc",
+        "/office/incident-management",
+        "/office/school-health/dashboard",
+        "/office/school-health/records",
+        "/office/school-health/daily-check",
+        "/office/school-health/wellness",
+        "/office/school-health/settings",
+        "/office/timetable",
+        "/office/transport/students",
+        "/office/admin-management",
+        "/office/school-management/teachers",
+        "/office/school-management/principal",
+        "/office/access-management",
+        "/office/committees"
+      ].includes(href);
+    }
+    if (r === "TEACHER") {
+      return [
+        "/teacher/dashboard",
+        "/office/academy-management/classes",
+        "/office/academy-management/attendance",
+        "/office/academy-management/lesson-plan",
+        "/office/academy-management/homework",
+        "/office/academy-management/lesson-plan/review",
+        "/teacher/incident-management",
+        "/office/inquiries",
+        "/office/admissions-progress",
+        "/office/document-verification",
+        "/office/entrance-tests",
+        "/office/home-visits"
+      ].includes(href);
+    }
+    if (r === "STUDENT_PARENT") {
+      return [
+        "/student/dashboard",
+        "/student/admission",
+        "/student/admission?step=10",
+        "/student/entrance-test",
+        "/student/home-visit",
+        "/student/scholarship",
+        "/student/incident-management",
+        "/student/homework",
+        "/student/attendance",
+        "/student/leave"
+      ].includes(href);
+    }
+    return false;
+  };
+
+  const filteredItems = React.useMemo(() => {
+    let isCurrentSectionVisible = true;
+    const results: any[] = [];
+
+    for (const item of MASTER_STRUCTURE) {
+      if (item.type === "section") {
+        const isDefaultSec = isDefaultSectionForRole(role, item.name);
+        const isSecVisible = permissions?.sections?.[item.name] !== undefined
+          ? permissions.sections[item.name]
+          : isDefaultSec;
+
+        isCurrentSectionVisible = isSecVisible;
+        if (isSecVisible) {
+          results.push(item);
+        }
+      } else {
+        const isDefaultBtn = isDefaultForItem(role, item.href || "");
+        const isBtnVisible = permissions?.items?.[item.href || ""] !== undefined
+          ? permissions.items[item.href || ""]
+          : isDefaultBtn;
+
+        if (isCurrentSectionVisible && isBtnVisible) {
+          // Resolve name
+          let nameToUse = "";
+          if (item.roleNames && item.roleNames[role]) {
+            nameToUse = item.roleNames[role];
+          } else {
+            const keys = Object.keys(item.roleNames || {});
+            nameToUse = keys.length > 0 ? (item.roleNames as any)[keys[0]] : "Module";
+          }
+
+          results.push({
+            name: nameToUse,
+            href: item.href,
+            icon: item.icon
+          });
+        }
+      }
+    }
+
+    return results;
+  }, [role, permissions]);
 
   const schoolName = teacherProfile?.institute || "DPS Dhanpuri";
 
@@ -180,7 +399,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {(() => {
           let currentSection = "";
-          return items.map((item, idx) => {
+          return filteredItems.map((item, idx) => {
             if ('type' in item && item.type === 'section') {
               currentSection = item.name;
               const isCollapsed = collapsedSections[item.name];

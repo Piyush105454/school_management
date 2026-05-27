@@ -30,7 +30,9 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
   const maxGuardian = criteria?.guardianAmount ?? 750;
   const maxPtm = criteria?.ptmAmount ?? 750;
   const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
-  const pendingToPay = maxTotal - (record?.totalAmount ?? 0);
+  const originalPending = maxTotal - (record?.totalAmount ?? 0) + (record?.adjustmentAmount ?? 0);
+  const isPaid = record?.status === "PAID";
+  const pendingToPay = isPaid ? 0 : originalPending;
 
   const [paying, setPaying] = useState(false);
 
@@ -175,6 +177,18 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
               <span>Scholarship Earned</span>
               <span>- ₹{record.totalAmount}</span>
             </div>
+            {record.adjustmentAmount && record.adjustmentAmount !== 0 && (
+              <div className={`flex justify-between items-center text-sm font-bold ${record.adjustmentAmount < 0 ? "text-blue-600" : "text-amber-600"}`}>
+                <span>Adjustment ({record.adjustmentAmount < 0 ? "Discount" : "Charge"})</span>
+                <span>{record.adjustmentAmount < 0 ? "-" : "+"} ₹{Math.abs(record.adjustmentAmount)}</span>
+              </div>
+            )}
+            {isPaid && originalPending > 0 && (
+              <div className="flex justify-between items-center text-sm font-bold text-blue-600">
+                <span>Amount Paid Online</span>
+                <span>- ₹{originalPending}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-100 pt-2">
               <span>Pending Money to Pay</span>
               <span>₹{pendingToPay}</span>
