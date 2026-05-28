@@ -15,6 +15,8 @@ export interface CreateIncidentInput {
   classId?: number | null;
   studentId?: number | null;
   teacherId?: string | null;
+  studentIds?: string | null;
+  teacherIds?: string | null;
 }
 
 // Fetch all logged items (Incidents, Complaints, Feedbacks) with relational joins
@@ -28,7 +30,45 @@ export async function getIncidentsAction() {
         teacher: true,
       }
     });
-    return { success: true, data };
+
+    // Hydrate multiple student and teacher records
+    const allTeachers = await db.select().from(teachers);
+    const allStudents = await db.select().from(students);
+
+    const hydratedData = data.map((incident) => {
+      let taggedTeachers: typeof teachers.$inferSelect[] = [];
+      let taggedStudents: typeof students.$inferSelect[] = [];
+
+      if (incident.teacherIds) {
+        try {
+          const ids: string[] = JSON.parse(incident.teacherIds);
+          taggedTeachers = allTeachers.filter((t) => ids.includes(t.id));
+        } catch (e) {
+          if (incident.teacher) taggedTeachers = [incident.teacher];
+        }
+      } else if (incident.teacher) {
+        taggedTeachers = [incident.teacher];
+      }
+
+      if (incident.studentIds) {
+        try {
+          const ids: number[] = JSON.parse(incident.studentIds);
+          taggedStudents = allStudents.filter((s) => ids.includes(s.id));
+        } catch (e) {
+          if (incident.student) taggedStudents = [incident.student];
+        }
+      } else if (incident.student) {
+        taggedStudents = [incident.student];
+      }
+
+      return {
+        ...incident,
+        taggedTeachers,
+        taggedStudents,
+      };
+    });
+
+    return { success: true, data: hydratedData };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -78,6 +118,8 @@ export async function createIncidentAction(input: CreateIncidentInput) {
         classId: input.classId || null,
         studentId: input.studentId || null,
         teacherId: input.teacherId || null,
+        studentIds: input.studentIds || null,
+        teacherIds: input.teacherIds || null,
       })
       .returning();
 
@@ -170,6 +212,26 @@ export async function deleteIncidentAction(id: string) {
     }
 
     return { success: true, record: deletedRecord };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Update incident status (e.g. Open, Pending, Teacher Approved, Principal Approved, Closed)
+export async function updateIncidentStatusAction(id: string, status: string) {
+  try {
+    const [updated] = await db
+      .update(incidents)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(incidents.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Incident not found");
+    }
+
+    revalidatePath("/office/incident-management");
+    return { success: true, record: updated };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

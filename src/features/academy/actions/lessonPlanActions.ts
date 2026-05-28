@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { lessonPlans } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function saveLessonPlan(data: {
@@ -58,7 +58,7 @@ export async function saveLessonPlan(data: {
 
 export async function getLessonPlansForReview(specialization?: string) {
   try {
-    let whereClause = eq(lessonPlans.status, "SUBMITTED");
+    let whereClause = ne(lessonPlans.status, "DRAFT");
 
     const plans = await db.query.lessonPlans.findMany({
       where: whereClause,

@@ -104,7 +104,19 @@ export default function LeaveManagementClient({ classes, initialLeaves }: LeaveM
                     day: "numeric",
                     year: "numeric",
                   });
-                  const dateDisplay = start === end ? start : `${start} - ${end}`;
+                  let dateDisplay = start === end ? start : `${start} - ${end}`;
+
+                  if (leave.type === "HALF_DAY") {
+                    const timeStart = new Date(leave.startDate).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    const timeEnd = new Date(leave.endDate).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    dateDisplay = `${start} (${timeStart} - ${timeEnd})`;
+                  }
 
                   return (
                     <tr key={leave.id} className="hover:bg-slate-50/50 transition-colors">

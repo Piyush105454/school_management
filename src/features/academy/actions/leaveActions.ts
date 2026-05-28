@@ -60,6 +60,71 @@ export async function applyForLeaveAction(data: LeaveInput) {
       return { success: false, error: "You are not assigned to any class yet." };
     }
 
+    // 1. Validate Date ranges & Durations
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+
+    if (data.type === "FULL_DAY") {
+      const sTemp = new Date(data.startDate);
+      const eTemp = new Date(data.endDate);
+      sTemp.setHours(0, 0, 0, 0);
+      eTemp.setHours(0, 0, 0, 0);
+      
+      const diffTime = eTemp.getTime() - sTemp.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      if (diffDays > 2) {
+        return { success: false, error: "Full day leaves cannot be requested for more than 2 days." };
+      }
+      if (sTemp > eTemp) {
+        return { success: false, error: "Start date cannot be after end date." };
+      }
+    }
+
+    // 2. Validate Yearly Quota of 10 Days
+    const currentYear = new Date().getFullYear();
+    const studentLeavesThisYear = await db
+      .select()
+      .from(studentLeaves)
+      .where(
+        and(
+          eq(studentLeaves.studentId, student.id),
+          eq(studentLeaves.status, "APPROVED")
+        )
+      );
+
+    let takenDays = 0;
+    studentLeavesThisYear.forEach((leave) => {
+      if (leave.type === "HALF_DAY") {
+        takenDays += 0.5;
+      } else {
+        const sTemp = new Date(leave.startDate);
+        const eTemp = new Date(leave.endDate);
+        sTemp.setHours(0, 0, 0, 0);
+        eTemp.setHours(0, 0, 0, 0);
+        const diffTime = eTemp.getTime() - sTemp.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        takenDays += diffDays;
+      }
+    });
+
+    let newLeaveDuration = 0.5;
+    if (data.type === "FULL_DAY") {
+      const sTemp = new Date(data.startDate);
+      const eTemp = new Date(data.endDate);
+      sTemp.setHours(0, 0, 0, 0);
+      eTemp.setHours(0, 0, 0, 0);
+      const diffTime = eTemp.getTime() - sTemp.getTime();
+      newLeaveDuration = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    if (takenDays + newLeaveDuration > 10) {
+      return {
+        success: false,
+        error: `Leave application exceeds your yearly quota of 10 days. You have already taken ${takenDays} days of approved leaves this year. Requested: ${newLeaveDuration} days.`,
+      };
+    }
+
     let finalImageUrl = null;
     if (data.imageUrl && data.imageUrl.startsWith("data:")) {
       try {
@@ -129,7 +194,7 @@ export async function getAllStudentLeavesForManagementAction(filters?: { classId
     }
 
     // Use standard SELECT with joins to avoid development hot-reloading schema-caching query issues.
-    let baseQuery = db
+    const baseQuery = db
       .select({
         id: studentLeaves.id,
         studentId: studentLeaves.studentId,
@@ -155,11 +220,11 @@ export async function getAllStudentLeavesForManagementAction(filters?: { classId
       .leftJoin(students, eq(studentLeaves.studentId, students.id))
       .leftJoin(classes, eq(studentLeaves.classId, classes.id));
 
-    if (filters?.classId) {
-      baseQuery = baseQuery.where(eq(studentLeaves.classId, filters.classId));
-    }
+    const finalQuery = filters?.classId
+      ? baseQuery.where(eq(studentLeaves.classId, filters.classId))
+      : baseQuery;
 
-    const leavesList = await baseQuery.orderBy(desc(studentLeaves.createdAt));
+    const leavesList = await finalQuery.orderBy(desc(studentLeaves.createdAt));
 
     return { success: true, leaves: leavesList };
   } catch (error: any) {

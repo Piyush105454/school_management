@@ -1,9 +1,12 @@
 import IncidentManagementClient from "./IncidentManagementClient";
 import { getIncidentsAction, getIncidentMetadataAction } from "@/features/academy/actions/incidentActions";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic"; // Bypass Next.js router cache to guarantee fresh logs on reload
 
 export default async function IncidentManagementPage() {
+  const session = await getServerSession(authOptions);
   const incidentsRes = await getIncidentsAction();
   const metadataRes = await getIncidentMetadataAction();
 
@@ -28,6 +31,7 @@ export default async function IncidentManagementPage() {
       initialIncidents={initialIncidents as any}
       classesList={classesList}
       teachersList={teachersList}
+      userRole={session?.user?.role || "OFFICE"}
     />
   );
 }

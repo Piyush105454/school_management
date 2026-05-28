@@ -42,12 +42,20 @@ const MASTER_STRUCTURE = [
   { href: "/student/homework", roleNames: { STUDENT_PARENT: "My Homework" } },
   { href: "/student/attendance", roleNames: { STUDENT_PARENT: "My Attendance" } },
 
+  // Time Table Management Category
+  { type: "section", name: "Time Table Management" },
+  { href: "/office/timetable", roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
+
   // Leave Management Category
   { type: "section", name: "Leave Management" },
   { href: "/office/academy-management/leaves", roleNames: { OFFICE: "Student Leaves", PRINCIPAL: "Student Leaves" } },
-  { href: "/office/academy-management/library", roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
   { href: "/office/leaver-management/tc", roleNames: { OFFICE: "TC Generation", PRINCIPAL: "TC Generation" } },
   { href: "/student/leave", roleNames: { STUDENT_PARENT: "Apply Leave" } },
+
+  // Lab, Library & Resource Management Category
+  { type: "section", name: "Lab, Library & Resource Management" },
+  { href: "/office/academy-management/library", roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
+  { href: "/office/labs", roleNames: { OFFICE: "Labs", PRINCIPAL: "Labs" } },
 
   // Incident Management Category
   { type: "section", name: "Incident Management" },
@@ -62,10 +70,6 @@ const MASTER_STRUCTURE = [
   { href: "/office/school-health/daily-check", roleNames: { OFFICE: "Daily Health Check", PRINCIPAL: "Daily Health Check" } },
   { href: "/office/school-health/wellness", roleNames: { OFFICE: "Wellness & Nutrition", PRINCIPAL: "Wellness & Nutrition" } },
   { href: "/office/school-health/settings", roleNames: { OFFICE: "Settings & Committee", PRINCIPAL: "Settings & Committee" } },
-
-  // Time Table Management Category
-  { type: "section", name: "Time Table Management" },
-  { href: "/office/timetable", roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
 
   // Transport Management Category
   { type: "section", name: "Transport Management" },
@@ -90,15 +94,18 @@ const isDefaultSectionForRole = (role: string, name: string): boolean => {
   if (role === "OFFICE" || role === "PRINCIPAL") {
     return [
       "Admissions", "Scholarship", "Academy Management", "Leave Management",
-      "Incident Management", "School Health Program", "Time Table Management",
+      "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
       "Transport Management", "People Management", "Access Module Management",
       "Committee Management"
     ].includes(name);
   }
   if (role === "TEACHER") {
-    return ["Class Management", "Incident Management", "Admission Management"].includes(name);
+    return ["Admissions", "Academy Management", "Incident Management"].includes(name);
   }
-  return false; // Student has no sections by default
+  if (role === "STUDENT_PARENT") {
+    return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management"].includes(name);
+  }
+  return false;
 };
 
 const isDefaultForItem = (role: string, href: string): boolean => {
@@ -123,6 +130,7 @@ const isDefaultForItem = (role: string, href: string): boolean => {
       "/office/academy-management/exams",
       "/office/academy-management/leaves",
       "/office/academy-management/library",
+      "/office/labs",
       "/office/leaver-management/tc",
       "/office/incident-management",
       "/office/school-health/dashboard",

@@ -632,6 +632,8 @@ export const incidents = pgTable("incidents", {
   classId: integer("class_id").references(() => classes.id, { onDelete: 'set null' }),
   studentId: integer("student_id").references(() => students.id, { onDelete: 'set null' }),
   teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: 'set null' }), // Tagged teacher
+  studentIds: text("student_ids"), // JSON stringified array of student IDs
+  teacherIds: text("teacher_ids"), // JSON stringified array of teacher IDs
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

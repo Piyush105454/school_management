@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Plus, Search, Filter, ShieldAlert, FileText, HeartHandshake, AlertCircle, Loader2, Calendar, UserCheck, GraduationCap } from "lucide-react";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { Modal } from "@/components/ui/Modal";
-import { createIncidentAction, getStudentsByClassAction, deleteIncidentAction } from "@/features/academy/actions/incidentActions";
+import { createIncidentAction, getStudentsByClassAction, deleteIncidentAction, updateIncidentStatusAction } from "@/features/academy/actions/incidentActions";
 import { useRouter } from "next/navigation";
 
 interface IncidentRecord {
@@ -18,10 +18,14 @@ interface IncidentRecord {
   classId?: number | null;
   studentId?: number | null;
   teacherId?: string | null;
+  studentIds?: string | null;
+  teacherIds?: string | null;
   createdAt: string;
   class?: { id: number; name: string } | null;
   student?: { id: number; name: string; studentId: string } | null;
   teacher?: { id: string; name: string } | null;
+  taggedTeachers?: { id: string; name: string }[];
+  taggedStudents?: { id: number; name: string; studentId: string }[];
 }
 
 interface ClassData {
@@ -38,10 +42,12 @@ export default function IncidentManagementClient({
   initialIncidents,
   classesList,
   teachersList,
+  userRole = "OFFICE",
 }: {
   initialIncidents: IncidentRecord[];
   classesList: ClassData[];
   teachersList: TeacherData[];
+  userRole?: string;
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"INCIDENT" | "COMPLAIN" | "FEEDBACK">("INCIDENT");
@@ -57,8 +63,16 @@ export default function IncidentManagementClient({
   const [formCategory, setFormCategory] = useState("General");
   const [formPriority, setFormPriority] = useState("Medium");
   const [formClassId, setFormClassId] = useState("");
-  const [formStudentId, setFormStudentId] = useState("");
-  const [formTeacherId, setFormTeacherId] = useState("");
+  const [tempTeacherId, setTempTeacherId] = useState("");
+  const [tempStudentId, setTempStudentId] = useState("");
+  const [selectedTeachers, setSelectedTeachers] = useState<TeacherData[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<{ id: number; name: string; studentId: string }[]>([]);
+
+  // Status Modal State
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [selectedIncidentForStatus, setSelectedIncidentForStatus] = useState<IncidentRecord | null>(null);
+  const [formStatus, setFormStatus] = useState("");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // Student dropdown selection helpers
   const [studentsByClass, setStudentsByClass] = useState<{ id: number; name: string; studentId: string }[]>([]);
@@ -87,8 +101,9 @@ export default function IncidentManagementClient({
         .finally(() => setLoadingStudents(false));
     } else {
       setStudentsByClass([]);
-      setFormStudentId("");
     }
+    setSelectedStudents([]);
+    setTempStudentId("");
   }, [formClassId]);
 
   const getPriorityColor = (priority: string) => {
@@ -102,13 +117,20 @@ export default function IncidentManagementClient({
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "Principal Approved":
       case "Resolved":
       case "Acknowledged":
-        return "bg-emerald-100 text-emerald-700 border border-emerald-200/50";
+        return "bg-emerald-100 text-emerald-700 border border-emerald-200/50 font-black";
+      case "Teacher Approved":
+        return "bg-indigo-100 text-indigo-700 border border-indigo-200/50 font-black";
+      case "Pending":
+      case "Open":
       case "In Progress":
       case "Reviewed":
-        return "bg-amber-100 text-amber-700 border border-amber-200/50";
-      default: return "bg-slate-100 text-slate-700 border border-slate-200/50";
+        return "bg-blue-100 text-blue-700 border border-blue-200/50 font-black";
+      case "Closed":
+        return "bg-slate-200 text-slate-700 border border-slate-300/50 font-black";
+      default: return "bg-slate-100 text-slate-700 border border-slate-200/50 font-black";
     }
   };
 
@@ -120,8 +142,10 @@ export default function IncidentManagementClient({
     setFormCategory("General");
     setFormPriority("Medium");
     setFormClassId("");
-    setFormStudentId("");
-    setFormTeacherId("");
+    setSelectedTeachers([]);
+    setSelectedStudents([]);
+    setTempTeacherId("");
+    setTempStudentId("");
   };
 
   // Submit report handler
@@ -133,6 +157,12 @@ export default function IncidentManagementClient({
     }
 
     setSubmittingForm(true);
+
+    const primaryTeacherId = selectedTeachers.length > 0 ? selectedTeachers[0].id : null;
+    const primaryStudentId = selectedStudents.length > 0 ? selectedStudents[0].id : null;
+    const teacherIds = selectedTeachers.length > 0 ? JSON.stringify(selectedTeachers.map(t => t.id)) : null;
+    const studentIds = selectedStudents.length > 0 ? JSON.stringify(selectedStudents.map(s => s.id)) : null;
+
     const res = await createIncidentAction({
       title: formTitle,
       type: activeTab,
@@ -141,24 +171,26 @@ export default function IncidentManagementClient({
       priority: formPriority,
       status: "Open",
       classId: formClassId ? parseInt(formClassId) : null,
-      studentId: formStudentId ? parseInt(formStudentId) : null,
-      teacherId: formTeacherId || null,
+      studentId: primaryStudentId,
+      teacherId: primaryTeacherId,
+      studentIds,
+      teacherIds,
     });
     setSubmittingForm(false);
 
     if (res.success && res.record) {
       // Find tagged entities from lists to display in UI immediately
       const selectedClass = classesList.find(c => c.id === (formClassId ? parseInt(formClassId) : null));
-      const selectedTeacher = teachersList.find(t => t.id === formTeacherId);
-      const selectedStudent = studentsByClass.find(s => s.id === (formStudentId ? parseInt(formStudentId) : null));
 
       // Construct a fully hydrated record for immediate, zero-latency rendering
       const newRecord: IncidentRecord = {
         ...res.record,
         createdAt: res.record.createdAt instanceof Date ? res.record.createdAt.toISOString() : String(res.record.createdAt),
         class: selectedClass || null,
-        student: selectedStudent ? { id: selectedStudent.id, name: selectedStudent.name, studentId: selectedStudent.studentId } : null,
-        teacher: selectedTeacher || null,
+        student: selectedStudents.length > 0 ? selectedStudents[0] : null,
+        teacher: selectedTeachers.length > 0 ? selectedTeachers[0] : null,
+        taggedTeachers: selectedTeachers,
+        taggedStudents: selectedStudents,
       } as any;
 
       // Optimistically prepend the new record to the list
@@ -170,6 +202,33 @@ export default function IncidentManagementClient({
     } else {
       alert("Error reporting record: " + res.error);
     }
+  };
+
+  const handleTeacherSelect = (teacherId: string) => {
+    if (!teacherId) return;
+    const teacher = teachersList.find((t) => t.id === teacherId);
+    if (teacher && !selectedTeachers.some((t) => t.id === teacherId)) {
+      setSelectedTeachers((prev) => [...prev, teacher]);
+    }
+    setTempTeacherId("");
+  };
+
+  const removeTeacher = (id: string) => {
+    setSelectedTeachers((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleStudentSelect = (studentIdStr: string) => {
+    if (!studentIdStr) return;
+    const id = parseInt(studentIdStr);
+    const student = studentsByClass.find((s) => s.id === id);
+    if (student && !selectedStudents.some((s) => s.id === id)) {
+      setSelectedStudents((prev) => [...prev, student]);
+    }
+    setTempStudentId("");
+  };
+
+  const removeStudent = (id: number) => {
+    setSelectedStudents((prev) => prev.filter((s) => s.id !== id));
   };
 
   const handleDeleteRecord = async (id: string, title: string) => {
@@ -187,6 +246,29 @@ export default function IncidentManagementClient({
     } else {
       alert(`Error deleting ${itemTypeLabel.toLowerCase()}: ` + res.error);
       router.refresh();
+    }
+  };
+
+  const handleStatusSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncidentForStatus || !formStatus) return;
+
+    setUpdatingStatus(true);
+    const res = await updateIncidentStatusAction(selectedIncidentForStatus.id, formStatus);
+    setUpdatingStatus(false);
+
+    if (res.success && res.record) {
+      // Update local state in-place for instant, latency-free updates
+      setIncidentsList(prev => prev.map(item => 
+        item.id === selectedIncidentForStatus.id ? { ...item, status: formStatus } : item
+      ));
+      alert("Status updated successfully!");
+      setIsStatusModalOpen(false);
+      setSelectedIncidentForStatus(null);
+      setFormStatus("");
+      router.refresh();
+    } else {
+      alert("Error updating status: " + res.error);
     }
   };
 
@@ -313,6 +395,10 @@ export default function IncidentManagementClient({
           >
             <option value="ALL">All Status</option>
             <option value="Open">Open</option>
+            <option value="Pending">Pending</option>
+            <option value="Teacher Approved">Teacher Approved</option>
+            <option value="Principal Approved">Principal Approved</option>
+            <option value="Closed">Closed</option>
             <option value="In Progress">In Progress</option>
             <option value="Resolved">Resolved</option>
             {activeTab === "FEEDBACK" && <option value="Reviewed">Reviewed</option>}
@@ -353,18 +439,35 @@ export default function IncidentManagementClient({
                         "{item.note}"
                       </p>
                       <div className="flex flex-wrap gap-2 pt-1">
-                        {item.student && (
+                        {/* Tagged Students */}
+                        {item.taggedStudents && item.taggedStudents.length > 0 ? (
+                          item.taggedStudents.map((stud) => (
+                            <span key={stud.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[9px] font-bold">
+                              <GraduationCap size={10} />
+                              {stud.name} {item.class ? `(${item.class.name})` : ""}
+                            </span>
+                          ))
+                        ) : item.student ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[9px] font-bold">
                             <GraduationCap size={10} />
                             {item.student.name} {item.class ? `(${item.class.name})` : ""}
                           </span>
-                        )}
-                        {item.teacher && (
+                        ) : null}
+
+                        {/* Tagged Teachers */}
+                        {item.taggedTeachers && item.taggedTeachers.length > 0 ? (
+                          item.taggedTeachers.map((tchr) => (
+                            <span key={tchr.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded text-[9px] font-bold">
+                              <UserCheck size={10} />
+                              Tagged Teacher: {tchr.name}
+                            </span>
+                          ))
+                        ) : item.teacher ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded text-[9px] font-bold">
                             <UserCheck size={10} />
                             Tagged Teacher: {item.teacher.name}
                           </span>
-                        )}
+                        ) : null}
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-slate-400 text-[9px] font-bold">
                           <Calendar size={10} />
                           {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -389,7 +492,17 @@ export default function IncidentManagementClient({
                     <ActionDropdown 
                       actions={[
                         { label: `View ${itemTypeLabel} Info`, onClick: () => alert(`Details:\n"${item.note}"`) },
-                        { label: "Update Status", onClick: () => console.log("Update", item.id) },
+                        { label: "Update Status", onClick: () => {
+                          setSelectedIncidentForStatus(item);
+                          if (userRole === "TEACHER") {
+                            setFormStatus("Teacher Approved");
+                          } else if (userRole === "PRINCIPAL") {
+                            setFormStatus(item.status === "Closed" ? "Closed" : "Principal Approved");
+                          } else {
+                            setFormStatus(item.status);
+                          }
+                          setIsStatusModalOpen(true);
+                        } },
                         { label: `Delete ${itemTypeLabel}`, onClick: () => handleDeleteRecord(item.id, item.title), variant: "danger" },
                       ]} 
                     />
@@ -487,15 +600,31 @@ export default function IncidentManagementClient({
               <div className="space-y-1 col-span-full">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tag Teacher</label>
                 <select
-                  value={formTeacherId}
-                  onChange={(e) => setFormTeacherId(e.target.value)}
+                  value={tempTeacherId}
+                  onChange={(e) => handleTeacherSelect(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
                 >
-                  <option value="">None - Unassigned / Not Tagged</option>
+                  <option value="">Select a teacher to tag...</option>
                   {teachersList.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
+                {selectedTeachers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 p-2 bg-white rounded-xl border border-slate-100">
+                    {selectedTeachers.map((t) => (
+                      <span key={t.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold transition-all">
+                        {t.name}
+                        <button
+                          type="button"
+                          onClick={() => removeTeacher(t.id)}
+                          className="h-4 w-4 rounded-full bg-indigo-200/50 hover:bg-indigo-200 flex items-center justify-center text-[10px] text-indigo-800 transition-all font-black cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -515,8 +644,8 @@ export default function IncidentManagementClient({
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tag Student</label>
                 <select
-                  value={formStudentId}
-                  onChange={(e) => setFormStudentId(e.target.value)}
+                  value={tempStudentId}
+                  onChange={(e) => handleStudentSelect(e.target.value)}
                   disabled={!formClassId || loadingStudents}
                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none disabled:opacity-50"
                 >
@@ -526,13 +655,29 @@ export default function IncidentManagementClient({
                     <option value="">* Select a class first</option>
                   ) : (
                     <>
-                      <option value="">None - General Class Incident</option>
+                      <option value="">Select a student to tag...</option>
                       {studentsByClass.map((s) => (
                         <option key={s.id} value={s.id}>{s.name} ({s.studentId})</option>
                       ))}
                     </>
                   )}
                 </select>
+                {selectedStudents.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 p-2 bg-white rounded-xl border border-slate-100 col-span-full">
+                    {selectedStudents.map((s) => (
+                      <span key={s.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 rounded-lg text-xs font-bold transition-all">
+                        {s.name}
+                        <button
+                          type="button"
+                          onClick={() => removeStudent(s.id)}
+                          className="h-4 w-4 rounded-full bg-blue-200/50 hover:bg-blue-200 flex items-center justify-center text-[10px] text-blue-800 transition-all font-black cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -543,6 +688,53 @@ export default function IncidentManagementClient({
             className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10"
           >
             {submittingForm ? <Loader2 className="animate-spin" size={16} /> : `Submit Log`}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Status Update Modal */}
+      <Modal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} title={`Update Status / Action`}>
+        <form onSubmit={handleStatusSubmit} className="p-1 space-y-6">
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-blue-600 rounded-full"></span> Status & Closure Actions
+            </h3>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Incident Status</label>
+              <select
+                value={formStatus}
+                onChange={(e) => setFormStatus(e.target.value)}
+                className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none text-slate-700 font-bold"
+              >
+                {userRole === "TEACHER" && (
+                  <option value="Teacher Approved">Teacher Approved</option>
+                )}
+                {userRole === "PRINCIPAL" && (
+                  <>
+                    <option value="Principal Approved">Principal Approved</option>
+                    <option value="Closed">Closed (Resolved / Finalized)</option>
+                  </>
+                )}
+                {userRole !== "TEACHER" && userRole !== "PRINCIPAL" && (
+                  <>
+                    <option value="Open">Open (Pending Evaluation)</option>
+                    <option value="Pending">Pending Action</option>
+                    <option value="Teacher Approved">Teacher Approved</option>
+                    <option value="Principal Approved">Principal Approved</option>
+                    <option value="Closed">Closed (Resolved / Finalized)</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={updatingStatus}
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10"
+          >
+            {updatingStatus ? <Loader2 className="animate-spin" size={16} /> : `Save Status`}
           </button>
         </form>
       </Modal>

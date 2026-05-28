@@ -21,7 +21,7 @@ export default async function LessonPlanReviewPage() {
   
   return (
     <LessonPlanReviewClient 
-      initialPlans={res.success ? res.data : []} 
+      initialPlans={(res.success && res.data) ? res.data : []} 
       reviewerId={session?.user?.id || "SYSTEM"}
     />
   );

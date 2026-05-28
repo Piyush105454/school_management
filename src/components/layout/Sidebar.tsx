@@ -27,11 +27,12 @@ import {
   BookOpen,
   Heart,
   AlertCircle,
+  Bus,
+  Lock,
+  FlaskConical,
   Users2,
   Activity,
-  Brain,
-  Bus,
-  Lock
+  Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -194,12 +195,20 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/student/homework", icon: ClipboardList, roleNames: { STUDENT_PARENT: "My Homework" } },
     { href: "/student/attendance", icon: CalendarCheck, roleNames: { STUDENT_PARENT: "My Attendance" } },
 
+    // Time Table Management Category
+    { type: "section", name: "Time Table Management" },
+    { href: "/office/timetable", icon: Clock, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
+
     // Leave Management Category
     { type: "section", name: "Leave Management" },
     { href: "/office/academy-management/leaves", icon: ClipboardList, roleNames: { OFFICE: "Student Leaves", PRINCIPAL: "Student Leaves" } },
-    { href: "/office/academy-management/library", icon: FolderOpen, roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
     { href: "/office/leaver-management/tc", icon: FileText, roleNames: { OFFICE: "TC Generation", PRINCIPAL: "TC Generation" } },
     { href: "/student/leave", icon: ClipboardCheck, roleNames: { STUDENT_PARENT: "Apply Leave" } },
+
+    // Lab, Library & Resource Management Category
+    { type: "section", name: "Lab, Library & Resource Management" },
+    { href: "/office/academy-management/library", icon: FolderOpen, roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
+    { href: "/office/labs", icon: FlaskConical, roleNames: { OFFICE: "Labs", PRINCIPAL: "Labs" } },
 
     // Incident Management Category
     { type: "section", name: "Incident Management" },
@@ -214,10 +223,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/school-health/daily-check", icon: Activity, roleNames: { OFFICE: "Daily Health Check", PRINCIPAL: "Daily Health Check" } },
     { href: "/office/school-health/wellness", icon: Brain, roleNames: { OFFICE: "Wellness & Nutrition", PRINCIPAL: "Wellness & Nutrition" } },
     { href: "/office/school-health/settings", icon: Settings, roleNames: { OFFICE: "Settings & Committee", PRINCIPAL: "Settings & Committee" } },
-
-    // Time Table Management Category
-    { type: "section", name: "Time Table Management" },
-    { href: "/office/timetable", icon: Clock, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
 
     // Transport Management Category
     { type: "section", name: "Transport Management" },
@@ -242,13 +247,16 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     if (r === "OFFICE" || r === "PRINCIPAL") {
       return [
         "Admissions", "Scholarship", "Academy Management", "Leave Management",
-        "Incident Management", "School Health Program", "Time Table Management",
+        "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
         "Transport Management", "People Management", "Access Module Management",
         "Committee Management"
       ].includes(name);
     }
     if (r === "TEACHER") {
-      return ["Class Management", "Incident Management", "Admission Management"].includes(name);
+      return ["Admissions", "Academy Management", "Incident Management"].includes(name);
+    }
+    if (r === "STUDENT_PARENT") {
+      return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management"].includes(name);
     }
     return false;
   };
@@ -275,6 +283,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/academy-management/exams",
         "/office/academy-management/leaves",
         "/office/academy-management/library",
+        "/office/labs",
         "/office/leaver-management/tc",
         "/office/incident-management",
         "/office/school-health/dashboard",

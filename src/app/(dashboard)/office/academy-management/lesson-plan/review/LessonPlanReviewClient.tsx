@@ -27,12 +27,31 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
   const [remark, setRemark] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
 
-  const filteredPlans = plans.filter(p => 
-    p.class?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.subject?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.teacher?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const pendingPlans = plans.filter(p => p.status === "SUBMITTED");
+  const approvedPlans = plans.filter(p => p.status === "APPROVED");
+  const rejectedPlans = plans.filter(p => p.status === "REJECTED");
+
+  const selectPlanForReview = (plan: any) => {
+    setSelectedPlan(plan);
+    setRemark(plan.reviewerRemark || "");
+    setActiveStep(1);
+  };
+
+  const filteredPlans = plans.filter(p => {
+    const matchesSearch = 
+      p.class?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.subject?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.teacher?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+    if (!matchesSearch) return false;
+    
+    if (activeTab === "PENDING") return p.status === "SUBMITTED";
+    if (activeTab === "APPROVED") return p.status === "APPROVED";
+    if (activeTab === "REJECTED") return p.status === "REJECTED";
+    return true; // "ALL"
+  });
 
   const handleAction = async (status: "APPROVED" | "REJECTED") => {
     if (!selectedPlan) return;
@@ -46,7 +65,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
       const res = await updateLessonPlanStatus(selectedPlan.id, status, remark, reviewerId);
       if (res.success) {
         alert(`Lesson Plan ${status.toLowerCase()} successfully!`);
-        setPlans(prev => prev.filter(p => p.id !== selectedPlan.id));
+        // Update the plan status and remark in local state in-place so it transitions tabs without disappearing
+        setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, status, reviewerRemark: remark } : p));
         setSelectedPlan(null);
         setRemark("");
         setActiveStep(1);
@@ -88,6 +108,77 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
             </div>
           </div>
 
+          {/* Status Tabs */}
+          <div className="flex flex-wrap border-b border-slate-200 gap-6 text-sm font-bold mt-2">
+            <button
+              onClick={() => setActiveTab('PENDING')}
+              className={`pb-4 relative transition-colors ${
+                activeTab === 'PENDING' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Pending Review
+              <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                activeTab === 'PENDING' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {pendingPlans.length}
+              </span>
+              {activeTab === 'PENDING' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+              )}
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('APPROVED')}
+              className={`pb-4 relative transition-colors ${
+                activeTab === 'APPROVED' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Approved
+              <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                activeTab === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {approvedPlans.length}
+              </span>
+              {activeTab === 'APPROVED' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
+              )}
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('REJECTED')}
+              className={`pb-4 relative transition-colors ${
+                activeTab === 'REJECTED' ? 'text-rose-600' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Rejected
+              <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                activeTab === 'REJECTED' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {rejectedPlans.length}
+              </span>
+              {activeTab === 'REJECTED' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-600 rounded-full" />
+              )}
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('ALL')}
+              className={`pb-4 relative transition-colors ${
+                activeTab === 'ALL' ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              All Plans
+              <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                activeTab === 'ALL' ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {plans.length}
+              </span>
+              {activeTab === 'ALL' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800 rounded-full" />
+              )}
+            </button>
+          </div>
+
           <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -96,16 +187,27 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredPlans.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-20 text-center">
+                    <td colSpan={6} className="p-20 text-center">
                       <div className="space-y-3">
-                        <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">No pending reviews found</p>
-                        <p className="text-slate-400 text-xs italic">All submitted plans have been processed.</p>
+                        <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">
+                          {activeTab === 'PENDING' && "No pending reviews found"}
+                          {activeTab === 'APPROVED' && "No approved plans found"}
+                          {activeTab === 'REJECTED' && "No rejected plans found"}
+                          {activeTab === 'ALL' && "No lesson plans found"}
+                        </p>
+                        <p className="text-slate-400 text-xs italic">
+                          {activeTab === 'PENDING' && "All submitted plans have been processed."}
+                          {activeTab === 'APPROVED' && "Approved lesson plans will appear here."}
+                          {activeTab === 'REJECTED' && "Rejected lesson plans will appear here."}
+                          {activeTab === 'ALL' && "Lesson plans submitted by teachers will appear here."}
+                        </p>
                       </div>
                     </td>
                   </tr>
@@ -129,12 +231,29 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                       <td className="px-8 py-6 text-sm font-bold text-slate-600">
                         {plan.date}
                       </td>
+                      <td className="px-8 py-6">
+                        {plan.status === "SUBMITTED" && (
+                          <span className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Pending
+                          </span>
+                        )}
+                        {plan.status === "APPROVED" && (
+                          <span className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Approved
+                          </span>
+                        )}
+                        {plan.status === "REJECTED" && (
+                          <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Rejected
+                          </span>
+                        )}
+                      </td>
                       <td className="px-8 py-6 text-right">
                         <button 
-                          onClick={() => setSelectedPlan(plan)}
+                          onClick={() => selectPlanForReview(plan)}
                           className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10"
                         >
-                          Review Plan
+                          {plan.status === "SUBMITTED" ? "Review Plan" : "View Details"}
                         </button>
                       </td>
                     </tr>
@@ -167,6 +286,21 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
               <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
                 <BookOpen className="h-6 w-6 text-blue-600" />
                 Reviewing Lesson Plan
+                {selectedPlan.status === "APPROVED" && (
+                  <span className="ml-3 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    Approved
+                  </span>
+                )}
+                {selectedPlan.status === "REJECTED" && (
+                  <span className="ml-3 px-3 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    Rejected
+                  </span>
+                )}
+                {selectedPlan.status === "SUBMITTED" && (
+                  <span className="ml-3 px-3 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    Pending Review
+                  </span>
+                )}
               </h1>
               <p className="text-sm text-slate-500 font-medium">Validating content for {selectedPlan.subject?.name} ({selectedPlan.class?.name})</p>
             </div>
@@ -689,7 +823,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                       <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer Remark and Signoff</h4>
                     </div>
                     <div className="w-full min-h-[128px] p-6 bg-white border border-slate-200 rounded-2xl font-bold text-sm whitespace-pre-wrap text-slate-800 select-text shadow-sm">
-                      {step2.reviewerRemark || "No reviewer remarks recorded yet."}
+                      {selectedPlan.reviewerRemark || "No reviewer remarks recorded yet."}
                     </div>
                     <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
                       <div className="space-y-1">
