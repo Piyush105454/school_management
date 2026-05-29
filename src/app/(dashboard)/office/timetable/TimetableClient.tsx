@@ -72,9 +72,7 @@ export default function TimetableClient() {
   } | null>(null);
 
   const [editSubjectId, setEditSubjectId] = useState<string>("");
-  const [editCustomSubject, setEditCustomSubject] = useState<string>("");
   const [editTeacherId, setEditTeacherId] = useState<string>("");
-  const [editCustomTeacher, setEditCustomTeacher] = useState<string>("");
 
   useEffect(() => {
     fetchTimetableData();
@@ -140,9 +138,7 @@ export default function TimetableClient() {
 
     setEditorCell({ className, periodName, startTime, endTime });
     setEditSubjectId(cellValue.subjectId ? String(cellValue.subjectId) : "");
-    setEditCustomSubject(cellValue.customSubject || "");
     setEditTeacherId(cellValue.teacherId ? String(cellValue.teacherId) : "");
-    setEditCustomTeacher(cellValue.customTeacher || "");
   };
 
   const handleSaveCell = () => {
@@ -157,15 +153,15 @@ export default function TimetableClient() {
     const newGrid = { ...gridData };
     
     // If clearing fields
-    if (!editSubjectId && !editCustomSubject && !editTeacherId && !editCustomTeacher) {
+    if (!editSubjectId && !editTeacherId) {
       delete newGrid[cellKey];
     } else {
       newGrid[cellKey] = {
         classId,
-        subjectId: editSubjectId && editSubjectId !== "CUSTOM" ? parseInt(editSubjectId) : null,
-        customSubject: editSubjectId === "CUSTOM" ? (editCustomSubject || null) : (editCustomSubject || null),
-        teacherId: editTeacherId && editTeacherId !== "CUSTOM" ? editTeacherId : null,
-        customTeacher: editTeacherId === "CUSTOM" ? (editCustomTeacher || null) : (editCustomTeacher || null),
+        subjectId: editSubjectId ? parseInt(editSubjectId) : null,
+        customSubject: null,
+        teacherId: editTeacherId || null,
+        customTeacher: null,
       };
     }
 
@@ -500,44 +496,21 @@ export default function TimetableClient() {
                 </label>
                 <select
                   value={editSubjectId}
-                  onChange={(e) => {
-                    setEditSubjectId(e.target.value);
-                    if (e.target.value !== "CUSTOM") setEditCustomSubject("");
-                  }}
+                  onChange={(e) => setEditSubjectId(e.target.value)}
                   className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500 transition-colors"
                 >
                   <option value="">-- Choose Subject --</option>
-                  <option value="CUSTOM">✏️ Custom Subject (Write below)</option>
-                  
-                  {subjectsList
-                    // Filter subjects by selected class name if name matches class number
-                    .filter(sub => {
-                      const classNum = editorCell.className.match(/\d+/);
-                      const subClassNum = sub.medium?.match(/\d+/);
-                      return !classNum || !subClassNum || classNum[0] === subClassNum[0];
-                    })
-                    .map(sub => (
-                      <option key={sub.id} value={sub.id}>{sub.name}</option>
-                    ))
-                  }
+                  {(() => {
+                    const matchedClass = classesList.find(c => c.name.toLowerCase() === editorCell.className.toLowerCase());
+                    const currentClassId = matchedClass ? matchedClass.id : null;
+                    return subjectsList
+                      .filter(sub => sub.classId === currentClassId)
+                      .map(sub => (
+                        <option key={sub.id} value={sub.id}>{sub.name}</option>
+                      ));
+                  })()}
                 </select>
               </div>
-
-              {/* Custom Subject Input */}
-              {(editSubjectId === "CUSTOM" || !editSubjectId) && (
-                <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                  <label className="block text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Custom Subject Text
-                  </label>
-                  <input
-                    type="text"
-                    value={editCustomSubject}
-                    onChange={(e) => setEditCustomSubject(e.target.value)}
-                    placeholder="e.g. Spoken English, Read Write, Mother Teacher"
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500 transition-colors"
-                  />
-                </div>
-              )}
 
               {/* Teacher Select */}
               <div className="space-y-1.5">
@@ -547,36 +520,15 @@ export default function TimetableClient() {
                 </label>
                 <select
                   value={editTeacherId}
-                  onChange={(e) => {
-                    setEditTeacherId(e.target.value);
-                    if (e.target.value !== "CUSTOM") setEditCustomTeacher("");
-                  }}
+                  onChange={(e) => setEditTeacherId(e.target.value)}
                   className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500 transition-colors"
                 >
                   <option value="">-- Choose Teacher --</option>
-                  <option value="CUSTOM">✏️ Custom Teacher Name (Write below)</option>
                   {teachersList.map(teacher => (
                     <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
                   ))}
                 </select>
               </div>
-
-              {/* Custom Teacher Input */}
-              {(editTeacherId === "CUSTOM" || !editTeacherId) && (
-                <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-                  <label className="block text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <User size={10} />
-                    Custom Teacher Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editCustomTeacher}
-                    onChange={(e) => setEditCustomTeacher(e.target.value)}
-                    placeholder="e.g. Aiman Khan, Yasmeen Mam, Riya Soni"
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500 transition-colors"
-                  />
-                </div>
-              )}
 
             </div>
 
