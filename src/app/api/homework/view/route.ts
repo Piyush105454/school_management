@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     const data = await streamToBuffer(Body);
 
-    return new NextResponse(data, {
+    return new NextResponse(data as any, {
       headers: {
         "Content-Type": ContentType || "image/jpeg",
         "Cache-Control": "public, max-age=3600",

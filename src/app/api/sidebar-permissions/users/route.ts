@@ -33,6 +33,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(principalList);
     }
 
+    if (role === "OFFICE") {
+      const officeList = await db
+        .select({
+          userId: users.id,
+          name: users.email,
+        })
+        .from(users)
+        .where(eq(users.role, "OFFICE"));
+      return NextResponse.json(officeList);
+    }
+
+    if (role === "ADMIN") {
+      const adminList = await db
+        .select({
+          userId: users.id,
+          name: users.email,
+        })
+        .from(users)
+        .where(eq(users.role, "ADMIN"));
+      return NextResponse.json(adminList);
+    }
+
     if (role === "STUDENT_PARENT") {
       const classIdStr = searchParams.get("classId");
       if (!classIdStr) {

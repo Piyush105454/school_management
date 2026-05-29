@@ -1,13 +1,13 @@
 "use client";
 
-export type UserRole = "OFFICE" | "STUDENT_PARENT" | "TEACHER" | "PRINCIPAL";
+export type UserRole = "OFFICE" | "STUDENT_PARENT" | "TEACHER" | "PRINCIPAL" | "ADMIN";
 
 /**
  * Check if user has a specific role (for client-side checks)
  * This is a pure utility function - no server dependencies
  */
 export function hasRole(userRole: string | undefined, allowedRoles: UserRole[]): boolean {
-  return allowedRoles.includes(userRole as UserRole) || (userRole === "PRINCIPAL" && allowedRoles.includes("OFFICE"));
+  return allowedRoles.includes(userRole as UserRole) || (userRole === "PRINCIPAL" && allowedRoles.includes("OFFICE")) || (userRole === "ADMIN" && allowedRoles.includes("OFFICE"));
 }
 
 /**
@@ -20,6 +20,7 @@ export function getDashboardUrl(role: UserRole): string {
     STUDENT_PARENT: "/student/dashboard",
     TEACHER: "/teacher/dashboard",
     PRINCIPAL: "/office/dashboard",
+    ADMIN: "/office/dashboard",
   };
   return dashboardMap[role] || "/";
 }

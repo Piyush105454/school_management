@@ -286,7 +286,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
           if (enrolled.length > 0 && detection.descriptor) {
             const liveDescriptor = detection.descriptor;
             
-            enrolled.forEach(student => {
+            for (const student of enrolled) {
               const savedDescriptor = student.faceEmbedding!;
               // Mathematical sum of squared difference
               let sum = 0;
@@ -299,7 +299,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
                 minDistance = distance;
                 bestMatch = student;
               }
-            });
+            }
           }
 
           // Matching Threshold
@@ -372,7 +372,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
         setScannedStudent({
           name: res.studentName || student.name,
           className: student.className,
-          rollNumber: res.rollNumber,
+          rollNumber: res.rollNumber ?? null,
           studentId: res.studentIdString || student.studentId,
           alreadyMarked: !!res.alreadyMarked
         });
@@ -446,7 +446,7 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
         return;
       }
 
-      const descriptor = Array.from(detection.descriptor);
+      const descriptor = Array.from(detection.descriptor) as number[];
       const res = await saveFaceEmbeddingAction(selectedStudentId, descriptor);
       
       if (res.success) {

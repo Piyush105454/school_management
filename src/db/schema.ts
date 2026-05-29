@@ -1,7 +1,7 @@
 import { pgTable, text, serial, timestamp, boolean, integer, doublePrecision, pgEnum, uuid, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const roleEnum = pgEnum("role", ["OFFICE", "STUDENT_PARENT", "TEACHER", "PRINCIPAL"]);
+export const roleEnum = pgEnum("role", ["OFFICE", "STUDENT_PARENT", "TEACHER", "PRINCIPAL", "ADMIN"]);
 export const inquiryStatusEnum = pgEnum("inquiry_status", ["PENDING", "SHORTLISTED", "REJECTED"]);
 export const admissionTypeEnum = pgEnum("admission_type", ["NEW", "RE_ADMISSION"]);
 export const genderEnum = pgEnum("gender", ["M", "F", "O"]);

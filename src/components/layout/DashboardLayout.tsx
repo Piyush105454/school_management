@@ -11,6 +11,7 @@ import { getDashboardUrl } from "@/lib/roleUtils";
 const ROLE_ROUTES: Record<string, string[]> = {
   OFFICE: ["/office", "/dashboard"],
   PRINCIPAL: ["/office", "/dashboard"],
+  ADMIN: ["/office", "/dashboard"],
   STUDENT_PARENT: ["/student", "/dashboard"],
   TEACHER: [
     "/teacher", 

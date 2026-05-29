@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       .values({
         email,
         password: hashedPassword,
-        role: "OFFICE",
+        role: "ADMIN",
       })
       .returning();
 

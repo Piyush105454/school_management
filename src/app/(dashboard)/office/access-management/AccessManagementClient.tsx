@@ -91,7 +91,7 @@ const MASTER_STRUCTURE = [
 ];
 
 const isDefaultSectionForRole = (role: string, name: string): boolean => {
-  if (role === "OFFICE" || role === "PRINCIPAL") {
+  if (role === "OFFICE" || role === "PRINCIPAL" || role === "ADMIN") {
     return [
       "Admissions", "Scholarship", "Academy Management", "Leave Management",
       "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
@@ -109,7 +109,7 @@ const isDefaultSectionForRole = (role: string, name: string): boolean => {
 };
 
 const isDefaultForItem = (role: string, href: string): boolean => {
-  if (role === "OFFICE" || role === "PRINCIPAL") {
+  if (role === "OFFICE" || role === "PRINCIPAL" || role === "ADMIN") {
     return [
       "/office/dashboard",
       "/office/inquiries",
@@ -404,6 +404,8 @@ export default function AccessManagementClient() {
           {[
             { id: "TEACHER", label: "Teachers" },
             { id: "PRINCIPAL", label: "Principals" },
+            { id: "OFFICE", label: "Office Staff" },
+            { id: "ADMIN", label: "Administrators" },
             { id: "STUDENT_PARENT", label: "Students" },
           ].map((roleObj) => (
             <button
@@ -420,7 +422,7 @@ export default function AccessManagementClient() {
           ))}
         </div>
       </div>
-
+ 
       {/* Step 2: User Dropdowns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 border-b border-slate-50 pb-6">
         {activeRole === "STUDENT_PARENT" && (
@@ -442,7 +444,7 @@ export default function AccessManagementClient() {
             </select>
           </div>
         )}
-
+ 
         <div>
           <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
             {activeRole === "STUDENT_PARENT" ? "Step 2B: Select Student" : "Step 2: Select Specific User"}
@@ -456,7 +458,17 @@ export default function AccessManagementClient() {
             <option value="">
               {activeRole === "STUDENT_PARENT" && !selectedClassId
                 ? "-- Select Class First --"
-                : `-- Select ${activeRole === "TEACHER" ? "Teacher" : activeRole === "PRINCIPAL" ? "Principal" : "Student"} --`}
+                : `-- Select ${
+                    activeRole === "TEACHER" 
+                      ? "Teacher" 
+                      : activeRole === "PRINCIPAL" 
+                      ? "Principal" 
+                      : activeRole === "OFFICE" 
+                      ? "Office Staff" 
+                      : activeRole === "ADMIN" 
+                      ? "Administrator" 
+                      : "Student"
+                  } --`}
             </option>
             {usersList.map((user) => (
               <option key={user.userId} value={user.userId}>

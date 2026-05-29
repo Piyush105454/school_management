@@ -57,7 +57,7 @@ export default async function HomeworkManagementPage() {
     
     return {
         ...p,
-        date: p.date instanceof Date ? p.date.toISOString() : p.date,
+        date: (p.date as any) instanceof Date ? (p.date as any).toISOString() : String(p.date),
         homeworkPreview: hw
     };
   });

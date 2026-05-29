@@ -150,7 +150,7 @@ export default function AdminManagementPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Admin Management</h1>
-        <p className="text-slate-600">Manage office staff accounts and reset passwords</p>
+        <p className="text-slate-600">Manage administrator accounts and reset passwords</p>
       </div>
 
       <div className="mb-6 flex justify-end">

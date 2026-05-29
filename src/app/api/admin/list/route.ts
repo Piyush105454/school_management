@@ -14,7 +14,7 @@ export async function GET() {
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(eq(users.role, "OFFICE"));
+      .where(eq(users.role, "ADMIN"));
 
     return NextResponse.json(admins);
   } catch (error) {

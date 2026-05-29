@@ -123,7 +123,7 @@ const studentItems = [
 ];
 
 interface SidebarProps {
-  role: "OFFICE" | "STUDENT_PARENT" | "TEACHER" | "PRINCIPAL";
+  role: "OFFICE" | "STUDENT_PARENT" | "TEACHER" | "PRINCIPAL" | "ADMIN";
   onClose?: () => void;
 }
 
@@ -244,7 +244,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   ];
 
   const isDefaultSectionForRole = (r: string, name: string): boolean => {
-    if (r === "OFFICE" || r === "PRINCIPAL") {
+    if (r === "OFFICE" || r === "PRINCIPAL" || r === "ADMIN") {
       return [
         "Admissions", "Scholarship", "Academy Management", "Leave Management",
         "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
@@ -262,7 +262,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   };
 
   const isDefaultForItem = (r: string, href: string): boolean => {
-    if (r === "OFFICE" || r === "PRINCIPAL") {
+    if (r === "OFFICE" || r === "PRINCIPAL" || r === "ADMIN") {
       return [
         "/office/dashboard",
         "/office/inquiries",
@@ -357,8 +357,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         if (isCurrentSectionVisible && isBtnVisible) {
           // Resolve name
           let nameToUse = "";
-          if (item.roleNames && item.roleNames[role]) {
-            nameToUse = item.roleNames[role];
+          const activeRole = role === "ADMIN" ? "OFFICE" : role;
+          if (item.roleNames && (item.roleNames as any)[activeRole]) {
+            nameToUse = (item.roleNames as any)[activeRole];
           } else {
             const keys = Object.keys(item.roleNames || {});
             nameToUse = keys.length > 0 ? (item.roleNames as any)[keys[0]] : "Module";
