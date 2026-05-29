@@ -709,3 +709,34 @@ export const sidebarPermissions = pgTable("sidebar_permissions", {
     userIdIdx: uniqueIndex("sidebar_user_id_idx").on(table.userId),
   };
 });
+
+export const timetable = pgTable("timetable", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  dayOfWeek: text("day_of_week").notNull(), // e.g. "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+  classId: integer("class_id").references(() => classes.id, { onDelete: 'cascade' }),
+  className: text("class_name").notNull(), // e.g. "Nursery", "KG I", "KG II", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5"
+  periodName: text("period_name").notNull(), // e.g. "Period 1st", "Period 2nd", "Period 3rd", "Period 4th", "LUNCH", "Period 5th", "Period 6th", "Period 7th", "Period 8th", "PRAYER", "School Is Out"
+  startTime: text("start_time").notNull(), // e.g. "09:00", "09:40", "10:20", "11:00", "11:40", "12:00", "12:40", "13:20", "14:00", "14:30", "14:35"
+  endTime: text("end_time").notNull(), // e.g. "09:40", "10:20", "11:00", "11:40", "12:00", "12:40", "13:20", "14:00", "14:30", "14:35", "14:45"
+  subjectId: integer("subject_id").references(() => subjects.id, { onDelete: 'set null' }),
+  customSubject: text("custom_subject"), // e.g. "Mother Teacher", "Maths", "LUNCH"
+  teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: 'set null' }),
+  customTeacher: text("custom_teacher"), // e.g. "Aiman Khan", "Yasmeen Mam", "Riya Soni"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const timetableRelations = relations(timetable, ({ one }) => ({
+  class: one(classes, {
+    fields: [timetable.classId],
+    references: [classes.id],
+  }),
+  subject: one(subjects, {
+    fields: [timetable.subjectId],
+    references: [subjects.id],
+  }),
+  teacher: one(teachers, {
+    fields: [timetable.teacherId],
+    references: [teachers.id],
+  }),
+}));

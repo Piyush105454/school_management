@@ -12,6 +12,9 @@ import {
     ClipboardCheck
 } from "lucide-react";
 import { protectRoute } from "@/lib/roleGuard";
+import { db } from "@/db";
+import { teachers, timetable } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function TeacherDashboardPage() {
     // Protect this route - only TEACHER role can access
@@ -19,6 +22,28 @@ export default async function TeacherDashboardPage() {
 
     const session = await getServerSession(authOptions);
     if (!session) redirect("/");
+
+    // Fetch the teacher profile
+    const teacherProfile = await db.query.teachers.findFirst({
+        where: eq(teachers.userId, session.user.id)
+    });
+
+    let teacherSchedule: any[] = [];
+    if (teacherProfile) {
+        teacherSchedule = await db
+            .select()
+            .from(timetable)
+            .where(eq(timetable.teacherId, teacherProfile.id));
+    }
+
+    // Determine current day of week (and show Monday's schedule if it's Sunday)
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const currentDay = days[new Date().getDay()];
+    const queryDay = currentDay === "Sunday" ? "Monday" : currentDay;
+
+    const todaySchedule = teacherSchedule
+        .filter(slot => slot.dayOfWeek === queryDay)
+        .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     const stats = [
         { name: "My Classes", value: "3", icon: School, color: "text-blue-600", bg: "bg-blue-50" },
@@ -53,28 +78,30 @@ export default async function TeacherDashboardPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                             <Clock className="text-blue-600" size={20} />
-                            Today's Schedule
+                            Today's Schedule ({queryDay})
                         </h2>
-                        <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View Full Timetable</button>
                     </div>
 
                     <div className="space-y-4">
-                        {[
-                            { time: "09:00 AM", subject: "Mathematics", class: "Class 8th A", room: "Room 102" },
-                            { time: "11:30 AM", subject: "Physics", class: "Class 10th B", room: "Science Lab" },
-                            { time: "02:00 PM", subject: "Mathematics", class: "Class 9th C", room: "Room 204" },
-                        ].map((slot, i) => (
-                            <div key={i} className="flex items-center gap-6 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
-                                <div className="text-center min-w-[70px]">
-                                    <p className="text-sm font-black text-slate-900">{slot.time.split(' ')[0]}</p>
-                                    <p className="text-[10px] font-bold text-slate-400">{slot.time.split(' ')[1]}</p>
+                        {todaySchedule.length > 0 ? (
+                            todaySchedule.map((slot, i) => (
+                                <div key={i} className="flex items-center gap-6 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
+                                    <div className="text-center min-w-[70px] border-r border-slate-200/50 pr-4">
+                                        <p className="text-sm font-black text-slate-900">{slot.startTime}</p>
+                                        <p className="text-[10px] font-bold text-slate-400">{slot.endTime}</p>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-black text-slate-900">{slot.customSubject || "Lecture"}</p>
+                                        <p className="text-xs font-bold text-slate-500">{slot.className} • {slot.periodName}</p>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-black text-slate-900">{slot.subject}</p>
-                                    <p className="text-xs font-bold text-slate-500">{slot.class} • {slot.room}</p>
-                                </div>
+                            ))
+                        ) : (
+                            <div className="py-12 text-center space-y-2 border border-dashed border-slate-200 rounded-3xl">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No lectures scheduled today</p>
+                                <p className="text-xs text-slate-400 font-medium">Enjoy your break or consult the office for schedule updates.</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
 
