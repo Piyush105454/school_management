@@ -78,7 +78,7 @@ const officeItems = [
   { name: "Manage Timetable", href: "/office/timetable", icon: Clock },
 
   { type: "section", name: "Transport Management" },
-  { name: "Student Transport", href: "/office/transport/students", icon: Bus },
+  { name: "Student Transport", href: "/office/transport", icon: Bus },
 
   { type: "section", name: "People Management" },
   { name: "Admin Management", href: "/office/admin-management", icon: UserCog },
@@ -226,7 +226,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // Transport Management Category
     { type: "section", name: "Transport Management" },
-    { href: "/office/transport/students", icon: Bus, roleNames: { OFFICE: "Student Transport", PRINCIPAL: "Student Transport" } },
+    { href: "/office/transport", icon: Bus, roleNames: { OFFICE: "Student Transport", PRINCIPAL: "Student Transport" } },
+    { href: "/student/transport", icon: Bus, roleNames: { STUDENT_PARENT: "My Transit Bus" } },
 
     // People Management Category
     { type: "section", name: "People Management" },
@@ -256,7 +257,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       return ["Admissions", "Academy Management", "Incident Management"].includes(name);
     }
     if (r === "STUDENT_PARENT") {
-      return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management"].includes(name);
+      return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management", "Transport Management"].includes(name);
     }
     return false;
   };
@@ -292,7 +293,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/school-health/wellness",
         "/office/school-health/settings",
         "/office/timetable",
-        "/office/transport/students",
+        "/office/transport",
         "/office/admin-management",
         "/office/school-management/teachers",
         "/office/school-management/principal",
@@ -327,7 +328,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/student/incident-management",
         "/student/homework",
         "/student/attendance",
-        "/student/leave"
+        "/student/leave",
+        "/student/transport"
       ].includes(href);
     }
     return false;

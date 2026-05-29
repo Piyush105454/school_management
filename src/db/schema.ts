@@ -740,3 +740,41 @@ export const timetableRelations = relations(timetable, ({ one }) => ({
     references: [teachers.id],
   }),
 }));
+
+export const transportBuses = pgTable("transport_buses", {
+  id: serial("id").primaryKey(),
+  busName: text("bus_name").notNull(),
+  timingMorning: text("timing_morning").notNull(),
+  timingEvening: text("timing_evening").notNull(),
+  capacity: integer("capacity").notNull().default(40),
+  routes: text("routes").notNull(), // JSON string storing array of stops: [{"name":"stop","time":"time","lat":lat,"lng":lng}]
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const transportStudents = pgTable("transport_students", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => students.id, { onDelete: 'cascade' }),
+  busId: integer("bus_id").notNull().references(() => transportBuses.id, { onDelete: 'cascade' }),
+  routeStop: text("route_stop").notNull(),
+  locationName: text("location_name"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const transportBusesRelations = relations(transportBuses, ({ many }) => ({
+  students: many(transportStudents),
+}));
+
+export const transportStudentsRelations = relations(transportStudents, ({ one }) => ({
+  student: one(students, {
+    fields: [transportStudents.studentId],
+    references: [students.id],
+  }),
+  bus: one(transportBuses, {
+    fields: [transportStudents.busId],
+    references: [transportBuses.id],
+  }),
+}));

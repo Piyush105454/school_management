@@ -13,7 +13,8 @@ import {
   Banknote,
   ClipboardList,
   ArrowRight,
-  Award
+  Award,
+  Bus
 } from "lucide-react";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
@@ -544,15 +545,15 @@ export default async function StudentDashboard() {
             <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-6">Utilities</h2>
             <div className="grid grid-cols-2 gap-3 md:gap-4">
               {[
-                { name: "PROFILER", icon: MapPin },
-                { name: "FEES", icon: CreditCard },
-                { name: "SUPPORT", icon: AlertCircle },
-                { name: "NOTICES", icon: FileText },
+                { name: "TRANSPORT", icon: Bus, href: "/student/transport" },
+                { name: "FEES", icon: CreditCard, href: "#" },
+                { name: "SUPPORT", icon: AlertCircle, href: "#" },
+                { name: "NOTICES", icon: FileText, href: "#" },
               ].map((item) => (
-                <button key={item.name} className="flex flex-col items-center justify-center p-4 md:p-5 rounded-xl border border-slate-50 hover:bg-slate-50 hover:border-slate-200 transition-colors gap-2 md:gap-3">
+                <Link key={item.name} href={item.href} className="flex flex-col items-center justify-center p-4 md:p-5 rounded-xl border border-slate-50 hover:bg-slate-50 hover:border-slate-200 transition-colors gap-2 md:gap-3">
                   <item.icon className="text-slate-400" size={20} />
                   <span className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{item.name}</span>
-                </button>
+                </Link>
               ))}
             </div>
           </div>
