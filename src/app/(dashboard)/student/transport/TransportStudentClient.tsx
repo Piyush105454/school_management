@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   Bus,
   MapPin,
@@ -16,6 +16,19 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+const LeafletRouteMap = dynamic(() => import("@/components/LeafletRouteMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[260px] bg-slate-900 rounded-2xl text-slate-400">
+      <div className="text-center space-y-2">
+        <RefreshCw className="animate-spin mx-auto" size={20} />
+        <p className="text-xs font-bold uppercase tracking-widest">Loading Map...</p>
+      </div>
+    </div>
+  ),
+});
 
 interface TransportStudentClientProps {
   student: any;
@@ -33,186 +46,10 @@ export default function TransportStudentClient({ student, assignment, bus }: Tra
   const [detecting, setDetecting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Home pinning vector grid states
+  // Home pinning states
   const [pinnedLat, setPinnedLat] = useState<number | null>(assignment?.latitude || null);
   const [pinnedLng, setPinnedLng] = useState<number | null>(assignment?.longitude || null);
   const [pinnedAddress, setPinnedAddress] = useState<string>(assignment?.locationName || "");
-
-  // Real-time animation states for live tracking simulation
-  const [busPosition, setBusPosition] = useState<{ x: number; y: number } | null>(null);
-  const [trackingActive, setTrackingActive] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (bus && localAssignment) {
-      setTrackingActive(true);
-    }
-  }, [bus, localAssignment]);
-
-  // Handle live tracking simulation loop on canvas
-  useEffect(() => {
-    if (!trackingActive || !canvasRef.current || !bus) return;
-    
-    let stops: any[] = [];
-    try {
-      stops = typeof bus.routes === "string" ? JSON.parse(bus.routes) : bus.routes || [];
-    } catch (e) {
-      stops = [];
-    }
-
-    if (stops.length < 2) return;
-
-    let stopIndex = 0;
-    let progress = 0;
-    let animationFrameId: number;
-
-    const toCanvasCoords = (lat: number, lng: number) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return { x: 0, y: 0 };
-      const cx = canvas.width / 2 + (lng - CENTER_LNG) * MAP_SCALE;
-      const cy = canvas.height / 2 - (lat - CENTER_LAT) * MAP_SCALE;
-      return { x: cx, y: cy };
-    };
-
-    const animateBus = () => {
-      const currentStop = stops[stopIndex];
-      const nextStop = stops[(stopIndex + 1) % stops.length];
-
-      const currentCoords = toCanvasCoords(currentStop.lat || CENTER_LAT, currentStop.lng || CENTER_LNG);
-      const nextCoords = toCanvasCoords(nextStop.lat || CENTER_LAT, nextStop.lng || CENTER_LNG);
-
-      // Interpolate bus position
-      const bx = currentCoords.x + (nextCoords.x - currentCoords.x) * progress;
-      const by = currentCoords.y + (nextCoords.y - currentCoords.y) * progress;
-
-      setBusPosition({ x: bx, y: by });
-
-      progress += 0.005; // move slowly
-      if (progress >= 1.0) {
-        progress = 0;
-        stopIndex = (stopIndex + 1) % stops.length;
-      }
-
-      // Draw map overlay
-      drawStaticMapElements(stops);
-
-      animationFrameId = requestAnimationFrame(animateBus);
-    };
-
-    animateBus();
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [trackingActive, pinnedLat, pinnedLng]);
-
-  const drawStaticMapElements = (stops: any[]) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#0f172a"; // background
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw tech grids
-    ctx.strokeStyle = "rgba(51, 65, 85, 0.15)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < canvas.width; x += 30) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < canvas.height; y += 30) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
-
-    const toCanvasCoords = (lat: number, lng: number) => {
-      const cx = canvas.width / 2 + (lng - CENTER_LNG) * MAP_SCALE;
-      const cy = canvas.height / 2 - (lat - CENTER_LAT) * MAP_SCALE;
-      return { x: cx, y: cy };
-    };
-
-    // Plot route path line
-    ctx.beginPath();
-    ctx.strokeStyle = "#db2777";
-    ctx.lineWidth = 4;
-    ctx.shadowColor = "#db2777";
-    ctx.shadowBlur = 10;
-    stops.forEach((stop, index) => {
-      const coords = toCanvasCoords(stop.lat || CENTER_LAT, stop.lng || CENTER_LNG);
-      if (index === 0) ctx.moveTo(coords.x, coords.y);
-      else ctx.lineTo(coords.x, coords.y);
-    });
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Plot student home pin
-    if (pinnedLat && pinnedLng) {
-      const coords = toCanvasCoords(pinnedLat, pinnedLng);
-
-      // Dash connection to pickup stop
-      const assignedStop = stops.find(s => s.name === localAssignment.routeStop);
-      if (assignedStop) {
-        const stopCoords = toCanvasCoords(assignedStop.lat || CENTER_LAT, assignedStop.lng || CENTER_LNG);
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-        ctx.setLineDash([4, 4]);
-        ctx.moveTo(coords.x, coords.y);
-        ctx.lineTo(stopCoords.x, stopCoords.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      ctx.beginPath();
-      ctx.arc(coords.x, coords.y, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "#10b981"; // emerald home pin
-      ctx.shadowColor = "#10b981";
-      ctx.shadowBlur = 8;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("My Home", coords.x + 10, coords.y + 3);
-    }
-
-    // Draw Stops
-    stops.forEach((stop, index) => {
-      const coords = toCanvasCoords(stop.lat || CENTER_LAT, stop.lng || CENTER_LNG);
-      const isSchool = index === 0;
-
-      ctx.beginPath();
-      ctx.arc(coords.x, coords.y, isSchool ? 12 : 7, 0, Math.PI * 2);
-      ctx.fillStyle = isSchool ? "#3b82f6" : "#db2777";
-      ctx.fill();
-
-      ctx.fillStyle = "#f8fafc";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText(stop.name, coords.x + 10, coords.y + 2);
-    });
-
-    // Draw Live Bus position dot
-    if (busPosition) {
-      ctx.beginPath();
-      ctx.arc(busPosition.x, busPosition.y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = "#f59e0b"; // amber for moving school bus
-      ctx.shadowColor = "#f59e0b";
-      ctx.shadowBlur = 12;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.beginPath();
-      ctx.arc(busPosition.x, busPosition.y, 12, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(245, 158, 11, 0.4)";
-      ctx.stroke();
-    }
-  };
 
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
@@ -444,45 +281,64 @@ export default function TransportStudentClient({ student, assignment, bus }: Tra
 
       {/* Simulated Live Transit Tracker Map */}
       <div className="lg:col-span-2 space-y-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden select-none min-h-[420px] flex flex-col justify-between text-white">
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-xl relative overflow-hidden min-h-[420px] flex flex-col">
           
-          <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center justify-between p-5 border-b border-slate-100">
             <div className="space-y-0.5">
-              <h3 className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-200">
+              <h3 className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-900">
                 <Map size={16} className="text-pink-500" />
-                Live Transit Tracker Map
+                Live Route Map
               </h3>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Simulated real-time bus positioning</p>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">OpenStreetMap • Bus route & your home pin</p>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 text-[8px] font-black tracking-widest text-amber-400 uppercase shadow-xl animate-pulse">
-              <Compass size={10} className="animate-spin" />
-              Live Bus GPS Active
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-[8px] font-black tracking-widest text-emerald-700 uppercase">
+              <Compass size={10} className="animate-spin" style={{animationDuration:'4s'}} />
+              Live GPS Active
             </div>
           </div>
 
-          {/* Tracker Canvas */}
-          <div className="my-4 flex items-center justify-center relative">
-            <canvas
-              ref={canvasRef}
-              width={420}
-              height={260}
-              className="rounded-2xl max-w-full bg-slate-950 border border-slate-800 shadow-inner cursor-pointer"
-              onClick={handleManualMapPin}
-            />
+          {/* Real Leaflet Map */}
+          <div className="flex-1 relative min-h-[320px]">
+            {(() => {
+              let stops: any[] = [];
+              try {
+                stops = typeof bus.routes === "string" ? JSON.parse(bus.routes) : bus.routes || [];
+              } catch (e) { stops = []; }
+
+              const homeStudent = pinnedLat && pinnedLng ? [{
+                studentName: student.name || "My Home",
+                className: student.className || "",
+                routeStop: localAssignment?.routeStop || "",
+                locationName: pinnedAddress || "Home Location",
+                latitude: pinnedLat,
+                longitude: pinnedLng,
+              }] : [];
+
+              return (
+                <LeafletRouteMap
+                  key={`${pinnedLat}-${pinnedLng}`}
+                  stops={stops}
+                  students={homeStudent}
+                  centerLat={23.2599}
+                  centerLng={77.4126}
+                  height="340px"
+                />
+              );
+            })()}
           </div>
 
-          {/* Operator contact details */}
-          <div className="p-4 bg-slate-800/80 backdrop-blur-md border border-slate-700/60 rounded-2xl flex items-center justify-between gap-4 relative z-10 shadow-lg">
+          {/* Bus operator footer */}
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-slate-700 text-slate-200 rounded-xl flex items-center justify-center">
+              <div className="h-10 w-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center">
                 <ShieldAlert size={20} />
               </div>
               <div className="leading-tight">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bus Driver / Operator</p>
-                <p className="text-xs font-black text-slate-200 mt-0.5">Virendra Singh</p>
+                <p className="text-xs font-black text-slate-800 mt-0.5">Virendra Singh</p>
               </div>
             </div>
-            <a href="tel:+919876543210" className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-950 rounded-xl border border-slate-700 text-[10px] font-black uppercase tracking-wider text-pink-400 hover:text-white transition-colors">
+            <a href="tel:+919876543210" className="flex items-center justify-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-xl text-[10px] font-black uppercase tracking-wider text-white transition-colors">
               <Phone size={12} />
               Call Driver
             </a>

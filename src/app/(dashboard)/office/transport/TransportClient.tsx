@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Bus,
   MapPin,
@@ -20,6 +20,20 @@ import {
   Compass,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+// Dynamically import Leaflet map to avoid SSR errors (window is not defined)
+const LeafletRouteMap = dynamic(() => import("@/components/LeafletRouteMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full min-h-[460px] text-slate-400">
+      <div className="text-center space-y-3">
+        <RefreshCw className="animate-spin mx-auto" size={24} />
+        <p className="text-xs font-bold uppercase tracking-widest">Loading real map...</p>
+      </div>
+    </div>
+  ),
+});
 
 // Center of the school catchment area (Bhopal coordinates)
 const CENTER_LAT = 23.2599;
@@ -58,7 +72,6 @@ export default function TransportClient() {
   // Visual Map tab states
   const [selectedMapBusId, setSelectedMapBusId] = useState<string>("");
   const [hoveredEntity, setHoveredEntity] = useState<any | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     fetchTransportData();
@@ -94,175 +107,8 @@ export default function TransportClient() {
     }
   };
 
-  // Canvas road map plotter engine
-  useEffect(() => {
-    if (activeTab === "map") {
-      drawTransitMap();
-    }
-  }, [activeTab, selectedMapBusId, assignments, buses, hoveredEntity]);
 
-  const drawTransitMap = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    // Clear and draw grid
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#0f172a"; // slate-900 background
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw tech-grid matrix lines
-    ctx.strokeStyle = "rgba(51, 65, 85, 0.15)";
-    ctx.lineWidth = 1;
-    const gridSize = 40;
-    for (let x = 0; x < canvas.width; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < canvas.height; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
-
-    // Geographic coordinate conversion helpers
-    const toCanvasCoords = (lat: number, lng: number) => {
-      const cx = canvas.width / 2 + (lng - CENTER_LNG) * MAP_SCALE;
-      const cy = canvas.height / 2 - (lat - CENTER_LAT) * MAP_SCALE;
-      return { x: cx, y: cy };
-    };
-
-    // Plot roads (simulated glowing transit lines connecting stops)
-    const activeBus = buses.find((b) => String(b.id) === selectedMapBusId);
-    let stops: any[] = [];
-    if (activeBus) {
-      try {
-        stops = typeof activeBus.routes === "string" ? JSON.parse(activeBus.routes) : activeBus.routes || [];
-      } catch (e) {
-        stops = [];
-      }
-    }
-
-    if (stops.length > 1) {
-      ctx.beginPath();
-      ctx.strokeStyle = "#db2777"; // glowing pink route lines
-      ctx.lineWidth = 4;
-      ctx.shadowColor = "#db2777";
-      ctx.shadowBlur = 15;
-      
-      stops.forEach((stop, index) => {
-        const coords = toCanvasCoords(stop.lat || CENTER_LAT, stop.lng || CENTER_LNG);
-        if (index === 0) {
-          ctx.moveTo(coords.x, coords.y);
-        } else {
-          ctx.lineTo(coords.x, coords.y);
-        }
-      });
-      ctx.stroke();
-      ctx.shadowBlur = 0; // reset shadow
-    }
-
-    // Plot Pinned Students assigned to this specific bus route
-    const busStudents = assignments.filter((a) => String(a.busId) === selectedMapBusId);
-    busStudents.forEach((student) => {
-      if (student.latitude && student.longitude) {
-        const coords = toCanvasCoords(student.latitude, student.longitude);
-        
-        // Draw connecting line to their assigned stop if stop coordinate matches
-        const assignedStop = stops.find((s) => s.name === student.routeStop);
-        if (assignedStop) {
-          const stopCoords = toCanvasCoords(assignedStop.lat || CENTER_LAT, assignedStop.lng || CENTER_LNG);
-          ctx.beginPath();
-          ctx.strokeStyle = "rgba(148, 163, 184, 0.4)"; // dashed grey connector
-          ctx.setLineDash([5, 5]);
-          ctx.lineWidth = 1.5;
-          ctx.moveTo(coords.x, coords.y);
-          ctx.lineTo(stopCoords.x, stopCoords.y);
-          ctx.stroke();
-          ctx.setLineDash([]); // reset dash
-        }
-
-        // Draw pulsing student pickup marker
-        ctx.beginPath();
-        ctx.arc(coords.x, coords.y, 7, 0, Math.PI * 2);
-        ctx.fillStyle = "#10b981"; // emerald-500 for coordinates set
-        ctx.shadowColor = "#10b981";
-        ctx.shadowBlur = 10;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.beginPath();
-        ctx.arc(coords.x, coords.y, 11, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-    });
-
-    // Plot Route Stops
-    stops.forEach((stop, index) => {
-      const coords = toCanvasCoords(stop.lat || CENTER_LAT, stop.lng || CENTER_LNG);
-      const isSchool = index === 0;
-
-      // Outer rings
-      ctx.beginPath();
-      ctx.arc(coords.x, coords.y, isSchool ? 16 : 10, 0, Math.PI * 2);
-      ctx.strokeStyle = isSchool ? "rgba(59, 130, 246, 0.3)" : "rgba(219, 39, 119, 0.3)";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      // Stop center dot
-      ctx.beginPath();
-      ctx.arc(coords.x, coords.y, isSchool ? 9 : 5, 0, Math.PI * 2);
-      ctx.fillStyle = isSchool ? "#3b82f6" : "#db2777";
-      ctx.fill();
-
-      // Stop label details text
-      ctx.fillStyle = "#f8fafc";
-      ctx.font = "bold 9px sans-serif";
-      ctx.fillText(stop.name, coords.x + 14, coords.y + 3);
-    });
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Convert pixels to coordinates
-    const clickedLng = CENTER_LNG + (mouseX - canvas.width / 2) / MAP_SCALE;
-    const clickedLat = CENTER_LAT - (mouseY - canvas.height / 2) / MAP_SCALE;
-
-    // Check if clicked near an assigned student to show popup detail
-    const toCanvasCoords = (lat: number, lng: number) => {
-      const cx = canvas.width / 2 + (lng - CENTER_LNG) * MAP_SCALE;
-      const cy = canvas.height / 2 - (lat - CENTER_LAT) * MAP_SCALE;
-      return { x: cx, y: cy };
-    };
-
-    let matched: any = null;
-    assignments.forEach((student) => {
-      if (student.latitude && student.longitude) {
-        const coords = toCanvasCoords(student.latitude, student.longitude);
-        const dist = Math.hypot(coords.x - mouseX, coords.y - mouseY);
-        if (dist < 15) {
-          matched = student;
-        }
-      }
-    });
-
-    if (matched) {
-      setHoveredEntity(matched);
-    } else {
-      setHoveredEntity(null);
-    }
-  };
 
   const handleAddStop = () => {
     if (!newStopName) return;
@@ -588,7 +434,7 @@ export default function TransportClient() {
             </div>
           )}
 
-          {/* TAB 4: VISUAL ROUTE MAP */}
+          {/* TAB 4: REAL INTERACTIVE ROUTE MAP */}
           {activeTab === "map" && (
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               
@@ -605,29 +451,53 @@ export default function TransportClient() {
                       setSelectedMapBusId(e.target.value);
                       setHoveredEntity(null);
                     }}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500 transition-colors animate-in"
+                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500 transition-colors"
                   >
+                    <option value="">-- All Routes --</option>
                     {buses.map((bus) => (
                       <option key={bus.id} value={bus.id}>{bus.busName}</option>
                     ))}
                   </select>
                 </div>
 
-                {/* Info toolcard for the selected route */}
+                {/* Legend */}
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Map Legend</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                      <span className="h-3 w-3 rounded-full bg-blue-500 border-2 border-white shadow"></span>
+                      School (Start Point)
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                      <span className="h-3 w-3 rounded-full bg-pink-500 border-2 border-white shadow"></span>
+                      Bus Route Stop
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                      <span className="h-3 w-3 rounded-full bg-emerald-500 border-2 border-white shadow"></span>
+                      Student Home Pin
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                      <span className="h-5 w-8 border-2 border-pink-500 rounded" style={{background:'none'}}></span>
+                      Bus Route Line
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info for selected route */}
                 {(() => {
                   const activeBus = buses.find(b => String(b.id) === selectedMapBusId);
                   if (!activeBus) return null;
                   const routeStops = typeof activeBus.routes === "string" ? JSON.parse(activeBus.routes) : activeBus.routes || [];
                   const activeS = assignments.filter(a => String(a.busId) === selectedMapBusId);
                   return (
-                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <div className="space-y-4 pt-2 border-t border-slate-100">
                       <div className="space-y-1">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Passengers</p>
-                        <p className="text-lg font-black text-slate-900 tracking-tight">{activeS.length} / {activeBus.capacity} students</p>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Passengers</p>
+                        <p className="text-lg font-black text-slate-900 tracking-tight">{activeS.length} / {activeBus.capacity}</p>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Configured Route Stops</p>
-                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Route Stops</p>
+                        <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
                           {routeStops.map((stop: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-2 p-2 bg-slate-50 border rounded-xl text-[10px] font-bold text-slate-700">
                               <span className="h-5 w-5 bg-pink-100 text-pink-600 font-black rounded-lg flex items-center justify-center shrink-0">{idx + 1}</span>
@@ -644,25 +514,37 @@ export default function TransportClient() {
                 })()}
               </div>
 
-              {/* Glowing Vector Road Map Canvas */}
-              <div className="lg:col-span-3 bg-slate-950 border border-slate-900 rounded-3xl relative overflow-hidden shadow-2xl min-h-[460px] flex items-center justify-center select-none group">
-                <canvas
-                  ref={canvasRef}
-                  width={680}
-                  height={460}
-                  onClick={handleCanvasClick}
-                  className="rounded-3xl cursor-crosshair bg-slate-900/60 max-w-full"
-                />
+              {/* REAL Leaflet Map */}
+              <div className="lg:col-span-3 rounded-3xl relative overflow-hidden shadow-2xl min-h-[500px] border border-slate-200">
+                {(() => {
+                  const activeBus = buses.find(b => String(b.id) === selectedMapBusId);
+                  const mapStops = activeBus
+                    ? (typeof activeBus.routes === "string" ? JSON.parse(activeBus.routes) : activeBus.routes || [])
+                    : buses.flatMap((b: any) => {
+                        try { return typeof b.routes === "string" ? JSON.parse(b.routes) : b.routes || []; }
+                        catch { return []; }
+                      });
+                  
+                  const mapStudents = assignments.filter((a: any) =>
+                    !selectedMapBusId || String(a.busId) === selectedMapBusId
+                  );
 
-                {/* Compass visual overlay badge */}
-                <div className="absolute top-4 left-4 p-2 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl flex items-center gap-2 text-white font-black text-[9px] uppercase tracking-wider shadow-xl">
-                  <Compass size={12} className="text-pink-500 animate-spin" style={{ animationDuration: '6s' }} />
-                  Bhopal Transit catchment Grid
-                </div>
+                  return (
+                    <LeafletRouteMap
+                      key={selectedMapBusId}
+                      stops={mapStops}
+                      students={mapStudents}
+                      centerLat={23.2599}
+                      centerLng={77.4126}
+                      height="500px"
+                      onStudentClick={(student) => setHoveredEntity(student)}
+                    />
+                  );
+                })()}
 
-                {/* Selected entity detail float toolcard */}
+                {/* Selected student detail overlay */}
                 {hoveredEntity && (
-                  <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 text-white shadow-2xl flex items-start gap-4 animate-in slide-in-from-bottom-3 duration-300">
+                  <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-4 text-white shadow-2xl flex items-start gap-4 animate-in slide-in-from-bottom-3 duration-300 z-[1000]">
                     <div className="h-10 w-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center shrink-0 border border-emerald-500/30">
                       <MapPin size={20} />
                     </div>
@@ -674,8 +556,8 @@ export default function TransportClient() {
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         Stop: <span className="text-pink-400">{hoveredEntity.routeStop}</span> • Bus: {hoveredEntity.busName}
                       </p>
-                      <p className="text-[10px] text-slate-400 leading-normal truncate italic">Address: "{hoveredEntity.locationName || "Registered via smartphone"}"</p>
-                      <p className="text-[9px] text-slate-500 font-mono tracking-widest">Coords: {hoveredEntity.latitude.toFixed(6)}, {hoveredEntity.longitude.toFixed(6)}</p>
+                      <p className="text-[10px] text-slate-400 leading-normal truncate italic">📍 {hoveredEntity.locationName || "Registered via smartphone"}</p>
+                      {hoveredEntity.latitude && <p className="text-[9px] text-slate-500 font-mono tracking-widest">{hoveredEntity.latitude.toFixed(6)}, {hoveredEntity.longitude.toFixed(6)}</p>}
                     </div>
                     <button onClick={() => setHoveredEntity(null)} className="h-6 w-6 hover:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 hover:text-white">
                       <X size={12} />
