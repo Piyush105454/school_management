@@ -33,10 +33,10 @@ export default function AdminManagementPage() {
     try {
       setLoading(true);
       const response = await fetch("/api/admin/list");
-      if (!response.ok) throw new Error("Failed to fetch admins");
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to fetch admins");
       setAdmins(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching admins:", error);
     } finally {
       setLoading(false);
@@ -57,15 +57,15 @@ export default function AdminManagementPage() {
         body: JSON.stringify({ adminId, password: manualPassword }),
       });
 
-      if (!response.ok) throw new Error("Failed to set password");
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to set password");
       setSuccessMessage(`Password changed successfully for ${data.email}`);
       setShowManualPasswordModal(null);
       setManualPassword("");
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error setting password:", error);
-      setSuccessMessage("Error setting password");
+      setSuccessMessage(error.message || "Error setting password");
     } finally {
       setResettingId(null);
     }
@@ -85,17 +85,17 @@ export default function AdminManagementPage() {
         body: JSON.stringify({ email: newAdminEmail, password: newAdminPassword }),
       });
 
-      if (!response.ok) throw new Error("Failed to create admin");
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to create admin");
       setSuccessMessage(`Admin created successfully: ${data.email}`);
       setShowAddAdminModal(false);
       setNewAdminEmail("");
       setNewAdminPassword("");
       fetchAdmins();
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating admin:", error);
-      setSuccessMessage("Error creating admin");
+      setSuccessMessage(error.message || "Error creating admin");
     } finally {
       setResettingId(null);
     }
@@ -115,8 +115,8 @@ export default function AdminManagementPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to delete admin");
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to delete admin");
       setSuccessMessage("Admin deleted successfully");
       setOpenMenuId(null);
       
@@ -130,9 +130,9 @@ export default function AdminManagementPage() {
       }
       
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting admin:", error);
-      setSuccessMessage("Error deleting admin");
+      setSuccessMessage(error.message || "Error deleting admin");
     } finally {
       setDeletingId(null);
     }
