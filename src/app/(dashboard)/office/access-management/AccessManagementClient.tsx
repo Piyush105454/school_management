@@ -470,8 +470,8 @@ export default function AccessManagementClient() {
                       : "Student"
                   } --`}
             </option>
-            {usersList.map((user) => (
-              <option key={user.userId} value={user.userId}>
+            {usersList.map((user, idx) => (
+              <option key={user.userId || idx} value={user.userId || ""}>
                 {user.name} {user.studentId ? `(${user.studentId})` : ""}
               </option>
             ))}

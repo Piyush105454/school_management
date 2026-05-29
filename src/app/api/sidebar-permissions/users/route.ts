@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, teachers, students, classes, studentProfiles, admissionMeta } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
           userId: teachers.userId,
           name: teachers.name,
         })
-        .from(teachers);
+        .from(teachers)
+        .where(isNotNull(teachers.userId));
       return NextResponse.json(teacherList);
     }
 
