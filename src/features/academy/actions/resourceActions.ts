@@ -49,6 +49,9 @@ export async function addResourceAction(data: ResourceInput) {
     });
 
     revalidatePath("/office/academy-management/library");
+    revalidatePath("/office/library");
+    revalidatePath("/office/resources");
+    revalidatePath("/office/labs");
     return { success: true };
   } catch (error: any) {
     console.error("addResourceAction error:", error);
@@ -122,6 +125,9 @@ export async function issueResourceAction(data: IssueInput) {
     });
 
     revalidatePath("/office/academy-management/library");
+    revalidatePath("/office/library");
+    revalidatePath("/office/resources");
+    revalidatePath("/office/labs");
     return { success: true };
   } catch (error: any) {
     console.error("issueResourceAction error:", error);
@@ -179,6 +185,9 @@ export async function returnResourceAction(issuanceId: number) {
     });
 
     revalidatePath("/office/academy-management/library");
+    revalidatePath("/office/library");
+    revalidatePath("/office/resources");
+    revalidatePath("/office/labs");
     return { success: true };
   } catch (error: any) {
     console.error("returnResourceAction error:", error);
@@ -199,9 +208,75 @@ export async function deleteResourceAction(resourceId: number) {
     await db.delete(resources).where(eq(resources.id, resourceId));
 
     revalidatePath("/office/academy-management/library");
+    revalidatePath("/office/library");
+    revalidatePath("/office/resources");
+    revalidatePath("/office/labs");
     return { success: true };
   } catch (error: any) {
     console.error("deleteResourceAction error:", error);
     return { success: false, error: error.message || "Failed to delete resource." };
+  }
+}
+
+interface ResourceUpdateInput {
+  name: string;
+  type: string;
+  totalQuantity: number;
+  cost: number;
+}
+
+/**
+ * Action to update/edit an existing resource catalog item.
+ */
+export async function updateResourceAction(resourceId: number, data: ResourceUpdateInput) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !["OFFICE", "TEACHER", "PRINCIPAL"].includes(session.user.role)) {
+      return { success: false, error: "Unauthorized." };
+    }
+
+    if (!data.name.trim() || !data.type) {
+      return { success: false, error: "Name and Type are required." };
+    }
+
+    if (data.totalQuantity <= 0 || data.cost < 0) {
+      return { success: false, error: "Invalid quantity or cost values." };
+    }
+
+    // Fetch current resource to recalculate available qty proportionally
+    const existingRecords = await db
+      .select()
+      .from(resources)
+      .where(eq(resources.id, resourceId))
+      .limit(1);
+
+    if (!existingRecords.length) {
+      return { success: false, error: "Resource not found." };
+    }
+
+    const existing = existingRecords[0];
+    const issuedQty = existing.totalQuantity - existing.availableQuantity;
+    const newAvailable = Math.max(0, data.totalQuantity - issuedQty);
+
+    await db
+      .update(resources)
+      .set({
+        name: data.name.trim(),
+        type: data.type,
+        totalQuantity: data.totalQuantity,
+        availableQuantity: newAvailable,
+        cost: data.cost,
+        updatedAt: new Date(),
+      })
+      .where(eq(resources.id, resourceId));
+
+    revalidatePath("/office/academy-management/library");
+    revalidatePath("/office/library");
+    revalidatePath("/office/resources");
+    revalidatePath("/office/labs");
+    return { success: true };
+  } catch (error: any) {
+    console.error("updateResourceAction error:", error);
+    return { success: false, error: error.message || "Failed to update resource." };
   }
 }

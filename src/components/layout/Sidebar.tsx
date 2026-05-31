@@ -207,8 +207,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // Lab, Library & Resource Management Category
     { type: "section", name: "Lab, Library & Resource Management" },
-    { href: "/office/academy-management/library", icon: FolderOpen, roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
     { href: "/office/labs", icon: FlaskConical, roleNames: { OFFICE: "Labs", PRINCIPAL: "Labs" } },
+    { href: "/office/library", icon: BookOpen, roleNames: { OFFICE: "Library", PRINCIPAL: "Library" } },
+    { href: "/office/resources", icon: FolderOpen, roleNames: { OFFICE: "Resources", PRINCIPAL: "Resources" } },
 
     // Incident Management Category
     { type: "section", name: "Incident Management" },
@@ -283,8 +284,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/academy-management/homework",
         "/office/academy-management/exams",
         "/office/academy-management/leaves",
-        "/office/academy-management/library",
         "/office/labs",
+        "/office/library",
+        "/office/resources",
         "/office/leaver-management/tc",
         "/office/incident-management",
         "/office/school-health/dashboard",
