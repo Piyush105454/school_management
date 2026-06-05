@@ -778,3 +778,49 @@ export const transportStudentsRelations = relations(transportStudents, ({ one })
     references: [transportBuses.id],
   }),
 }));
+
+// --- Exam & Test Scheduling ---
+
+export const examSchedules = pgTable("exam_schedules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  // Exam type classification
+  examType: text("exam_type").notNull(), // 'WEEKLY_TEST' | 'MONTHLY_TEST' | 'QUARTERLY' | 'HALF_YEARLY' | 'ANNUAL' | 'UNIT_TEST' | 'PRACTICE_TEST'
+  title: text("title").notNull(), // e.g. "Mathematics Weekly Test - June Week 1"
+  description: text("description"),
+
+  // Class & Subject
+  classId: integer("class_id").references(() => classes.id, { onDelete: "cascade" }),
+  className: text("class_name").notNull(), // denormalized for display
+  subjectId: integer("subject_id").references(() => subjects.id, { onDelete: "set null" }),
+  subjectName: text("subject_name"), // denormalized for display
+
+  // Schedule
+  examDate: text("exam_date").notNull(), // "YYYY-MM-DD"
+  startTime: text("start_time").notNull(), // "HH:MM"
+  endTime: text("end_time").notNull(),   // "HH:MM"
+  durationMinutes: integer("duration_minutes"),
+
+  // Timetable slot reference (optional - when linked from timetable)
+  timetablePeriod: text("timetable_period"), // e.g. "Period 1st"
+
+  // Exam details
+  maxMarks: integer("max_marks").default(100),
+  passingMarks: integer("passing_marks").default(35),
+  venue: text("venue").default("Classroom"),
+  instructions: text("instructions"),
+
+  // Status
+  status: text("status").default("SCHEDULED").notNull(), // 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'
+
+  // Who created
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const examSchedulesRelations = relations(examSchedules, ({ one }) => ({
+  class: one(classes, { fields: [examSchedules.classId], references: [classes.id] }),
+  subject: one(subjects, { fields: [examSchedules.subjectId], references: [subjects.id] }),
+  creator: one(users, { fields: [examSchedules.createdBy], references: [users.id] }),
+}));

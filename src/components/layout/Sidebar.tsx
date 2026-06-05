@@ -192,8 +192,10 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/academy-management/lesson-plan/review", icon: ClipboardList, roleNames: { OFFICE: "Lesson Plan Review", PRINCIPAL: "Lesson Plan Review", TEACHER: "Review Lesson Plans" } },
     { href: "/office/academy-management/homework", icon: ClipboardCheck, roleNames: { OFFICE: "Homework Management", PRINCIPAL: "Homework Management", TEACHER: "My Homework Review" } },
     { href: "/office/academy-management/exams", icon: ScrollText, roleNames: { OFFICE: "Test & Exam Management", PRINCIPAL: "Test & Exam Management" } },
+    { href: "/teacher/exams", icon: ScrollText, roleNames: { TEACHER: "Exam & Test Schedule" } },
     { href: "/student/homework", icon: ClipboardList, roleNames: { STUDENT_PARENT: "My Homework" } },
     { href: "/student/attendance", icon: CalendarCheck, roleNames: { STUDENT_PARENT: "My Attendance" } },
+    { href: "/student/exams", icon: ScrollText, roleNames: { STUDENT_PARENT: "My Exam Schedule" } },
 
     // Time Table Management Category
     { type: "section", name: "Time Table Management" },
@@ -312,6 +314,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/academy-management/homework",
         "/office/academy-management/lesson-plan/review",
         "/teacher/incident-management",
+        "/teacher/exams",
         "/office/inquiries",
         "/office/admissions-progress",
         "/office/document-verification",
@@ -330,6 +333,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/student/incident-management",
         "/student/homework",
         "/student/attendance",
+        "/student/exams",
         "/student/leave",
         "/student/transport"
       ].includes(href);
