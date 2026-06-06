@@ -808,6 +808,7 @@ export const examSchedules = pgTable("exam_schedules", {
   passingMarks: integer("passing_marks").default(35),
   venue: text("venue").default("Classroom"),
   instructions: text("instructions"),
+  papers: text("papers"), // JSON string of papers
 
   // Status
   status: text("status").default("SCHEDULED").notNull(), // 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED'

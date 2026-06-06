@@ -82,38 +82,87 @@ export default function StudentExamClient({ exams, studentClassName }: StudentEx
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-            <div>
-              <div className="text-xs font-bold text-slate-800">
-                {dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+        {exam.papers ? (
+          <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">
+            <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Exam Papers Timetable</div>
+            {(() => {
+              try {
+                const parsed = JSON.parse(exam.papers);
+                return parsed.map((p: any, idx: number) => {
+                  const pDate = new Date(p.examDate + "T00:00:00");
+                  return (
+                    <div key={idx} className="bg-slate-50 border border-slate-200/50 rounded-xl p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-slate-900">{p.subjectName}</span>
+                        <span className="text-[10px] font-black text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded-full">{p.maxMarks} marks</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3 w-3 text-slate-400" />
+                          <span>{pDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" })}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-slate-400" />
+                          <span>{p.startTime} – {p.endTime}</span>
+                        </div>
+                      </div>
+                      {p.syllabusUnits && p.syllabusUnits.length > 0 && (
+                        <div className="bg-white border border-slate-100 p-2 rounded-lg text-[9px] text-slate-500 font-bold space-y-1">
+                          <span className="text-violet-700 uppercase tracking-widest text-[8px] font-black block">Syllabus Covered:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {p.syllabusUnits.map((unit: string, uIdx: number) => (
+                              <span key={uIdx} className="bg-violet-50 text-violet-700 px-2 py-0.5 rounded border border-violet-100/40">
+                                {unit}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              } catch (e) {
+                return null;
+              }
+            })()}
+          </div>
+        ) : (
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-slate-800">
+                    {dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                  </div>
+                  <div className="text-[9px] text-slate-400">{dateObj.toLocaleDateString("en-IN", { weekday: "long" })}</div>
+                </div>
               </div>
-              <div className="text-[9px] text-slate-400">{dateObj.toLocaleDateString("en-IN", { weekday: "long" })}</div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-slate-800">{exam.startTime} – {exam.endTime}</div>
+                  {exam.timetablePeriod && <div className="text-[9px] text-slate-400">{exam.timetablePeriod}</div>}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-            <div>
-              <div className="text-xs font-bold text-slate-800">{exam.startTime} – {exam.endTime}</div>
-              {exam.timetablePeriod && <div className="text-[9px] text-slate-400">{exam.timetablePeriod}</div>}
-            </div>
-          </div>
-        </div>
 
-        <div className="mt-3 flex gap-3 text-xs">
-          <div className="bg-slate-100 rounded-lg px-3 py-1.5 font-bold text-slate-700">
-            Max Marks: <span className="text-slate-900">{exam.maxMarks}</span>
-          </div>
-          <div className="bg-slate-100 rounded-lg px-3 py-1.5 font-bold text-slate-700">
-            Pass: <span className="text-slate-900">{exam.passingMarks}</span>
-          </div>
-          {exam.venue && exam.venue !== "Classroom" && (
-            <div className="bg-blue-50 rounded-lg px-3 py-1.5 font-bold text-blue-700">
-              📍 {exam.venue}
+            <div className="mt-3 flex gap-3 text-xs">
+              <div className="bg-slate-100 rounded-lg px-3 py-1.5 font-bold text-slate-700">
+                Max Marks: <span className="text-slate-900">{exam.maxMarks}</span>
+              </div>
+              <div className="bg-slate-100 rounded-lg px-3 py-1.5 font-bold text-slate-700">
+                Pass: <span className="text-slate-900">{exam.passingMarks}</span>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
+
+        {exam.venue && exam.venue !== "Classroom" && (
+          <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 text-xs font-bold text-blue-700 inline-block">
+            📍 Venue: {exam.venue}
+          </div>
+        )}
 
         {exam.instructions && (
           <div className="mt-3 p-2.5 bg-amber-50 border border-amber-100 rounded-xl text-[10px] text-amber-700 font-semibold flex items-start gap-1.5">

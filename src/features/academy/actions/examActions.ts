@@ -34,6 +34,7 @@ interface ExamInput {
   passingMarks?: number;
   venue?: string;
   instructions?: string;
+  papers?: string; // JSON string of papers
 }
 
 /** Create a new exam/test schedule */
@@ -65,6 +66,7 @@ export async function createExamAction(data: ExamInput) {
       passingMarks: data.passingMarks ?? 35,
       venue: data.venue?.trim() || "Classroom",
       instructions: data.instructions?.trim() || null,
+      papers: data.papers || null,
       status: "SCHEDULED",
       createdBy: session.user.id,
     });
@@ -104,6 +106,7 @@ export async function updateExamAction(examId: string, data: Partial<ExamInput> 
         ...(data.venue !== undefined && { venue: data.venue }),
         ...(data.instructions !== undefined && { instructions: data.instructions }),
         ...(data.status && { status: data.status }),
+        ...(data.papers !== undefined && { papers: data.papers }),
         updatedAt: new Date(),
       })
       .where(eq(examSchedules.id, examId));

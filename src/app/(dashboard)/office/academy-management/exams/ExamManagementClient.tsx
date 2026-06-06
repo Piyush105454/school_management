@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import {
   createExamAction, updateExamAction, deleteExamAction, getExamsAction, getTimetableSlotsAction
 } from "@/features/academy/actions/examActions";
+import { getSubjectUnitsAndChapters } from "@/features/academy/actions/academyActions";
 import {
   Plus, ScrollText, Calendar, Clock, BookOpen, School, Pencil, Trash2,
   X, Filter, Search, ChevronDown, AlertCircle, CheckCircle2, Play, Ban
@@ -54,66 +55,76 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
   const [fTitle, setFTitle] = useState("");
   const [fDesc, setFDesc] = useState("");
   const [fClassId, setFClassId] = useState("");
-  const [fSubjectId, setFSubjectId] = useState("");
-  const [fDate, setFDate] = useState("");
-  const [fStartTime, setFStartTime] = useState("");
-  const [fEndTime, setFEndTime] = useState("");
-  const [fMaxMarks, setFMaxMarks] = useState("100");
-  const [fPassMarks, setFPassMarks] = useState("35");
+  const [fPapers, setFPapers] = useState<any[]>([]);
   const [fVenue, setFVenue] = useState("Classroom");
   const [fInstructions, setFInstructions] = useState("");
   const [fPeriod, setFPeriod] = useState("");
   const [formMsg, setFormMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Timetable slots
-  const [ttSlots, setTtSlots] = useState<any[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  // Syllabus / chapters metadata per subject
+  const [subjectMetadata, setSubjectMetadata] = useState<Record<number, { units: any[] }>>({});
+  const [loadingSubjectId, setLoadingSubjectId] = useState<number | null>(null);
+  const [paperSlots, setPaperSlots] = useState<Record<string, any[]>>({});
 
-  // Subjects for selected class
-  const subjectsForClass = fClassId
-    ? allSubjects.filter(s => s.classId === parseInt(fClassId))
-    : [];
+  const fetchSyllabusForSubject = async (subId: number) => {
+    if (subjectMetadata[subId]) return;
+    setLoadingSubjectId(subId);
+    try {
+      const res = await getSubjectUnitsAndChapters(subId);
+      if (res.success && res.units) {
+        setSubjectMetadata(prev => ({ ...prev, [subId]: { units: res.units } }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingSubjectId(null);
+    }
+  };
 
-  // Load timetable slots when class+date selected
-  const loadSlots = async (classId: string, dateStr: string) => {
-    if (!classId || !dateStr) return;
-    setLoadingSlots(true);
+  const loadSlotsForPaper = async (paperId: string, dateStr: string) => {
+    if (!fClassId || !dateStr) return;
     const day = DAYS_OF_WEEK[new Date(dateStr).getDay() - 1] || "";
-    if (!day) { setTtSlots([]); setLoadingSlots(false); return; }
-    const res = await getTimetableSlotsAction(parseInt(classId), day);
-    setTtSlots(res.slots || []);
-    setLoadingSlots(false);
+    if (!day) return;
+    const res = await getTimetableSlotsAction(parseInt(fClassId), day);
+    if (res.success && res.slots) {
+      setPaperSlots(prev => ({ ...prev, [paperId]: res.slots }));
+    }
   };
 
   const handleClassChange = (val: string) => {
     setFClassId(val);
-    setFSubjectId("");
+    setFPapers([{
+      id: "1",
+      subjectId: "",
+      subjectName: "",
+      examDate: "",
+      startTime: "",
+      endTime: "",
+      maxMarks: "100",
+      passingMarks: "35",
+      syllabusUnits: []
+    }]);
     setFPeriod("");
-    loadSlots(val, fDate);
-  };
-
-  const handleDateChange = (val: string) => {
-    setFDate(val);
-    setFPeriod("");
-    loadSlots(fClassId, val);
-  };
-
-  const handleSlotSelect = (slot: any) => {
-    setFStartTime(slot.startTime);
-    setFEndTime(slot.endTime);
-    setFPeriod(slot.periodName);
-    // auto-select subject if slot has one
-    if (slot.subjectId) {
-      setFSubjectId(String(slot.subjectId));
-    }
+    setPaperSlots({});
   };
 
   const resetForm = () => {
     setFExamType("WEEKLY_TEST"); setFTitle(""); setFDesc(""); setFClassId("");
-    setFSubjectId(""); setFDate(""); setFStartTime(""); setFEndTime("");
-    setFMaxMarks("100"); setFPassMarks("35"); setFVenue("Classroom");
-    setFInstructions(""); setFPeriod(""); setTtSlots([]);
+    setFPapers([{
+      id: "1",
+      subjectId: "",
+      subjectName: "",
+      examDate: "",
+      startTime: "",
+      endTime: "",
+      maxMarks: "100",
+      passingMarks: "35",
+      syllabusUnits: []
+    }]);
+    setFVenue("Classroom");
+    setFInstructions(""); setFPeriod("");
     setFormMsg(null); setEditExam(null);
+    setPaperSlots({});
   };
 
   const openAdd = () => { resetForm(); setShowForm(true); };
@@ -124,25 +135,57 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
     setFTitle(exam.title);
     setFDesc(exam.description || "");
     setFClassId(String(exam.classId || ""));
-    setFSubjectId(String(exam.subjectId || ""));
-    setFDate(exam.examDate);
-    setFStartTime(exam.startTime);
-    setFEndTime(exam.endTime);
-    setFMaxMarks(String(exam.maxMarks ?? 100));
-    setFPassMarks(String(exam.passingMarks ?? 35));
     setFVenue(exam.venue || "Classroom");
     setFInstructions(exam.instructions || "");
     setFPeriod(exam.timetablePeriod || "");
     setFormMsg(null);
+
+    const initialPapers = exam.papers ? JSON.parse(exam.papers) : [{
+      subjectId: exam.subjectId ? String(exam.subjectId) : "",
+      subjectName: exam.subjectName || "",
+      examDate: exam.examDate,
+      startTime: exam.startTime,
+      endTime: exam.endTime,
+      maxMarks: String(exam.maxMarks ?? 100),
+      passingMarks: String(exam.passingMarks ?? 35),
+      syllabusUnits: []
+    }];
+
+    setFPapers(initialPapers.map((p: any, idx: number) => ({
+      id: String(idx + 1),
+      subjectId: String(p.subjectId || ""),
+      subjectName: p.subjectName || "",
+      examDate: p.examDate || "",
+      startTime: p.startTime || "",
+      endTime: p.endTime || "",
+      maxMarks: String(p.maxMarks ?? 100),
+      passingMarks: String(p.passingMarks ?? 35),
+      syllabusUnits: p.syllabusUnits || []
+    })));
+
     setShowForm(true);
-    loadSlots(String(exam.classId || ""), exam.examDate);
+
+    initialPapers.forEach((p: any, idx: number) => {
+      if (p.subjectId) {
+        fetchSyllabusForSubject(parseInt(p.subjectId));
+      }
+      if (p.examDate) {
+        loadSlotsForPaper(String(idx + 1), p.examDate);
+      }
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormMsg(null);
+
+    if (fPapers.length === 0) {
+      setFormMsg({ type: "error", text: "At least one exam paper is required." });
+      return;
+    }
+
+    const firstPaper = fPapers[0];
     const cls = classes.find(c => c.id === parseInt(fClassId));
-    const sub = allSubjects.find(s => s.id === parseInt(fSubjectId));
 
     const payload = {
       examType: fExamType,
@@ -150,16 +193,26 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
       description: fDesc,
       classId: parseInt(fClassId),
       className: cls?.name || "",
-      subjectId: fSubjectId ? parseInt(fSubjectId) : null,
-      subjectName: sub?.name || "",
-      examDate: fDate,
-      startTime: fStartTime,
-      endTime: fEndTime,
-      maxMarks: parseInt(fMaxMarks) || 100,
-      passingMarks: parseInt(fPassMarks) || 35,
+      subjectId: firstPaper.subjectId ? parseInt(firstPaper.subjectId) : null,
+      subjectName: firstPaper.subjectName || "",
+      examDate: firstPaper.examDate,
+      startTime: firstPaper.startTime,
+      endTime: firstPaper.endTime,
+      maxMarks: parseInt(firstPaper.maxMarks) || 100,
+      passingMarks: parseInt(firstPaper.passingMarks) || 35,
       venue: fVenue,
       instructions: fInstructions,
       timetablePeriod: fPeriod,
+      papers: JSON.stringify(fPapers.map(p => ({
+        subjectId: p.subjectId ? parseInt(p.subjectId) : null,
+        subjectName: p.subjectName,
+        examDate: p.examDate,
+        startTime: p.startTime,
+        endTime: p.endTime,
+        maxMarks: p.maxMarks ? parseInt(p.maxMarks) : 100,
+        passingMarks: p.passingMarks ? parseInt(p.passingMarks) : 35,
+        syllabusUnits: p.syllabusUnits || []
+      })))
     };
 
     startTransition(async () => {
@@ -177,6 +230,45 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
         setFormMsg({ type: "error", text: res.error || "Failed." });
       }
     });
+  };
+
+  const addPaperRow = () => {
+    setFPapers(prev => [...prev, {
+      id: String(Date.now()),
+      subjectId: "",
+      subjectName: "",
+      examDate: "",
+      startTime: "",
+      endTime: "",
+      maxMarks: "100",
+      passingMarks: "35",
+      syllabusUnits: []
+    }]);
+  };
+
+  const removePaperRow = (id: string) => {
+    if (fPapers.length <= 1) return;
+    setFPapers(prev => prev.filter(p => p.id !== id));
+  };
+
+  const updatePaper = (id: string, updates: Partial<any>) => {
+    setFPapers(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const updated = { ...p, ...updates };
+      if (updates.subjectId) {
+        const subId = parseInt(updates.subjectId);
+        const sub = allSubjects.find(s => s.id === subId);
+        updated.subjectName = sub?.name || "";
+        updated.syllabusUnits = [];
+        fetchSyllabusForSubject(subId);
+      }
+      return updated;
+    }));
+  };
+
+  const handlePaperDateChange = (id: string, dateVal: string) => {
+    updatePaper(id, { examDate: dateVal });
+    loadSlotsForPaper(id, dateVal);
   };
 
   const handleDelete = (id: string, title: string) => {
@@ -328,13 +420,40 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
 
                   return (
                     <tr key={exam.id} className={`hover:bg-slate-50/60 transition-colors group ${isPast && exam.status === "SCHEDULED" ? "opacity-60" : ""}`}>
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5" colSpan={1}>
                         <div className="font-black text-slate-900 text-xs">{exam.title}</div>
-                        {exam.timetablePeriod && (
-                          <div className="text-[9px] text-slate-400 font-semibold mt-0.5">🕐 {exam.timetablePeriod}</div>
-                        )}
                         {exam.venue && exam.venue !== "Classroom" && (
-                          <div className="text-[9px] text-slate-400 font-semibold">📍 {exam.venue}</div>
+                          <div className="text-[9px] text-amber-600 font-bold mt-0.5">📍 {exam.venue}</div>
+                        )}
+                        {exam.papers && (
+                          <div className="mt-2 pl-3 border-l-2 border-amber-500 space-y-1.5 max-w-lg">
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(exam.papers);
+                                return parsed.map((p: any, idx: number) => (
+                                  <div key={idx} className="text-[10px] text-slate-600 font-bold flex flex-wrap items-center gap-x-2 bg-slate-50 p-1 px-2 rounded border border-slate-100">
+                                    <span className="text-slate-900 font-black">{p.subjectName}</span>
+                                    <span className="text-slate-300">|</span>
+                                    <span className="text-slate-500">{new Date(p.examDate + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                                    <span className="text-slate-300">|</span>
+                                    <span>{p.startTime}–{p.endTime}</span>
+                                    <span className="text-slate-300">|</span>
+                                    <span className="text-slate-500">Marks: {p.maxMarks}</span>
+                                    {p.syllabusUnits && p.syllabusUnits.length > 0 && (
+                                      <>
+                                        <span className="text-slate-300">|</span>
+                                        <span className="text-violet-700 bg-violet-50 px-1 rounded-sm text-[8px] font-black" title={p.syllabusUnits.join(", ")}>
+                                          Syllabus: {p.syllabusUnits.length} Units
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                ));
+                              } catch (e) {
+                                return null;
+                              }
+                            })()}
+                          </div>
                         )}
                       </td>
                       <td className="px-3 py-3.5">
@@ -343,21 +462,61 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                         </span>
                       </td>
                       <td className="px-3 py-3.5 text-xs font-bold text-slate-700">{exam.className}</td>
-                      <td className="px-3 py-3.5 text-xs font-semibold text-slate-500">{exam.subjectName || "—"}</td>
+                      <td className="px-3 py-3.5 text-xs font-semibold text-slate-500">
+                        {exam.papers ? "Multiple Subjects" : (exam.subjectName || "—")}
+                      </td>
                       <td className="px-3 py-3.5">
-                        <div className="text-xs font-bold text-slate-800">
-                          {dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </div>
-                        <div className="text-[9px] text-slate-400 font-semibold">
-                          {dateObj.toLocaleDateString("en-IN", { weekday: "long" })}
-                        </div>
+                        {exam.papers ? (
+                          <div className="text-xs font-bold text-slate-800">
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(exam.papers);
+                                const dates = parsed.map((p: any) => p.examDate).sort();
+                                if (dates.length === 0) return "—";
+                                const startD = new Date(dates[0] + "T00:00:00");
+                                const endD = new Date(dates[dates.length - 1] + "T00:00:00");
+                                if (dates[0] === dates[dates.length - 1]) {
+                                  return startD.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                                }
+                                return `${startD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${endD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+                              } catch (e) {
+                                return exam.examDate;
+                              }
+                            })()}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-xs font-bold text-slate-800">
+                              {dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            </div>
+                            <div className="text-[9px] text-slate-400 font-semibold">
+                              {dateObj.toLocaleDateString("en-IN", { weekday: "long" })}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="px-3 py-3.5 text-xs font-semibold text-slate-600">
-                        {exam.startTime} – {exam.endTime}
+                        {exam.papers ? "See details" : `${exam.startTime} – ${exam.endTime}`}
                       </td>
                       <td className="px-3 py-3.5 text-center">
-                        <div className="text-xs font-black text-slate-800">{exam.maxMarks}</div>
-                        <div className="text-[9px] text-slate-400">Pass: {exam.passingMarks}</div>
+                        {exam.papers ? (
+                          <div className="text-xs font-black text-slate-800">
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(exam.papers);
+                                const total = parsed.reduce((acc: number, curr: any) => acc + (parseInt(curr.maxMarks) || 0), 0);
+                                return `${total} Total`;
+                              } catch (e) {
+                                return exam.maxMarks;
+                              }
+                            })()}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-xs font-black text-slate-800">{exam.maxMarks}</div>
+                            <div className="text-[9px] text-slate-400">Pass: {exam.passingMarks}</div>
+                          </>
+                        )}
                       </td>
                       <td className="px-3 py-3.5">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black border ${sc.color}`}>
@@ -447,106 +606,195 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
               </div>
 
               {/* Class + Subject */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Class *</label>
-                  <select value={fClassId} onChange={e => handleClassChange(e.target.value)} required
-                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500">
-                    <option value="">— Select Class —</option>
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Subject</label>
-                  <select value={fSubjectId} onChange={e => setFSubjectId(e.target.value)}
-                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500">
-                    <option value="">— All Subjects / Select —</option>
-                    {subjectsForClass.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Date */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Exam Date *</label>
-                <input type="date" value={fDate} onChange={e => handleDateChange(e.target.value)} required
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Class *</label>
+                <select value={fClassId} onChange={e => handleClassChange(e.target.value)} required
+                  className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500">
+                  <option value="">— Select Class —</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
               </div>
 
-              {/* Timetable Slot Picker */}
-              {fClassId && fDate && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                    <Clock className="h-3 w-3" /> Pick from Timetable Slot (optional)
-                    {loadingSlots && <span className="text-[9px] text-amber-500 animate-pulse">Loading...</span>}
-                  </label>
-                  {ttSlots.length === 0 && !loadingSlots ? (
-                    <div className="text-[10px] text-slate-400 italic bg-slate-50 rounded-xl px-3 py-2">
-                      No timetable slots found for this class on{" "}
-                      {new Date(fDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long" })}.
-                      Enter time manually below.
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {ttSlots.map((slot, i) => (
-                        <button key={i} type="button" onClick={() => handleSlotSelect(slot)}
-                          className={`px-3 py-1.5 text-[10px] font-black rounded-xl border transition-all ${
-                            fPeriod === slot.periodName
-                              ? "bg-amber-600 text-white border-amber-600 shadow-sm"
-                              : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:border-amber-300"
-                          }`}>
-                          <div>{slot.periodName}</div>
-                          <div className="font-semibold opacity-80">{slot.startTime}–{slot.endTime}</div>
-                          {slot.customSubject && <div className="opacity-70">{slot.customSubject}</div>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              {/* Multiple Papers Schedule */}
+              {fClassId && (
+                <div className="space-y-4 border-t border-b border-slate-100 py-5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase text-slate-700 tracking-wider">Exam Papers Schedule *</label>
+                    <button type="button" onClick={addPaperRow}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black rounded-lg hover:bg-amber-100 transition-all">
+                      <Plus className="h-3 w-3" /> Add Paper
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+                    {fPapers.map((paper, idx) => {
+                      const paperSubjects = allSubjects.filter(s => s.classId === parseInt(fClassId));
+                      const slots = paperSlots[paper.id] || [];
+                      const metadata = subjectMetadata[parseInt(paper.subjectId)];
+
+                      return (
+                        <div key={paper.id} className="p-4 bg-slate-50 border border-slate-200/60 rounded-2xl space-y-3 relative">
+                          {fPapers.length > 1 && (
+                            <button type="button" onClick={() => removePaperRow(paper.id)}
+                              className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1 rounded-lg transition-colors">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <div className="text-[10px] font-black text-slate-400">Paper #{idx + 1}</div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Subject *</label>
+                              <select value={paper.subjectId} onChange={e => updatePaper(paper.id, { subjectId: e.target.value })} required
+                                className="w-full text-[11px] font-bold p-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500">
+                                <option value="">— Select Subject —</option>
+                                {paperSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Exam Date *</label>
+                              <input type="date" value={paper.examDate} onChange={e => handlePaperDateChange(paper.id, e.target.value)} required
+                                className="w-full text-[11px] font-semibold p-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500" />
+                            </div>
+                          </div>
+
+                          {/* Timetable slot shortcut for this paper */}
+                          {paper.examDate && (
+                            <div className="space-y-1">
+                              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">Autofill from Timetable Slot (optional)</span>
+                              {slots.length === 0 ? (
+                                <div className="text-[9px] text-slate-400 italic bg-white border border-slate-100 rounded-lg p-1.5">No slots scheduled on this weekday.</div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {slots.map((slot: any, slotIdx: number) => (
+                                    <button key={slotIdx} type="button"
+                                      onClick={() => {
+                                        updatePaper(paper.id, {
+                                          startTime: slot.startTime,
+                                          endTime: slot.endTime,
+                                          ...(slot.subjectId && { subjectId: String(slot.subjectId), subjectName: paperSubjects.find((s: any) => s.id === slot.subjectId)?.name || "" })
+                                        });
+                                        if (slot.subjectId) {
+                                          fetchSyllabusForSubject(slot.subjectId);
+                                        }
+                                      }}
+                                      className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 rounded text-[9px] font-semibold hover:border-amber-400 hover:text-amber-700 transition-colors">
+                                      {slot.periodName} ({slot.startTime}–{slot.endTime})
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Start Time *</label>
+                              <input type="time" value={paper.startTime} onChange={e => updatePaper(paper.id, { startTime: e.target.value })} required
+                                className="w-full text-[11px] font-semibold p-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400">End Time *</label>
+                              <input type="time" value={paper.endTime} onChange={e => updatePaper(paper.id, { endTime: e.target.value })} required
+                                className="w-full text-[11px] font-semibold p-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500" />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Max Marks</label>
+                              <input type="number" value={paper.maxMarks} onChange={e => updatePaper(paper.id, { maxMarks: e.target.value })} min={1}
+                                className="w-full text-[11px] font-semibold p-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Passing Marks</label>
+                              <input type="number" value={paper.passingMarks} onChange={e => updatePaper(paper.id, { passingMarks: e.target.value })} min={0}
+                                className="w-full text-[11px] font-semibold p-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500" />
+                            </div>
+                          </div>
+
+                          {/* Dynamic Syllabus / Units Selection */}
+                          {paper.subjectId && (
+                            <div className="space-y-1 pt-1.5 border-t border-slate-200/50">
+                              <label className="text-[9px] font-black uppercase text-slate-400">Syllabus / Units Coverage</label>
+                              {loadingSubjectId === parseInt(paper.subjectId) ? (
+                                <div className="text-[10px] text-slate-400 animate-pulse">Loading subject units...</div>
+                              ) : metadata ? (
+                                <div className="bg-white p-2 rounded-lg border border-slate-100 max-h-[140px] overflow-y-auto space-y-1">
+                                  {metadata.units && metadata.units.length > 0 ? (
+                                    metadata.units.map((unit: any) => (
+                                      <div key={unit.id} className="space-y-1">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-black text-slate-700 cursor-pointer">
+                                          <input type="checkbox"
+                                            checked={paper.syllabusUnits.includes(unit.name)}
+                                            onChange={(e) => {
+                                              const checked = e.target.checked;
+                                              const newSyllabus = checked
+                                                ? [...paper.syllabusUnits, unit.name]
+                                                : paper.syllabusUnits.filter(u => u !== unit.name);
+                                              updatePaper(paper.id, { syllabusUnits: newSyllabus });
+                                            }}
+                                            className="h-3 w-3 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                                          <span>{unit.name}</span>
+                                        </label>
+                                        {unit.chapters && unit.chapters.length > 0 && (
+                                          <div className="pl-4 space-y-0.5">
+                                            {unit.chapters.map((ch: any) => {
+                                              const label = `${unit.name} – Ch ${ch.chapterNo}: ${ch.name}`;
+                                              return (
+                                                <label key={ch.id} className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 cursor-pointer">
+                                                  <input type="checkbox"
+                                                    checked={paper.syllabusUnits.includes(label)}
+                                                    onChange={(e) => {
+                                                      const checked = e.target.checked;
+                                                      const newSyllabus = checked
+                                                        ? [...paper.syllabusUnits, label]
+                                                        : paper.syllabusUnits.filter(u => u !== label);
+                                                      updatePaper(paper.id, { syllabusUnits: newSyllabus });
+                                                    }}
+                                                    className="h-2.5 w-2.5 rounded border-slate-200 text-amber-500 focus:ring-amber-400" />
+                                                  <span>Ch {ch.chapterNo}: {ch.name}</span>
+                                                </label>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="text-[9px] text-slate-400 italic">No units or chapters defined for this subject.</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <button type="button" onClick={() => fetchSyllabusForSubject(parseInt(paper.subjectId))}
+                                  className="text-[9px] text-amber-700 font-bold bg-amber-50/50 hover:bg-amber-50 border border-amber-200 px-2 py-0.5 rounded transition-all">
+                                  Load Units & Syllabus Chapters
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* Start / End Time */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Start Time *</label>
-                  <input type="time" value={fStartTime} onChange={e => setFStartTime(e.target.value)} required
-                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">End Time *</label>
-                  <input type="time" value={fEndTime} onChange={e => setFEndTime(e.target.value)} required
-                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
-                </div>
+              {/* Venue */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Venue</label>
+                <input type="text" value={fVenue} onChange={e => setFVenue(e.target.value)}
+                  placeholder="e.g. Classroom, Hall A"
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500 focus:bg-white" />
               </div>
 
-              {/* Marks */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Max Marks</label>
-                  <input type="number" value={fMaxMarks} onChange={e => setFMaxMarks(e.target.value)} min={1}
-                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Passing Marks</label>
-                  <input type="number" value={fPassMarks} onChange={e => setFPassMarks(e.target.value)} min={0}
-                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
-                </div>
-              </div>
-
-              {/* Venue + Instructions */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Venue</label>
-                  <input type="text" value={fVenue} onChange={e => setFVenue(e.target.value)}
-                    placeholder="e.g. Classroom, Hall A"
-                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Description</label>
-                  <input type="text" value={fDesc} onChange={e => setFDesc(e.target.value)}
-                    placeholder="Optional notes"
-                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500" />
-                </div>
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Description</label>
+                <input type="text" value={fDesc} onChange={e => setFDesc(e.target.value)}
+                  placeholder="Optional notes"
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500 focus:bg-white" />
               </div>
 
               {/* Instructions */}
@@ -554,7 +802,7 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Instructions for Students</label>
                 <textarea value={fInstructions} onChange={e => setFInstructions(e.target.value)} rows={2}
                   placeholder="e.g. Bring your own stationery. No calculators allowed."
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500 resize-none" />
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500 focus:bg-white resize-none" />
               </div>
 
               {/* Submit */}
