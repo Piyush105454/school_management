@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { getStudentKpiData } from "@/features/scholarship/actions/kpiActions";
-import { X } from "lucide-react";
+import { X, FileText } from "lucide-react";
 
-export default function ScholarshipClient({ admissionId }: { admissionId: string }) {
+export default function ScholarshipClient({ 
+  admissionId, 
+  isScholarshipAwarded 
+}: { 
+  admissionId: string; 
+  isScholarshipAwarded: boolean; 
+}) {
   const [month, setMonth] = useState("April");
   const [year, setYear] = useState("2026");
   const [data, setData] = useState<any>(null);
@@ -129,6 +135,25 @@ export default function ScholarshipClient({ admissionId }: { admissionId: string
           </select>
         </div>
       </div>
+
+      {isScholarshipAwarded && (
+        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 text-center space-y-3 shadow-sm">
+          <div className="flex items-center justify-center gap-2 text-emerald-800 font-black text-sm uppercase tracking-wider">
+            <span>🏆 Scholarship Certificate Available</span>
+          </div>
+          <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+            Your scholarship award is active. Download your official certificate to keep for your records.
+          </p>
+          <a 
+            href="/api/scholarship/certificate" 
+            download 
+            className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95 animate-in fade-in duration-300"
+          >
+            <FileText size={14} />
+            Download Certificate
+          </a>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-slate-200">

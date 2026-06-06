@@ -14,14 +14,27 @@ import {
   ClipboardList,
   ArrowRight,
   Award,
-  Bus
+  Bus,
+  Calendar
 } from "lucide-react";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
-import { studentProfiles, admissionMeta, entranceTests, inquiries, documentChecklists, homeVisits, declarations } from "@/db/schema";
+import { 
+  studentProfiles, 
+  admissionMeta, 
+  entranceTests, 
+  inquiries, 
+  documentChecklists, 
+  homeVisits, 
+  declarations,
+  timetable,
+  studentAttendance,
+  examSchedules,
+  students
+} from "@/db/schema";
 
 import { redirect } from "next/navigation";
 import { formatDate, formatTime } from "@/lib/utils";
@@ -43,7 +56,12 @@ export default async function StudentDashboard() {
     with: {
       admissionMeta: {
         with: {
-          inquiry: true
+          inquiry: true,
+          academyStudent: {
+            with: {
+              class: true
+            }
+          }
         }
       }
     }
@@ -68,6 +86,24 @@ export default async function StudentDashboard() {
     db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) }),
     db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) })
   ]) : [null, null, null, null];
+
+  const academyStudent = coreProfile?.admissionMeta?.academyStudent || null;
+  const classId = academyStudent?.classId || null;
+  const className = academyStudent?.class?.name || null;
+  const academyStudentId = academyStudent?.id || null;
+
+  const [timetableEntries, attendanceEntries, examEntries] = await Promise.all([
+    classId ? db.query.timetable.findMany({
+      where: eq(timetable.classId, classId)
+    }) : Promise.resolve([]),
+    academyStudentId ? db.query.studentAttendance.findMany({
+      where: eq(studentAttendance.studentId, academyStudentId)
+    }) : Promise.resolve([]),
+    db.query.examSchedules.findMany()
+  ]);
+
+  const classExams = classId ? examEntries.filter(e => e.classId === classId) : [];
+  const classesStarted = timetableEntries.length > 0 || attendanceEntries.length > 0 || classExams.length > 0;
   
   // Reconstruct profile object to match existing UI logic
   const profile = {
@@ -152,6 +188,272 @@ export default async function StudentDashboard() {
   ];
 
   const progressPercentage = finalAdmissionStatus === "completed" ? 100 : Math.min(99, Math.round(((currentStep - 1) / 9) * 100));
+
+  if (classesStarted) {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const todayDay = days[new Date().getDay()];
+    
+    // Sort timetable by period time
+    const sortedPeriods = timetableEntries
+      .filter(t => t.dayOfWeek === todayDay)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    // Calculate attendance metrics for the current month
+    const currentMonthName = new Date().toLocaleString("en-US", { month: "long" }); // e.g. "June"
+    const currentYearNum = new Date().getFullYear(); // 2026
+
+    const thisMonthAttendance = attendanceEntries.filter(
+      a => a.month === currentMonthName && a.year === currentYearNum
+    );
+
+    const validLogs = thisMonthAttendance.filter(
+      a => a.status !== "H" && a.status !== "NA"
+    );
+    const totalAttendanceDays = validLogs.length;
+    const presentAttendanceDays = validLogs.filter(
+      a => a.status === "P" || a.status === "ML" || a.status === "Present"
+    ).length;
+    const attendancePercentage = totalAttendanceDays > 0 
+      ? Math.round((presentAttendanceDays / totalAttendanceDays) * 100) 
+      : 0;
+
+    // Filter exams by student's classId, fallback to all exams if none match for their class
+    const studentClassExams = examEntries.filter(e => e.classId === classId);
+    const targetExams = studentClassExams.length > 0 ? studentClassExams : examEntries;
+
+    // Upcoming exams
+    const todayStr = new Date().toISOString().split("T")[0];
+    const upcomingExams = targetExams
+      .filter(e => e.examDate >= todayStr && e.status === "SCHEDULED")
+      .sort((a, b) => a.examDate.localeCompare(b.examDate));
+
+    return (
+      <div className="space-y-6 md:space-y-8 select-text">
+        {/* Portal Header */}
+        <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center justify-center pr-10">
+             <GraduationCap size={160} />
+          </div>
+          <div className="relative z-10 space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Student Portal</span>
+            <h1 className="text-2xl md:text-4xl font-black font-outfit leading-none tracking-tight animate-in fade-in duration-500">
+              Welcome Back, {studentName}! 👋
+            </h1>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
+              Class Enrolled: <span className="text-white">{className || "Assigned"}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+          
+          {/* Left Column (Timetable & Exams) */}
+          <div className="lg:col-span-2 space-y-6 md:space-y-8">
+            
+            {/* Timetable Card */}
+            <div className="bg-white rounded-2xl p-6 md:p-8 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-6 border-b border-slate-50 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 uppercase italic">Today's Class Timetable</h2>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{todayDay}'s Schedule</p>
+                  </div>
+                </div>
+              </div>
+
+              {sortedPeriods.length > 0 ? (
+                <div className="space-y-3">
+                  {sortedPeriods.map((period, i) => (
+                    <div key={period.id || i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="h-9 w-9 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-xs text-slate-700">
+                          {period.periodName?.replace("Period ", "") || `${i + 1}`}
+                        </div>
+                        <div>
+                          <div className="font-black text-sm text-slate-900">
+                            {period.customSubject || period.subject?.name || "Self Study"}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Teacher: {period.customTeacher || period.teacher?.name || "Assigned"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-full">
+                          {period.startTime} - {period.endTime}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-150">
+                  <Calendar className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                  <p className="font-bold text-slate-500 text-sm">No classes scheduled for today</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Enjoy your day off!</p>
+                </div>
+              )}
+            </div>
+
+            {/* Exams Card */}
+            <div className="bg-white rounded-2xl p-6 md:p-8 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-6 border-b border-slate-50 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <ClipboardList size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 uppercase italic">Upcoming Exams</h2>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scheduled tests & examinations</p>
+                  </div>
+                </div>
+                <Link href="/student/exams" className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-widest bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+                  View All
+                </Link>
+              </div>
+
+              {upcomingExams.length > 0 ? (
+                <div className="overflow-x-auto select-text">
+                  <table className="w-full text-left border-collapse text-xs min-w-[500px]">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[9px]">
+                        <th className="p-3 pl-4">Exam / Paper</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3">Time</th>
+                        <th className="p-3 text-center">Marks</th>
+                        <th className="p-3 pr-4">Venue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {upcomingExams.slice(0, 5).map((exam, idx) => (
+                        <tr key={exam.id || idx} className="hover:bg-slate-50/50">
+                          <td className="p-3 pl-4">
+                            <div className="font-black text-slate-900">{exam.title}</div>
+                            {exam.subjectName && (
+                              <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{exam.subjectName}</div>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-600 font-bold">
+                            {formatDate(exam.examDate)}
+                          </td>
+                          <td className="p-3 text-slate-600 font-medium">{exam.startTime} - {exam.endTime}</td>
+                          <td className="p-3 text-center text-slate-700 font-bold">{exam.maxMarks}</td>
+                          <td className="p-3 pr-4 text-slate-600 font-medium">{exam.venue || "Classroom"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-150">
+                  <ClipboardList className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                  <p className="font-bold text-slate-500 text-sm">No upcoming exams scheduled</p>
+                  <p className="text-xs text-slate-400 mt-0.5">All clear for now!</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Right Column (Attendance, Scholarship & Utilities) */}
+          <div className="space-y-6">
+            
+            {/* Attendance Summary */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Attendance ({currentMonthName})</h2>
+              
+              <div className="flex items-center gap-5 border-b pb-4 mb-4">
+                <div className="relative h-20 w-20 flex items-center justify-center shrink-0">
+                  <svg className="absolute w-full h-full transform -rotate-90">
+                    <circle cx="40" cy="40" r="34" className="stroke-slate-100" strokeWidth="8" fill="transparent" />
+                    <circle cx="40" cy="40" r="34" className="stroke-emerald-500" strokeWidth="8" fill="transparent" 
+                      strokeDasharray={`${2 * Math.PI * 34}`} 
+                      strokeDashoffset={`${2 * Math.PI * 34 * (1 - attendancePercentage / 100)}`} 
+                    />
+                  </svg>
+                  <span className="text-lg font-black text-slate-900 leading-none">{attendancePercentage}%</span>
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-slate-900">{presentAttendanceDays} / {totalAttendanceDays}</div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Days Logged ({currentMonthName})</div>
+                </div>
+              </div>
+
+              {attendanceEntries.length > 0 ? (
+                <div className="space-y-2.5">
+                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Recent Attendance Logs</h3>
+                  {attendanceEntries.slice(0, 5).map((log, idx) => (
+                    <div key={log.id || idx} className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-slate-600">{formatDate(log.date)}</span>
+                      <span className={cn(
+                        "font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded",
+                        log.status === "P" || log.status === "Present" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                        log.status === "A" || log.status === "Absent" ? "bg-rose-50 text-rose-600 border border-rose-100" :
+                        "bg-amber-50 text-amber-600 border border-amber-100"
+                      )}>
+                        {log.status === "P" ? "Present" : log.status === "A" ? "Absent" : log.status || "Leave"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No attendance records found yet.</p>
+              )}
+            </div>
+
+            {/* Compact Scholarship Certificate Download */}
+            {isScholarshipAwarded && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Award size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-emerald-950 uppercase tracking-wider leading-none">Scholarship Awarded</h3>
+                    <p className="text-[9px] text-emerald-700 font-bold uppercase tracking-widest mt-1">₹{profile.admissionMeta?.scholarshipAmount?.toLocaleString()} Amount</p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 leading-normal font-semibold">
+                  You are awarded a full-year scholarship. Download the official certificate here.
+                </p>
+                <a 
+                  href="/api/scholarship/certificate" 
+                  download 
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-emerald-100 active:scale-95"
+                >
+                  <FileText size={12} />
+                  Download Certificate
+                </a>
+              </div>
+            )}
+
+            {/* Utilities */}
+            <div className="bg-white rounded-xl p-5 border border-slate-200">
+              <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-4">Utilities</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { name: "TRANSPORT", icon: Bus, href: "/student/transport" },
+                  { name: "FEES", icon: CreditCard, href: "#" },
+                  { name: "SUPPORT", icon: AlertCircle, href: "#" },
+                  { name: "NOTICES", icon: FileText, href: "#" },
+                ].map((item) => (
+                  <Link key={item.name} href={item.href} className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-50 hover:bg-slate-50 hover:border-slate-200 transition-colors gap-2">
+                    <item.icon className="text-slate-400" size={18} />
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{item.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 md:space-y-8">

@@ -38,9 +38,14 @@ export default async function ClassManagementPage({
 
     // Map DB classes to counts
     classData = dbClasses.map((cls) => {
-      const match = studentCounts.find(
-        (sc) => String(sc.className) === cls.name && sc.school === cls.institute
-      );
+      const match = studentCounts.find((sc) => {
+        const scName = String(sc.className || "");
+        const scNameClean = scName.replace(/^Class\s+/i, "").trim().toLowerCase();
+        const clsNameClean = cls.name.replace(/^Class\s+/i, "").trim().toLowerCase();
+        
+        return (scName.toLowerCase() === cls.name.toLowerCase() || scNameClean === clsNameClean) && 
+               sc.school === cls.institute;
+      });
       return {
         id: cls.id,
         name: cls.name,

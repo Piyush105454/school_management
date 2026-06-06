@@ -1,8 +1,8 @@
 import React from "react";
 import Link from "next/link";
 import { db } from "@/db";
-import { inquiries, studentProfiles, admissionMeta, studentBio } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { inquiries, studentProfiles, admissionMeta, studentBio, students, classes } from "@/db/schema";
+import { eq, and, or } from "drizzle-orm";
 import { ArrowLeft, User, Phone } from "lucide-react";
 
 export default async function ClassStudentsPage({ params, searchParams }: { params: Promise<{ className: string }>, searchParams: Promise<{ institute?: string }> }) {
@@ -11,7 +11,7 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
   const institute = resolvedSearchParams.institute || "Dhanpuri Public School";
 
   // Fetch students for this class and institute
-  const students = await db
+  const studentsList = await db
     .select({
       id: studentProfiles.id,
       studentName: inquiries.studentName,
@@ -25,10 +25,16 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
     .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
     .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
     .leftJoin(studentBio, eq(admissionMeta.id, studentBio.admissionId))
+    .leftJoin(students, eq(admissionMeta.entryNumber, students.studentId))
+    .leftJoin(classes, eq(students.classId, classes.id))
     .where(
       and(
         eq(studentProfiles.isFullyAdmitted, true),
-        eq(inquiries.appliedClass, className),
+        or(
+          eq(classes.name, className),
+          eq(inquiries.appliedClass, className),
+          eq(inquiries.appliedClass, className.replace("Class ", ""))
+        ),
         eq(inquiries.school, institute)
       )
     );
@@ -50,7 +56,7 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
         </div>
       </div>
 
-      {students.length === 0 ? (
+      {studentsList.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-12 flex flex-col items-center justify-center text-center gap-4 shadow-sm">
           <div className="h-16 w-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center">
             <User className="h-8 w-8" />
@@ -72,7 +78,7 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {students.map((student) => (
+                {studentsList.map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div>

@@ -6,8 +6,8 @@ import { getAffidavitContent } from "@/features/admissions/actions/documentActio
 import { getHomeVisitData } from "@/features/admissions/actions/homeVisitActions";
 import { getEntranceTestData } from "@/features/admissions/actions/testActions";
 import { db } from "@/db";
-import { admissionMeta } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { admissionMeta, scholarshipPtm } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { getSignedDownloadUrl } from "@/lib/s3-service";
 
 export async function GET(req: NextRequest) {
@@ -53,6 +53,27 @@ export async function GET(req: NextRequest) {
     } else if (type === "test") {
       const res = await getEntranceTestData(id);
       secureUrl = res.success ? (res.data as any)?.[field] : null;
+    } else if (type === "ptm") {
+      const month = searchParams.get("month");
+      const year = searchParams.get("year");
+      if (month && year) {
+        const ptmRecord = await db.query.scholarshipPtm.findFirst({
+          where: and(
+            eq(scholarshipPtm.admissionId, id),
+            eq(scholarshipPtm.month, month),
+            eq(scholarshipPtm.year, year)
+          )
+        });
+        if (ptmRecord && ptmRecord.parentImages) {
+          try {
+            const images = JSON.parse(ptmRecord.parentImages);
+            const idx = parseInt(field);
+            secureUrl = Array.isArray(images) ? images[idx] : ptmRecord.parentImages;
+          } catch (e) {
+            secureUrl = ptmRecord.parentImages;
+          }
+        }
+      }
     } else {
       const res = await getDocumentContent(id, field);
       secureUrl = res.success ? res.content : null;

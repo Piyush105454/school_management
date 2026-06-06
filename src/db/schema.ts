@@ -283,6 +283,7 @@ export const scholarshipGuardian = pgTable("scholarship_guardian", {
   month: text("month").notNull(),
   year: text("year").notNull(),
   rating: integer("rating").notNull(),
+  comments: text("comments"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -292,6 +293,7 @@ export const scholarshipPtm = pgTable("scholarship_ptm", {
   month: text("month").notNull(),
   year: text("year").notNull(),
   attended: boolean("attended").default(false).notNull(),
+  parentImages: text("parent_images"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

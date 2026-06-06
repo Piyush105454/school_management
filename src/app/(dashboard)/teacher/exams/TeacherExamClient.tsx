@@ -30,6 +30,18 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: "bg-red-50 text-red-700 border-red-200",
 };
 
+const formatExamDate = (dateStr: string, formatOpts: Intl.DateTimeFormatOptions) => {
+  if (!dateStr) return "—";
+  try {
+    const cleanDate = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+    const d = new Date(cleanDate + "T00:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", formatOpts);
+  } catch (e) {
+    return dateStr || "—";
+  }
+};
+
 interface TeacherExamClientProps {
   exams: any[];
   teacher: any;
@@ -54,7 +66,6 @@ export default function TeacherExamClient({ exams, teacher }: TeacherExamClientP
   const past = relevant.filter(e => e.examDate < today || e.status !== "SCHEDULED");
 
   const renderExamCard = (exam: any) => {
-    const dateObj = new Date(exam.examDate + "T00:00:00");
     const isToday = exam.examDate === today;
 
     return (
@@ -90,8 +101,8 @@ export default function TeacherExamClient({ exams, teacher }: TeacherExamClientP
               {(() => {
                 try {
                   const parsed = JSON.parse(exam.papers);
+                  if (!Array.isArray(parsed)) return null;
                   return parsed.map((p: any, idx: number) => {
-                    const pDate = new Date(p.examDate + "T00:00:00");
                     return (
                       <div key={idx} className="bg-slate-50 border border-slate-200/50 rounded-xl p-3.5 space-y-2">
                         <div className="flex items-center justify-between">
@@ -101,7 +112,7 @@ export default function TeacherExamClient({ exams, teacher }: TeacherExamClientP
                         <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="h-3 w-3 text-slate-400" />
-                            <span>{pDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" })}</span>
+                            <span>{formatExamDate(p.examDate, { day: "numeric", month: "short", weekday: "short" })}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Clock className="h-3 w-3 text-slate-400" />
@@ -134,9 +145,9 @@ export default function TeacherExamClient({ exams, teacher }: TeacherExamClientP
                 <Calendar className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                 <div>
                   <div className="font-bold text-slate-800">
-                    {dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    {formatExamDate(exam.examDate, { day: "numeric", month: "short", year: "numeric" })}
                   </div>
-                  <div className="text-slate-400 text-[10px]">{dateObj.toLocaleDateString("en-IN", { weekday: "long" })}</div>
+                  <div className="text-slate-400 text-[10px]">{formatExamDate(exam.examDate, { weekday: "long" })}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-600">

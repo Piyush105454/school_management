@@ -22,6 +22,17 @@ const EXAM_TYPES = [
 ];
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const formatExamDate = (dateStr: string, formatOpts: Intl.DateTimeFormatOptions) => {
+  if (!dateStr) return "—";
+  try {
+    const cleanDate = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+    const d = new Date(cleanDate + "T00:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", formatOpts);
+  } catch (e) {
+    return dateStr || "—";
+  }
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   SCHEDULED:  { label: "Scheduled",  color: "bg-blue-50 text-blue-700 border-blue-200",    icon: Calendar },
@@ -430,11 +441,12 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                             {(() => {
                               try {
                                 const parsed = JSON.parse(exam.papers);
+                                if (!Array.isArray(parsed)) return null;
                                 return parsed.map((p: any, idx: number) => (
                                   <div key={idx} className="text-[10px] text-slate-600 font-bold flex flex-wrap items-center gap-x-2 bg-slate-50 p-1 px-2 rounded border border-slate-100">
                                     <span className="text-slate-900 font-black">{p.subjectName}</span>
                                     <span className="text-slate-300">|</span>
-                                    <span className="text-slate-500">{new Date(p.examDate + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                                    <span className="text-slate-500">{formatExamDate(p.examDate, { day: "numeric", month: "short" })}</span>
                                     <span className="text-slate-300">|</span>
                                     <span>{p.startTime}–{p.endTime}</span>
                                     <span className="text-slate-300">|</span>
@@ -471,14 +483,15 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                             {(() => {
                               try {
                                 const parsed = JSON.parse(exam.papers);
-                                const dates = parsed.map((p: any) => p.examDate).sort();
+                                if (!Array.isArray(parsed)) return "—";
+                                const dates = parsed.map((p: any) => p.examDate).filter(Boolean).sort();
                                 if (dates.length === 0) return "—";
-                                const startD = new Date(dates[0] + "T00:00:00");
-                                const endD = new Date(dates[dates.length - 1] + "T00:00:00");
-                                if (dates[0] === dates[dates.length - 1]) {
-                                  return startD.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                                const startD = dates[0];
+                                const endD = dates[dates.length - 1];
+                                if (startD === endD) {
+                                  return formatExamDate(startD, { day: "numeric", month: "short" });
                                 }
-                                return `${startD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${endD.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+                                return `${formatExamDate(startD, { day: "numeric", month: "short" })} – ${formatExamDate(endD, { day: "numeric", month: "short" })}`;
                               } catch (e) {
                                 return exam.examDate;
                               }
@@ -487,10 +500,10 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                         ) : (
                           <>
                             <div className="text-xs font-bold text-slate-800">
-                              {dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              {formatExamDate(exam.examDate, { day: "numeric", month: "short", year: "numeric" })}
                             </div>
                             <div className="text-[9px] text-slate-400 font-semibold">
-                              {dateObj.toLocaleDateString("en-IN", { weekday: "long" })}
+                              {formatExamDate(exam.examDate, { weekday: "long" })}
                             </div>
                           </>
                         )}

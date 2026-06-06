@@ -9,7 +9,7 @@ import { eq, gte } from "drizzle-orm";
 import StudentExamClient from "./StudentExamClient";
 
 export default async function StudentExamsPage() {
-  await protectRoute(["STUDENT"]);
+  await protectRoute(["STUDENT_PARENT"]);
 
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");

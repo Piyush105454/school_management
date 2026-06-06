@@ -134,7 +134,7 @@ export default async function TCPage() {
       ...student,
       // From meta
       admissionNumber: meta?.admissionNumber || null,
-      scholarNumber: student.scholarNumber || meta?.scholarNumber || null,
+      scholarNumber: student.scholarNumber || meta?.scholarNumber || student.studentId || null,
       academicYear: meta?.academicYear || null,
       metaCreatedAt: meta?.createdAt || null,
       // From bio

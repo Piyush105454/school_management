@@ -10,15 +10,14 @@ export default async function StudentScholarshipPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
-  const results = await db
-    .select({
-      id: studentProfiles.admissionMetaId,
-    })
-    .from(studentProfiles)
-    .where(eq(studentProfiles.userId, session.user.id))
-    .limit(1);
+  const profile = await db.query.studentProfiles.findFirst({
+    where: eq(studentProfiles.userId, session.user.id),
+    with: {
+      admissionMeta: true
+    }
+  });
 
-  if (!results.length || !results[0].id) {
+  if (!profile || !profile.admissionMetaId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-4">
         <h2 className="text-2xl font-bold text-slate-900">No Profile Found</h2>
@@ -26,5 +25,10 @@ export default async function StudentScholarshipPage() {
     );
   }
 
-  return <ScholarshipClient admissionId={results[0].id} />;
+  return (
+    <ScholarshipClient 
+      admissionId={profile.admissionMetaId} 
+      isScholarshipAwarded={profile.admissionMeta?.awardedScholarship ?? false} 
+    />
+  );
 }

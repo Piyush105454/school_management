@@ -1798,7 +1798,7 @@ function OfficeFinalStep({ admissionId, initialData, userRole }: { admissionId: 
             <div className="bg-slate-50/50 p-8 rounded-[32px] border border-slate-100 max-w-md mx-auto grid grid-cols-1 gap-4">
                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scholar ID</p>
-                  <p className="text-lg font-black text-slate-900">{initialData?.studentProfile?.scholarNumber || "SCH-PENDING"}</p>
+                  <p className="text-lg font-black text-slate-900">{initialData?.admissionMeta?.scholarNumber || initialData?.admissionMeta?.entryNumber || "SCH-PENDING"}</p>
                </div>
                <div className="flex items-center justify-between pb-4">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrollment Type</p>

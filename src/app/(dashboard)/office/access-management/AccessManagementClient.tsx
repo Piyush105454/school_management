@@ -30,6 +30,7 @@ const MASTER_STRUCTURE = [
   { href: "/office/scholarship/reports", roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
   { href: "/office/scholarship/settings", roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
   { href: "/student/scholarship", roleNames: { STUDENT_PARENT: "My Scholarship" } },
+  { href: "/teacher/scholarship-criteria", roleNames: { TEACHER: "PTM & Guardian Ratings" } },
 
   // Academy Management Category
   { type: "section", name: "Academy Management" },
@@ -100,7 +101,7 @@ const isDefaultSectionForRole = (role: string, name: string): boolean => {
     ].includes(name);
   }
   if (role === "TEACHER") {
-    return ["Admissions", "Academy Management", "Incident Management"].includes(name);
+    return ["Admissions", "Academy Management", "Incident Management", "Scholarship"].includes(name);
   }
   if (role === "STUDENT_PARENT") {
     return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management"].includes(name);
@@ -160,7 +161,8 @@ const isDefaultForItem = (role: string, href: string): boolean => {
       "/office/admissions-progress",
       "/office/document-verification",
       "/office/entrance-tests",
-      "/office/home-visits"
+      "/office/home-visits",
+      "/teacher/scholarship-criteria"
     ].includes(href);
   }
   if (role === "STUDENT_PARENT") {

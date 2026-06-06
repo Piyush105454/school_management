@@ -183,6 +183,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
     { href: "/office/scholarship/settings", icon: Settings, roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
     { href: "/student/scholarship", icon: GraduationCap, roleNames: { STUDENT_PARENT: "My Scholarship" } },
+    { href: "/teacher/scholarship-criteria", icon: ClipboardList, roleNames: { TEACHER: "PTM & Guardian Ratings" } },
 
     // Academy Management Category
     { type: "section", name: "Academy Management" },
@@ -257,7 +258,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       ].includes(name);
     }
     if (r === "TEACHER") {
-      return ["Admissions", "Academy Management", "Incident Management"].includes(name);
+      return ["Admissions", "Academy Management", "Incident Management", "Scholarship"].includes(name);
     }
     if (r === "STUDENT_PARENT") {
       return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management", "Transport Management"].includes(name);
@@ -319,7 +320,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/admissions-progress",
         "/office/document-verification",
         "/office/entrance-tests",
-        "/office/home-visits"
+        "/office/home-visits",
+        "/teacher/scholarship-criteria"
       ].includes(href);
     }
     if (r === "STUDENT_PARENT") {

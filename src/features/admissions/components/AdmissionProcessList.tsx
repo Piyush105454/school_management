@@ -174,7 +174,7 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                      {adm.academyStudent?.scholarNumber || "--"}
+                      {adm.academyStudent?.scholarNumber || adm.scholarNumber || adm.entryNumber || "--"}
                     </span>
                   </td>
                   <td className="px-6 py-4">
