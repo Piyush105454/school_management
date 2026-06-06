@@ -29,6 +29,24 @@ const DAY_INDEX_MAP: Record<number, string> = { 1: "Monday", 2: "Tuesday", 3: "W
 const isEarlyDismissalClass = (cn2: string) => ["Nursery", "KG I", "KG II"].includes(cn2);
 
 type TabType = "timetable" | "analysis";
+type AnalysisFilter = "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_YEAR";
+
+const ANALYSIS_FILTERS: { value: AnalysisFilter; label: string; desc: string }[] = [
+  { value: "TODAY",      label: "Today",      desc: "Periods for today only" },
+  { value: "THIS_WEEK",  label: "This Week",  desc: "Mon–Sat current week" },
+  { value: "THIS_MONTH", label: "This Month", desc: "Approx. 4 weeks" },
+  { value: "THIS_YEAR",  label: "This Year",  desc: "Approx. 52 weeks" },
+];
+
+function getFilterMultiplier(filter: AnalysisFilter, todayName: string): { multiplier: number; dayFilter: string | null } {
+  switch (filter) {
+    case "TODAY":      return { multiplier: 1, dayFilter: todayName };
+    case "THIS_WEEK":  return { multiplier: 1, dayFilter: null };      // 1 full week
+    case "THIS_MONTH": return { multiplier: 4, dayFilter: null };      // ~4 weeks/month
+    case "THIS_YEAR":  return { multiplier: 52, dayFilter: null };     // ~52 weeks/year
+    default:           return { multiplier: 1, dayFilter: null };
+  }
+}
 
 export default function TimetableClient() {
   const todayName = DAY_INDEX_MAP[new Date().getDay()] || "Monday";
@@ -51,6 +69,7 @@ export default function TimetableClient() {
 
   // Analysis
   const [analysisTeacherId, setAnalysisTeacherId] = useState<string>("");
+  const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>("TODAY");
 
   useEffect(() => { fetchTimetableData(); }, []);
 
@@ -179,13 +198,13 @@ export default function TimetableClient() {
   };
 
   // ===== ANALYSIS LOGIC =====
-  const teacherAnalysis = useMemo(() => {
-    const analysis: Record<string, { name: string; totalPeriods: number; byDay: Record<string, { periods: number; slots: string[] }> }> = {};
+  // Base weekly analysis (always computed from full timetable)
+  const teacherAnalysisBase = useMemo(() => {
+    const analysis: Record<string, { name: string; weeklyPeriods: number; byDay: Record<string, { periods: number; slots: string[] }> }> = {};
     teachersList.forEach(t => {
-      analysis[t.id] = { name: t.name, totalPeriods: 0, byDay: {} };
+      analysis[t.id] = { name: t.name, weeklyPeriods: 0, byDay: {} };
       DAYS_OF_WEEK.forEach(day => { analysis[t.id].byDay[day] = { periods: 0, slots: [] }; });
     });
-
     DAYS_OF_WEEK.forEach(day => {
       const dayEntries = dbTimetable.filter(e => e.dayOfWeek === day && e.teacherId);
       dayEntries.forEach(e => {
@@ -195,21 +214,40 @@ export default function TimetableClient() {
         if (!period || period.isBreak) return;
         analysis[teacherId].byDay[day].periods += 1;
         analysis[teacherId].byDay[day].slots.push(`${e.className} – ${e.periodName} (${period.start})`);
-        analysis[teacherId].totalPeriods += 1;
+        analysis[teacherId].weeklyPeriods += 1;
       });
     });
-
-    return Object.entries(analysis)
-      .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => b.totalPeriods - a.totalPeriods);
+    return analysis;
   }, [dbTimetable, teachersList]);
+
+  // Apply filter multiplier to get display totals
+  const { multiplier, dayFilter } = getFilterMultiplier(analysisFilter, todayName);
+
+  const teacherAnalysis = useMemo(() => {
+    return Object.entries(teacherAnalysisBase).map(([id, data]) => {
+      // If TODAY filter, only count today's day
+      const displayByDay: Record<string, { periods: number; scaledPeriods: number; slots: string[] }> = {};
+      let displayTotal = 0;
+      DAYS_OF_WEEK.forEach(day => {
+        const base = data.byDay[day];
+        const isIncluded = dayFilter ? day === dayFilter : true;
+        const scaled = isIncluded ? base.periods * multiplier : 0;
+        displayByDay[day] = { periods: base.periods, scaledPeriods: scaled, slots: base.slots };
+        if (isIncluded) displayTotal += base.periods * multiplier;
+      });
+      return { id, name: data.name, weeklyPeriods: data.weeklyPeriods, totalPeriods: displayTotal, byDay: displayByDay };
+    }).sort((a, b) => b.totalPeriods - a.totalPeriods);
+  }, [teacherAnalysisBase, analysisFilter, multiplier, dayFilter, todayName]);
 
   const selectedTeacherData = useMemo(() => {
     if (!analysisTeacherId) return null;
     return teacherAnalysis.find(t => t.id === analysisTeacherId) || null;
   }, [analysisTeacherId, teacherAnalysis]);
 
-  const maxHours = teacherAnalysis.length > 0 ? teacherAnalysis[0].totalPeriods : 1;
+  const maxHours = teacherAnalysis.length > 0 ? (teacherAnalysis[0].totalPeriods || 1) : 1;
+
+  const filterLabel = ANALYSIS_FILTERS.find(f => f.value === analysisFilter)?.label || "";
+  const unitLabel = analysisFilter === "TODAY" ? "periods today" : analysisFilter === "THIS_WEEK" ? "periods/week" : analysisFilter === "THIS_MONTH" ? "periods this month" : "periods this year";
 
   return (
     <div className="space-y-6">
@@ -391,13 +429,37 @@ export default function TimetableClient() {
       {activeTab === "analysis" && (
         <div className="space-y-6">
 
+          {/* ── FILTER PILLS ── */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">View By:</span>
+            {ANALYSIS_FILTERS.map(f => (
+              <button key={f.value} onClick={() => setAnalysisFilter(f.value)}
+                title={f.desc}
+                className={cn(
+                  "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border",
+                  analysisFilter === f.value
+                    ? "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-500/20"
+                    : "bg-white text-slate-500 border-slate-200 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700"
+                )}>
+                {f.value === "TODAY" && "📅"}
+                {f.value === "THIS_WEEK" && "🗓️"}
+                {f.value === "THIS_MONTH" && "📆"}
+                {f.value === "THIS_YEAR" && "🏫"}
+                {f.label}
+              </button>
+            ))}
+            <span className="ml-auto text-[10px] text-violet-500 font-bold italic bg-violet-50 px-3 py-1.5 rounded-lg border border-violet-100">
+              Showing: {ANALYSIS_FILTERS.find(f => f.value === analysisFilter)?.desc}
+            </span>
+          </div>
+
           {/* Overview: all teachers sorted by hours */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-violet-600" /> Teacher Workload Overview
               </h2>
-              <p className="text-xs text-slate-400 font-semibold">Sorted by total teaching periods per week</p>
+              <p className="text-xs text-slate-400 font-semibold">Sorted by total periods — <span className="text-violet-600">{filterLabel}</span></p>
             </div>
             <div className="p-5 space-y-3">
               {teacherAnalysis.filter(t => t.totalPeriods > 0).length === 0 ? (
@@ -413,10 +475,10 @@ export default function TimetableClient() {
                       idx === 0 ? "bg-amber-100 text-amber-700" : idx === 1 ? "bg-slate-200 text-slate-600" : idx === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500")}>
                       #{idx + 1}
                     </div>
-                    {/* Name */}
+                    {/* Name + count */}
                     <div className="w-36 flex-shrink-0">
                       <div className="text-xs font-black text-slate-900 truncate">{teacher.name}</div>
-                      <div className="text-[9px] text-slate-400 font-semibold">{teacher.totalPeriods} periods/week</div>
+                      <div className="text-[9px] text-violet-600 font-semibold">{teacher.totalPeriods} {unitLabel}</div>
                     </div>
                     {/* Bar chart */}
                     <div className="flex-1 flex items-center gap-2">
@@ -424,21 +486,32 @@ export default function TimetableClient() {
                         <div className="h-full bg-violet-500 rounded-full transition-all duration-700"
                           style={{ width: `${Math.round((teacher.totalPeriods / maxHours) * 100)}%` }} />
                       </div>
-                      <span className="text-xs font-black text-violet-700 w-10 text-right">{teacher.totalPeriods}</span>
+                      <span className="text-xs font-black text-violet-700 w-12 text-right">{teacher.totalPeriods}</span>
                     </div>
-                    {/* Day breakdown mini */}
-                    <div className="hidden md:flex gap-1 flex-shrink-0">
-                      {DAYS_OF_WEEK.map(day => {
-                        const count = teacher.byDay[day]?.periods || 0;
-                        return (
-                          <div key={day} title={`${day}: ${count} periods`}
-                            className={cn("h-6 w-6 rounded-md flex items-center justify-center text-[9px] font-black",
-                              count === 0 ? "bg-slate-100 text-slate-400" : count <= 2 ? "bg-blue-100 text-blue-700" : count <= 4 ? "bg-violet-100 text-violet-700" : "bg-pink-100 text-pink-700")}>
-                            {count || "—"}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {/* Day breakdown mini — always show weekly base counts */}
+                    {analysisFilter !== "TODAY" && (
+                      <div className="hidden md:flex gap-1 flex-shrink-0">
+                        {DAYS_OF_WEEK.map(day => {
+                          const count = teacher.byDay[day]?.periods || 0;
+                          return (
+                            <div key={day} title={`${day}: ${count} periods/week`}
+                              className={cn("h-6 w-6 rounded-md flex items-center justify-center text-[9px] font-black",
+                                count === 0 ? "bg-slate-100 text-slate-400" : count <= 2 ? "bg-blue-100 text-blue-700" : count <= 4 ? "bg-violet-100 text-violet-700" : "bg-pink-100 text-pink-700")}>
+                              {count || "—"}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {analysisFilter === "TODAY" && (
+                      <div className="hidden md:flex flex-shrink-0">
+                        <div title={`${todayName}: ${teacher.byDay[todayName]?.periods || 0} periods`}
+                          className={cn("px-3 h-7 rounded-lg flex items-center text-[9px] font-black gap-1",
+                            (teacher.byDay[todayName]?.periods || 0) === 0 ? "bg-slate-100 text-slate-400" : "bg-emerald-100 text-emerald-700")}>
+                          {todayName.slice(0,3)}: {teacher.byDay[todayName]?.periods || 0}
+                        </div>
+                      </div>
+                    )}
                     <button className="p-1.5 text-violet-400 hover:text-violet-600 flex-shrink-0">
                       <Eye size={14} />
                     </button>
@@ -455,19 +528,25 @@ export default function TimetableClient() {
                 <GraduationCap className="h-5 w-5 text-violet-600" /> Teacher Detail View
               </h2>
               <select value={analysisTeacherId} onChange={e => setAnalysisTeacherId(e.target.value)}
-                className="ml-auto text-xs font-bold p-2 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500">
+                className="text-xs font-bold p-2 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500">
                 <option value="">— Select a Teacher —</option>
                 {teacherAnalysis.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.totalPeriods} periods)</option>
+                  <option key={t.id} value={t.id}>{t.name} ({t.totalPeriods} {unitLabel})</option>
                 ))}
               </select>
+              {/* Filter badge in detail header */}
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-[9px] font-black bg-violet-100 text-violet-700 px-2 py-1 rounded-lg uppercase tracking-wider">
+                  {filterLabel}
+                </span>
+              </div>
             </div>
 
             {!selectedTeacherData ? (
               <div className="py-16 text-center text-slate-400">
                 <User className="h-10 w-10 mx-auto mb-3 text-slate-200" />
                 <p className="font-bold text-sm">Select a teacher above or click a row in the chart</p>
-                <p className="text-xs mt-1">to see their full weekly schedule breakdown</p>
+                <p className="text-xs mt-1">to see their full schedule breakdown</p>
               </div>
             ) : (
               <div className="p-5 space-y-4">
@@ -478,17 +557,20 @@ export default function TimetableClient() {
                   </div>
                   <div className="flex-1">
                     <div className="font-black text-slate-900">{selectedTeacherData.name}</div>
-                    <div className="text-xs text-violet-600 font-bold mt-0.5">{selectedTeacherData.totalPeriods} total periods per week</div>
+                    <div className="text-xs text-violet-600 font-bold mt-0.5">
+                      {selectedTeacherData.totalPeriods} {unitLabel}
+                      <span className="text-slate-400 ml-2 font-normal">(base: {selectedTeacherData.weeklyPeriods}/week)</span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { label: "Total Periods", value: selectedTeacherData.totalPeriods, color: "violet" },
-                      { label: "Busiest Day", value: Object.entries(selectedTeacherData.byDay).sort(([,a], [,b]) => b.periods - a.periods)[0]?.[0]?.slice(0,3) || "—", color: "pink" },
-                      { label: "Days Active", value: Object.values(selectedTeacherData.byDay).filter(d => d.periods > 0).length, color: "emerald" },
+                      { label: filterLabel + " Total", value: selectedTeacherData.totalPeriods, color: "violet" },
+                      { label: "Busiest Day", value: Object.entries(selectedTeacherData.byDay).sort(([,a]: any, [,b]: any) => b.periods - a.periods)[0]?.[0]?.slice(0,3) || "—", color: "pink" },
+                      { label: "Days Active", value: Object.values(selectedTeacherData.byDay).filter((d: any) => d.periods > 0).length, color: "emerald" },
                     ].map(s => (
                       <div key={s.label} className={`bg-${s.color}-100 rounded-xl p-2.5 text-center`}>
                         <div className={`text-base font-black text-${s.color}-700`}>{s.value}</div>
-                        <div className={`text-[9px] font-bold text-${s.color}-500 uppercase tracking-wide`}>{s.label}</div>
+                        <div className={`text-[9px] font-bold text-${s.color}-500 uppercase tracking-wide leading-tight`}>{s.label}</div>
                       </div>
                     ))}
                   </div>
@@ -500,7 +582,10 @@ export default function TimetableClient() {
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100">
                         <th className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-4 py-3">Day</th>
-                        <th className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-3 text-center">Periods</th>
+                        <th className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-3 text-center">Per Week</th>
+                        {analysisFilter !== "THIS_WEEK" && analysisFilter !== "TODAY" && (
+                          <th className="text-[10px] font-black uppercase tracking-wider text-violet-500 px-3 py-3 text-center">{filterLabel} Total</th>
+                        )}
                         <th className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-3">Schedule Slots</th>
                         <th className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-4 py-3">Load</th>
                       </tr>
@@ -508,10 +593,15 @@ export default function TimetableClient() {
                     <tbody className="divide-y divide-slate-50">
                       {DAYS_OF_WEEK.map(day => {
                         const dayData = selectedTeacherData.byDay[day];
-                        const count = dayData?.periods || 0;
+                        const count = (dayData as any)?.periods || 0;
+                        const scaledCount = (dayData as any)?.scaledPeriods || 0;
                         const isToday = day === todayName;
+                        const isFiltered = dayFilter && day !== dayFilter;
                         return (
-                          <tr key={day} className={cn("hover:bg-slate-50/60 transition-colors", isToday && "bg-emerald-50/30")}>
+                          <tr key={day} className={cn("hover:bg-slate-50/60 transition-colors",
+                            isToday && "bg-emerald-50/30",
+                            isFiltered && "opacity-30"
+                          )}>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <div className={cn("text-xs font-black", isToday ? "text-emerald-700" : "text-slate-800")}>{day}</div>
@@ -524,10 +614,18 @@ export default function TimetableClient() {
                                 {count}
                               </span>
                             </td>
+                            {analysisFilter !== "THIS_WEEK" && analysisFilter !== "TODAY" && (
+                              <td className="px-3 py-3 text-center">
+                                <span className={cn("inline-flex px-2 py-1 rounded-lg text-xs font-black",
+                                  scaledCount === 0 ? "bg-slate-50 text-slate-300" : "bg-violet-100 text-violet-700")}>
+                                  {scaledCount}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-3 py-3">
-                              {dayData?.slots.length > 0 ? (
+                              {(dayData as any)?.slots?.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {dayData.slots.map((slot, i) => (
+                                  {(dayData as any).slots.map((slot: string, i: number) => (
                                     <span key={i} className="inline-flex px-2 py-0.5 bg-violet-50 text-violet-700 border border-violet-100 rounded-lg text-[9px] font-black">
                                       {slot}
                                     </span>
