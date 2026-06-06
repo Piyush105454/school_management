@@ -60,6 +60,7 @@ export default function TimetableClient() {
   const [activeDay, setActiveDay] = useState<string>(todayName);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isMasterMode, setIsMasterMode] = useState(false); // Master timetable overlay
+  const [masterActiveDay, setMasterActiveDay] = useState<string>("Monday");
 
   const [dbTimetable, setDbTimetable] = useState<any[]>([]);
   const [classesList, setClassesList] = useState<any[]>([]);
@@ -260,10 +261,27 @@ export default function TimetableClient() {
     buildMasterGrid(dbTimetable);
     setIsMasterMode(true);
     setIsEditMode(false);
+    setMasterActiveDay(activeDay);
   };
 
   const closeMasterMode = () => {
     setIsMasterMode(false);
+  };
+
+  const handleCopyCurrentDayToAll = () => {
+    if (!masterActiveDay || masterActiveDay === "All Days") return;
+    const currentDayGrid = masterGrid[masterActiveDay] || {};
+    const newMg = { ...masterGrid };
+    DAYS_OF_WEEK.forEach(day => {
+      if (day !== masterActiveDay) {
+        newMg[day] = JSON.parse(JSON.stringify(currentDayGrid));
+      }
+    });
+    setMasterGrid(newMg);
+    setFeedback({
+      type: "success",
+      text: `📋 Copied ${masterActiveDay}'s timetable to all other days! Click "Save All Days" to save to the database.`
+    });
   };
 
   const enterEditMode = () => {
@@ -544,8 +562,61 @@ export default function TimetableClient() {
             <LayoutGrid className="h-5 w-5 text-slate-300 flex-shrink-0" />
             <div className="flex-1">
               <div className="font-black text-sm">Master Timetable Editor</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Set the fixed weekly schedule for all days. Save day-by-day or click "Save All Days" to apply everything at once.</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Set the fixed weekly schedule for all days. Click a day tab below to see/edit, copy schedules between days, or click "Save All Days" to apply everything at once.</div>
             </div>
+          </div>
+
+          {/* Master Day Selector / Header Actions */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50 shadow-inner">
+                {DAYS_OF_WEEK.map(day => (
+                  <button key={day} onClick={() => setMasterActiveDay(day)}
+                    className={cn(
+                      "px-3.5 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl transition-all relative whitespace-nowrap",
+                      masterActiveDay === day ? "bg-pink-600 text-white shadow-lg shadow-pink-500/20" : "text-slate-500 hover:text-slate-700"
+                    )}>
+                    {day.slice(0, 3)}
+                    {day === todayName && (
+                      <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-emerald-400 rounded-full border border-white" />
+                    )}
+                  </button>
+                ))}
+                
+                {/* All Days button */}
+                <button onClick={() => setMasterActiveDay("All Days")}
+                  className={cn(
+                    "px-3.5 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl transition-all relative whitespace-nowrap border-l border-slate-200/50 ml-1 pl-2.5",
+                    masterActiveDay === "All Days" ? "bg-slate-800 text-white shadow-lg" : "text-slate-500 hover:text-slate-700"
+                  )}>
+                  All Days
+                </button>
+              </div>
+
+              {/* Duplicate/Copy same timetable button */}
+              {masterActiveDay !== "All Days" && (
+                <button
+                  onClick={handleCopyCurrentDayToAll}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black rounded-xl transition-all active:scale-95 shadow-sm"
+                  title={`Copy ${masterActiveDay}'s timetable to all other days`}
+                >
+                  <RefreshCw className="h-3 w-3 text-amber-600 animate-spin" style={{ animationDuration: '4s' }} />
+                  Copy {masterActiveDay} to All Days
+                </button>
+              )}
+            </div>
+
+            {/* Save Current Day button */}
+            {masterActiveDay !== "All Days" && (
+              <button
+                onClick={() => handleSaveMasterDay(masterActiveDay)}
+                disabled={savingDay === masterActiveDay}
+                className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50"
+              >
+                {savingDay === masterActiveDay ? <RefreshCw className="animate-spin" size={12} /> : <Save size={12} />}
+                {savingDay === masterActiveDay ? "Saving..." : `Save ${masterActiveDay}`}
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -553,34 +624,52 @@ export default function TimetableClient() {
               <RefreshCw className="animate-spin text-pink-600" size={24} />
               Loading Master Timetable...
             </div>
-          ) : (
-            DAYS_OF_WEEK.map(day => (
-              <div key={day} className="space-y-3">
-                {/* Day header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <h2 className={cn("text-sm font-black uppercase tracking-widest",
-                      day === todayName ? "text-emerald-700" : "text-slate-800")}>
-                      {day}
-                    </h2>
-                    {day === todayName && (
-                      <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full animate-pulse">TODAY</span>
-                    )}
-                    <span className="text-[9px] text-slate-400 font-semibold">
-                      {Object.values(masterGrid[day] || {}).filter((c: any) => c?.subjectId || c?.teacherId).length} periods filled
-                    </span>
+          ) : masterActiveDay === "All Days" ? (
+            <div className="space-y-6">
+              {DAYS_OF_WEEK.map(day => (
+                <div key={day} className="space-y-3">
+                  {/* Day header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <h2 className={cn("text-sm font-black uppercase tracking-widest",
+                        day === todayName ? "text-emerald-700" : "text-slate-800")}>
+                        {day}
+                      </h2>
+                      {day === todayName && (
+                        <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full animate-pulse">TODAY</span>
+                      )}
+                      <span className="text-[9px] text-slate-400 font-semibold">
+                        {Object.values(masterGrid[day] || {}).filter((c: any) => c?.subjectId || c?.teacherId).length} periods filled
+                      </span>
+                    </div>
+                    <button onClick={() => handleSaveMasterDay(day)} disabled={savingDay === day}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-[10px] font-black rounded-lg transition-all shadow-sm active:scale-95 disabled:opacity-50">
+                      {savingDay === day ? <RefreshCw className="animate-spin" size={10} /> : <Save size={10} />}
+                      {savingDay === day ? "Saving..." : `Save ${day}`}
+                    </button>
                   </div>
-                  <button onClick={() => handleSaveMasterDay(day)} disabled={savingDay === day}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-[10px] font-black rounded-lg transition-all shadow-sm active:scale-95 disabled:opacity-50">
-                    {savingDay === day ? <RefreshCw className="animate-spin" size={10} /> : <Save size={10} />}
-                    {savingDay === day ? "Saving..." : `Save ${day}`}
-                  </button>
-                </div>
 
-                {/* Day grid */}
-                {renderGrid(masterGrid[day] || {}, day, true)}
+                  {/* Day grid */}
+                  {renderGrid(masterGrid[day] || {}, day, true)}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <h2 className={cn("text-sm font-black uppercase tracking-widest",
+                  masterActiveDay === todayName ? "text-emerald-700" : "text-slate-800")}>
+                  {masterActiveDay}
+                </h2>
+                {masterActiveDay === todayName && (
+                  <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full animate-pulse">TODAY</span>
+                )}
+                <span className="text-[9px] text-slate-400 font-semibold">
+                  {Object.values(masterGrid[masterActiveDay] || {}).filter((c: any) => c?.subjectId || c?.teacherId).length} periods filled
+                </span>
               </div>
-            ))
+              {renderGrid(masterGrid[masterActiveDay] || {}, masterActiveDay, true)}
+            </div>
           )}
         </div>
       )}
