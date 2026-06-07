@@ -16,8 +16,8 @@ import { studentAttendance, students, admissionMeta, lessonPlans, homeworkSubmis
 export async function saveKpiData(admissionId: string, month: string, year: string, data: {
   attendance: { totalDays: number; presentDays: number };
   homework: { totalGiven: number; totalDone: number };
-  guardian: { rating: number };
-  ptm: { attended: boolean };
+  guardian: { rating: number; comments?: string | null };
+  ptm: { attended: boolean; parentImages?: string | null };
   adjustment?: { amount: number; type: string; note: string };
 }) {
   try {
@@ -102,20 +102,28 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const existingGuardian = await db.query.scholarshipGuardian.findFirst({
       where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)),
     });
+    const guardianUpdateData: any = { rating: data.guardian.rating };
+    if (data.guardian.comments !== undefined) {
+      guardianUpdateData.comments = data.guardian.comments;
+    }
     if (existingGuardian) {
-      await db.update(scholarshipGuardian).set({ ...data.guardian }).where(eq(scholarshipGuardian.id, existingGuardian.id));
+      await db.update(scholarshipGuardian).set(guardianUpdateData).where(eq(scholarshipGuardian.id, existingGuardian.id));
     } else {
-      await db.insert(scholarshipGuardian).values({ admissionId, month, year, ...data.guardian });
+      await db.insert(scholarshipGuardian).values({ admissionId, month, year, ...guardianUpdateData });
     }
 
     // 5. Save PTM
     const existingPtm = await db.query.scholarshipPtm.findFirst({
       where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)),
     });
+    const ptmUpdateData: any = { attended: data.ptm.attended };
+    if (data.ptm.parentImages !== undefined) {
+      ptmUpdateData.parentImages = data.ptm.parentImages;
+    }
     if (existingPtm) {
-      await db.update(scholarshipPtm).set({ ...data.ptm }).where(eq(scholarshipPtm.id, existingPtm.id));
+      await db.update(scholarshipPtm).set(ptmUpdateData).where(eq(scholarshipPtm.id, existingPtm.id));
     } else {
-      await db.insert(scholarshipPtm).values({ admissionId, month, year, ...data.ptm });
+      await db.insert(scholarshipPtm).values({ admissionId, month, year, ...ptmUpdateData });
     }
 
     // 6. Save/Update Scholarship Record

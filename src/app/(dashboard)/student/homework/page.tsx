@@ -94,7 +94,12 @@ export default async function StudentHomeworkPage() {
     .from(lessonPlans)
     .leftJoin(subjects, eq(lessonPlans.subjectId, subjects.id))
     .leftJoin(teachers, eq(lessonPlans.teacherId, teachers.userId))
-    .where(eq(lessonPlans.classId, studentEntry.classId as number))
+    .where(
+      and(
+        eq(lessonPlans.classId, studentEntry.classId as number),
+        eq(lessonPlans.status, "APPROVED")
+      )
+    )
     .orderBy(desc(lessonPlans.date));
 
 
@@ -115,9 +120,14 @@ export default async function StudentHomeworkPage() {
     const submission = studentSubmissions.find(s => s.lessonPlanId === lp.id);
     
     // Construct clean Proxy URL instead of long S3 Signed URL
-    let viewUrl = submission?.imagePath || "";
-    if (viewUrl && viewUrl.startsWith("http")) {
-        viewUrl = `/api/homework/view?path=${encodeURIComponent(viewUrl)}`;
+    let viewUrl = "";
+    if (submission?.imagePath) {
+      viewUrl = submission.imagePath.split(",").map(url => {
+        if (url.trim().startsWith("http")) {
+          return `/api/homework/view?path=${encodeURIComponent(url.trim())}`;
+        }
+        return url.trim();
+      }).join(",");
     }
 
     return {

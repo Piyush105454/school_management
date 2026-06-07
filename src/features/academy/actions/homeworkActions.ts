@@ -220,9 +220,14 @@ export async function getSubmissionsByPlanAction(lessonPlanId: string) {
             const submission = existingSubmissions.find(s => s.studentId === student.id);
             
             // Construct clean Proxy URL instead of long S3 Signed URL
-            let viewUrl = submission?.imagePath || "";
-            if (viewUrl && viewUrl.startsWith("http")) {
-                viewUrl = `/api/homework/view?path=${encodeURIComponent(viewUrl)}`;
+            let viewUrl = "";
+            if (submission?.imagePath) {
+                viewUrl = submission.imagePath.split(",").map(url => {
+                    if (url.trim().startsWith("http")) {
+                        return `/api/homework/view?path=${encodeURIComponent(url.trim())}`;
+                    }
+                    return url.trim();
+                }).join(",");
             }
 
             return {

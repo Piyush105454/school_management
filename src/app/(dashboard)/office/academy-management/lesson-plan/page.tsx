@@ -2,6 +2,11 @@ import LessonPlanForm from "@/features/academy/components/LessonPlanForm";
 import { BookOpen, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getAllAcademicMetadata } from "@/features/academy/actions/academyActions";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/db";
+import { teachers } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function LessonPlanPage({
   searchParams,
@@ -10,6 +15,36 @@ export default async function LessonPlanPage({
 }) {
   const { institute } = await searchParams;
   const metadata = await getAllAcademicMetadata(institute);
+
+  let classes = metadata.classes || [];
+  let subjects = metadata.subjects || [];
+
+  const session = await getServerSession(authOptions);
+
+  if (session?.user?.role === "TEACHER") {
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: eq(teachers.userId, session.user.id),
+    });
+
+    if (teacherProfile) {
+      const assigned = teacherProfile.classAssigned 
+        ? teacherProfile.classAssigned.split(",").map(c => c.trim().toLowerCase()) 
+        : [];
+      const teacherInstitute = teacherProfile.institute;
+
+      classes = classes.filter(c => {
+        const nameMatch = assigned.includes(c.name.toLowerCase()) || assigned.includes(c.name.replace(/^Class\s+/i, '').toLowerCase());
+        const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
+        return nameMatch && instituteMatch;
+      });
+
+      const classIds = classes.map(c => c.id);
+      subjects = subjects.filter(s => classIds.includes(s.classId));
+    } else {
+      classes = [];
+      subjects = [];
+    }
+  }
   
   if (!metadata.success) {
     return (
@@ -45,8 +80,8 @@ export default async function LessonPlanPage({
         <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
           <div className="p-8 md:p-12">
             <LessonPlanForm 
-              classes={metadata.classes || []} 
-              subjects={metadata.subjects || []} 
+              classes={classes} 
+              subjects={subjects} 
             />
           </div>
         </div>

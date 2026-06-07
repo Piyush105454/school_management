@@ -745,7 +745,7 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                                               const checked = e.target.checked;
                                               const newSyllabus = checked
                                                 ? [...paper.syllabusUnits, unit.name]
-                                                : paper.syllabusUnits.filter(u => u !== unit.name);
+                                                : paper.syllabusUnits.filter((u: string) => u !== unit.name);
                                               updatePaper(paper.id, { syllabusUnits: newSyllabus });
                                             }}
                                             className="h-3 w-3 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
@@ -763,7 +763,7 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                                                       const checked = e.target.checked;
                                                       const newSyllabus = checked
                                                         ? [...paper.syllabusUnits, label]
-                                                        : paper.syllabusUnits.filter(u => u !== label);
+                                                        : paper.syllabusUnits.filter((u: string) => u !== label);
                                                       updatePaper(paper.id, { syllabusUnits: newSyllabus });
                                                     }}
                                                     className="h-2.5 w-2.5 rounded border-slate-200 text-amber-500 focus:ring-amber-400" />

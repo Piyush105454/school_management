@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Filter, ShieldAlert, FileText, HeartHandshake, AlertCircle, Calendar, UserCheck } from "lucide-react";
-import { getStudentIncidentsAction } from "@/features/academy/actions/incidentActions";
+import { Plus, Search, Filter, ShieldAlert, FileText, HeartHandshake, AlertCircle, Calendar, UserCheck, Loader2 } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { 
+  getStudentIncidentsAction, 
+  getIncidentMetadataAction, 
+  getStudentMetadataByAdmissionIdAction, 
+  createIncidentAction 
+} from "@/features/academy/actions/incidentActions";
 
 interface IncidentRecord {
   id: string;
@@ -23,8 +29,41 @@ export default function StudentIncidentClient({ admissionId }: { admissionId: st
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
+  const itemTypeLabel = activeTab === "INCIDENT" ? "Incident" : activeTab === "COMPLAIN" ? "Complaint" : "Feedback";
+
+  // Form states
+  const [resolvedStudentId, setResolvedStudentId] = useState<number | null>(null);
+  const [resolvedClassId, setResolvedClassId] = useState<number | null>(null);
+  const [resolvedClassName, setResolvedClassName] = useState<string>("");
+  const [teachersList, setTeachersList] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submittingForm, setSubmittingForm] = useState(false);
+  const [formTitle, setFormTitle] = useState("");
+  const [formNote, setFormNote] = useState("");
+  const [formCategory, setFormCategory] = useState("General");
+  const [formPriority, setFormPriority] = useState("Medium");
+  const [tempTeacherId, setTempTeacherId] = useState("");
+  const [selectedTeachers, setSelectedTeachers] = useState<any[]>([]);
+
   useEffect(() => {
     loadIncidents();
+  }, [admissionId]);
+
+  // Fetch student profile metadata & teachers list
+  useEffect(() => {
+    getStudentMetadataByAdmissionIdAction(admissionId).then((res) => {
+      if (res.success && res.studentId) {
+        setResolvedStudentId(res.studentId);
+        setResolvedClassId(res.classId || null);
+        setResolvedClassName(res.className || "");
+      }
+    });
+
+    getIncidentMetadataAction().then((res) => {
+      if (res.success) {
+        setTeachersList(res.teachers || []);
+      }
+    });
   }, [admissionId]);
 
   const loadIncidents = async () => {
@@ -34,6 +73,69 @@ export default function StudentIncidentClient({ admissionId }: { admissionId: st
       setIncidentsList(res.data as any);
     }
     setLoading(false);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormTitle("");
+    setFormNote("");
+    setFormCategory("General");
+    setFormPriority("Medium");
+    setSelectedTeachers([]);
+    setTempTeacherId("");
+  };
+
+  const handleTeacherSelect = (teacherId: string) => {
+    if (!teacherId) return;
+    const teacher = teachersList.find((t) => t.id === teacherId);
+    if (teacher && !selectedTeachers.some((t) => t.id === teacherId)) {
+      setSelectedTeachers((prev) => [...prev, teacher]);
+    }
+    setTempTeacherId("");
+  };
+
+  const removeTeacher = (id: string) => {
+    setSelectedTeachers((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle || !formNote) {
+      alert("Please fill out the Title and Details fields.");
+      return;
+    }
+    if (!resolvedStudentId) {
+      alert("Error: Student profile is not fully loaded yet.");
+      return;
+    }
+
+    setSubmittingForm(true);
+
+    const primaryTeacherId = selectedTeachers.length > 0 ? selectedTeachers[0].id : null;
+    const teacherIds = selectedTeachers.length > 0 ? JSON.stringify(selectedTeachers.map(t => t.id)) : null;
+
+    const res = await createIncidentAction({
+      title: formTitle,
+      type: activeTab,
+      note: formNote,
+      category: formCategory,
+      priority: formPriority,
+      status: "Open",
+      classId: resolvedClassId,
+      studentId: resolvedStudentId,
+      teacherId: primaryTeacherId,
+      studentIds: JSON.stringify([resolvedStudentId]),
+      teacherIds,
+    });
+    setSubmittingForm(false);
+
+    if (res.success && res.record) {
+      alert(`${itemTypeLabel} reported successfully!`);
+      closeModal();
+      loadIncidents();
+    } else {
+      alert("Error reporting record: " + res.error);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -58,7 +160,6 @@ export default function StudentIncidentClient({ admissionId }: { admissionId: st
   };
 
   const activeTabItems = incidentsList.filter((item) => item.type === activeTab);
-  const itemTypeLabel = activeTab === "INCIDENT" ? "Incident" : activeTab === "COMPLAIN" ? "Complaint" : "Feedback";
 
   const filteredItems = activeTabItems.filter((item) => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -96,6 +197,15 @@ export default function StudentIncidentClient({ admissionId }: { admissionId: st
             {activeTab === "FEEDBACK" && "View curricular, facilities, or extracurricular feedback notes"}
           </p>
         </div>
+        {activeTab !== "INCIDENT" && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 w-fit"
+          >
+            <Plus size={16} />
+            Report {itemTypeLabel}
+          </button>
+        )}
       </div>
 
       {/* Button-based Navigation Tabs */}
@@ -254,6 +364,121 @@ export default function StudentIncidentClient({ admissionId }: { admissionId: st
           )}
         </div>
       </div>
+
+      {/* Dynamic Report Form Modal */}
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={`Report New ${itemTypeLabel}`}>
+        <form onSubmit={handleReportSubmit} className="p-1 space-y-6 max-h-[80vh] overflow-y-auto">
+          {/* Core Info */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-blue-600 rounded-full"></span> Basic Information
+            </h3>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{itemTypeLabel} Title</label>
+              <input
+                placeholder={`Brief summary of the ${itemTypeLabel.toLowerCase()}`}
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{itemTypeLabel} Note / Details</label>
+              <textarea
+                placeholder={`Write detailed notes about the ${itemTypeLabel.toLowerCase()} here...`}
+                value={formNote}
+                onChange={(e) => setFormNote(e.target.value)}
+                className="w-full h-32 bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium resize-none"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Category</label>
+                <select
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
+                >
+                  <option value="General">General</option>
+                  <option value="Infrastructure">Infrastructure</option>
+                  <option value="Facilities">Facilities</option>
+                  <option value="Security">Security</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Canteen">Canteen</option>
+                  <option value="Academic">Academic</option>
+                  <option value="Extracurricular">Extracurricular</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Priority</label>
+                <select
+                  value={formPriority}
+                  onChange={(e) => setFormPriority(e.target.value)}
+                  className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic Teacher Tagging */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1 w-4 bg-emerald-600 rounded-full"></span> Tag Teacher
+            </h3>
+            
+            <div className="grid grid-cols-1 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tag Teacher</label>
+                <select
+                  value={tempTeacherId}
+                  onChange={(e) => handleTeacherSelect(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
+                >
+                  <option value="">Select a teacher to tag...</option>
+                  {teachersList.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                {selectedTeachers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 p-2 bg-white rounded-xl border border-slate-100">
+                    {selectedTeachers.map((t) => (
+                      <span key={t.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold transition-all">
+                        {t.name}
+                        <button
+                          type="button"
+                          onClick={() => removeTeacher(t.id)}
+                          className="h-4 w-4 rounded-full bg-indigo-200/50 hover:bg-indigo-200 flex items-center justify-center text-[10px] text-indigo-800 transition-all font-black cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submittingForm}
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10"
+          >
+            {submittingForm ? <Loader2 className="animate-spin" size={16} /> : `Submit Report`}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }

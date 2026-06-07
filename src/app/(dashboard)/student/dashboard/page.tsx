@@ -94,7 +94,8 @@ export default async function StudentDashboard() {
 
   const [timetableEntries, attendanceEntries, examEntries] = await Promise.all([
     classId ? db.query.timetable.findMany({
-      where: eq(timetable.classId, classId)
+      where: eq(timetable.classId, classId),
+      with: { subject: true, teacher: true }
     }) : Promise.resolve([]),
     academyStudentId ? db.query.studentAttendance.findMany({
       where: eq(studentAttendance.studentId, academyStudentId)

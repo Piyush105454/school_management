@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { getStudentKpiData, saveKpiData, getStudentMonthlyOverview } from "@/features/scholarship/actions/kpiActions";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Upload, Trash2, Image as ImageIcon, ExternalLink, Loader2, Check } from "lucide-react";
+import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
+import { ensureCompressed } from "@/lib/compression";
+
+interface CategoryState {
+  checked: boolean;
+  comment: string;
+}
 
 export default function StudentProfileClient({ id, student }: { id: string, student: any }) {
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -14,6 +21,12 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   const [data, setData] = useState<any>(null);
   const [monthlyOverview, setMonthlyOverview] = useState<any[]>([]);
   const [loadingOverview, setLoadingOverview] = useState(false);
+
+  const [ptmAttended, setPtmAttended] = useState<boolean>(false);
+  const [ptmImages, setPtmImages] = useState<string[]>([]);
+  const [guardianComments, setGuardianComments] = useState<Record<string, CategoryState>>({});
+  const [uploading, setUploading] = useState<boolean>(false);
+
   const { register, handleSubmit, reset, watch, setValue } = useForm<any>({
     defaultValues: {
       attendance: { totalDays: 0, presentDays: 0 },
@@ -26,6 +39,79 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   const guardianRating = watch("guardian.rating") || 0;
   const adjType = watch("adjustment.type") || "NONE";
   const adjAmtInput = Number(watch("adjustment.amount") || 0);
+
+  const calculatedGuardianRating = Object.values(guardianComments).filter(c => c.checked).length;
+
+  // Toggle Category Checkbox
+  const handleToggleCategory = (key: string) => {
+    setGuardianComments(prev => {
+      const current = prev[key] || { checked: false, comment: "" };
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          checked: !current.checked
+        }
+      };
+    });
+  };
+
+  // Change Category Comment
+  const handleCommentChange = (key: string, val: string) => {
+    setGuardianComments(prev => {
+      const current = prev[key] || { checked: false, comment: "" };
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          comment: val
+        }
+      };
+    });
+  };
+
+  // Handle parent image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    setMessage("");
+    
+    try {
+      const currentImages = [...ptmImages];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const compressed = await ensureCompressed(file, 0.5);
+        
+        const formData = new FormData();
+        formData.append("file", compressed);
+        formData.append("admissionId", id);
+        formData.append("category", "scholarship-ptm");
+        
+        const res = await proxyUploadDocument(formData);
+        if (res.success && res.publicUrl) {
+          currentImages.push(res.publicUrl);
+        } else {
+          throw new Error(res.error || "File upload failed.");
+        }
+      }
+      
+      setPtmImages(currentImages);
+      setMessage("Parent image(s) uploaded successfully! Click save to persist.");
+    } catch (err: any) {
+      setMessage("Error uploading: " + (err.message || "Upload failed."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Delete local uploaded parent image
+  const handleDeleteImage = (imgIdx: number) => {
+    if (!confirm("Are you sure you want to remove this image?")) return;
+    setPtmImages(prev => prev.filter((_, i) => i !== imgIdx));
+  };
 
   const guardianCategories = [
     "Smooth communication with parent and teacher",
@@ -70,6 +156,36 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         adjType = "CHARGE";
       }
 
+      setPtmAttended(kpiRes.data.ptm?.attended || false);
+      
+      let parsedComments: Record<string, CategoryState> = {};
+      const commentsJson = kpiRes.data.guardian?.comments;
+      if (commentsJson) {
+        try {
+          parsedComments = JSON.parse(commentsJson);
+        } catch(e) {
+          console.error("Failed to parse guardian comments", e);
+        }
+      }
+      guardianCategories.forEach((_, idx) => {
+        const key = `cat_${idx}`;
+        if (!parsedComments[key]) {
+          parsedComments[key] = { checked: false, comment: "" };
+        }
+      });
+      setGuardianComments(parsedComments);
+
+      let parsedImages: string[] = [];
+      const imagesJson = kpiRes.data.ptm?.parentImages;
+      if (imagesJson) {
+        try {
+          parsedImages = JSON.parse(imagesJson);
+        } catch(e) {
+          console.error("Failed to parse parent images", e);
+        }
+      }
+      setPtmImages(parsedImages);
+
       reset({
         attendance: {
           totalDays: kpiRes.data.attendance?.totalDays || kpiRes.data.calculatedAttendance?.totalDays || 0,
@@ -106,8 +222,14 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
     const res = await saveKpiData(id, selectedMonth, year, {
       attendance: { totalDays: Number(formData.attendance.totalDays), presentDays: Number(formData.attendance.presentDays) },
       homework: { totalGiven: Number(formData.homework.totalGiven), totalDone: Number(formData.homework.totalDone) },
-      guardian: { rating: Number(formData.guardian.rating) },
-      ptm: { attended: formData.ptm.attended === true || formData.ptm.attended === 'true' },
+      guardian: { 
+        rating: calculatedGuardianRating,
+        comments: JSON.stringify(guardianComments)
+      },
+      ptm: { 
+        attended: ptmAttended,
+        parentImages: JSON.stringify(ptmImages)
+      },
       adjustment: {
         amount: Number(formData.adjustment?.amount || 0),
         type: formData.adjustment?.type || "NONE",
@@ -238,7 +360,15 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         )
       ) : (
         // --- Edit Form View ---
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        loading && !data ? (
+          <div className="flex h-[300px] items-center justify-center bg-white border border-slate-100 rounded-3xl p-10 shadow-sm w-full">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="animate-spin text-blue-600 h-8 w-8" />
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading form details...</span>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="bg-slate-100 px-4 py-2 rounded-md font-semibold text-slate-700">
             Filling Scores for: {selectedMonth} {year}
           </div>
@@ -252,10 +382,10 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const calcHomeworkDone = data?.homework?.totalDone ?? data?.calculatedHomework?.totalDone ?? 0;
             const homeworkReward = Math.round(calcHomeworkPct * ((criteria?.homeworkAmount || 750) / 100));
 
-            const guardianScore = data?.guardian?.rating || guardianRating || 0;
+            const guardianScore = calculatedGuardianRating;
             const guardianReward = Math.round(guardianScore * ((criteria?.guardianAmount || 750) / 5));
 
-            const isPtmSuccess = data?.ptm?.attended === true || data?.ptm?.attended === 'true' || watch("ptm.attended");
+            const isPtmSuccess = ptmAttended;
             const ptmReward = isPtmSuccess ? (criteria?.ptmAmount || 750) : 0;
 
             const totalEarned = attendanceReward + homeworkReward + guardianReward + ptmReward;
@@ -322,69 +452,155 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   <KpiCard 
                     title="Guardian Rating"
                     amount={guardianReward}
-                    success={guardianScore > 0}
+                    success={calculatedGuardianRating > 0}
                     requiredThreshold={5}
                     maxAmount={criteria?.guardianAmount}
-                    scoreDisplay={`${guardianScore}/5`}
+                    scoreDisplay={`${calculatedGuardianRating}/5`}
                   >
-                    <div className="space-y-1.5 mt-3">
-                      {guardianCategories.map((cat, idx) => {
-                        const isChecked = Boolean(watch(`guardian.cat_${idx}`));
+                    <div className="space-y-2.5 mt-3">
+                      {guardianCategories.map((category, idx) => {
+                        const key = `cat_${idx}`;
+                        const state = guardianComments[key] || { checked: false, comment: "" };
+
                         return (
-                          <label 
-                            key={idx} 
-                            className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer group ${
-                              isChecked 
-                                ? "bg-blue-50 border-blue-200 shadow-sm" 
-                                : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                          <div 
+                            key={key} 
+                            className={`border border-slate-100 rounded-xl p-3 transition-all duration-300 ${
+                              state.checked ? "bg-amber-50/10 border-amber-200/50 shadow-sm" : "bg-white"
                             }`}
                           >
-                            <div className={`mt-0.5 h-4 w-4 shrink-0 rounded flex items-center justify-center border transition-all ${
-                              isChecked 
-                                ? "bg-blue-600 border-blue-600 text-white" 
-                                : "bg-white border-slate-300 group-hover:border-blue-400"
-                            }`}>
-                              {isChecked && <CheckCircle2 size={10} strokeWidth={4} />}
-                              <input 
-                                type="checkbox" 
-                                className="hidden"
-                                {...register(`guardian.cat_${idx}`)}
-                                onChange={(e) => {
-                                  setValue(`guardian.cat_${idx}`, e.target.checked);
-                                  let count = 0;
-                                  for(let i=0; i<5; i++) {
-                                    if (i === idx) {
-                                      if (e.target.checked) count++;
-                                    } else {
-                                      if (watch(`guardian.cat_${i}`)) count++;
-                                    }
-                                  }
-                                  setValue("guardian.rating", count);
-                                }}
-                              />
+                            <div className="flex items-start gap-2.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleCategory(key)}
+                                className={`mt-0.5 h-4.5 w-4.5 shrink-0 rounded flex items-center justify-center border transition-all ${
+                                  state.checked 
+                                    ? "bg-amber-400 border-amber-400 text-white" 
+                                    : "border-slate-300 hover:border-amber-400 bg-white"
+                                }`}
+                              >
+                                {state.checked && <Check size={11} className="stroke-[3]" />}
+                              </button>
+                              
+                              <div className="flex-1 space-y-2">
+                                <span className={`text-[10px] leading-tight font-bold transition-colors block ${
+                                  state.checked ? "text-slate-800" : "text-slate-500"
+                                }`}>
+                                  {category}
+                                </span>
+
+                                {/* Comment input field */}
+                                <div className="transition-all animate-in fade-in-50 slide-in-from-top-1">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Add comment (optional)..."
+                                    value={state.comment}
+                                    onChange={(e) => handleCommentChange(key, e.target.value)}
+                                    className="w-full bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 transition-colors"
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <span className={`text-[10px] leading-tight font-bold transition-colors ${
-                              isChecked ? "text-blue-900" : "text-slate-500 group-hover:text-slate-700"
-                            }`}>
-                              {cat}
-                            </span>
-                          </label>
+                          </div>
                         );
                       })}
-                      <input type="hidden" {...register("guardian.rating")} />
                     </div>
                   </KpiCard>
 
                   <KpiCard 
                     title="PTM Attended"
                     amount={ptmReward}
-                    success={isPtmSuccess}
+                    success={ptmAttended}
                     maxAmount={criteria?.ptmAmount}
                   >
-                    <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                      <input type="checkbox" {...register("ptm.attended")} className="h-4 w-4 rounded" />
-                      <span className="text-xs font-bold text-slate-700">Attended</span>
-                    </label>
+                    <div className="space-y-4 mt-3">
+                      {/* PTM Toggle Switch */}
+                      <div className="flex items-center justify-between bg-slate-50/50 p-3 border border-slate-100 rounded-xl">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-800 uppercase tracking-wide">Attended</span>
+                          <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Meeting attendance status</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPtmAttended(!ptmAttended)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            ptmAttended ? "bg-blue-600" : "bg-slate-200"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              ptmAttended ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* PTM Image Uploads */}
+                      <div className="space-y-2.5">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Parent Images</label>
+                        
+                        {/* Image previews */}
+                        {ptmImages.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {ptmImages.map((imgUrl, imgIdx) => (
+                              <div key={imgIdx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm group">
+                                <img 
+                                  src={imgUrl} 
+                                  alt="Parent meeting attachment" 
+                                  className="h-full w-full object-cover" 
+                                />
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-all">
+                                  <a
+                                    href={`/api/view-doc?id=${id}&field=${imgIdx}&type=ptm&month=${selectedMonth}&year=${year}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                                    title="View Full Image"
+                                  >
+                                    <ExternalLink size={12} />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteImage(imgIdx)}
+                                    className="p-1 bg-rose-500/80 hover:bg-rose-500 text-white rounded transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400 text-[10px] font-bold">
+                            No images uploaded.
+                          </div>
+                        )}
+
+                        {/* Upload Input */}
+                        <label className={`relative flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 hover:border-blue-400 hover:bg-blue-50/20 p-3 rounded-xl transition-all ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            multiple 
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={uploading}
+                          />
+                          {uploading ? (
+                            <>
+                              <Loader2 className="animate-spin w-3.5 h-3.5 text-blue-600" />
+                              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon size={14} className="text-slate-400" />
+                              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Upload Image(s)</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
                   </KpiCard>
                 </div>
 
@@ -493,7 +709,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
           <button type="submit" disabled={loading} className="w-full max-w-md bg-slate-900 text-white p-3 rounded-xl font-bold hover:bg-slate-800 disabled:bg-slate-300">
             {loading ? "Saving..." : "Calculate & Save Scores"}
           </button>
-        </form>
+        </form>)
       )}
     </div>
   );

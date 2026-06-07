@@ -8,7 +8,14 @@ import { resources, resourceIssuances, students, teachers } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import LabsClient from "./LabsClient";
 
-const LAB_TYPES = ["LAB_EQUIPMENT", "CHEMICAL", "APPARATUS", "LAB_OTHER"];
+const isLabResource = (type: string) => {
+  const baseType = type.split("|")[0];
+  return (
+    ["LAB_EQUIPMENT", "CHEMICAL", "APPARATUS", "LAB_OTHER"].includes(baseType) ||
+    baseType.startsWith("LAB_CAT_") ||
+    baseType.startsWith("LAB_")
+  );
+};
 
 export default async function LabsPage() {
   await protectRoute(["OFFICE", "TEACHER", "PRINCIPAL"]);
@@ -22,7 +29,7 @@ export default async function LabsPage() {
     .orderBy(desc(resources.createdAt));
 
   // Filter to lab types only
-  const labResources = allResources.filter(r => LAB_TYPES.includes(r.type));
+  const labResources = allResources.filter(r => isLabResource(r.type));
 
   const allIssuances = await db
     .select({
@@ -48,7 +55,7 @@ export default async function LabsPage() {
     .orderBy(desc(resourceIssuances.issuedAt));
 
   // Filter issuances to lab types
-  const labIssuances = allIssuances.filter(i => LAB_TYPES.includes(i.resourceType));
+  const labIssuances = allIssuances.filter(i => isLabResource(i.resourceType));
 
   const allStudents = await db
     .select({ id: students.id, name: students.name, rollNumber: students.rollNumber })

@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { incidents, teachers, classes, students, admissionMeta } from "@/db/schema";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export interface CreateIncidentInput {
@@ -138,6 +138,39 @@ export async function createIncidentAction(input: CreateIncidentInput) {
   }
 }
 
+// Resolve academic student metadata for the student role
+export async function getStudentMetadataByAdmissionIdAction(admissionId: string) {
+  try {
+    const meta = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.id, admissionId)
+    });
+
+    if (!meta) return { success: false, error: "Admission profile not found" };
+
+    const acadStudent = await db.query.students.findFirst({
+      where: or(
+        eq(students.studentId, meta.scholarNumber || ""),
+        eq(students.studentId, meta.admissionNumber || ""),
+        eq(students.studentId, meta.entryNumber || "")
+      ),
+      with: {
+        class: true
+      }
+    });
+
+    if (!acadStudent) return { success: false, error: "Academic student profile not found" };
+
+    return { 
+      success: true, 
+      studentId: acadStudent.id, 
+      classId: acadStudent.classId,
+      className: acadStudent.class?.name || ""
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 // Fetch logged incidents/complaints/feedbacks for a specific student's profile page
 export async function getStudentIncidentsAction(admissionId: string) {
   try {
@@ -159,7 +192,10 @@ export async function getStudentIncidentsAction(admissionId: string) {
     if (!acadStudent) return { success: true, data: [] };
 
     const data = await db.query.incidents.findMany({
-      where: eq(incidents.studentId, acadStudent.id),
+      where: or(
+        eq(incidents.studentId, acadStudent.id),
+        sql`${incidents.studentIds}::jsonb @> ${JSON.stringify([acadStudent.id])}::jsonb`
+      ),
       orderBy: [desc(incidents.createdAt)],
       with: {
         teacher: true,
@@ -177,7 +213,10 @@ export async function getStudentIncidentsAction(admissionId: string) {
 export async function getTeacherIncidentsAction(teacherId: string) {
   try {
     const data = await db.query.incidents.findMany({
-      where: eq(incidents.teacherId, teacherId),
+      where: or(
+        eq(incidents.teacherId, teacherId),
+        sql`${incidents.teacherIds}::jsonb @> ${JSON.stringify([teacherId])}::jsonb`
+      ),
       orderBy: [desc(incidents.createdAt)],
       with: {
         student: true,

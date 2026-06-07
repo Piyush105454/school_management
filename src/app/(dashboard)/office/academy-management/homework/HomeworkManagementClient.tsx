@@ -212,15 +212,18 @@ export default function HomeworkManagementClient({
                                             )}
 
                                             {sub.imagePath && (
-                                                <div className="flex items-center gap-4">
-                                                     <a 
-                                                        href={sub.imagePath} 
-                                                        target="_blank" 
-                                                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-                                                    >
-                                                        <Eye size={14} /> View Homework Image
-                                                    </a>
-                                                    <span className="text-[9px] font-bold text-slate-400 italic">Click to open full resolution photo</span>
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    {sub.imagePath.split(",").filter(Boolean).map((url, idx) => (
+                                                        <a 
+                                                            key={idx}
+                                                            href={url.trim()} 
+                                                            target="_blank" 
+                                                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                                                        >
+                                                            <Eye size={12} /> Image #{idx + 1}
+                                                        </a>
+                                                    ))}
+                                                    <span className="text-[9px] font-bold text-slate-400 italic">Click to view each photo</span>
                                                 </div>
                                             )}
                                         </div>

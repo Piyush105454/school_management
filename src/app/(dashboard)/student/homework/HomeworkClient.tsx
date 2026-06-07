@@ -35,8 +35,8 @@ export default function HomeworkClient({
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [submitting, setSubmitting] = useState(false);
   const [description, setDescription] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadUrls, setUploadUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Available dates for the selected month/year
@@ -85,8 +85,11 @@ export default function HomeworkClient({
   useEffect(() => {
     if (selectedItem) {
         setDescription(selectedItem.submittedDescription || "");
-        setUploadUrl(selectedItem.submittedImage || null);
-        setSelectedFile(null);
+        const images = selectedItem.submittedImage 
+          ? selectedItem.submittedImage.split(",").filter(Boolean) 
+          : [];
+        setUploadUrls(images);
+        setSelectedFiles([]);
     }
   }, [selectedSubjectId]);
 
@@ -95,27 +98,32 @@ export default function HomeworkClient({
     setSubmitting(true);
     
     try {
-      let finalImageUrl = uploadUrl;
+      let finalUrls = [...uploadUrls];
 
-      // 1. If file selected but not uploaded yet, upload it
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("rollNumber", studentRoll);
-        formData.append("date", selectedDate || new Date().toISOString().split('T')[0]);
+      // 1. Upload new files
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("rollNumber", studentRoll);
+          formData.append("date", selectedDate || new Date().toISOString().split('T')[0]);
 
-        const uploadRes = await fetch("/api/upload/homework", {
-          method: "POST",
-          body: formData
-        });
-        const uploadData = await uploadRes.json();
-        if (uploadData.url) {
-          finalImageUrl = uploadData.url;
-          setUploadUrl(finalImageUrl);
-        } else if (uploadData.error) {
-            throw new Error(uploadData.error);
+          const uploadRes = await fetch("/api/upload/homework", {
+            method: "POST",
+            body: formData
+          });
+          const uploadData = await uploadRes.json();
+          if (uploadData.url) {
+            finalUrls.push(uploadData.url);
+          } else if (uploadData.error) {
+              throw new Error(uploadData.error);
+          }
         }
       }
+
+      const finalImageUrl = finalUrls.join(",");
+      setUploadUrls(finalUrls);
+      setSelectedFiles([]);
 
       // 2. Submit to database
       const dbFormData = new FormData();
@@ -372,45 +380,91 @@ export default function HomeworkClient({
                               />
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Image Upload (Max 5MB)</label>
+                              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Image Uploads (Max 5MB per file)</label>
                               <input 
                                 type="file" 
                                 ref={fileInputRef}
-                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                onChange={(e) => {
+                                  const files = e.target.files ? Array.from(e.target.files) : [];
+                                  setSelectedFiles(prev => [...prev, ...files]);
+                                  if (fileInputRef.current) fileInputRef.current.value = "";
+                                }}
                                 className="hidden" 
                                 accept="image/*"
+                                multiple
                                 disabled={selectedItem.status === 'COMPLETED'}
                               />
-                              <div 
-                                onClick={() => selectedItem.status !== 'COMPLETED' && fileInputRef.current?.click()}
-                                className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer h-48 relative overflow-hidden ${
-                                    selectedFile || uploadUrl ? "border-emerald-300 bg-emerald-50/10" : "border-slate-200 bg-white hover:border-blue-300"
-                                } ${selectedItem.status === 'COMPLETED' ? 'cursor-default opacity-80' : ''}`}
-                              >
-                                  {selectedFile || uploadUrl ? (
-                                      <div className="absolute inset-0 group">
-                                          <img 
-                                            src={selectedFile ? URL.createObjectURL(selectedFile) : uploadUrl || ""} 
-                                            className="w-full h-full object-contain p-2" 
-                                            alt="Preview" 
-                                          />
-                                          {selectedItem.status !== 'COMPLETED' && (
-                                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                                  <Upload size={24} className="text-white" />
-                                              </div>
-                                          )}
+                              {(selectedFiles.length > 0 || uploadUrls.length > 0) ? (
+                                <div className="grid grid-cols-3 gap-3 p-3 bg-white border border-slate-200 rounded-xl h-48 overflow-y-auto">
+                                  {/* Uploaded S3 Images */}
+                                  {uploadUrls.map((url, index) => (
+                                    <div key={`url-${index}`} className="relative border border-slate-100 rounded-lg overflow-hidden h-20 bg-slate-50 group">
+                                      <img 
+                                        src={url} 
+                                        className="w-full h-full object-contain p-1" 
+                                        alt={`Uploaded ${index + 1}`} 
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-1.5">
+                                        <a href={url} target="_blank" className="p-1 rounded bg-white/20 text-white hover:bg-white/40">
+                                          <Eye size={12} />
+                                        </a>
+                                        {selectedItem.status !== 'COMPLETED' && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setUploadUrls(prev => prev.filter((_, i) => i !== index))}
+                                            className="p-1 rounded bg-red-500 text-white hover:bg-red-600 flex items-center justify-center text-xs font-bold leading-none h-5 w-5"
+                                          >
+                                            ×
+                                          </button>
+                                        )}
                                       </div>
-                                  ) : (
-                                      <>
-                                          <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                                              <Upload size={16} />
-                                          </div>
-                                          <span className="text-[9px] font-black uppercase tracking-widest leading-tight text-slate-400">
-                                              Click to upload photo of your notebook
-                                          </span>
-                                      </>
+                                    </div>
+                                  ))}
+                                  
+                                  {/* Newly Selected Local Images */}
+                                  {selectedFiles.map((file, index) => (
+                                    <div key={`file-${index}`} className="relative border border-slate-100 rounded-lg overflow-hidden h-20 bg-slate-50 group">
+                                      <img 
+                                        src={URL.createObjectURL(file)} 
+                                        className="w-full h-full object-contain p-1" 
+                                        alt={`Selected ${index + 1}`} 
+                                      />
+                                      {selectedItem.status !== 'COMPLETED' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
+                                          className="absolute top-1 right-1 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-black shadow hover:bg-red-600 transition-colors"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+
+                                  {/* Add More Button */}
+                                  {selectedItem.status !== 'COMPLETED' && (
+                                    <div 
+                                      onClick={() => fileInputRef.current?.click()}
+                                      className="border-2 border-dashed border-slate-200 rounded-lg h-20 flex flex-col items-center justify-center text-center cursor-pointer hover:border-blue-400 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                                    >
+                                      <Upload size={14} className="text-slate-400" />
+                                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Add More</span>
+                                    </div>
                                   )}
-                              </div>
+                                </div>
+                              ) : (
+                                <div 
+                                  onClick={() => selectedItem.status !== 'COMPLETED' && fileInputRef.current?.click()}
+                                  className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer h-48 relative overflow-hidden border-slate-200 bg-white hover:border-blue-300 ${selectedItem.status === 'COMPLETED' ? 'cursor-default opacity-80' : ''}`}
+                                >
+                                    <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                                        <Upload size={16} />
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest leading-tight text-slate-400">
+                                        Click to upload photo of your notebook
+                                    </span>
+                                </div>
+                              )}
                           </div>
                       </div>
 
@@ -418,7 +472,7 @@ export default function HomeworkClient({
                           {selectedItem.status === 'NOT_SUBMITTED' ? (
                                <button 
                                     type="button"
-                                    disabled={submitting || (!description && !selectedFile)}
+                                    disabled={submitting || (!description && selectedFiles.length === 0 && uploadUrls.length === 0)}
                                     onClick={handleSubmit}
                                     className="px-10 py-4 bg-blue-600 disabled:bg-slate-300 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2"
                                 >

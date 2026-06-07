@@ -34,6 +34,36 @@ const TYPE_COLORS: Record<string, string> = {
   LAB_OTHER: "bg-slate-100 text-slate-600",
 };
 
+const parseResourceType = (type: string) => {
+  const parts = type.split("|");
+  const baseType = parts[0];
+  let isConsumable = false;
+  if (parts.length > 1) {
+    isConsumable = parts[1] === "CONSUMABLE";
+  } else {
+    isConsumable = (baseType === "CHEMICAL");
+  }
+  return { baseType, isConsumable };
+};
+
+const getCategoryLabel = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  if (baseType.startsWith("LAB_CAT_")) {
+    return baseType.substring("LAB_CAT_".length);
+  }
+  return TYPE_LABELS[baseType] || baseType;
+};
+
+const getCategoryIcon = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  return TYPE_ICONS[baseType] || Package;
+};
+
+const getCategoryColor = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  return TYPE_COLORS[baseType] || "bg-slate-100 text-slate-600";
+};
+
 interface LabsClientProps {
   initialResources: any[];
   initialIssuances: any[];
@@ -62,6 +92,8 @@ export default function LabsClient({
   // Add Form
   const [resName, setResName] = useState("");
   const [resType, setResType] = useState("LAB_EQUIPMENT");
+  const [resIsConsumable, setResIsConsumable] = useState<"CONSUMABLE" | "NON_CONSUMABLE">("NON_CONSUMABLE");
+  const [resCustomCat, setResCustomCat] = useState("");
   const [resQty, setResQty] = useState("");
   const [resCost, setResCost] = useState("");
   const [resDesc, setResDesc] = useState("");
@@ -70,6 +102,8 @@ export default function LabsClient({
   // Edit Form
   const [editName, setEditName] = useState("");
   const [editType, setEditType] = useState("LAB_EQUIPMENT");
+  const [editIsConsumable, setEditIsConsumable] = useState<"CONSUMABLE" | "NON_CONSUMABLE">("NON_CONSUMABLE");
+  const [editCustomCat, setEditCustomCat] = useState("");
   const [editQty, setEditQty] = useState("");
   const [editCost, setEditCost] = useState("");
   const [editMsg, setEditMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -80,10 +114,54 @@ export default function LabsClient({
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [issueQty, setIssueQty] = useState("");
+  const [deadlineDateTime, setDeadlineDateTime] = useState("");
   const [issueMsg, setIssueMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Parse custom categories from the resources list
+  const customCategories = Array.from(
+    new Set(
+      resourcesList
+        .map((r) => parseResourceType(r.type).baseType)
+        .filter((cat) => cat.startsWith("LAB_CAT_"))
+    )
+  );
+
+  const defaultCategories = [
+    { value: "LAB_EQUIPMENT", label: "Lab Equipment" },
+    { value: "CHEMICAL", label: "Chemical / Reagent" },
+    { value: "APPARATUS", label: "Apparatus" },
+    { value: "LAB_OTHER", label: "Other Lab Item" },
+  ];
+
+  const categoryOptions = [
+    ...defaultCategories,
+    ...customCategories.map((cat) => ({
+      value: cat,
+      label: cat.substring("LAB_CAT_".length),
+    })),
+  ];
+
+  const handleAddCategoryChange = (val: string) => {
+    setResType(val);
+    if (val === "CHEMICAL") {
+      setResIsConsumable("CONSUMABLE");
+    } else {
+      setResIsConsumable("NON_CONSUMABLE");
+    }
+  };
+
+  const handleEditCategoryChange = (val: string) => {
+    setEditType(val);
+    if (val === "CHEMICAL") {
+      setEditIsConsumable("CONSUMABLE");
+    } else {
+      setEditIsConsumable("NON_CONSUMABLE");
+    }
+  };
+
   const filteredResources = resourcesList.filter((r) => {
-    const matchCat = categoryFilter === "All" || r.type === categoryFilter;
+    const { baseType } = parseResourceType(r.type);
+    const matchCat = categoryFilter === "All" || baseType === categoryFilter;
     const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCat && matchSearch;
   });
@@ -96,11 +174,22 @@ export default function LabsClient({
     if (!resName.trim()) { setAddMsg({ type: "error", text: "Name required." }); return; }
     if (isNaN(qty) || qty <= 0) { setAddMsg({ type: "error", text: "Qty must be > 0." }); return; }
 
+    let finalType = resType;
+    if (resType === "CUSTOM") {
+      if (!resCustomCat.trim()) {
+        setAddMsg({ type: "error", text: "Custom category name is required." });
+        return;
+      }
+      finalType = `LAB_CAT_${resCustomCat.trim()}`;
+    }
+    const encodedType = `${finalType}|${resIsConsumable}`;
+
     startTransition(async () => {
-      const res = await addResourceAction({ name: resName, type: resType, totalQuantity: qty, cost });
+      const res = await addResourceAction({ name: resName, type: encodedType, totalQuantity: qty, cost });
       if (res.success) {
         setAddMsg({ type: "success", text: "Lab item added!" });
-        setResName(""); setResQty(""); setResCost(""); setResDesc("");
+        setResName(""); setResQty(""); setResCost(""); setResDesc(""); setResCustomCat("");
+        setResType("LAB_EQUIPMENT"); setResIsConsumable("NON_CONSUMABLE");
         setShowAddForm(false);
         router.refresh();
       } else {
@@ -112,7 +201,20 @@ export default function LabsClient({
   const openEdit = (item: any) => {
     setEditItem(item);
     setEditName(item.name);
-    setEditType(item.type);
+    
+    const { baseType, isConsumable } = parseResourceType(item.type);
+    if (["LAB_EQUIPMENT", "CHEMICAL", "APPARATUS", "LAB_OTHER"].includes(baseType)) {
+      setEditType(baseType);
+      setEditCustomCat("");
+    } else if (baseType.startsWith("LAB_CAT_")) {
+      setEditType("CUSTOM");
+      setEditCustomCat(baseType.substring("LAB_CAT_".length));
+    } else {
+      setEditType(baseType);
+      setEditCustomCat("");
+    }
+
+    setEditIsConsumable(isConsumable ? "CONSUMABLE" : "NON_CONSUMABLE");
     setEditQty(String(item.totalQuantity));
     setEditCost(String(item.cost));
     setEditMsg(null);
@@ -126,8 +228,18 @@ export default function LabsClient({
     if (!editName.trim()) { setEditMsg({ type: "error", text: "Name required." }); return; }
     if (isNaN(qty) || qty <= 0) { setEditMsg({ type: "error", text: "Qty must be > 0." }); return; }
 
+    let finalType = editType;
+    if (editType === "CUSTOM") {
+      if (!editCustomCat.trim()) {
+        setEditMsg({ type: "error", text: "Custom category name is required." });
+        return;
+      }
+      finalType = `LAB_CAT_${editCustomCat.trim()}`;
+    }
+    const encodedType = `${finalType}|${editIsConsumable}`;
+
     startTransition(async () => {
-      const res = await updateResourceAction(editItem.id, { name: editName, type: editType, totalQuantity: qty, cost });
+      const res = await updateResourceAction(editItem.id, { name: editName, type: encodedType, totalQuantity: qty, cost });
       if (res.success) { setEditItem(null); router.refresh(); }
       else setEditMsg({ type: "error", text: res.error || "Failed." });
     });
@@ -158,6 +270,12 @@ export default function LabsClient({
       return;
     }
 
+    const isCons = selected ? parseResourceType(selected.type).isConsumable : false;
+    if (!isCons && !deadlineDateTime) {
+      setIssueMsg({ type: "error", text: "Return deadline is required for non-consumable items." });
+      return;
+    }
+
     startTransition(async () => {
       const res = await issueResourceAction({
         resourceId: resId,
@@ -165,10 +283,11 @@ export default function LabsClient({
         studentId: recipientType === "STUDENT" ? parseInt(selectedStudentId) : undefined,
         teacherId: recipientType === "TEACHER" ? selectedTeacherId : undefined,
         quantityIssued: qty,
+        deadline: !isCons ? deadlineDateTime : undefined,
       });
       if (res.success) {
         setIssueMsg({ type: "success", text: "Lab item issued!" });
-        setIssueResId(""); setSelectedStudentId(""); setSelectedTeacherId(""); setIssueQty("");
+        setIssueResId(""); setSelectedStudentId(""); setSelectedTeacherId(""); setIssueQty(""); setDeadlineDateTime("");
         router.refresh();
       } else {
         setIssueMsg({ type: "error", text: res.error || "Failed." });
@@ -184,10 +303,15 @@ export default function LabsClient({
     });
   };
 
+  const selectedResourceForIssue = resourcesList.find(r => r.id === parseInt(issueResId));
+  const isConsumableForIssue = selectedResourceForIssue 
+    ? parseResourceType(selectedResourceForIssue.type).isConsumable 
+    : false;
+
   const stats = {
     total: resourcesList.length,
     available: resourcesList.reduce((s, r) => s + r.availableQuantity, 0),
-    issued: issuancesList.filter(i => i.status === "ISSUED").length,
+    issued: issuancesList.filter(i => i.status.startsWith("ISSUED")).length,
     totalValue: resourcesList.reduce((s, r) => s + r.totalQuantity * r.cost, 0),
   };
 
@@ -268,21 +392,40 @@ export default function LabsClient({
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category *</label>
-                  <select value={resType} onChange={e => setResType(e.target.value)}
+                  <select value={resType} onChange={e => handleAddCategoryChange(e.target.value)}
                     className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500">
-                    <option value="LAB_EQUIPMENT">Lab Equipment</option>
-                    <option value="CHEMICAL">Chemical / Reagent</option>
-                    <option value="APPARATUS">Apparatus</option>
-                    <option value="LAB_OTHER">Other Lab Item</option>
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                    <option value="CUSTOM">+ Add Custom Category...</option>
                   </select>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["CONSUMABLE", "NON_CONSUMABLE"] as const).map((type) => (
+                      <button key={type} type="button" onClick={() => setResIsConsumable(type)}
+                        className={`py-2 text-[10px] font-bold rounded-xl border text-center transition-all ${resIsConsumable === type ? "bg-teal-600 text-white border-teal-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                        {type === "CONSUMABLE" ? "Consumable (No Return)" : "Non-Consumable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {resType === "CUSTOM" && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Custom Category Name *</label>
+                    <input type="text" value={resCustomCat} onChange={e => setResCustomCat(e.target.value)} required
+                      placeholder="e.g. Glassware, Specimens"
+                      className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity *</label>
                   <input type="number" value={resQty} onChange={e => setResQty(e.target.value)} min={1} required
                     placeholder="e.g. 5"
                     className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
                 </div>
-                <div className="col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Unit Cost (₹)</label>
                   <input type="number" value={resCost} onChange={e => setResCost(e.target.value)} min={0} step="any"
                     placeholder="e.g. 2500"
@@ -321,21 +464,40 @@ export default function LabsClient({
                     className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category</label>
-                  <select value={editType} onChange={e => setEditType(e.target.value)}
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category *</label>
+                  <select value={editType} onChange={e => handleEditCategoryChange(e.target.value)}
                     className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500">
-                    <option value="LAB_EQUIPMENT">Lab Equipment</option>
-                    <option value="CHEMICAL">Chemical / Reagent</option>
-                    <option value="APPARATUS">Apparatus</option>
-                    <option value="LAB_OTHER">Other Lab Item</option>
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                    <option value="CUSTOM">+ Add Custom Category...</option>
                   </select>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["CONSUMABLE", "NON_CONSUMABLE"] as const).map((type) => (
+                      <button key={type} type="button" onClick={() => setEditIsConsumable(type)}
+                        className={`py-2 text-[10px] font-bold rounded-xl border text-center transition-all ${editIsConsumable === type ? "bg-teal-600 text-white border-teal-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                        {type === "CONSUMABLE" ? "Consumable" : "Non-Consumable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {editType === "CUSTOM" && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Custom Category Name *</label>
+                    <input type="text" value={editCustomCat} onChange={e => setEditCustomCat(e.target.value)} required
+                      placeholder="e.g. Glassware, Specimens"
+                      className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity</label>
                   <input type="number" value={editQty} onChange={e => setEditQty(e.target.value)} min={1}
                     className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
                 </div>
-                <div className="col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Unit Cost (₹)</label>
                   <input type="number" value={editCost} onChange={e => setEditCost(e.target.value)} min={0} step="any"
                     className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
@@ -371,10 +533,10 @@ export default function LabsClient({
                   className="pl-8 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500 w-44" />
               </div>
               <div className="flex gap-1 flex-wrap">
-                {["All", "LAB_EQUIPMENT", "CHEMICAL", "APPARATUS", "LAB_OTHER"].map((cat) => (
+                {["All", ...categoryOptions.map(opt => opt.value)].map((cat) => (
                   <button key={cat} onClick={() => setCategoryFilter(cat)}
                     className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${categoryFilter === cat ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                    {cat === "LAB_EQUIPMENT" ? "Equipment" : cat === "LAB_OTHER" ? "Other" : cat}
+                    {cat === "All" ? "All" : getCategoryLabel(cat)}
                   </button>
                 ))}
               </div>
@@ -400,19 +562,24 @@ export default function LabsClient({
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-medium">
                   {filteredResources.map((res) => {
-                    const Icon = TYPE_ICONS[res.type] || Package;
-                    const colorClass = TYPE_COLORS[res.type] || "bg-slate-100 text-slate-600";
+                    const Icon = getCategoryIcon(res.type);
+                    const colorClass = getCategoryColor(res.type);
+                    const label = getCategoryLabel(res.type);
+                    const { isConsumable } = parseResourceType(res.type);
                     return (
                       <tr key={res.id} className="hover:bg-slate-50/60 transition-colors group">
                         <td className="py-3.5 px-5 font-bold text-slate-900">
                           <div className="flex items-center gap-2">
                             <Icon className="h-3.5 w-3.5 text-teal-500" />
                             {res.name}
+                            <span className="text-[9px] font-normal text-slate-400">
+                              ({isConsumable ? "Consumable" : "Non-Consumable"})
+                            </span>
                           </div>
                         </td>
                         <td className="py-3.5 px-3">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ${colorClass}`}>
-                            {TYPE_LABELS[res.type] || res.type}
+                            {label}
                           </span>
                         </td>
                         <td className="py-3.5 px-3 text-center font-bold text-slate-800">{res.totalQuantity}</td>
@@ -457,9 +624,14 @@ export default function LabsClient({
                 <select value={issueResId} onChange={e => setIssueResId(e.target.value)} required
                   className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500">
                   <option value="">-- Choose Item --</option>
-                  {resourcesList.map(res => (
-                    <option key={res.id} value={res.id}>{res.name} (Available: {res.availableQuantity})</option>
-                  ))}
+                  {resourcesList.map(res => {
+                    const { isConsumable } = parseResourceType(res.type);
+                    return (
+                      <option key={res.id} value={res.id}>
+                        {res.name} ({getCategoryLabel(res.type)} - {isConsumable ? "Consumable" : "Non-Consumable"}, Avail: {res.availableQuantity})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -500,6 +672,13 @@ export default function LabsClient({
                   className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
               </div>
             </div>
+            {issueResId && !isConsumableForIssue && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Return Deadline *</label>
+                <input type="datetime-local" value={deadlineDateTime} onChange={e => setDeadlineDateTime(e.target.value)} required
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-teal-500" />
+              </div>
+            )}
             <button type="submit" disabled={isPending}
               className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50">
               {isPending ? "Issuing..." : "Issue Lab Item"}
@@ -515,7 +694,7 @@ export default function LabsClient({
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Clock className="h-5 w-5 text-teal-600" /> Usage Log
               <span className="ml-2 text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-black">
-                {issuancesList.filter(i => i.status === "ISSUED").length} In Use
+                {issuancesList.filter(i => i.status.startsWith("ISSUED")).length} In Use
               </span>
             </h2>
           </div>
@@ -530,15 +709,41 @@ export default function LabsClient({
                     <th className="pb-3 px-3 pt-4">Issued To</th>
                     <th className="pb-3 px-3 pt-4 text-center">Qty</th>
                     <th className="pb-3 px-3 pt-4">Issue Date</th>
-                    <th className="pb-3 px-3 pt-4">Return Date</th>
+                    <th className="pb-3 px-3 pt-4">Return Date / Deadline</th>
                     <th className="pb-3 px-3 pt-4">Status</th>
                     <th className="pb-3 px-5 pt-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-medium">
                   {issuancesList.map((log) => {
+                    const parts = log.status.split("|");
+                    const baseStatus = parts[0];
+                    const deadline = parts[1] || null;
+
+                    const formatDeadline = (dateStr: string) => {
+                      const d = new Date(dateStr);
+                      return d.toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      });
+                    };
+
+                    const hasDeadline = !!deadline;
+                    const isOverdue = hasDeadline && baseStatus === "ISSUED" && new Date(deadline) < new Date();
+
                     const issueDate = new Date(log.issuedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-                    const returnDate = log.returnedAt ? new Date(log.returnedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+                    
+                    let returnDateText = "— (No deadline)";
+                    if (log.returnedAt) {
+                      returnDateText = new Date(log.returnedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                    } else if (hasDeadline) {
+                      returnDateText = `Deadline: ${formatDeadline(deadline)}`;
+                    }
+
                     const recipientName = log.recipientType === "STUDENT" ? log.studentName : log.teacherName || "Teacher";
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
@@ -551,14 +756,24 @@ export default function LabsClient({
                         </td>
                         <td className="py-3.5 px-3 text-center font-bold text-slate-800">{log.quantityIssued}</td>
                         <td className="py-3.5 px-3 text-slate-500">{issueDate}</td>
-                        <td className="py-3.5 px-3 text-slate-500">{returnDate}</td>
+                        <td className={`py-3.5 px-3 text-slate-500 ${isOverdue ? "text-rose-600 font-bold" : ""}`}>{returnDateText}</td>
                         <td className="py-3.5 px-3">
-                          <span className={`inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black ${log.status === "RETURNED" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-teal-50 text-teal-700 border border-teal-100 animate-pulse"}`}>
-                            {log.status === "RETURNED" ? "Returned" : "In Use"}
-                          </span>
+                          {baseStatus === "RETURNED" ? (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              Returned
+                            </span>
+                          ) : isOverdue ? (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-rose-50 text-rose-700 border border-rose-100 animate-pulse">
+                              ⚠️ Overdue
+                            </span>
+                          ) : (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-teal-50 text-teal-700 border border-teal-100 animate-pulse">
+                              In Use
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-5 text-right">
-                          {log.status === "ISSUED" ? (
+                          {baseStatus === "ISSUED" ? (
                             <button onClick={() => handleReturn(log.id)} disabled={isPending}
                               className="py-1 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-50">
                               Return

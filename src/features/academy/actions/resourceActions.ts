@@ -20,6 +20,7 @@ interface IssueInput {
   studentId?: number;
   teacherId?: string; // UUID string
   quantityIssued: number;
+  deadline?: string;
 }
 
 /**
@@ -120,7 +121,7 @@ export async function issueResourceAction(data: IssueInput) {
         studentId: data.recipientType === "STUDENT" ? data.studentId : null,
         teacherId: data.recipientType === "TEACHER" ? data.teacherId : null,
         quantityIssued: data.quantityIssued,
-        status: "ISSUED",
+        status: data.deadline ? `ISSUED|${data.deadline}` : "ISSUED",
       });
     });
 
@@ -158,7 +159,7 @@ export async function returnResourceAction(issuanceId: number) {
 
     const issuance = issuanceRecords[0];
 
-    if (issuance.status === "RETURNED") {
+    if (issuance.status.startsWith("RETURNED")) {
       return { success: false, error: "This item has already been marked as returned." };
     }
 
@@ -174,10 +175,11 @@ export async function returnResourceAction(issuanceId: number) {
         .where(eq(resources.id, issuance.resourceId));
 
       // Mark issuance as returned
+      const deadlinePart = issuance.status.includes("|") ? `|${issuance.status.split("|")[1]}` : "";
       await tx
         .update(resourceIssuances)
         .set({
-          status: "RETURNED",
+          status: `RETURNED${deadlinePart}`,
           returnedAt: new Date(),
           updatedAt: new Date(),
         })
