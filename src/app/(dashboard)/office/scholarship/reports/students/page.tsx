@@ -1,14 +1,15 @@
 import { protectRoute } from "@/lib/roleGuard";
-import StudentsClient from "./StudentsClient";
 import { db } from "@/db";
 import { teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import StudentReportsClient from "./StudentReportsClient";
 
-export default async function StudentsPage() {
-  const session = await protectRoute(["OFFICE"], "/office/scholarship/students");
+export default async function StudentReportsPage() {
+  const session = await protectRoute(["OFFICE"], "/office/scholarship/reports/students");
   
   let classesList = ["KG1", "KG2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-  
+  let limitToClasses: string[] | undefined = undefined;
+
   if (session && session.user.role === "TEACHER") {
     const teacherProfile = await db.query.teachers.findFirst({
       where: eq(teachers.userId, session.user.id),
@@ -18,7 +19,7 @@ export default async function StudentsPage() {
         .split(",")
         .map((c) => c.trim().toLowerCase());
       
-      classesList = classesList.filter((clsName) => {
+      limitToClasses = classesList.filter((clsName) => {
         return assigned.some((a) => {
           const cleanA = a.replace(/^class\s+/i, "");
           const cleanCls = clsName.toLowerCase().replace(/^class\s+/i, "");
@@ -26,9 +27,9 @@ export default async function StudentsPage() {
         });
       });
     } else {
-      classesList = [];
+      limitToClasses = [];
     }
   }
 
-  return <StudentsClient classesList={classesList} />;
+  return <StudentReportsClient classesList={classesList} limitToClasses={limitToClasses} />;
 }

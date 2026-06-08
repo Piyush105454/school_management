@@ -5,8 +5,10 @@ import { eq } from "drizzle-orm";
 import { studentProfiles } from "@/db/schema";
 import { redirect } from "next/navigation";
 import ScholarshipClient from "./ScholarshipClient";
+import { protectRoute } from "@/lib/roleGuard";
 
 export default async function StudentScholarshipPage() {
+  await protectRoute(["STUDENT_PARENT"], "/student/scholarship");
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 

@@ -17,6 +17,7 @@ export default withAuth(
     const roleRoutes: Record<string, string[]> = {
       OFFICE: ["/office", "/dashboard"],
       PRINCIPAL: ["/office", "/dashboard"],
+      ADMIN: ["/office", "/dashboard"],
       STUDENT_PARENT: ["/student", "/dashboard"],
       TEACHER: [
         "/teacher", 
@@ -27,7 +28,9 @@ export default withAuth(
         "/office/entrance-tests", 
         "/office/document-verification",
         "/office/academy-management",
-        "/office/final-admissions"
+        "/office/final-admissions",
+        "/office/scholarship",
+        "/student/scholarship"
       ],
     };
 
@@ -41,6 +44,7 @@ export default withAuth(
         const dashboardMap: Record<string, string> = {
           OFFICE: "/office/dashboard",
           PRINCIPAL: "/office/dashboard",
+          ADMIN: "/office/dashboard",
           STUDENT_PARENT: "/student/dashboard",
           TEACHER: "/teacher/dashboard",
         };

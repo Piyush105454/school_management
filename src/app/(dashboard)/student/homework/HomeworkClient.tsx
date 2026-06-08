@@ -38,6 +38,33 @@ export default function HomeworkClient({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadUrls, setUploadUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const getCalendarDays = () => {
+    const monthIndex = months.indexOf(selectedMonth);
+    const yearNum = parseInt(selectedYear);
+    const firstDay = new Date(yearNum, monthIndex, 1);
+    const startWeekday = firstDay.getDay(); // 0 is Sunday, 6 is Saturday
+    const totalDays = new Date(yearNum, monthIndex + 1, 0).getDate();
+    
+    const days = [];
+    // Add leading empty spaces
+    for (let i = 0; i < startWeekday; i++) {
+      days.push(null);
+    }
+    // Add days of the month
+    for (let d = 1; d <= totalDays; d++) {
+      days.push(d);
+    }
+    return days;
+  };
+
+  const getDayDateString = (day: number) => {
+    const monthIndex = months.indexOf(selectedMonth) + 1;
+    const monthStr = monthIndex < 10 ? `0${monthIndex}` : `${monthIndex}`;
+    const dayStr = day < 10 ? `0${day}` : `${day}`;
+    return `${selectedYear}-${monthStr}-${dayStr}`;
+  };
   
   // Available dates for the selected month/year
   const availableDates = useMemo(() => {
@@ -187,25 +214,83 @@ export default function HomeworkClient({
             </select>
           </div>
 
-          <div className="h-8 w-[1px] bg-slate-200 hidden md:block mx-2"></div>
+          <div className="relative">
+            <button
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all flex items-center gap-2 shadow-sm"
+            >
+              <Calendar size={14} className="text-blue-600" />
+              <span>
+                {selectedDate 
+                  ? new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : "Choose Date"
+                }
+              </span>
+            </button>
 
-          <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full md:max-w-[400px]">
-            {availableDates.length === 0 ? (
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest py-2">No records found</span>
-            ) : (
-              availableDates.slice(0, 5).map(date => (
-                <button
-                  key={date}
-                  onClick={() => setSelectedDate(date)}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
-                    selectedDate === date 
-                      ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100" 
-                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  {new Date(date).getDate()} {new Date(date).toLocaleString('en-US', { month: 'short' })}
-                </button>
-              ))
+            {showCalendar && (
+              <>
+                <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowCalendar(false)} />
+                <div className="absolute right-0 mt-2 p-4 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 w-72 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-wider">{selectedMonth} {selectedYear}</span>
+                    <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      {availableDates.length} Days Active
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(day => (
+                      <div key={day} className="py-1">{day}</div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center">
+                    {getCalendarDays().map((day, idx) => {
+                      if (day === null) {
+                        return <div key={`empty-${idx}`} />;
+                      }
+
+                      const dateStr = getDayDateString(day);
+                      const hasHomework = availableDates.includes(dateStr);
+                      const isSelected = selectedDate === dateStr;
+
+                      return (
+                        <button
+                          key={dateStr}
+                          onClick={() => {
+                            setSelectedDate(dateStr);
+                            setShowCalendar(false);
+                          }}
+                          className={`h-8 w-8 rounded-full text-xs font-bold transition-all relative flex items-center justify-center ${
+                            isSelected
+                              ? "bg-blue-600 text-white shadow-md shadow-blue-200 font-extrabold"
+                              : hasHomework
+                              ? "bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold border border-blue-200"
+                              : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                          }`}
+                        >
+                          {day}
+                          {hasHomework && !isSelected && (
+                            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 bg-blue-600 rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2 border-t border-slate-100 text-[9px] font-bold text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 bg-blue-50 border border-blue-200 rounded-full inline-block" />
+                      <span>Has Homework</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 bg-blue-600 rounded-full inline-block" />
+                      <span>Selected</span>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

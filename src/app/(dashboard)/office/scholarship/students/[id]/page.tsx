@@ -1,3 +1,4 @@
+import { protectRoute } from "@/lib/roleGuard";
 import { getStudentDetails } from "@/features/scholarship/actions/studentActions";
 import StudentProfileClient from "./StudentProfileClient";
 import { notFound } from "next/navigation";
@@ -5,6 +6,9 @@ import { notFound } from "next/navigation";
 export default async function StudentProfilePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const id = params.id;
+  
+  await protectRoute(["OFFICE"], `/office/scholarship/students/${id}`);
+  
   const res = await getStudentDetails(id);
 
   if (!res.success || !res.data) {

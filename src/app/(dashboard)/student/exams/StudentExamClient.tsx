@@ -37,6 +37,30 @@ const formatExamDate = (dateStr: string, formatOpts: Intl.DateTimeFormatOptions)
   }
 };
 
+const calculateDuration = (startTime: string, endTime: string): string => {
+  if (!startTime || !endTime) return "—";
+  try {
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    
+    let diffMins = (endH * 60 + endM) - (startH * 60 + startM);
+    if (diffMins < 0) diffMins += 24 * 60; // Handle overnight wraps
+    
+    const hrs = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    
+    if (hrs > 0 && mins > 0) {
+      return `${hrs}h ${mins}m`;
+    } else if (hrs > 0) {
+      return `${hrs}h`;
+    } else {
+      return `${mins}m`;
+    }
+  } catch (e) {
+    return "—";
+  }
+};
+
 interface StudentExamClientProps {
   exams: any[];
   studentClassName: string | null;
@@ -94,9 +118,9 @@ export default function StudentExamClient({ exams, studentClassName }: StudentEx
             {exam.description && <p className="text-xs text-slate-400 font-medium mt-0.5">{exam.description}</p>}
           </div>
           <div className="flex items-center gap-2">
-            {exam.venue && exam.venue !== "Classroom" && (
+            {exam.venue && (
               <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
-                📍 {exam.venue}
+                📍 Venue: {exam.venue}
               </span>
             )}
             <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">
@@ -113,6 +137,7 @@ export default function StudentExamClient({ exams, studentClassName }: StudentEx
                 <th className="p-3 pl-4">Subject</th>
                 <th className="p-3">Date</th>
                 <th className="p-3">Time</th>
+                <th className="p-3">Duration</th>
                 <th className="p-3 text-center">Max Marks</th>
                 <th className="p-3 pr-4">Syllabus / Units</th>
               </tr>
@@ -125,6 +150,7 @@ export default function StudentExamClient({ exams, studentClassName }: StudentEx
                     {formatExamDate(p.examDate, { day: "numeric", month: "short", weekday: "short" })}
                   </td>
                   <td className="p-3 text-slate-600 font-semibold">{p.startTime} – {p.endTime}</td>
+                  <td className="p-3 text-slate-600 font-semibold">{calculateDuration(p.startTime, p.endTime)}</td>
                   <td className="p-3 text-center text-slate-700 font-bold">{p.maxMarks}</td>
                   <td className="p-3 pr-4">
                     {p.syllabusUnits && p.syllabusUnits.length > 0 ? (

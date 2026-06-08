@@ -33,7 +33,8 @@ import {
   timetable,
   studentAttendance,
   examSchedules,
-  students
+  students,
+  holidays
 } from "@/db/schema";
 
 import { redirect } from "next/navigation";
@@ -92,7 +93,15 @@ export default async function StudentDashboard() {
   const className = academyStudent?.class?.name || null;
   const academyStudentId = academyStudent?.id || null;
 
-  const [timetableEntries, attendanceEntries, examEntries] = await Promise.all([
+  const todayDateStr = (() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const dateVal = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dateVal}`;
+  })();
+
+  const [timetableEntries, attendanceEntries, examEntries, todayHolidayList] = await Promise.all([
     classId ? db.query.timetable.findMany({
       where: eq(timetable.classId, classId),
       with: { subject: true, teacher: true }
@@ -100,8 +109,11 @@ export default async function StudentDashboard() {
     academyStudentId ? db.query.studentAttendance.findMany({
       where: eq(studentAttendance.studentId, academyStudentId)
     }) : Promise.resolve([]),
-    db.query.examSchedules.findMany()
+    db.query.examSchedules.findMany(),
+    db.select().from(holidays).where(eq(holidays.date, todayDateStr)).limit(1)
   ]);
+
+  const todayHoliday = todayHolidayList?.[0] || null;
 
   const classExams = classId ? examEntries.filter(e => e.classId === classId) : [];
   const classesStarted = timetableEntries.length > 0 || attendanceEntries.length > 0 || classExams.length > 0;
@@ -261,12 +273,26 @@ export default async function StudentDashboard() {
                   </div>
                   <div>
                     <h2 className="text-lg font-black text-slate-900 uppercase italic">Today's Class Timetable</h2>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{todayDay}'s Schedule</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      {todayDay}'s Schedule ({new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })})
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {sortedPeriods.length > 0 ? (
+              {todayHoliday ? (
+                <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center text-rose-800 space-y-2 mb-6 shadow-sm">
+                  <Calendar className="h-8 w-8 text-rose-500 mx-auto animate-bounce" />
+                  <h3 className="text-base font-black uppercase tracking-wide">Holiday: {todayHoliday.title}</h3>
+                  <p className="text-xs font-semibold text-rose-600">
+                    Today is a scheduled school holiday ({(() => {
+                      const [year, month, day] = todayHoliday.date.split("-").map(Number);
+                      const d = new Date(year, month - 1, day);
+                      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                    })()}). Enjoy your day off!
+                  </p>
+                </div>
+              ) : sortedPeriods.length > 0 ? (
                 <div className="space-y-3">
                   {sortedPeriods.map((period, i) => (
                     <div key={period.id || i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
@@ -343,7 +369,9 @@ export default async function StudentDashboard() {
                           </td>
                           <td className="p-3 text-slate-600 font-medium">{exam.startTime} - {exam.endTime}</td>
                           <td className="p-3 text-center text-slate-700 font-bold">{exam.maxMarks}</td>
-                          <td className="p-3 pr-4 text-slate-600 font-medium">{exam.venue || "Classroom"}</td>
+                          <td className="p-3 pr-4 text-slate-600 font-medium">
+                            {exam.venue ? `📍 ${exam.venue}` : "Classroom"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

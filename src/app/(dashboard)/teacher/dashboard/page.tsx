@@ -9,11 +9,12 @@ import {
     BookOpen,
     LayoutDashboard,
     Clock,
-    ClipboardCheck
+    ClipboardCheck,
+    Calendar
 } from "lucide-react";
 import { protectRoute } from "@/lib/roleGuard";
 import { db } from "@/db";
-import { teachers, timetable } from "@/db/schema";
+import { teachers, timetable, holidays } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export default async function TeacherDashboardPage() {
@@ -23,10 +24,24 @@ export default async function TeacherDashboardPage() {
     const session = await getServerSession(authOptions);
     if (!session) redirect("/");
 
-    // Fetch the teacher profile
-    const teacherProfile = await db.query.teachers.findFirst({
-        where: eq(teachers.userId, session.user.id)
-    });
+    // Fetch today's date
+    const todayDateStr = (() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const dateVal = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${dateVal}`;
+    })();
+
+    // Fetch the teacher profile and today's holiday status in parallel
+    const [teacherProfile, todayHolidayList] = await Promise.all([
+        db.query.teachers.findFirst({
+            where: eq(teachers.userId, session.user.id)
+        }),
+        db.select().from(holidays).where(eq(holidays.date, todayDateStr)).limit(1)
+    ]);
+
+    const todayHoliday = todayHolidayList?.[0] || null;
 
     let teacherSchedule: any[] = [];
     if (teacherProfile) {
@@ -78,12 +93,24 @@ export default async function TeacherDashboardPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                             <Clock className="text-blue-600" size={20} />
-                            Today's Schedule ({queryDay})
+                            Today's Schedule ({queryDay} - {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })})
                         </h2>
                     </div>
 
                     <div className="space-y-4">
-                        {todaySchedule.length > 0 ? (
+                        {todayHoliday ? (
+                            <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center text-rose-800 space-y-2 shadow-sm">
+                                <Calendar className="h-8 w-8 text-rose-500 mx-auto animate-bounce" />
+                                <h3 className="text-base font-black uppercase tracking-wide">Holiday: {todayHoliday.title}</h3>
+                                <p className="text-xs font-semibold text-rose-600">
+                                    Today is a scheduled school holiday ({(() => {
+                                        const [year, month, day] = todayHoliday.date.split("-").map(Number);
+                                        const d = new Date(year, month - 1, day);
+                                        return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                                    })()}). Enjoy your day off!
+                                </p>
+                            </div>
+                        ) : todaySchedule.length > 0 ? (
                             todaySchedule.map((slot, i) => (
                                 <div key={i} className="flex items-center gap-6 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
                                     <div className="text-center min-w-[70px] border-r border-slate-200/50 pr-4">

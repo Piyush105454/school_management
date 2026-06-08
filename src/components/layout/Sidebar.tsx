@@ -32,7 +32,20 @@ import {
   FlaskConical,
   Users2,
   Activity,
-  Brain
+  Brain,
+  Calendar,
+  CalendarDays,
+  FileSignature,
+  CalendarClock,
+  Library,
+  Laptop,
+  AlertTriangle,
+  Stethoscope,
+  ShieldAlert,
+  Apple,
+  Cog,
+  Key,
+  Network
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -180,10 +193,14 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { type: "section", name: "Scholarship" },
     { href: "/office/scholarship/award", icon: Award, roleNames: { OFFICE: "Award Scholarship", PRINCIPAL: "Award Scholarship" } },
     { href: "/office/scholarship/students", icon: GraduationCap, roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships" } },
-    { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
     { href: "/office/scholarship/settings", icon: Settings, roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
-    { href: "/student/scholarship", icon: GraduationCap, roleNames: { STUDENT_PARENT: "My Scholarship" } },
+    { href: "/student/scholarship", icon: GraduationCap, roleNames: { STUDENT_PARENT: "My Scholarship", TEACHER: "Student Scholarship View" } },
     { href: "/teacher/scholarship-criteria", icon: ClipboardList, roleNames: { TEACHER: "PTM & Guardian Ratings" } },
+
+    // Reports Category
+    { type: "section", name: "Reports" },
+    { href: "/office/scholarship/reports/students", icon: FileText, roleNames: { OFFICE: "Student Reports", PRINCIPAL: "Student Reports", TEACHER: "Student Reports" } },
+    { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
 
     // Academy Management Category
     { type: "section", name: "Academy Management" },
@@ -200,52 +217,53 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // Time Table Management Category
     { type: "section", name: "Time Table Management" },
-    { href: "/office/timetable", icon: Clock, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
+    { href: "/office/timetable", icon: Calendar, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
 
     // Leave Management Category
     { type: "section", name: "Leave Management" },
-    { href: "/office/academy-management/leaves", icon: ClipboardList, roleNames: { OFFICE: "Student Leaves", PRINCIPAL: "Student Leaves" } },
-    { href: "/office/leaver-management/tc", icon: FileText, roleNames: { OFFICE: "TC Generation", PRINCIPAL: "TC Generation" } },
-    { href: "/student/leave", icon: ClipboardCheck, roleNames: { STUDENT_PARENT: "Apply Leave" } },
+    { href: "/office/academy-management/leaves", icon: CalendarDays, roleNames: { OFFICE: "Student Leaves", PRINCIPAL: "Student Leaves" } },
+    { href: "/office/leaver-management/tc", icon: FileSignature, roleNames: { OFFICE: "TC Generation", PRINCIPAL: "TC Generation" } },
+    { href: "/student/leave", icon: CalendarClock, roleNames: { STUDENT_PARENT: "Apply Leave" } },
 
     // Lab, Library & Resource Management Category
     { type: "section", name: "Lab, Library & Resource Management" },
+    { href: "/office/academy-management/library", icon: Library, roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
     { href: "/office/labs", icon: FlaskConical, roleNames: { OFFICE: "Labs", PRINCIPAL: "Labs" } },
-    { href: "/office/library", icon: BookOpen, roleNames: { OFFICE: "Library", PRINCIPAL: "Library" } },
-    { href: "/office/resources", icon: FolderOpen, roleNames: { OFFICE: "Resources", PRINCIPAL: "Resources" } },
+    { href: "/office/resources", icon: Laptop, roleNames: { OFFICE: "School Assets & Resources", PRINCIPAL: "School Assets & Resources" } },
 
     // Incident Management Category
     { type: "section", name: "Incident Management" },
-    { href: "/office/incident-management", icon: AlertCircle, roleNames: { OFFICE: "Manage Incidents", PRINCIPAL: "Manage Incidents" } },
-    { href: "/teacher/incident-management", icon: AlertCircle, roleNames: { TEACHER: "My Logged Incidents" } },
-    { href: "/student/incident-management", icon: AlertCircle, roleNames: { STUDENT_PARENT: "My Logged Incidents" } },
+    { href: "/office/incident-management", icon: AlertTriangle, roleNames: { OFFICE: "Manage Incidents", PRINCIPAL: "Manage Incidents" } },
+    { href: "/teacher/incident-management", icon: AlertTriangle, roleNames: { TEACHER: "My Logged Incidents" } },
+    { href: "/student/incident-management", icon: AlertTriangle, roleNames: { STUDENT_PARENT: "My Logged Incidents" } },
 
     // School Health Program Category
     { type: "section", name: "School Health Program" },
-    { href: "/office/school-health/dashboard", icon: LayoutDashboard, roleNames: { OFFICE: "Health Dashboard", PRINCIPAL: "Health Dashboard" } },
-    { href: "/office/school-health/records", icon: Heart, roleNames: { OFFICE: "Student Health Records", PRINCIPAL: "Student Health Records" } },
-    { href: "/office/school-health/daily-check", icon: Activity, roleNames: { OFFICE: "Daily Health Check", PRINCIPAL: "Daily Health Check" } },
-    { href: "/office/school-health/wellness", icon: Brain, roleNames: { OFFICE: "Wellness & Nutrition", PRINCIPAL: "Wellness & Nutrition" } },
-    { href: "/office/school-health/settings", icon: Settings, roleNames: { OFFICE: "Settings & Committee", PRINCIPAL: "Settings & Committee" } },
+    { href: "/office/school-health/dashboard", icon: Heart, roleNames: { OFFICE: "Health Dashboard", PRINCIPAL: "Health Dashboard" } },
+    { href: "/office/school-health/records", icon: Stethoscope, roleNames: { OFFICE: "Student Health Records", PRINCIPAL: "Student Health Records" } },
+    { href: "/office/school-health/daily-check", icon: ShieldAlert, roleNames: { OFFICE: "Daily Health Check", PRINCIPAL: "Daily Health Check" } },
+    { href: "/office/school-health/wellness", icon: Apple, roleNames: { OFFICE: "Wellness & Nutrition", PRINCIPAL: "Wellness & Nutrition" } },
+    { href: "/office/school-health/settings", icon: Cog, roleNames: { OFFICE: "Settings & Committee", PRINCIPAL: "Settings & Committee" } },
 
     // Transport Management Category
     { type: "section", name: "Transport Management" },
-    { href: "/office/transport", icon: Bus, roleNames: { OFFICE: "Student Transport", PRINCIPAL: "Student Transport" } },
-    { href: "/student/transport", icon: Bus, roleNames: { STUDENT_PARENT: "My Transit Bus" } },
+    { href: "/office/transport", icon: Bus, roleNames: { OFFICE: "Manage Transport", PRINCIPAL: "Manage Transport" } },
+    { href: "/office/transport/students", icon: Users, roleNames: { OFFICE: "Student Transport Mapping", PRINCIPAL: "Student Transport Mapping" } },
+    { href: "/student/transport", icon: Bus, roleNames: { STUDENT_PARENT: "My Transport" } },
 
     // People Management Category
     { type: "section", name: "People Management" },
     { href: "/office/admin-management", icon: UserCog, roleNames: { OFFICE: "Admin Management", PRINCIPAL: "Admin Management" } },
     { href: "/office/school-management/teachers", icon: Users, roleNames: { OFFICE: "Teacher Management", PRINCIPAL: "Teacher Management" } },
-    { href: "/office/school-management/principal", icon: UserCog, roleNames: { OFFICE: "Principal Management", PRINCIPAL: "Principal Management" } },
+    { href: "/office/school-management/principal", icon: UserCheck, roleNames: { OFFICE: "Principal Management", PRINCIPAL: "Principal Management" } },
 
     // Access Module Category
     { type: "section", name: "Access Module Management" },
-    { href: "/office/access-management", icon: Lock, roleNames: { OFFICE: "Access UI Management", PRINCIPAL: "Access UI Management" } },
+    { href: "/office/access-management", icon: Key, roleNames: { OFFICE: "Access UI Management", PRINCIPAL: "Access UI Management" } },
 
     // Committee Management Category
     { type: "section", name: "Committee Management" },
-    { href: "/office/committees", icon: Users2, roleNames: { OFFICE: "Manage Committees", PRINCIPAL: "Manage Committees" } },
+    { href: "/office/committees", icon: Network, roleNames: { OFFICE: "Manage Committees", PRINCIPAL: "Manage Committees" } },
   ];
 
   const isDefaultSectionForRole = (r: string, name: string): boolean => {
@@ -254,11 +272,11 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "Admissions", "Scholarship", "Academy Management", "Leave Management",
         "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
         "Transport Management", "People Management", "Access Module Management",
-        "Committee Management"
+        "Committee Management", "Reports"
       ].includes(name);
     }
     if (r === "TEACHER") {
-      return ["Admissions", "Academy Management", "Incident Management", "Scholarship"].includes(name);
+      return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports"].includes(name);
     }
     if (r === "STUDENT_PARENT") {
       return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management", "Transport Management"].includes(name);
@@ -279,6 +297,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/scholarship/award",
         "/office/scholarship/students",
         "/office/scholarship/reports",
+        "/office/scholarship/reports/students",
         "/office/scholarship/settings",
         "/office/academy-management/attendance",
         "/office/academy-management/classes",
@@ -288,7 +307,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/academy-management/exams",
         "/office/academy-management/leaves",
         "/office/labs",
-        "/office/library",
+        "/office/academy-management/library",
         "/office/resources",
         "/office/leaver-management/tc",
         "/office/incident-management",
@@ -299,6 +318,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/school-health/settings",
         "/office/timetable",
         "/office/transport",
+        "/office/transport/students",
         "/office/admin-management",
         "/office/school-management/teachers",
         "/office/school-management/principal",
@@ -321,7 +341,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/document-verification",
         "/office/entrance-tests",
         "/office/home-visits",
-        "/teacher/scholarship-criteria"
+        "/teacher/scholarship-criteria",
+        "/office/scholarship/reports",
+        "/office/scholarship/reports/students"
       ].includes(href);
     }
     if (r === "STUDENT_PARENT") {

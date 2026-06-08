@@ -25,12 +25,16 @@ const MASTER_STRUCTURE = [
 
   // Scholarship Category
   { type: "section", name: "Scholarship" },
-  { href: "/office/scholarship/award", roleNames: { OFFICE: "Award Scholarship", PRINCIPAL: "Award Scholarship" } },
-  { href: "/office/scholarship/students", roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships" } },
-  { href: "/office/scholarship/reports", roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
-  { href: "/office/scholarship/settings", roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
-  { href: "/student/scholarship", roleNames: { STUDENT_PARENT: "My Scholarship" } },
+  { href: "/office/scholarship/award", roleNames: { OFFICE: "Award Scholarship", PRINCIPAL: "Award Scholarship", TEACHER: "Award Scholarship" } },
+  { href: "/office/scholarship/students", roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships", TEACHER: "Student Scholarships" } },
+  { href: "/office/scholarship/settings", roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings", TEACHER: "Criteria Settings" } },
+  { href: "/student/scholarship", roleNames: { STUDENT_PARENT: "My Scholarship", TEACHER: "Student Scholarship View" } },
   { href: "/teacher/scholarship-criteria", roleNames: { TEACHER: "PTM & Guardian Ratings" } },
+
+  // Reports Category
+  { type: "section", name: "Reports" },
+  { href: "/office/scholarship/reports/students", roleNames: { OFFICE: "Student Reports", PRINCIPAL: "Student Reports", TEACHER: "Student Reports" } },
+  { href: "/office/scholarship/reports", roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports", TEACHER: "Monthly Reports" } },
 
   // Academy Management Category
   { type: "section", name: "Academy Management" },
@@ -97,11 +101,11 @@ const isDefaultSectionForRole = (role: string, name: string): boolean => {
       "Admissions", "Scholarship", "Academy Management", "Leave Management",
       "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
       "Transport Management", "People Management", "Access Module Management",
-      "Committee Management"
+      "Committee Management", "Reports"
     ].includes(name);
   }
   if (role === "TEACHER") {
-    return ["Admissions", "Academy Management", "Incident Management", "Scholarship"].includes(name);
+    return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports"].includes(name);
   }
   if (role === "STUDENT_PARENT") {
     return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management"].includes(name);
@@ -122,6 +126,7 @@ const isDefaultForItem = (role: string, href: string): boolean => {
       "/office/scholarship/award",
       "/office/scholarship/students",
       "/office/scholarship/reports",
+      "/office/scholarship/reports/students",
       "/office/scholarship/settings",
       "/office/academy-management/attendance",
       "/office/academy-management/classes",
@@ -162,7 +167,9 @@ const isDefaultForItem = (role: string, href: string): boolean => {
       "/office/document-verification",
       "/office/entrance-tests",
       "/office/home-visits",
-      "/teacher/scholarship-criteria"
+      "/teacher/scholarship-criteria",
+      "/office/scholarship/reports",
+      "/office/scholarship/reports/students"
     ].includes(href);
   }
   if (role === "STUDENT_PARENT") {
@@ -179,6 +186,10 @@ const isDefaultForItem = (role: string, href: string): boolean => {
       "/student/leave"
     ].includes(href);
   }
+  return false;
+};
+
+const isForbiddenForRoleInAccessUI = (role: string, href: string): boolean => {
   return false;
 };
 
@@ -502,6 +513,10 @@ export default function AccessManagementClient() {
           <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 mb-6">
             {MASTER_STRUCTURE.map((item, idx) => {
               const isSection = item.type === "section";
+
+              if (!isSection && item.href && isForbiddenForRoleInAccessUI(activeRole, item.href)) {
+                return null;
+              }
 
               if (isSection) {
                 // Section Visibility check

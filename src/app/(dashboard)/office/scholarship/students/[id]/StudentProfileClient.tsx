@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, XCircle, Upload, Trash2, Image as ImageIcon, ExternalLink, Loader2, Check } from "lucide-react";
 import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
 import { ensureCompressed } from "@/lib/compression";
+import { useSession } from "next-auth/react";
 
 interface CategoryState {
   checked: boolean;
@@ -14,6 +15,8 @@ interface CategoryState {
 }
 
 export default function StudentProfileClient({ id, student }: { id: string, student: any }) {
+  const { data: session } = useSession();
+  const isTeacher = session?.user?.role === "TEACHER";
   const [selectedMonth, setSelectedMonth] = useState("");
   const [year, setYear] = useState("2026");
   const [loading, setLoading] = useState(false);
@@ -230,7 +233,11 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         attended: ptmAttended,
         parentImages: JSON.stringify(ptmImages)
       },
-      adjustment: {
+      adjustment: isTeacher ? {
+        amount: data?.record?.adjustmentAmount ? Math.abs(data.record.adjustmentAmount) : 0,
+        type: data?.record?.adjustmentAmount === 0 || !data?.record?.adjustmentAmount ? "NONE" : (data?.record?.adjustmentAmount < 0 ? "DISCOUNT" : "CHARGE"),
+        note: data?.record?.adjustmentNote || ""
+      } : {
         amount: Number(formData.adjustment?.amount || 0),
         type: formData.adjustment?.type || "NONE",
         note: formData.adjustment?.note || ""
@@ -604,13 +611,14 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   </KpiCard>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                <div className={`grid grid-cols-1 ${isTeacher ? "max-w-2xl" : "md:grid-cols-2 max-w-4xl"} gap-6`}>
                   {/* Left Side: Adjustment Settings */}
-                  <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Internal Adjustment Settings</h4>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Admin/Teacher Only</span>
-                    </div>
+                  {!isTeacher && (
+                    <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Internal Adjustment Settings</h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Admin/Teacher Only</span>
+                      </div>
                     
                     <div className="space-y-3">
                       <div>
@@ -646,6 +654,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       </div>
                     </div>
                   </div>
+                )}
 
                   {/* Right Side: Calculation Summary */}
                   <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">

@@ -2,9 +2,9 @@
 
 import { db } from "@/db";
 import { admissionMeta, inquiries, studentProfiles, studentBio, students } from "@/db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 
-export async function getStudentCountsByClass(school?: string) {
+export async function getStudentCountsByClass(school?: string, classesFilter?: string[]) {
   try {
     const result = await db
       .select({
@@ -17,7 +17,8 @@ export async function getStudentCountsByClass(school?: string) {
       .where(
         and(
           eq(studentProfiles.isFullyAdmitted, true),
-          school && school !== "ALL" ? eq(inquiries.school, school) : undefined
+          school && school !== "ALL" ? eq(inquiries.school, school) : undefined,
+          classesFilter && classesFilter.length > 0 ? inArray(inquiries.appliedClass, classesFilter) : undefined
         )
       )
       .groupBy(inquiries.appliedClass);

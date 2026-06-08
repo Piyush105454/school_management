@@ -33,10 +33,28 @@ export default function DashboardLayout({
 }) {
   const { data: session, status } = useSession();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [permissions, setPermissions] = useState<any>(null);
+  const [loadingPerms, setLoadingPerms] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
-  if (status === "loading") {
+  React.useEffect(() => {
+    if (session) {
+      fetch("/api/sidebar-permissions")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.permissions) {
+            setPermissions(data.permissions);
+          }
+        })
+        .catch(err => console.error("Error loading layout permissions:", err))
+        .finally(() => setLoadingPerms(false));
+    } else {
+      setLoadingPerms(false);
+    }
+  }, [session]);
+
+  if (status === "loading" || (session && loadingPerms)) {
     return <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
       <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
     </div>;
@@ -50,14 +68,30 @@ export default function DashboardLayout({
   const userRole = (session.user?.role as string || "").toUpperCase();
   const allowedRoutes = ROLE_ROUTES[userRole] || [];
   
-  // Robust access check
-  const hasAccess = allowedRoutes.some(route => {
+  // Static check first
+  const isStaticallyAllowed = allowedRoutes.some(route => {
     if (pathname === route) return true;
     if (pathname.startsWith(route + "/")) return true;
-    // Special case for exact prefix matches like /office/admissions and /office/admissions-progress
     if (pathname.startsWith(route)) return true;
     return false;
   });
+
+  // Override check
+  let hasAccess = isStaticallyAllowed;
+  if (permissions && permissions.items) {
+    const override = permissions.items[pathname];
+    if (override !== undefined) {
+      hasAccess = override;
+    } else {
+      // Check parent prefix paths (deepest matching path first)
+      const matchingKey = Object.keys(permissions.items)
+        .sort((a, b) => b.length - a.length)
+        .find(itemPath => pathname.startsWith(itemPath + "/"));
+      if (matchingKey !== undefined) {
+        hasAccess = permissions.items[matchingKey];
+      }
+    }
+  }
 
   // Redirect if no access
   if (!hasAccess) {

@@ -67,9 +67,22 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
   const [fDesc, setFDesc] = useState("");
   const [fClassId, setFClassId] = useState("");
   const [fPapers, setFPapers] = useState<any[]>([]);
-  const [fVenue, setFVenue] = useState("Classroom");
+  const [fVenue, setFVenue] = useState("");
+  const [showVenueDropdown, setShowVenueDropdown] = useState(false);
   const [fInstructions, setFInstructions] = useState("");
   const [fPeriod, setFPeriod] = useState("");
+
+  const selectedVenues = fVenue ? fVenue.split(", ").filter(Boolean) : [];
+
+  const handleToggleVenue = (venueName: string) => {
+    let newVenues;
+    if (selectedVenues.includes(venueName)) {
+      newVenues = selectedVenues.filter(v => v !== venueName);
+    } else {
+      newVenues = [...selectedVenues, venueName];
+    }
+    setFVenue(newVenues.join(", "));
+  };
   const [formMsg, setFormMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Syllabus / chapters metadata per subject
@@ -132,7 +145,8 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
       passingMarks: "35",
       syllabusUnits: []
     }]);
-    setFVenue("Classroom");
+    setFVenue("");
+    setShowVenueDropdown(false);
     setFInstructions(""); setFPeriod("");
     setFormMsg(null); setEditExam(null);
     setPaperSlots({});
@@ -146,7 +160,7 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
     setFTitle(exam.title);
     setFDesc(exam.description || "");
     setFClassId(String(exam.classId || ""));
-    setFVenue(exam.venue || "Classroom");
+    setFVenue(exam.venue || "");
     setFInstructions(exam.instructions || "");
     setFPeriod(exam.timetablePeriod || "");
     setFormMsg(null);
@@ -192,6 +206,11 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
 
     if (fPapers.length === 0) {
       setFormMsg({ type: "error", text: "At least one exam paper is required." });
+      return;
+    }
+
+    if (!fVenue.trim()) {
+      setFormMsg({ type: "error", text: "Please select at least one Venue / Classroom." });
       return;
     }
 
@@ -795,11 +814,58 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
               )}
 
               {/* Venue */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Venue</label>
-                <input type="text" value={fVenue} onChange={e => setFVenue(e.target.value)}
-                  placeholder="e.g. Classroom, Hall A"
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500 focus:bg-white" />
+              <div className="space-y-1.5 relative">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Venue / Classroom(s) *</label>
+                <div className="relative">
+                  <button type="button" onClick={() => setShowVenueDropdown(!showVenueDropdown)}
+                    className="w-full text-left text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between focus:outline-none focus:border-amber-500">
+                    <span className="truncate">
+                      {selectedVenues.length === 0 ? "— Select Classroom(s) / Venue —" : selectedVenues.join(", ")}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                  </button>
+
+                  {showVenueDropdown && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2.5 space-y-2">
+                      <div className="text-[9px] font-black uppercase text-slate-400 px-1 tracking-wider">Classrooms</div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {classes.map(c => {
+                          const isChecked = selectedVenues.includes(c.name);
+                          return (
+                            <button key={c.id} type="button" onClick={() => handleToggleVenue(c.name)}
+                              className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors ${isChecked ? "text-amber-700 bg-amber-50/40" : "text-slate-700"}`}>
+                              <input type="checkbox" checked={isChecked} readOnly
+                                className="h-3.5 w-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                              <span className="truncate">{c.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="border-t border-slate-100 my-1"></div>
+                      <div className="text-[9px] font-black uppercase text-slate-400 px-1 tracking-wider">Other Venues</div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {["Main Hall", "Seminar Hall", "Lab"].map(v => {
+                          const isChecked = selectedVenues.includes(v);
+                          return (
+                            <button key={v} type="button" onClick={() => handleToggleVenue(v)}
+                              className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors ${isChecked ? "text-amber-700 bg-amber-50/40" : "text-slate-700"}`}>
+                              <input type="checkbox" checked={isChecked} readOnly
+                                className="h-3.5 w-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                              <span>{v}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-end pt-1.5 border-t border-slate-100 mt-2">
+                        <button type="button" onClick={() => setShowVenueDropdown(false)}
+                          className="px-3 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors">
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <input type="hidden" name="venue" value={fVenue} required />
               </div>
 
               {/* Description */}

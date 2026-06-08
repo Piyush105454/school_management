@@ -1,7 +1,9 @@
+import { protectRoute } from "@/lib/roleGuard";
 import { getCriteriaSettings } from "@/features/scholarship/actions/criteriaActions";
 import SettingsForm from "./SettingsForm";
 
 export default async function CriteriaSettingsPage() {
+  await protectRoute(["OFFICE"], "/office/scholarship/settings");
   const academicYear = "2025-26"; // Default
   const settingsResult = await getCriteriaSettings(academicYear);
   const settings = settingsResult.success ? settingsResult.data : null;

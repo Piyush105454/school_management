@@ -77,6 +77,14 @@ export default function TimetableClient() {
   const [savingDay, setSavingDay] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Holidays state
+  const [holidaysList, setHolidaysList] = useState<any[]>([]);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [holidayDate, setHolidayDate] = useState("");
+  const [holidayTitle, setHolidayTitle] = useState("");
+  const [holidayActionMsg, setHolidayActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [todayText, setTodayText] = useState("");
+
   // Cell editor
   const [editorCell, setEditorCell] = useState<{
     className: string; periodName: string; startTime: string; endTime: string;
@@ -89,7 +97,17 @@ export default function TimetableClient() {
   const [analysisTeacherId, setAnalysisTeacherId] = useState("");
   const [analysisFilter, setAnalysisFilter] = useState<AnalysisFilter>("TODAY");
 
-  useEffect(() => { fetchTimetableData(); }, []);
+  useEffect(() => {
+    fetchTimetableData();
+    const today = new Date();
+    const formatted = today.toLocaleDateString("en-IN", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    setTodayText(formatted);
+  }, []);
 
   const fetchTimetableData = async () => {
     try {
@@ -102,9 +120,88 @@ export default function TimetableClient() {
       setSubjectsList(data.subjects || []);
       setTeachersList(data.teachers || []);
       buildGridForDay(data.timetable || [], activeDay);
+
+      // Fetch holidays
+      const holRes = await fetch("/api/holidays");
+      const holData = await holRes.json();
+      if (holRes.ok) {
+        setHolidaysList(holData || []);
+      }
     } catch (err: any) {
       setFeedback({ type: "error", text: err.message });
     } finally { setLoading(false); }
+  };
+
+  const getDateForDayOfWeek = (dayName: string): string => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const targetIndex = days.indexOf(dayName);
+    const today = new Date();
+    const todayIndex = today.getDay();
+    const diff = targetIndex - todayIndex;
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + diff);
+    
+    const year = targetDate.getFullYear();
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const dateVal = String(targetDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dateVal}`;
+  };
+
+  const formatDateString = (dateStr: string): string => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const handleSaveHoliday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setHolidayActionMsg(null);
+    if (!holidayDate || !holidayTitle.trim()) {
+      setHolidayActionMsg({ type: "error", text: "Date and Title are required." });
+      return;
+    }
+    try {
+      const res = await fetch("/api/holidays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: holidayDate, title: holidayTitle }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save holiday");
+      setHolidayActionMsg({ type: "success", text: "✅ Holiday saved successfully!" });
+      setHolidayDate("");
+      setHolidayTitle("");
+      
+      // Refresh holiday list
+      const holRes = await fetch("/api/holidays");
+      const holData = await holRes.json();
+      if (holRes.ok) setHolidaysList(holData || []);
+    } catch (err: any) {
+      setHolidayActionMsg({ type: "error", text: err.message });
+    }
+  };
+
+  const handleDeleteHoliday = async (date: string) => {
+    if (!confirm("Are you sure you want to remove this holiday?")) return;
+    try {
+      const res = await fetch("/api/holidays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, action: "delete" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete holiday");
+      }
+      
+      // Refresh holiday list
+      const holRes = await fetch("/api/holidays");
+      const holData = await holRes.json();
+      if (holRes.ok) setHolidaysList(holData || []);
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const buildGridForDay = (entries: any[], day: string) => {
@@ -432,7 +529,9 @@ export default function TimetableClient() {
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
             <Clock className="text-pink-600 animate-pulse" size={28} /> Time Table Management
           </h1>
-          <p className="text-xs text-slate-500 font-medium">View today's schedule or edit the master timetable.</p>
+          <p className="text-xs text-slate-500 font-medium">
+            Today is <span className="font-bold text-pink-600">{todayText || "loading..."}</span>. View today's schedule or edit the master timetable.
+          </p>
         </div>
 
         <div className="flex items-center flex-wrap gap-2">
@@ -452,6 +551,12 @@ export default function TimetableClient() {
 
           {activeTab === "timetable" && !isMasterMode && (
             <>
+              {/* Set Holiday button */}
+              <button onClick={() => { setShowHolidayModal(true); setHolidayActionMsg(null); }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95">
+                <Calendar size={12} /> Set Holiday
+              </button>
+
               {/* Master Timetable button */}
               <button onClick={openMasterMode}
                 className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95">
@@ -550,7 +655,21 @@ export default function TimetableClient() {
               Loading Timetable...
             </div>
           ) : (
-            renderGrid(gridData, activeDay, isEditMode)
+            <>
+              {(() => {
+                const activeDate = getDateForDayOfWeek(activeDay);
+                const activeHoliday = holidaysList.find(h => h.date === activeDate);
+                if (!activeHoliday) return null;
+                return (
+                  <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center text-rose-800 space-y-2 mb-6 shadow-sm">
+                    <Calendar className="h-8 w-8 text-rose-500 mx-auto animate-bounce" />
+                    <h3 className="text-base font-black uppercase tracking-wide">Holiday: {activeHoliday.title}</h3>
+                    <p className="text-xs font-semibold text-rose-600">This day ({formatDateString(activeHoliday.date)}) is set as a school holiday.</p>
+                  </div>
+                );
+              })()}
+              {renderGrid(gridData, activeDay, isEditMode)}
+            </>
           )}
         </>
       )}
@@ -668,6 +787,18 @@ export default function TimetableClient() {
                   {Object.values(masterGrid[masterActiveDay] || {}).filter((c: any) => c?.subjectId || c?.teacherId).length} periods filled
                 </span>
               </div>
+              {(() => {
+                const masterActiveDate = getDateForDayOfWeek(masterActiveDay);
+                const masterActiveHoliday = holidaysList.find(h => h.date === masterActiveDate);
+                if (!masterActiveHoliday) return null;
+                return (
+                  <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center text-rose-800 space-y-2 mb-6 shadow-sm">
+                    <Calendar className="h-8 w-8 text-rose-500 mx-auto" />
+                    <h3 className="text-base font-black uppercase tracking-wide">Holiday: {masterActiveHoliday.title}</h3>
+                    <p className="text-xs font-semibold text-rose-600">This day ({formatDateString(masterActiveHoliday.date)}) is set as a school holiday.</p>
+                  </div>
+                );
+              })()}
               {renderGrid(masterGrid[masterActiveDay] || {}, masterActiveDay, true)}
             </div>
           )}
@@ -914,6 +1045,70 @@ export default function TimetableClient() {
                 className="flex-1 py-3 bg-pink-600 hover:bg-pink-700 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-pink-500/10">
                 Apply
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Set Holiday Modal */}
+      {showHolidayModal && (
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between mb-5 border-b pb-3">
+              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-rose-600" /> Set School Holiday
+              </h2>
+              <button onClick={() => setShowHolidayModal(false)} className="p-1 text-slate-400 hover:text-slate-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveHoliday} className="space-y-4">
+              {holidayActionMsg && (
+                <div className={cn("p-3 rounded-xl text-xs font-bold",
+                  holidayActionMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200")}>
+                  {holidayActionMsg.text}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Select Date *</label>
+                  <input type="date" value={holidayDate} onChange={e => setHolidayDate(e.target.value)} required
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Holiday Title *</label>
+                  <input type="text" value={holidayTitle} onChange={e => setHolidayTitle(e.target.value)} required
+                    placeholder="e.g. Good Friday, Diwali"
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
+                </div>
+              </div>
+              <button type="submit"
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95">
+                Save Holiday
+              </button>
+            </form>
+            
+            <div className="mt-6 border-t pt-4">
+              <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider mb-3">Scheduled Holidays</h3>
+              {holidaysList.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No scheduled holidays.</p>
+              ) : (
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {holidaysList.map(h => (
+                    <div key={h.id} className="flex justify-between items-center p-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                      <div>
+                        <div className="text-xs font-black text-slate-800">{h.title}</div>
+                        <div className="text-[10px] text-slate-400 font-bold">{formatDateString(h.date)}</div>
+                      </div>
+                      <button onClick={() => handleDeleteHoliday(h.date)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

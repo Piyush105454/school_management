@@ -827,3 +827,11 @@ export const examSchedulesRelations = relations(examSchedules, ({ one }) => ({
   subject: one(subjects, { fields: [examSchedules.subjectId], references: [subjects.id] }),
   creator: one(users, { fields: [examSchedules.createdBy], references: [users.id] }),
 }));
+
+export const holidays = pgTable("holidays", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull().unique(), // "YYYY-MM-DD"
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
