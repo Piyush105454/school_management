@@ -12,6 +12,14 @@ export default withAuth(
     }
 
     const userRole = token.role as string;
+    const userEmail = token.email as string;
+
+    if (userEmail === "dpsface@gmail.com") {
+      if (pathname !== "/face-scanner") {
+        return NextResponse.redirect(new URL("/face-scanner", req.url));
+      }
+      return NextResponse.next();
+    }
 
     // Define role-based route access
     const roleRoutes: Record<string, string[]> = {

@@ -144,8 +144,11 @@ export default function LibraryClient({
   };
 
   const handleReturnResource = (issuanceId: number) => {
+    const comment = window.prompt("Enter return comment (e.g., condition/usage remarks):");
+    if (comment === null) return;
+
     startTransition(async () => {
-      const res = await returnResourceAction(issuanceId);
+      const res = await returnResourceAction(issuanceId, comment.trim() || undefined);
       if (res.success) {
         router.refresh();
       } else {
@@ -524,6 +527,11 @@ export default function LibraryClient({
                           <div className="text-[9px] text-slate-400 font-semibold uppercase">
                             Type: {log.resourceType}
                           </div>
+                          {log.returnComment && (
+                            <div className="text-[10px] text-slate-500 italic font-medium mt-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100/50 max-w-xs whitespace-normal">
+                              Comment: {log.returnComment}
+                            </div>
+                          )}
                         </td>
 
                         {/* Recipient Details */}

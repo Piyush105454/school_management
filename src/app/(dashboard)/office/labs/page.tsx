@@ -40,6 +40,7 @@ export default async function LabsPage() {
       teacherId: resourceIssuances.teacherId,
       quantityIssued: resourceIssuances.quantityIssued,
       status: resourceIssuances.status,
+      returnComment: resourceIssuances.returnComment,
       issuedAt: resourceIssuances.issuedAt,
       returnedAt: resourceIssuances.returnedAt,
       resourceName: resources.name,

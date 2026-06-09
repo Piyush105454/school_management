@@ -684,6 +684,7 @@ export const resourceIssuances = pgTable("resource_issuances", {
   teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: "cascade" }),
   quantityIssued: integer("quantity_issued").notNull(),
   status: text("status").default("ISSUED").notNull(), // 'ISSUED', 'RETURNED'
+  returnComment: text("return_comment"),
   issuedAt: timestamp("issued_at").defaultNow().notNull(),
   returnedAt: timestamp("returned_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -832,6 +833,9 @@ export const holidays = pgTable("holidays", {
   id: serial("id").primaryKey(),
   date: text("date").notNull().unique(), // "YYYY-MM-DD"
   title: text("title").notNull(),
+  type: text("type").default("FULL_DAY").notNull(),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

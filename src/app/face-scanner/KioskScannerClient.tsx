@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, Camera, ShieldCheck, Search, Users, RefreshCw, X, Circle, HelpCircle } from "lucide-react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { 
   getAllEnrolledStudentsAction, 
   saveFaceEmbeddingAction, 
@@ -27,9 +28,10 @@ interface EnrolledStudent {
 
 interface KioskScannerClientProps {
   classes: ClassItem[];
+  isKioskOnly?: boolean;
 }
 
-export default function KioskScannerClient({ classes }: KioskScannerClientProps) {
+export default function KioskScannerClient({ classes, isKioskOnly = false }: KioskScannerClientProps) {
   const [activeTab, setActiveTab] = useState<"kiosk" | "enroll">("kiosk");
   const [studentsList, setStudentsList] = useState<EnrolledStudent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -490,12 +492,14 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
       {/* 1. Header Area */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-900">
         <div className="flex items-center gap-3">
-          <Link 
-            href="/office/academy-management/attendance" 
-            className="h-10 w-10 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-100 transition-all active:scale-95 shadow-lg"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
+          {!isKioskOnly && (
+            <Link 
+              href="/office/academy-management/attendance" 
+              className="h-10 w-10 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-100 transition-all active:scale-95 shadow-lg"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+          )}
           <div>
             <h1 className="text-lg md:text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-rose-500 animate-pulse" />
@@ -507,37 +511,46 @@ export default function KioskScannerClient({ classes }: KioskScannerClientProps)
           </div>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
-          <button 
-            onClick={() => {
-              setActiveTab("kiosk");
-              setRegisterStatus(null);
-            }}
-            className={cn(
-              "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl transition-all",
-              activeTab === "kiosk" 
-                ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
-                : "text-slate-400 hover:text-slate-200"
-            )}
+        {/* Action controls: Sign Out if kiosk-only, else Tab Controls */}
+        {isKioskOnly ? (
+          <button
+            onClick={() => signOut()}
+            className="px-4 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all active:scale-95 shadow-lg flex items-center gap-1.5 cursor-pointer"
           >
-            ⚡ Live Scanner
+            Sign Out
           </button>
-          <button 
-            onClick={() => {
-              setActiveTab("enroll");
-              setRegisterStatus(null);
-            }}
-            className={cn(
-              "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl transition-all",
-              activeTab === "enroll" 
-                ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
-                : "text-slate-400 hover:text-slate-200"
-            )}
-          >
-            📸 Face Register
-          </button>
-        </div>
+        ) : (
+          <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
+            <button 
+              onClick={() => {
+                setActiveTab("kiosk");
+                setRegisterStatus(null);
+              }}
+              className={cn(
+                "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl transition-all",
+                activeTab === "kiosk" 
+                  ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              ⚡ Live Scanner
+            </button>
+            <button 
+              onClick={() => {
+                setActiveTab("enroll");
+                setRegisterStatus(null);
+              }}
+              className={cn(
+                "px-4 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl transition-all",
+                activeTab === "enroll" 
+                  ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              📸 Face Register
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. Main Content Grid */}

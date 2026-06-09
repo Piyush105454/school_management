@@ -139,7 +139,7 @@ export async function issueResourceAction(data: IssueInput) {
 /**
  * Action to return an issued resource. Includes addition logic.
  */
-export async function returnResourceAction(issuanceId: number) {
+export async function returnResourceAction(issuanceId: number, comment?: string) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["OFFICE", "TEACHER", "PRINCIPAL"].includes(session.user.role)) {
@@ -180,6 +180,7 @@ export async function returnResourceAction(issuanceId: number) {
         .update(resourceIssuances)
         .set({
           status: `RETURNED${deadlinePart}`,
+          returnComment: comment || null,
           returnedAt: new Date(),
           updatedAt: new Date(),
         })

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { date, title, action } = await req.json();
+    const { date, title, action, type, startTime, endTime } = await req.json();
 
     if (!date) {
       return NextResponse.json({ error: "Date is required" }, { status: 400 });
@@ -42,9 +42,21 @@ export async function POST(req: NextRequest) {
     // Upsert logic
     const existing = await db.select().from(holidays).where(eq(holidays.date, date)).limit(1);
     if (existing.length > 0) {
-      await db.update(holidays).set({ title: title.trim(), updatedAt: new Date() }).where(eq(holidays.date, date));
+      await db.update(holidays).set({ 
+        title: title.trim(), 
+        type: type || "FULL_DAY",
+        startTime: type === "HALF_DAY" ? startTime || null : null,
+        endTime: type === "HALF_DAY" ? endTime || null : null,
+        updatedAt: new Date() 
+      }).where(eq(holidays.date, date));
     } else {
-      await db.insert(holidays).values({ date, title: title.trim() });
+      await db.insert(holidays).values({ 
+        date, 
+        title: title.trim(),
+        type: type || "FULL_DAY",
+        startTime: type === "HALF_DAY" ? startTime || null : null,
+        endTime: type === "HALF_DAY" ? endTime || null : null,
+      });
     }
 
     return NextResponse.json({ success: true, message: "Holiday saved successfully" });

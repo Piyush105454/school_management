@@ -27,6 +27,9 @@ export default async function KioskScannerPage() {
   });
 
   return (
-    <KioskScannerClient classes={allClasses} />
+    <KioskScannerClient 
+      classes={allClasses} 
+      isKioskOnly={session.user.email === "dpsface@gmail.com"} 
+    />
   );
 }

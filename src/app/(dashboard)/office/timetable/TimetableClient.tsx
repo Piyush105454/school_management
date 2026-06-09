@@ -83,6 +83,9 @@ export default function TimetableClient() {
   const [holidayDate, setHolidayDate] = useState("");
   const [holidayTitle, setHolidayTitle] = useState("");
   const [holidayActionMsg, setHolidayActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [holidayType, setHolidayType] = useState<"FULL_DAY" | "HALF_DAY">("FULL_DAY");
+  const [holidayStartTime, setHolidayStartTime] = useState("");
+  const [holidayEndTime, setHolidayEndTime] = useState("");
   const [todayText, setTodayText] = useState("");
 
   // Cell editor
@@ -161,17 +164,30 @@ export default function TimetableClient() {
       setHolidayActionMsg({ type: "error", text: "Date and Title are required." });
       return;
     }
+    if (holidayType === "HALF_DAY" && (!holidayStartTime || !holidayEndTime)) {
+      setHolidayActionMsg({ type: "error", text: "Start and End times are required for Half Day." });
+      return;
+    }
     try {
       const res = await fetch("/api/holidays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: holidayDate, title: holidayTitle }),
+        body: JSON.stringify({ 
+          date: holidayDate, 
+          title: holidayTitle.trim(),
+          type: holidayType,
+          startTime: holidayType === "HALF_DAY" ? holidayStartTime : undefined,
+          endTime: holidayType === "HALF_DAY" ? holidayEndTime : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save holiday");
       setHolidayActionMsg({ type: "success", text: "✅ Holiday saved successfully!" });
       setHolidayDate("");
       setHolidayTitle("");
+      setHolidayType("FULL_DAY");
+      setHolidayStartTime("");
+      setHolidayEndTime("");
       
       // Refresh holiday list
       const holRes = await fetch("/api/holidays");
@@ -660,11 +676,21 @@ export default function TimetableClient() {
                 const activeDate = getDateForDayOfWeek(activeDay);
                 const activeHoliday = holidaysList.find(h => h.date === activeDate);
                 if (!activeHoliday) return null;
+                const isHalfDay = activeHoliday.type === "HALF_DAY";
                 return (
                   <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center text-rose-800 space-y-2 mb-6 shadow-sm">
                     <Calendar className="h-8 w-8 text-rose-500 mx-auto animate-bounce" />
-                    <h3 className="text-base font-black uppercase tracking-wide">Holiday: {activeHoliday.title}</h3>
-                    <p className="text-xs font-semibold text-rose-600">This day ({formatDateString(activeHoliday.date)}) is set as a school holiday.</p>
+                    <h3 className="text-base font-black uppercase tracking-wide">
+                      Holiday: {activeHoliday.title}
+                      <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 uppercase">
+                        {isHalfDay ? "Half Day" : "Full Day"}
+                      </span>
+                    </h3>
+                    <p className="text-xs font-semibold text-rose-600">
+                      {isHalfDay 
+                        ? `This day (${formatDateString(activeHoliday.date)}) is set as a half day holiday. Timetable school hours run from ${activeHoliday.startTime || "--:--"} to ${activeHoliday.endTime || "--:--"}.`
+                        : `This day (${formatDateString(activeHoliday.date)}) is set as a full day school holiday.`}
+                    </p>
                   </div>
                 );
               })()}
@@ -791,11 +817,21 @@ export default function TimetableClient() {
                 const masterActiveDate = getDateForDayOfWeek(masterActiveDay);
                 const masterActiveHoliday = holidaysList.find(h => h.date === masterActiveDate);
                 if (!masterActiveHoliday) return null;
+                const isHalfDay = masterActiveHoliday.type === "HALF_DAY";
                 return (
                   <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center text-rose-800 space-y-2 mb-6 shadow-sm">
                     <Calendar className="h-8 w-8 text-rose-500 mx-auto" />
-                    <h3 className="text-base font-black uppercase tracking-wide">Holiday: {masterActiveHoliday.title}</h3>
-                    <p className="text-xs font-semibold text-rose-600">This day ({formatDateString(masterActiveHoliday.date)}) is set as a school holiday.</p>
+                    <h3 className="text-base font-black uppercase tracking-wide">
+                      Holiday: {masterActiveHoliday.title}
+                      <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 uppercase">
+                        {isHalfDay ? "Half Day" : "Full Day"}
+                      </span>
+                    </h3>
+                    <p className="text-xs font-semibold text-rose-600">
+                      {isHalfDay 
+                        ? `This day (${formatDateString(masterActiveHoliday.date)}) is set as a half day holiday. Timetable school hours run from ${masterActiveHoliday.startTime || "--:--"} to ${masterActiveHoliday.endTime || "--:--"}.`
+                        : `This day (${formatDateString(masterActiveHoliday.date)}) is set as a full day school holiday.`}
+                    </p>
                   </div>
                 );
               })()}
@@ -1082,6 +1118,28 @@ export default function TimetableClient() {
                     placeholder="e.g. Good Friday, Diwali"
                     className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
                 </div>
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Holiday Type</label>
+                  <select value={holidayType} onChange={e => setHolidayType(e.target.value as "FULL_DAY" | "HALF_DAY")}
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500">
+                    <option value="FULL_DAY">Full Day</option>
+                    <option value="HALF_DAY">Half Day</option>
+                  </select>
+                </div>
+                {holidayType === "HALF_DAY" && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Start Time *</label>
+                      <input type="time" value={holidayStartTime} onChange={e => setHolidayStartTime(e.target.value)} required
+                        className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-wider">End Time *</label>
+                      <input type="time" value={holidayEndTime} onChange={e => setHolidayEndTime(e.target.value)} required
+                        className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
+                    </div>
+                  </>
+                )}
               </div>
               <button type="submit"
                 className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95">
@@ -1099,7 +1157,9 @@ export default function TimetableClient() {
                     <div key={h.id} className="flex justify-between items-center p-2.5 bg-slate-50 border border-slate-100 rounded-xl">
                       <div>
                         <div className="text-xs font-black text-slate-800">{h.title}</div>
-                        <div className="text-[10px] text-slate-400 font-bold">{formatDateString(h.date)}</div>
+                        <div className="text-[10px] text-slate-400 font-bold">
+                          {formatDateString(h.date)} &bull; {h.type === "HALF_DAY" ? `Half Day (${h.startTime} - ${h.endTime})` : "Full Day"}
+                        </div>
                       </div>
                       <button onClick={() => handleDeleteHoliday(h.date)}
                         className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
