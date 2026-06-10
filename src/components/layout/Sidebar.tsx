@@ -74,7 +74,7 @@ const officeItems = [
 
   { type: "section", name: "Leave Management" },
   { name: "Student Leaves", href: "/office/academy-management/leaves", icon: ClipboardList },
-  { name: "Library & Resources", href: "/office/academy-management/library", icon: FolderOpen },
+  { name: "Library Management", href: "/office/academy-management/library", icon: FolderOpen },
   { name: "TC Generation", href: "/office/leaver-management/tc", icon: FileText },
 
   { type: "section", name: "Incident Management" },
@@ -227,7 +227,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // Lab, Library & Resource Management Category
     { type: "section", name: "Lab, Library & Resource Management" },
-    { href: "/office/academy-management/library", icon: Library, roleNames: { OFFICE: "Library & Resources", PRINCIPAL: "Library & Resources" } },
+    { href: "/office/academy-management/library", icon: Library, roleNames: { OFFICE: "Library Management", PRINCIPAL: "Library Management" } },
     { href: "/office/labs", icon: FlaskConical, roleNames: { OFFICE: "Labs", PRINCIPAL: "Labs" } },
     { href: "/office/resources", icon: Laptop, roleNames: { OFFICE: "School Assets & Resources", PRINCIPAL: "School Assets & Resources" } },
 

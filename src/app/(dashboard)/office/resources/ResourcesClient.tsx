@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-const RESOURCE_TYPES = ["DEVICE", "EQUIPMENT", "OTHER"];
 const TYPE_LABELS: Record<string, string> = {
   DEVICE: "Device / Tablet / Laptop",
   EQUIPMENT: "Equipment",
@@ -24,6 +23,39 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   DEVICE: Monitor,
   EQUIPMENT: Wrench,
   OTHER: Package,
+};
+
+const parseResourceType = (type: string) => {
+  const parts = type.split("|");
+  const baseType = parts[0];
+  let isConsumable = false;
+  if (parts.length > 1) {
+    isConsumable = parts[1] === "CONSUMABLE";
+  }
+  return { baseType, isConsumable };
+};
+
+const getCategoryLabel = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  if (baseType.startsWith("RES_CAT_")) {
+    return baseType.substring("RES_CAT_".length);
+  }
+  return TYPE_LABELS[baseType] || baseType;
+};
+
+const getCategoryIcon = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  return TYPE_ICONS[baseType] || Package;
+};
+
+const getCategoryColor = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  const map: Record<string, string> = {
+    DEVICE: "bg-violet-50 text-violet-700",
+    EQUIPMENT: "bg-orange-50 text-orange-700",
+    OTHER: "bg-slate-100 text-slate-600",
+  };
+  return map[baseType] || "bg-slate-100 text-slate-600";
 };
 
 interface ResourcesClientProps {
@@ -54,6 +86,8 @@ export default function ResourcesClient({
   // Add Form
   const [resName, setResName] = useState("");
   const [resType, setResType] = useState("DEVICE");
+  const [resIsConsumable, setResIsConsumable] = useState<"CONSUMABLE" | "NON_CONSUMABLE">("NON_CONSUMABLE");
+  const [resCustomCat, setResCustomCat] = useState("");
   const [resQty, setResQty] = useState("");
   const [resCost, setResCost] = useState("");
   const [addMsg, setAddMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -61,6 +95,8 @@ export default function ResourcesClient({
   // Edit Form
   const [editName, setEditName] = useState("");
   const [editType, setEditType] = useState("DEVICE");
+  const [editIsConsumable, setEditIsConsumable] = useState<"CONSUMABLE" | "NON_CONSUMABLE">("NON_CONSUMABLE");
+  const [editCustomCat, setEditCustomCat] = useState("");
   const [editQty, setEditQty] = useState("");
   const [editCost, setEditCost] = useState("");
   const [editMsg, setEditMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -71,10 +107,38 @@ export default function ResourcesClient({
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [issueQty, setIssueQty] = useState("");
+  const [deadlineDateTime, setDeadlineDateTime] = useState("");
   const [issueMsg, setIssueMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Parse custom categories from the resources list
+  const customCategories = Array.from(
+    new Set(
+      resourcesList
+        .map((r) => parseResourceType(r.type).baseType)
+        .filter((cat) => cat.startsWith("RES_CAT_"))
+    )
+  );
+
+  const defaultCategories = [
+    { value: "DEVICE", label: "Device / Tablet / Laptop" },
+    { value: "EQUIPMENT", label: "Equipment" },
+    { value: "OTHER", label: "Other" },
+  ];
+
+  const categoryOptions = [
+    ...defaultCategories,
+    ...customCategories.map((cat) => ({
+      value: cat,
+      label: cat.substring("RES_CAT_".length),
+    })),
+  ];
+
+  const handleAddCategoryChange = (val: string) => setResType(val);
+  const handleEditCategoryChange = (val: string) => setEditType(val);
+
   const filteredResources = resourcesList.filter((r) => {
-    const matchCat = categoryFilter === "All" || r.type === categoryFilter;
+    const { baseType } = parseResourceType(r.type);
+    const matchCat = categoryFilter === "All" || baseType === categoryFilter;
     const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCat && matchSearch;
   });
@@ -87,11 +151,22 @@ export default function ResourcesClient({
     if (!resName.trim()) { setAddMsg({ type: "error", text: "Name required." }); return; }
     if (isNaN(qty) || qty <= 0) { setAddMsg({ type: "error", text: "Qty must be > 0." }); return; }
 
+    let finalType = resType;
+    if (resType === "CUSTOM") {
+      if (!resCustomCat.trim()) {
+        setAddMsg({ type: "error", text: "Custom category name is required." });
+        return;
+      }
+      finalType = `RES_CAT_${resCustomCat.trim()}`;
+    }
+    const encodedType = `${finalType}|${resIsConsumable}`;
+
     startTransition(async () => {
-      const res = await addResourceAction({ name: resName, type: resType, totalQuantity: qty, cost });
+      const res = await addResourceAction({ name: resName, type: encodedType, totalQuantity: qty, cost });
       if (res.success) {
         setAddMsg({ type: "success", text: "Resource added!" });
-        setResName(""); setResQty(""); setResCost("");
+        setResName(""); setResQty(""); setResCost(""); setResCustomCat("");
+        setResType("DEVICE"); setResIsConsumable("NON_CONSUMABLE");
         setShowAddForm(false);
         router.refresh();
       } else {
@@ -103,7 +178,20 @@ export default function ResourcesClient({
   const openEdit = (item: any) => {
     setEditItem(item);
     setEditName(item.name);
-    setEditType(item.type);
+    
+    const { baseType, isConsumable } = parseResourceType(item.type);
+    if (["DEVICE", "EQUIPMENT", "OTHER"].includes(baseType)) {
+      setEditType(baseType);
+      setEditCustomCat("");
+    } else if (baseType.startsWith("RES_CAT_")) {
+      setEditType("CUSTOM");
+      setEditCustomCat(baseType.substring("RES_CAT_".length));
+    } else {
+      setEditType(baseType);
+      setEditCustomCat("");
+    }
+
+    setEditIsConsumable(isConsumable ? "CONSUMABLE" : "NON_CONSUMABLE");
     setEditQty(String(item.totalQuantity));
     setEditCost(String(item.cost));
     setEditMsg(null);
@@ -117,8 +205,18 @@ export default function ResourcesClient({
     if (!editName.trim()) { setEditMsg({ type: "error", text: "Name required." }); return; }
     if (isNaN(qty) || qty <= 0) { setEditMsg({ type: "error", text: "Qty must be > 0." }); return; }
 
+    let finalType = editType;
+    if (editType === "CUSTOM") {
+      if (!editCustomCat.trim()) {
+        setEditMsg({ type: "error", text: "Custom category name is required." });
+        return;
+      }
+      finalType = `RES_CAT_${editCustomCat.trim()}`;
+    }
+    const encodedType = `${finalType}|${editIsConsumable}`;
+
     startTransition(async () => {
-      const res = await updateResourceAction(editItem.id, { name: editName, type: editType, totalQuantity: qty, cost });
+      const res = await updateResourceAction(editItem.id, { name: editName, type: encodedType, totalQuantity: qty, cost });
       if (res.success) { setEditItem(null); router.refresh(); }
       else setEditMsg({ type: "error", text: res.error || "Failed." });
     });
@@ -149,6 +247,12 @@ export default function ResourcesClient({
       return;
     }
 
+    const isCons = selected ? parseResourceType(selected.type).isConsumable : false;
+    if (!isCons && !deadlineDateTime) {
+      setIssueMsg({ type: "error", text: "Return deadline is required for non-consumable items." });
+      return;
+    }
+
     startTransition(async () => {
       const res = await issueResourceAction({
         resourceId: resId,
@@ -156,10 +260,11 @@ export default function ResourcesClient({
         studentId: recipientType === "STUDENT" ? parseInt(selectedStudentId) : undefined,
         teacherId: recipientType === "TEACHER" ? selectedTeacherId : undefined,
         quantityIssued: qty,
+        deadline: !isCons ? deadlineDateTime : undefined,
       });
       if (res.success) {
         setIssueMsg({ type: "success", text: "Resource issued successfully!" });
-        setIssueResId(""); setSelectedStudentId(""); setSelectedTeacherId(""); setIssueQty("");
+        setIssueResId(""); setSelectedStudentId(""); setSelectedTeacherId(""); setIssueQty(""); setDeadlineDateTime("");
         router.refresh();
       } else {
         setIssueMsg({ type: "error", text: res.error || "Failed." });
@@ -178,19 +283,15 @@ export default function ResourcesClient({
     });
   };
 
+  const selectedResourceForIssue = resourcesList.find(r => r.id === parseInt(issueResId));
+  const isConsumableForIssue = selectedResourceForIssue 
+    ? parseResourceType(selectedResourceForIssue.type).isConsumable 
+    : false;
+
   const stats = {
     total: resourcesList.length,
     available: resourcesList.reduce((s, r) => s + r.availableQuantity, 0),
-    issued: issuancesList.filter(i => i.status === "ISSUED").length,
-  };
-
-  const getCategoryColor = (type: string) => {
-    const map: Record<string, string> = {
-      DEVICE: "bg-violet-50 text-violet-700",
-      EQUIPMENT: "bg-orange-50 text-orange-700",
-      OTHER: "bg-slate-100 text-slate-600",
-    };
-    return map[type] || "bg-slate-100 text-slate-600";
+    issued: issuancesList.filter(i => i.status.startsWith("ISSUED")).length,
   };
 
   return (
@@ -264,13 +365,33 @@ export default function ResourcesClient({
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category *</label>
-                  <select value={resType} onChange={e => setResType(e.target.value)}
+                  <select value={resType} onChange={e => handleAddCategoryChange(e.target.value)}
                     className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500">
-                    <option value="DEVICE">Device / Tablet / Laptop</option>
-                    <option value="EQUIPMENT">Equipment</option>
-                    <option value="OTHER">Other</option>
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                    <option value="CUSTOM">+ Add Custom Category...</option>
                   </select>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["CONSUMABLE", "NON_CONSUMABLE"] as const).map((type) => (
+                      <button key={type} type="button" onClick={() => setResIsConsumable(type)}
+                        className={`py-2 text-[10px] font-bold rounded-xl border text-center transition-all ${resIsConsumable === type ? "bg-violet-600 text-white border-violet-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                        {type === "CONSUMABLE" ? "Consumable" : "Non-Consumable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {resType === "CUSTOM" && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Custom Category Name *</label>
+                    <input type="text" value={resCustomCat} onChange={e => setResCustomCat(e.target.value)} required
+                      placeholder="e.g. Sports Gear, Furniture"
+                      className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500" />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity *</label>
                   <input type="number" value={resQty} onChange={e => setResQty(e.target.value)} min={1} required
@@ -316,14 +437,33 @@ export default function ResourcesClient({
                     className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category</label>
-                  <select value={editType} onChange={e => setEditType(e.target.value)}
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category *</label>
+                  <select value={editType} onChange={e => handleEditCategoryChange(e.target.value)}
                     className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500">
-                    <option value="DEVICE">Device / Tablet / Laptop</option>
-                    <option value="EQUIPMENT">Equipment</option>
-                    <option value="OTHER">Other</option>
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                    <option value="CUSTOM">+ Add Custom Category...</option>
                   </select>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["CONSUMABLE", "NON_CONSUMABLE"] as const).map((type) => (
+                      <button key={type} type="button" onClick={() => setEditIsConsumable(type)}
+                        className={`py-2 text-[10px] font-bold rounded-xl border text-center transition-all ${editIsConsumable === type ? "bg-violet-600 text-white border-violet-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                        {type === "CONSUMABLE" ? "Consumable" : "Non-Consumable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {editType === "CUSTOM" && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Custom Category Name *</label>
+                    <input type="text" value={editCustomCat} onChange={e => setEditCustomCat(e.target.value)} required
+                      className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500" />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity</label>
                   <input type="number" value={editQty} onChange={e => setEditQty(e.target.value)} min={1}
@@ -365,10 +505,10 @@ export default function ResourcesClient({
                   className="pl-8 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500 w-44" />
               </div>
               <div className="flex gap-1 flex-wrap">
-                {["All", "DEVICE", "EQUIPMENT", "OTHER"].map((cat) => (
+                {["All", ...categoryOptions.map(opt => opt.value)].map((cat) => (
                   <button key={cat} onClick={() => setCategoryFilter(cat)}
                     className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${categoryFilter === cat ? "bg-violet-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                    {cat}
+                    {cat === "All" ? "All" : getCategoryLabel(cat)}
                   </button>
                 ))}
               </div>
@@ -392,15 +532,22 @@ export default function ResourcesClient({
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-medium">
                   {filteredResources.map((res) => {
-                    const Icon = TYPE_ICONS[res.type] || Package;
+                    const Icon = getCategoryIcon(res.type);
+                    const label = getCategoryLabel(res.type);
+                    const colorClass = getCategoryColor(res.type);
+                    const { isConsumable } = parseResourceType(res.type);
+                    
                     return (
                       <tr key={res.id} className="hover:bg-slate-50/60 transition-colors group">
                         <td className="py-3.5 px-5 font-bold text-slate-900 flex items-center gap-2">
                           <Icon className="h-3.5 w-3.5 text-slate-400" /> {res.name}
+                          <span className="text-[9px] font-normal text-slate-400">
+                            ({isConsumable ? "Consumable" : "Non-Consumable"})
+                          </span>
                         </td>
                         <td className="py-3.5 px-3">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ${getCategoryColor(res.type)}`}>
-                            {TYPE_LABELS[res.type] || res.type}
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ${colorClass}`}>
+                            {label}
                           </span>
                         </td>
                         <td className="py-3.5 px-3 text-center font-bold text-slate-800">{res.totalQuantity}</td>
@@ -445,9 +592,14 @@ export default function ResourcesClient({
                 <select value={issueResId} onChange={e => setIssueResId(e.target.value)} required
                   className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500">
                   <option value="">-- Choose Resource --</option>
-                  {resourcesList.map(res => (
-                    <option key={res.id} value={res.id}>{res.name} (Available: {res.availableQuantity})</option>
-                  ))}
+                  {resourcesList.map(res => {
+                    const { isConsumable } = parseResourceType(res.type);
+                    return (
+                      <option key={res.id} value={res.id}>
+                        {res.name} ({getCategoryLabel(res.type)} - {isConsumable ? "Consumable" : "Non-Consumable"}, Avail: {res.availableQuantity})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -488,6 +640,13 @@ export default function ResourcesClient({
                   className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500" />
               </div>
             </div>
+            {issueResId && !isConsumableForIssue && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Return Deadline *</label>
+                <input type="datetime-local" value={deadlineDateTime} onChange={e => setDeadlineDateTime(e.target.value)} required
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-violet-500" />
+              </div>
+            )}
             <button type="submit" disabled={isPending}
               className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50">
               {isPending ? "Issuing..." : "Issue Resource"}
@@ -503,7 +662,7 @@ export default function ResourcesClient({
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Clock className="h-5 w-5 text-violet-600" /> Issuance Log
               <span className="ml-2 text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-black">
-                {issuancesList.filter(i => i.status === "ISSUED").length} Active
+                {issuancesList.filter(i => i.status.startsWith("ISSUED")).length} Active
               </span>
             </h2>
           </div>
@@ -518,20 +677,48 @@ export default function ResourcesClient({
                     <th className="pb-3 px-3 pt-4">Issued To</th>
                     <th className="pb-3 px-3 pt-4 text-center">Qty</th>
                     <th className="pb-3 px-3 pt-4">Issue Date</th>
-                    <th className="pb-3 px-3 pt-4">Return Date</th>
+                    <th className="pb-3 px-3 pt-4">Return Date / Deadline</th>
                     <th className="pb-3 px-3 pt-4">Status</th>
                     <th className="pb-3 px-5 pt-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-medium">
                   {issuancesList.map((log) => {
+                    const parts = log.status.split("|");
+                    const baseStatus = parts[0];
+                    const deadline = parts[1] || null;
+
+                    const formatDeadline = (dateStr: string) => {
+                      const d = new Date(dateStr);
+                      return d.toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      });
+                    };
+
+                    const hasDeadline = !!deadline;
+                    const isOverdue = hasDeadline && baseStatus === "ISSUED" && new Date(deadline) < new Date();
+
                     const issueDate = new Date(log.issuedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-                    const returnDate = log.returnedAt ? new Date(log.returnedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+                    let returnDate = "— (No deadline)";
+                    if (log.returnedAt) {
+                      returnDate = new Date(log.returnedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                    } else if (hasDeadline) {
+                      returnDate = `Deadline: ${formatDeadline(deadline)}`;
+                    }
+
                     const recipientName = log.recipientType === "STUDENT" ? log.studentName : log.teacherName || "Teacher";
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3.5 px-5">
                           <span className="font-bold text-slate-900">{log.resourceName}</span>
+                          <div className="text-[9px] text-slate-400 font-semibold uppercase">
+                            Type: {getCategoryLabel(log.resourceType)}
+                          </div>
                           {log.returnComment && (
                             <div className="text-[10px] text-slate-500 italic font-medium mt-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100/50 max-w-xs whitespace-normal">
                               Comment: {log.returnComment}
@@ -546,14 +733,24 @@ export default function ResourcesClient({
                         </td>
                         <td className="py-3.5 px-3 text-center font-bold text-slate-800">{log.quantityIssued}</td>
                         <td className="py-3.5 px-3 text-slate-500">{issueDate}</td>
-                        <td className="py-3.5 px-3 text-slate-500">{returnDate}</td>
+                        <td className={`py-3.5 px-3 text-slate-500 ${isOverdue ? "text-rose-600 font-bold" : ""}`}>{returnDate}</td>
                         <td className="py-3.5 px-3">
-                          <span className={`inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black ${log.status === "RETURNED" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-violet-50 text-violet-700 border border-violet-100 animate-pulse"}`}>
-                            {log.status === "RETURNED" ? "Returned" : "Active"}
-                          </span>
+                          {baseStatus === "RETURNED" ? (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              Returned
+                            </span>
+                          ) : isOverdue ? (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-rose-50 text-rose-700 border border-rose-100 animate-pulse">
+                              ⚠️ Overdue
+                            </span>
+                          ) : (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-violet-50 text-violet-700 border border-violet-100 animate-pulse">
+                              Active / Issued
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-5 text-right">
-                          {log.status === "ISSUED" ? (
+                          {baseStatus === "ISSUED" ? (
                             <button onClick={() => handleReturn(log.id)} disabled={isPending}
                               className="py-1 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-50">
                               Return

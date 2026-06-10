@@ -1,9 +1,66 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { addResourceAction, issueResourceAction, returnResourceAction, deleteResourceAction } from "@/features/academy/actions/resourceActions";
-import { Plus, BookOpen, Clock, Users, ArrowRightLeft, DollarSign, Trash } from "lucide-react";
+import {
+  addResourceAction,
+  deleteResourceAction,
+  updateResourceAction,
+  issueResourceAction,
+  returnResourceAction
+} from "@/features/academy/actions/resourceActions";
+import {
+  Plus, BookOpen, Search, Pencil, Trash2, ArrowRightLeft, Clock,
+  X, Book, Laptop, Package, FlaskConical, Users
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+
+// Define categories for Library
+const TYPE_LABELS: Record<string, string> = {
+  BOOK: "Book / Textbook",
+  DEVICE: "Device / Tablet / Laptop",
+  EQUIPMENT: "Equipment",
+  OTHER: "Other Resource",
+};
+const TYPE_ICONS: Record<string, React.ElementType> = {
+  BOOK: Book,
+  DEVICE: Laptop,
+  EQUIPMENT: FlaskConical,
+  OTHER: Package,
+};
+const TYPE_COLORS: Record<string, string> = {
+  BOOK: "bg-blue-50 text-blue-700",
+  DEVICE: "bg-indigo-50 text-indigo-700",
+  EQUIPMENT: "bg-teal-50 text-teal-700",
+  OTHER: "bg-slate-100 text-slate-600",
+};
+
+const parseResourceType = (type: string) => {
+  const parts = type.split("|");
+  const baseType = parts[0];
+  let isConsumable = false;
+  if (parts.length > 1) {
+    isConsumable = parts[1] === "CONSUMABLE";
+  }
+  return { baseType, isConsumable };
+};
+
+const getCategoryLabel = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  if (baseType.startsWith("LIB_CAT_")) {
+    return baseType.substring("LIB_CAT_".length);
+  }
+  return TYPE_LABELS[baseType] || baseType;
+};
+
+const getCategoryIcon = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  return TYPE_ICONS[baseType] || Package;
+};
+
+const getCategoryColor = (type: string) => {
+  const { baseType } = parseResourceType(type);
+  return TYPE_COLORS[baseType] || "bg-slate-100 text-slate-600";
+};
 
 interface LibraryClientProps {
   initialResources: any[];
@@ -21,511 +78,664 @@ export default function LibraryClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Active resource list & active issuances state
-  const [resourcesList, setResourcesList] = useState<any[]>(initialResources);
-  const [issuancesList, setIssuancesList] = useState<any[]>(initialIssuances);
+  const [resourcesList] = useState<any[]>(initialResources);
+  const [issuancesList] = useState<any[]>(initialIssuances);
 
-  // Forms State
-  // 1. Add Resource Form
+  const [activeTab, setActiveTab] = useState<"catalog" | "issue" | "issuances">("catalog");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Add Form
   const [resName, setResName] = useState("");
   const [resType, setResType] = useState("BOOK");
+  const [resIsConsumable, setResIsConsumable] = useState<"CONSUMABLE" | "NON_CONSUMABLE">("NON_CONSUMABLE");
+  const [resCustomCat, setResCustomCat] = useState("");
   const [resQty, setResQty] = useState("");
   const [resCost, setResCost] = useState("");
   const [addMsg, setAddMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // 2. Issue Resource Form
+  // Edit Form
+  const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState("BOOK");
+  const [editIsConsumable, setEditIsConsumable] = useState<"CONSUMABLE" | "NON_CONSUMABLE">("NON_CONSUMABLE");
+  const [editCustomCat, setEditCustomCat] = useState("");
+  const [editQty, setEditQty] = useState("");
+  const [editCost, setEditCost] = useState("");
+  const [editMsg, setEditMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Issue Form
   const [issueResId, setIssueResId] = useState("");
   const [recipientType, setRecipientType] = useState<"STUDENT" | "TEACHER">("STUDENT");
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [issueQty, setIssueQty] = useState("");
+  const [deadlineDateTime, setDeadlineDateTime] = useState("");
   const [issueMsg, setIssueMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Actions
-  const handleAddResource = (e: React.FormEvent) => {
+  // Parse custom categories from the resources list
+  const customCategories = Array.from(
+    new Set(
+      resourcesList
+        .map((r) => parseResourceType(r.type).baseType)
+        .filter((cat) => cat.startsWith("LIB_CAT_"))
+    )
+  );
+
+  const defaultCategories = [
+    { value: "BOOK", label: "Book / Textbook" },
+    { value: "DEVICE", label: "Device / Tablet / Laptop" },
+    { value: "EQUIPMENT", label: "Equipment" },
+    { value: "OTHER", label: "Other Resource" },
+  ];
+
+  const categoryOptions = [
+    ...defaultCategories,
+    ...customCategories.map((cat) => ({
+      value: cat,
+      label: cat.substring("LIB_CAT_".length),
+    })),
+  ];
+
+  const handleAddCategoryChange = (val: string) => setResType(val);
+  const handleEditCategoryChange = (val: string) => setEditType(val);
+
+  const filteredResources = resourcesList.filter((r) => {
+    const { baseType } = parseResourceType(r.type);
+    const matchCat = categoryFilter === "All" || baseType === categoryFilter;
+    const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     setAddMsg(null);
-
     const qty = parseInt(resQty);
-    const cost = parseFloat(resCost);
+    const cost = parseFloat(resCost || "0");
+    if (!resName.trim()) { setAddMsg({ type: "error", text: "Name required." }); return; }
+    if (isNaN(qty) || qty <= 0) { setAddMsg({ type: "error", text: "Qty must be > 0." }); return; }
 
-    if (!resName.trim() || !resType) {
-      setAddMsg({ type: "error", text: "Please enter name and select type." });
-      return;
+    let finalType = resType;
+    if (resType === "CUSTOM") {
+      if (!resCustomCat.trim()) {
+        setAddMsg({ type: "error", text: "Custom category name is required." });
+        return;
+      }
+      finalType = `LIB_CAT_${resCustomCat.trim()}`;
     }
-
-    if (isNaN(qty) || qty <= 0) {
-      setAddMsg({ type: "error", text: "Quantity must be greater than zero." });
-      return;
-    }
-
-    if (isNaN(cost) || cost < 0) {
-      setAddMsg({ type: "error", text: "Cost must be zero or positive." });
-      return;
-    }
+    const encodedType = `${finalType}|${resIsConsumable}`;
 
     startTransition(async () => {
-      const res = await addResourceAction({
-        name: resName,
-        type: resType,
-        totalQuantity: qty,
-        cost: cost,
-      });
-
+      const res = await addResourceAction({ name: resName, type: encodedType, totalQuantity: qty, cost });
       if (res.success) {
-        setAddMsg({ type: "success", text: "Resource added successfully!" });
-        setResName("");
-        setResQty("");
-        setResCost("");
+        setAddMsg({ type: "success", text: "Item added!" });
+        setResName(""); setResQty(""); setResCost(""); setResCustomCat("");
+        setResType("BOOK"); setResIsConsumable("NON_CONSUMABLE");
+        setShowAddForm(false);
         router.refresh();
       } else {
-        setAddMsg({ type: "error", text: res.error || "Failed to add resource." });
+        setAddMsg({ type: "error", text: res.error || "Failed." });
       }
     });
   };
 
-  const handleIssueResource = (e: React.FormEvent) => {
+  const openEdit = (item: any) => {
+    setEditItem(item);
+    setEditName(item.name);
+    
+    const { baseType, isConsumable } = parseResourceType(item.type);
+    if (["BOOK", "DEVICE", "EQUIPMENT", "OTHER"].includes(baseType)) {
+      setEditType(baseType);
+      setEditCustomCat("");
+    } else if (baseType.startsWith("LIB_CAT_")) {
+      setEditType("CUSTOM");
+      setEditCustomCat(baseType.substring("LIB_CAT_".length));
+    } else {
+      setEditType(baseType);
+      setEditCustomCat("");
+    }
+
+    setEditIsConsumable(isConsumable ? "CONSUMABLE" : "NON_CONSUMABLE");
+    setEditQty(String(item.totalQuantity));
+    setEditCost(String(item.cost));
+    setEditMsg(null);
+  };
+
+  const handleUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditMsg(null);
+    const qty = parseInt(editQty);
+    const cost = parseFloat(editCost || "0");
+    if (!editName.trim()) { setEditMsg({ type: "error", text: "Name required." }); return; }
+    if (isNaN(qty) || qty <= 0) { setEditMsg({ type: "error", text: "Qty must be > 0." }); return; }
+
+    let finalType = editType;
+    if (editType === "CUSTOM") {
+      if (!editCustomCat.trim()) {
+        setEditMsg({ type: "error", text: "Custom category name is required." });
+        return;
+      }
+      finalType = `LIB_CAT_${editCustomCat.trim()}`;
+    }
+    const encodedType = `${finalType}|${editIsConsumable}`;
+
+    startTransition(async () => {
+      const res = await updateResourceAction(editItem.id, { name: editName, type: encodedType, totalQuantity: qty, cost });
+      if (res.success) { setEditItem(null); router.refresh(); }
+      else setEditMsg({ type: "error", text: res.error || "Failed." });
+    });
+  };
+
+  const handleDelete = (id: number) => {
+    if (!confirm("Delete this item? All usage records will be removed too.")) return;
+    startTransition(async () => {
+      const res = await deleteResourceAction(id);
+      if (res.success) router.refresh();
+      else alert(res.error || "Failed.");
+    });
+  };
+
+  const handleIssue = (e: React.FormEvent) => {
     e.preventDefault();
     setIssueMsg(null);
-
     const resId = parseInt(issueResId);
     const qty = parseInt(issueQty);
+    if (isNaN(resId)) { setIssueMsg({ type: "error", text: "Select a resource." }); return; }
+    if (isNaN(qty) || qty <= 0) { setIssueMsg({ type: "error", text: "Qty must be > 0." }); return; }
+    if (recipientType === "STUDENT" && !selectedStudentId) { setIssueMsg({ type: "error", text: "Select student." }); return; }
+    if (recipientType === "TEACHER" && !selectedTeacherId) { setIssueMsg({ type: "error", text: "Select teacher." }); return; }
 
-    if (isNaN(resId)) {
-      setIssueMsg({ type: "error", text: "Please select a resource to issue." });
+    const selected = resourcesList.find(r => r.id === resId);
+    if (selected && selected.availableQuantity < qty) {
+      setIssueMsg({ type: "error", text: `Only ${selected.availableQuantity} available.` });
       return;
     }
 
-    if (isNaN(qty) || qty <= 0) {
-      setIssueMsg({ type: "error", text: "Quantity must be greater than zero." });
-      return;
-    }
-
-    if (recipientType === "STUDENT" && !selectedStudentId) {
-      setIssueMsg({ type: "error", text: "Please select a student." });
-      return;
-    }
-
-    if (recipientType === "TEACHER" && !selectedTeacherId) {
-      setIssueMsg({ type: "error", text: "Please select a teacher." });
-      return;
-    }
-
-    // Client-side quick stock check
-    const selectedResource = resourcesList.find((r) => r.id === resId);
-    if (selectedResource && selectedResource.availableQuantity < qty) {
-      setIssueMsg({
-        type: "error",
-        text: `Insufficient stock. Only ${selectedResource.availableQuantity} available.`,
-      });
+    const isCons = selected ? parseResourceType(selected.type).isConsumable : false;
+    if (!isCons && !deadlineDateTime) {
+      setIssueMsg({ type: "error", text: "Return deadline is required for non-consumable items." });
       return;
     }
 
     startTransition(async () => {
       const res = await issueResourceAction({
         resourceId: resId,
-        recipientType: recipientType,
+        recipientType,
         studentId: recipientType === "STUDENT" ? parseInt(selectedStudentId) : undefined,
         teacherId: recipientType === "TEACHER" ? selectedTeacherId : undefined,
         quantityIssued: qty,
+        deadline: !isCons ? deadlineDateTime : undefined,
       });
-
       if (res.success) {
-        setIssueMsg({ type: "success", text: "Resource issued successfully!" });
-        setIssueResId("");
-        setSelectedStudentId("");
-        setSelectedTeacherId("");
-        setIssueQty("");
+        setIssueMsg({ type: "success", text: "Resource issued!" });
+        setIssueResId(""); setSelectedStudentId(""); setSelectedTeacherId(""); setIssueQty(""); setDeadlineDateTime("");
         router.refresh();
       } else {
-        setIssueMsg({ type: "error", text: res.error || "Failed to issue resource." });
+        setIssueMsg({ type: "error", text: res.error || "Failed." });
       }
     });
   };
 
-  const handleReturnResource = (issuanceId: number) => {
+  const handleReturn = (issuanceId: number) => {
     const comment = window.prompt("Enter return comment (e.g., condition/usage remarks):");
     if (comment === null) return;
-
+    
     startTransition(async () => {
       const res = await returnResourceAction(issuanceId, comment.trim() || undefined);
-      if (res.success) {
-        router.refresh();
-      } else {
-        alert(res.error || "Failed to mark resource as returned.");
-      }
+      if (res.success) router.refresh();
+      else alert(res.error || "Failed.");
     });
   };
 
-  const handleDeleteResource = (resourceId: number) => {
-    if (!confirm("Are you sure you want to permanently delete this resource item? All issuance logs for this item will also be removed.")) {
-      return;
-    }
-    startTransition(async () => {
-      const res = await deleteResourceAction(resourceId);
-      if (res.success) {
-        router.refresh();
-      } else {
-        alert(res.error || "Failed to delete resource.");
-      }
-    });
+  const selectedResourceForIssue = resourcesList.find(r => r.id === parseInt(issueResId));
+  const isConsumableForIssue = selectedResourceForIssue 
+    ? parseResourceType(selectedResourceForIssue.type).isConsumable 
+    : false;
+
+  const stats = {
+    total: resourcesList.length,
+    available: resourcesList.reduce((s, r) => s + r.availableQuantity, 0),
+    issued: issuancesList.filter(i => i.status.startsWith("ISSUED")).length,
+    totalValue: resourcesList.reduce((s, r) => s + r.totalQuantity * r.cost, 0),
   };
 
   return (
-    <div className="space-y-8 p-1">
+    <div className="space-y-6 p-1">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Library & Resources</h1>
-        <p className="text-slate-500 text-sm">Manage catalogs, unit costs, and student or faculty resource distribution.</p>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <BookOpen className="h-7 w-7 text-blue-600" /> Library Management
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">Manage catalogs, unit costs, and student or faculty resource distribution.</p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all active:scale-95"
+        >
+          <Plus className="h-4 w-4" /> Add Item
+        </button>
       </div>
 
-      {/* Forms Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Form 1: Add Catalog Item */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <Plus className="h-4.5 w-4.5 text-blue-600" /> Register Inventory Item
-          </h2>
-
-          <form onSubmit={handleAddResource} className="space-y-4">
-            {addMsg && (
-              <div
-                className={`p-3.5 rounded-xl text-xs font-bold ${
-                  addMsg.type === "success"
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : "bg-red-50 text-red-700 border border-red-200"
-                }`}
-              >
-                {addMsg.text}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Name</label>
-                <input
-                  type="text"
-                  value={resName}
-                  onChange={(e) => setResName(e.target.value)}
-                  placeholder="e.g. iPad Pro, Math Text Book"
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type</label>
-                <select
-                  value={resType}
-                  onChange={(e) => setResType(e.target.value)}
-                  className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white"
-                >
-                  <option value="BOOK">Book / Textbook</option>
-                  <option value="DEVICE">Device / Tablet / Laptop</option>
-                  <option value="EQUIPMENT">Lab Equipment</option>
-                  <option value="OTHER">Other Resource</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Total Quantity</label>
-                <input
-                  type="number"
-                  value={resQty}
-                  onChange={(e) => setResQty(e.target.value)}
-                  placeholder="e.g. 50"
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-                  required
-                  min={1}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Unit Cost (₹)</label>
-                <input
-                  type="number"
-                  value={resCost}
-                  onChange={(e) => setResCost(e.target.value)}
-                  placeholder="e.g. 750"
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-                  required
-                  min={0}
-                  step="any"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-blue-500/10 active:scale-95 disabled:opacity-55"
-            >
-              Add Catalog Item
-            </button>
-          </form>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+          <div className="text-2xl font-black text-blue-700">{stats.total}</div>
+          <div className="text-xs font-bold text-blue-500 mt-1">Total Items</div>
         </div>
+        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+          <div className="text-2xl font-black text-emerald-700">{stats.available}</div>
+          <div className="text-xs font-bold text-emerald-500 mt-1">Available Units</div>
+        </div>
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+          <div className="text-2xl font-black text-amber-700">{stats.issued}</div>
+          <div className="text-xs font-bold text-amber-500 mt-1">Currently In Use</div>
+        </div>
+        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+          <div className="text-2xl font-black text-indigo-700">₹{(stats.totalValue / 1000).toFixed(1)}K</div>
+          <div className="text-xs font-bold text-indigo-500 mt-1">Total Asset Value</div>
+        </div>
+      </div>
 
-        {/* Form 2: Issue Resource to student/teacher */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <ArrowRightLeft className="h-4.5 w-4.5 text-blue-600" /> Issue Resource Item
-          </h2>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+        {[
+          { key: "catalog", label: "📚 Inventory" },
+          { key: "issue", label: "🔄 Issue Item" },
+          { key: "issuances", label: "📋 Usage Log" },
+        ].map((tab) => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
+            className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${activeTab === tab.key ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <form onSubmit={handleIssueResource} className="space-y-4">
-            {issueMsg && (
-              <div
-                className={`p-3.5 rounded-xl text-xs font-bold ${
-                  issueMsg.type === "success"
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : "bg-red-50 text-red-700 border border-red-200"
-                }`}
-              >
-                {issueMsg.text}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Select Resource */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Select Resource</label>
-                <select
-                  value={issueResId}
-                  onChange={(e) => setIssueResId(e.target.value)}
-                  className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white"
-                  required
-                >
-                  <option value="">-- Choose Item --</option>
-                  {resourcesList.map((res) => (
-                    <option key={res.id} value={res.id}>
-                      {res.name} (Stock: {res.availableQuantity}/{res.totalQuantity})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Recipient Type */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Recipient Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRecipientType("STUDENT")}
-                    className={`py-2 text-xs font-bold rounded-xl border text-center transition-all ${
-                      recipientType === "STUDENT"
-                        ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/10"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecipientType("TEACHER")}
-                    className={`py-2 text-xs font-bold rounded-xl border text-center transition-all ${
-                      recipientType === "TEACHER"
-                        ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/10"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    Teacher / Staff
-                  </button>
-                </div>
-              </div>
+      {/* Add Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Plus className="h-4 w-4 text-blue-600" /> Add Inventory Item
+              </h2>
+              <button onClick={() => setShowAddForm(false)} className="p-1 text-slate-400 hover:text-slate-700"><X className="h-5 w-5" /></button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Recipient Autocomplete Dropdowns */}
-              {recipientType === "STUDENT" ? (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Select Student</label>
-                  <select
-                    value={selectedStudentId}
-                    onChange={(e) => setSelectedStudentId(e.target.value)}
-                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white"
-                    required
-                  >
-                    <option value="">-- Choose Student --</option>
-                    {students.map((student) => (
-                      <option key={student.id} value={student.id}>
-                        {student.name} (Roll: {student.rollNumber || "N/A"})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Select Teacher</label>
-                  <select
-                    value={selectedTeacherId}
-                    onChange={(e) => setSelectedTeacherId(e.target.value)}
-                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white"
-                    required
-                  >
-                    <option value="">-- Choose Teacher --</option>
-                    {teachers.map((teacher) => (
-                      <option key={teacher.id} value={teacher.id}>
-                        {teacher.name}
-                      </option>
-                    ))}
-                  </select>
+            <form onSubmit={handleAdd} className="space-y-4">
+              {addMsg && (
+                <div className={`p-3 rounded-xl text-xs font-bold ${addMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                  {addMsg.text}
                 </div>
               )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Name *</label>
+                  <input type="text" value={resName} onChange={e => setResName(e.target.value)} required
+                    placeholder="e.g. iPad Pro, Math Text Book"
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500 focus:bg-white" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category *</label>
+                  <select value={resType} onChange={e => handleAddCategoryChange(e.target.value)}
+                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500">
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                    <option value="CUSTOM">+ Add Custom Category...</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["CONSUMABLE", "NON_CONSUMABLE"] as const).map((type) => (
+                      <button key={type} type="button" onClick={() => setResIsConsumable(type)}
+                        className={`py-2 text-[10px] font-bold rounded-xl border text-center transition-all ${resIsConsumable === type ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                        {type === "CONSUMABLE" ? "Consumable" : "Non-Consumable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {resType === "CUSTOM" && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Custom Category Name *</label>
+                    <input type="text" value={resCustomCat} onChange={e => setResCustomCat(e.target.value)} required
+                      placeholder="e.g. Stationery, Periodicals"
+                      className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity *</label>
+                  <input type="number" value={resQty} onChange={e => setResQty(e.target.value)} min={1} required
+                    placeholder="e.g. 50"
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Unit Cost (₹)</label>
+                  <input type="number" value={resCost} onChange={e => setResCost(e.target.value)} min={0} step="any"
+                    placeholder="e.g. 750"
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <button type="submit" disabled={isPending}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50">
+                {isPending ? "Adding..." : "Add to Inventory"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
-              {/* Quantity to Issue */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity to Issue</label>
-                <input
-                  type="number"
-                  value={issueQty}
-                  onChange={(e) => setIssueQty(e.target.value)}
-                  placeholder="e.g. 1"
-                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-                  required
-                  min={1}
-                />
+      {/* Edit Modal */}
+      {editItem && (
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-amber-500" /> Edit Inventory Item
+              </h2>
+              <button onClick={() => setEditItem(null)} className="p-1 text-slate-400 hover:text-slate-700"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              {editMsg && (
+                <div className={`p-3 rounded-xl text-xs font-bold ${editMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                  {editMsg.text}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Name *</label>
+                  <input type="text" value={editName} onChange={e => setEditName(e.target.value)} required
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Category *</label>
+                  <select value={editType} onChange={e => handleEditCategoryChange(e.target.value)}
+                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500">
+                    {categoryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                    <option value="CUSTOM">+ Add Custom Category...</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Item Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["CONSUMABLE", "NON_CONSUMABLE"] as const).map((type) => (
+                      <button key={type} type="button" onClick={() => setEditIsConsumable(type)}
+                        className={`py-2 text-[10px] font-bold rounded-xl border text-center transition-all ${editIsConsumable === type ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                        {type === "CONSUMABLE" ? "Consumable" : "Non-Consumable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {editType === "CUSTOM" && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Custom Category Name *</label>
+                    <input type="text" value={editCustomCat} onChange={e => setEditCustomCat(e.target.value)} required
+                      className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity</label>
+                  <input type="number" value={editQty} onChange={e => setEditQty(e.target.value)} min={1}
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Unit Cost (₹)</label>
+                  <input type="number" value={editCost} onChange={e => setEditCost(e.target.value)} min={0} step="any"
+                    className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setEditItem(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest transition-all">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isPending}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50">
+                  {isPending ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Catalog Tab */}
+      {activeTab === "catalog" && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="p-5 border-b border-slate-100 flex flex-wrap gap-3 items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-blue-600" /> Current Inventory Catalog
+            </h2>
+            <div className="flex gap-3 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search items..."
+                  className="pl-8 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500 w-44" />
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {["All", ...categoryOptions.map(opt => opt.value)].map((cat) => (
+                  <button key={cat} onClick={() => setCategoryFilter(cat)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${categoryFilter === cat ? "bg-blue-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                    {cat === "All" ? "All" : getCategoryLabel(cat)}
+                  </button>
+                ))}
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-blue-500/10 active:scale-95 disabled:opacity-55"
-            >
-              Issue Resource
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Lists Tables Grid */}
-      <div className="grid grid-cols-1 gap-8">
-        {/* Section 1: Resource Inventory List */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-blue-600" /> Current Inventory Catalog
-          </h2>
-
-          {resourcesList.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 italic text-sm">
-              No inventory catalog items found. Complete the form above to add items.
+          </div>
+          {filteredResources.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 italic text-sm">
+              No catalog items found. Add items to get started.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] uppercase tracking-wider font-black text-slate-400">
-                    <th className="pb-3 pr-2">Item Name</th>
-                    <th className="pb-3 px-2">Type</th>
-                    <th className="pb-3 px-2 text-center">Total Stock</th>
-                    <th className="pb-3 px-2 text-center">Available Stock</th>
-                    <th className="pb-3 px-2 text-right">Unit Cost</th>
-                    <th className="pb-3 px-2 text-right">Total Cost</th>
-                    <th className="pb-3 pl-2 text-right">Delete</th>
+                    <th className="pb-3 px-5 pt-4">Item Name</th>
+                    <th className="pb-3 px-3 pt-4">Category</th>
+                    <th className="pb-3 px-3 pt-4 text-center">Total</th>
+                    <th className="pb-3 px-3 pt-4 text-center">Available</th>
+                    <th className="pb-3 px-3 pt-4 text-right">Unit Cost</th>
+                    <th className="pb-3 px-3 pt-4 text-right">Total Value</th>
+                    <th className="pb-3 px-5 pt-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-medium">
-                  {resourcesList.map((res) => (
-                    <tr key={res.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3.5 pr-2 font-bold text-slate-900">{res.name}</td>
-                      <td className="py-3.5 px-2 font-semibold text-slate-500 uppercase text-[10px] tracking-wider">
-                        {res.type}
-                      </td>
-                      <td className="py-3.5 px-2 text-center font-bold text-slate-800">
-                        {res.totalQuantity}
-                      </td>
-                      <td className="py-3.5 px-2 text-center">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            res.availableQuantity === 0
-                              ? "bg-red-50 text-red-700"
-                              : res.availableQuantity < 5
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-emerald-50 text-emerald-700"
-                          }`}
-                        >
-                          {res.availableQuantity}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-2 text-right font-bold text-slate-900">
-                        ₹{res.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3.5 px-2 text-right font-bold text-blue-600">
-                        ₹{(res.totalQuantity * res.cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3.5 pl-2 text-right">
-                        <button
-                          onClick={() => handleDeleteResource(res.id)}
-                          className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                          title="Delete catalog item"
-                        >
-                          <Trash size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredResources.map((res) => {
+                    const Icon = getCategoryIcon(res.type);
+                    const colorClass = getCategoryColor(res.type);
+                    const label = getCategoryLabel(res.type);
+                    const { isConsumable } = parseResourceType(res.type);
+                    return (
+                      <tr key={res.id} className="hover:bg-slate-50/60 transition-colors group">
+                        <td className="py-3.5 px-5 font-bold text-slate-900">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-3.5 w-3.5 text-blue-500" />
+                            {res.name}
+                            <span className="text-[9px] font-normal text-slate-400">
+                              ({isConsumable ? "Consumable" : "Non-Consumable"})
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ${colorClass}`}>
+                            {label}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-800">{res.totalQuantity}</td>
+                        <td className="py-3.5 px-3 text-center">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black ${res.availableQuantity === 0 ? "bg-red-50 text-red-700" : res.availableQuantity < 3 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                            {res.availableQuantity}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-bold text-slate-900">₹{res.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="py-3.5 px-3 text-right font-bold text-blue-600">₹{(res.totalQuantity * res.cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="py-3.5 px-5 text-right">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEdit(res)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Pencil size={13} /></button>
+                            <button onClick={() => handleDelete(res.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 size={13} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
+      )}
 
-        {/* Section 2: Resource Issuances List */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" /> Active Distributions & Issuances Log
+      {/* Issue Tab */}
+      {activeTab === "issue" && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-2xl">
+          <h2 className="text-base font-bold text-slate-900 mb-5 pb-2 border-b border-slate-100 flex items-center gap-2">
+            <ArrowRightLeft className="h-4.5 w-4.5 text-blue-600" /> Issue Resource Item
           </h2>
-
-          {issuancesList.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 italic text-sm">
-              No issuance records found. Register an issuance in the form above.
+          <form onSubmit={handleIssue} className="space-y-4">
+            {issueMsg && (
+              <div className={`p-3.5 rounded-xl text-xs font-bold ${issueMsg.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                {issueMsg.text}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Select Resource</label>
+                <select value={issueResId} onChange={e => setIssueResId(e.target.value)} required
+                  className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500">
+                  <option value="">-- Choose Item --</option>
+                  {resourcesList.map(res => {
+                    const { isConsumable } = parseResourceType(res.type);
+                    return (
+                      <option key={res.id} value={res.id}>
+                        {res.name} ({getCategoryLabel(res.type)} - {isConsumable ? "Consumable" : "Non-Consumable"}, Avail: {res.availableQuantity})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Recipient Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["STUDENT", "TEACHER"] as const).map((type) => (
+                    <button key={type} type="button" onClick={() => setRecipientType(type)}
+                      className={`py-2 text-xs font-bold rounded-xl border text-center transition-all ${recipientType === type ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"}`}>
+                      {type === "STUDENT" ? "👨‍🎓 Student" : "👩‍🏫 Teacher"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">
+                  {recipientType === "STUDENT" ? "Select Student" : "Select Teacher"}
+                </label>
+                {recipientType === "STUDENT" ? (
+                  <select value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} required
+                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500">
+                    <option value="">-- Choose Student --</option>
+                    {students.map(s => <option key={s.id} value={s.id}>{s.name} (Roll: {s.rollNumber || "N/A"})</option>)}
+                  </select>
+                ) : (
+                  <select value={selectedTeacherId} onChange={e => setSelectedTeacherId(e.target.value)} required
+                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500">
+                    <option value="">-- Choose Teacher --</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Quantity to Issue</label>
+                <input type="number" value={issueQty} onChange={e => setIssueQty(e.target.value)} min={1} required
+                  placeholder="e.g. 1"
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+              </div>
+            </div>
+            {issueResId && !isConsumableForIssue && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Return Deadline *</label>
+                <input type="datetime-local" value={deadlineDateTime} onChange={e => setDeadlineDateTime(e.target.value)} required
+                  className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-blue-500" />
+              </div>
+            )}
+            <button type="submit" disabled={isPending}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50">
+              {isPending ? "Issuing..." : "Issue Resource"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Issuances Tab */}
+      {activeTab === "issuances" && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="p-5 border-b border-slate-100">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-600" /> Active Distributions & Issuances Log
+              <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-black">
+                {issuancesList.filter(i => i.status.startsWith("ISSUED")).length} In Use
+              </span>
+            </h2>
+          </div>
+          {issuancesList.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 italic text-sm">No usage records found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] uppercase tracking-wider font-black text-slate-400">
-                    <th className="pb-3 pr-2">Issued Item</th>
-                    <th className="pb-3 px-2">Issued To</th>
-                    <th className="pb-3 px-2 text-center">Quantity</th>
-                    <th className="pb-3 px-2">Issue Date</th>
-                    <th className="pb-3 px-2">Return Date</th>
-                    <th className="pb-3 px-2">Status</th>
-                    <th className="pb-3 pl-2 text-right">Action</th>
+                    <th className="pb-3 px-5 pt-4">Item</th>
+                    <th className="pb-3 px-3 pt-4">Issued To</th>
+                    <th className="pb-3 px-3 pt-4 text-center">Qty</th>
+                    <th className="pb-3 px-3 pt-4">Issue Date</th>
+                    <th className="pb-3 px-3 pt-4">Return Date / Deadline</th>
+                    <th className="pb-3 px-3 pt-4">Status</th>
+                    <th className="pb-3 px-5 pt-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-medium">
                   {issuancesList.map((log) => {
-                    const issueDate = new Date(log.issuedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    });
-                    const returnDate = log.returnedAt
-                      ? new Date(log.returnedAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
-                      : "-";
+                    const parts = log.status.split("|");
+                    const baseStatus = parts[0];
+                    const deadline = parts[1] || null;
 
-                    const recipientName =
-                      log.recipientType === "STUDENT"
-                        ? log.studentName
-                        : log.teacherName || "Teacher";
-                    const subLabel =
-                      log.recipientType === "STUDENT"
-                        ? `Roll: ${log.studentRoll || "N/A"}`
-                        : "Teacher / Staff";
+                    const formatDeadline = (dateStr: string) => {
+                      const d = new Date(dateStr);
+                      return d.toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      });
+                    };
 
+                    const hasDeadline = !!deadline;
+                    const isOverdue = hasDeadline && baseStatus === "ISSUED" && new Date(deadline) < new Date();
+
+                    const issueDate = new Date(log.issuedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                    
+                    let returnDateText = "— (No deadline)";
+                    if (log.returnedAt) {
+                      returnDateText = new Date(log.returnedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                    } else if (hasDeadline) {
+                      returnDateText = `Deadline: ${formatDeadline(deadline)}`;
+                    }
+
+                    const recipientName = log.recipientType === "STUDENT" ? log.studentName : log.teacherName || "Teacher";
+                    
                     return (
-                      <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                        {/* Issued Item */}
-                        <td className="py-3.5 pr-2">
-                          <div className="font-bold text-slate-900">{log.resourceName}</div>
+                      <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-5">
+                          <span className="font-bold text-slate-900">{log.resourceName}</span>
                           <div className="text-[9px] text-slate-400 font-semibold uppercase">
-                            Type: {log.resourceType}
+                            Type: {getCategoryLabel(log.resourceType)}
                           </div>
                           {log.returnComment && (
                             <div className="text-[10px] text-slate-500 italic font-medium mt-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100/50 max-w-xs whitespace-normal">
@@ -533,56 +743,38 @@ export default function LibraryClient({
                             </div>
                           )}
                         </td>
-
-                        {/* Recipient Details */}
-                        <td className="py-3.5 px-2">
-                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                            <Users size={12} className="text-slate-400" />
-                            <span>{recipientName}</span>
-                          </div>
-                          <div className="text-[9px] text-slate-400 font-semibold uppercase pl-4.5">
-                            {subLabel}
+                        <td className="py-3.5 px-3">
+                          <div className="font-bold text-slate-900">{recipientName}</div>
+                          <div className="text-[9px] text-slate-400 font-semibold uppercase">
+                            {log.recipientType === "STUDENT" ? `Roll: ${log.studentRoll || "N/A"}` : "Teacher / Staff"}
                           </div>
                         </td>
-
-                        {/* Quantity */}
-                        <td className="py-3.5 px-2 text-center font-bold text-slate-800">
-                          {log.quantityIssued}
-                        </td>
-
-                        {/* Issue Date */}
-                        <td className="py-3.5 px-2 text-slate-500 font-semibold">{issueDate}</td>
-
-                        {/* Return Date */}
-                        <td className="py-3.5 px-2 text-slate-500 font-semibold">{returnDate}</td>
-
-                        {/* Status */}
-                        <td className="py-3.5 px-2">
-                          <span
-                            className={`inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black ${
-                              log.status === "RETURNED"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : "bg-blue-50 text-blue-700 border border-blue-100 animate-pulse"
-                            }`}
-                          >
-                            {log.status === "RETURNED" ? "Returned" : "Active / Issued"}
-                          </span>
-                        </td>
-
-                        {/* Return Action */}
-                        <td className="py-3.5 pl-2 text-right">
-                          {log.status === "ISSUED" ? (
-                            <button
-                              onClick={() => handleReturnResource(log.id)}
-                              disabled={isPending}
-                              className="py-1 px-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-50"
-                            >
-                              Return Item
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-800">{log.quantityIssued}</td>
+                        <td className="py-3.5 px-3 text-slate-500">{issueDate}</td>
+                        <td className={`py-3.5 px-3 text-slate-500 ${isOverdue ? "text-rose-600 font-bold" : ""}`}>{returnDateText}</td>
+                        <td className="py-3.5 px-3">
+                          {baseStatus === "RETURNED" ? (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-emerald-50 text-emerald-700 border border-emerald-100">
                               Returned
                             </span>
+                          ) : isOverdue ? (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-rose-50 text-rose-700 border border-rose-100 animate-pulse">
+                              ⚠️ Overdue
+                            </span>
+                          ) : (
+                            <span className="inline-flex py-0.5 px-2 rounded-full text-[9px] uppercase tracking-wider font-black bg-blue-50 text-blue-700 border border-blue-100 animate-pulse">
+                              Active / Issued
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-5 text-right">
+                          {baseStatus === "ISSUED" ? (
+                            <button onClick={() => handleReturn(log.id)} disabled={isPending}
+                              className="py-1 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-50">
+                              Return
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">✓ Done</span>
                           )}
                         </td>
                       </tr>
@@ -593,7 +785,7 @@ export default function LibraryClient({
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
