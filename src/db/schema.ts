@@ -374,6 +374,7 @@ export const subjects = pgTable("subjects", {
   name: text("name").notNull(),
   bookName: text("book_name"),
   medium: text("medium").default("English/Hindi").notNull(),
+  assignedTeacherId: uuid("assigned_teacher_id").references(() => teachers.id, { onDelete: 'set null' }),
 });
 
 export const units = pgTable("units", {
@@ -441,75 +442,7 @@ export const homeworkSubmissions = pgTable("homework_submissions", {
   reviewedBy: uuid("reviewed_by").references(() => users.id),
 });
 
-export const lessonPlansRelations = relations(lessonPlans, ({ one, many }) => ({
-  class: one(classes, { fields: [lessonPlans.classId], references: [classes.id] }),
-  subject: one(subjects, { fields: [lessonPlans.subjectId], references: [subjects.id] }),
-  teacher: one(users, { fields: [lessonPlans.teacherId], references: [users.id] }),
-  submissions: many(homeworkSubmissions),
-}));
 
-export const homeworkSubmissionsRelations = relations(homeworkSubmissions, ({ one }) => ({
-  lessonPlan: one(lessonPlans, { fields: [homeworkSubmissions.lessonPlanId], references: [lessonPlans.id] }),
-  student: one(students, { fields: [homeworkSubmissions.studentId], references: [students.id] }),
-  reviewer: one(users, { fields: [homeworkSubmissions.reviewedBy], references: [users.id] }),
-}));
-
-// Academy Relations
-export const classesRelations = relations(classes, ({ many }) => ({
-  subjects: many(subjects),
-  lessonPlans: many(lessonPlans),
-  students: many(students),
-}));
-
-export const subjectsRelations = relations(subjects, ({ one, many }) => ({
-  class: one(classes, { fields: [subjects.classId], references: [classes.id] }),
-  units: many(units),
-  lessonPlans: many(lessonPlans),
-}));
-
-export const unitsRelations = relations(units, ({ one, many }) => ({
-  subject: one(subjects, { fields: [units.subjectId], references: [subjects.id] }),
-  chapters: many(chapters),
-}));
-
-export const chaptersRelations = relations(chapters, ({ one, many }) => ({
-  unit: one(units, { fields: [chapters.unitId], references: [units.id] }),
-  chapterPdfs: many(chapterPdfs),
-  divisions: many(chapterDivisions),
-}));
-
-export const chapterDivisionsRelations = relations(chapterDivisions, ({ one }) => ({
-  chapter: one(chapters, { fields: [chapterDivisions.chapterId], references: [chapters.id] }),
-}));
-
-export const chapterPdfsRelations = relations(chapterPdfs, ({ one }) => ({
-  chapter: one(chapters, { fields: [chapterPdfs.chapterId], references: [chapters.id] }),
-}));
-export const usersRelations = relations(users, ({ one, many }) => ({
-  teacherProfile: one(teachers, {
-    fields: [users.id],
-    references: [teachers.userId],
-  }),
-  studentProfile: one(studentProfiles, {
-    fields: [users.id],
-    references: [studentProfiles.userId],
-  }),
-}));
-
-export const teachersRelations = relations(teachers, ({ one }) => ({
-  user: one(users, {
-    fields: [teachers.userId],
-    references: [users.id],
-  }),
-}));
-
-export const studentsRelations = relations(students, ({ one, many }) => ({
-  class: one(classes, {
-    fields: [students.classId],
-    references: [classes.id],
-  }),
-  homeworkSubmissions: many(homeworkSubmissions),
-}));
 
 
 
@@ -839,3 +772,99 @@ export const holidays = pgTable("holidays", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  studentProfile: one(studentProfiles),
+  teacherProfile: one(teachers),
+  examSchedulesCreated: many(examSchedules),
+}));
+
+export const classesRelations = relations(classes, ({ many }) => ({
+  students: many(students),
+  subjects: many(subjects),
+  timetable: many(timetable),
+  examSchedules: many(examSchedules),
+  incidents: many(incidents),
+  studentLeaves: many(studentLeaves),
+}));
+
+export const studentsRelations = relations(students, ({ one, many }) => ({
+  class: one(classes, {
+    fields: [students.classId],
+    references: [classes.id],
+  }),
+  attendance: many(studentAttendance),
+  leaves: many(studentLeaves),
+  resourceIssuances: many(resourceIssuances),
+  incidents: many(incidents),
+  transportStudents: many(transportStudents),
+}));
+
+export const teachersRelations = relations(teachers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [teachers.userId],
+    references: [users.id],
+  }),
+  subjects: many(subjects),
+  timetable: many(timetable),
+  incidents: many(incidents),
+  resourceIssuances: many(resourceIssuances),
+}));
+
+export const subjectsRelations = relations(subjects, ({ one, many }) => ({
+  class: one(classes, {
+    fields: [subjects.classId],
+    references: [classes.id],
+  }),
+  assignedTeacher: one(teachers, {
+    fields: [subjects.assignedTeacherId],
+    references: [teachers.id],
+  }),
+  units: many(units),
+  timetable: many(timetable),
+  examSchedules: many(examSchedules),
+}));
+
+export const unitsRelations = relations(units, ({ one, many }) => ({
+  subject: one(subjects, {
+    fields: [units.subjectId],
+    references: [subjects.id],
+  }),
+  chapters: many(chapters),
+}));
+
+export const chaptersRelations = relations(chapters, ({ one, many }) => ({
+  unit: one(units, {
+    fields: [chapters.unitId],
+    references: [units.id],
+  }),
+  divisions: many(chapterDivisions),
+  pdfs: many(chapterPdfs),
+}));
+
+export const chapterDivisionsRelations = relations(chapterDivisions, ({ one }) => ({
+  chapter: one(chapters, {
+    fields: [chapterDivisions.chapterId],
+    references: [chapters.id],
+  }),
+}));
+
+export const chapterPdfsRelations = relations(chapterPdfs, ({ one }) => ({
+  chapter: one(chapters, {
+    fields: [chapterPdfs.chapterId],
+    references: [chapters.id],
+  }),
+}));
+
+export const studentAttendanceRelations = relations(studentAttendance, ({ one }) => ({
+  student: one(students, {
+    fields: [studentAttendance.studentId],
+    references: [students.id],
+  }),
+  class: one(classes, {
+    fields: [studentAttendance.classId],
+    references: [classes.id],
+  }),
+}));
+
+

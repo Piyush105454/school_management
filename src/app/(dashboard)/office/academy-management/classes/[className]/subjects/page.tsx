@@ -46,9 +46,12 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
     );
   }
 
-  // Fetch subjects for this class
+  // Fetch subjects for this class with assigned teacher
   const classSubjects = await db.query.subjects.findMany({
     where: eq(subjects.classId, classRecord.id),
+    with: {
+      assignedTeacher: true,
+    },
     orderBy: (subjects, { asc }) => [asc(subjects.name)],
   });
 

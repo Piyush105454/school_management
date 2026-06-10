@@ -2,12 +2,18 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { BookOpen, Layers, Plus, Trash2, Loader2, AlertCircle, Edit2, MoreVertical } from "lucide-react";
+import { BookOpen, Layers, Plus, Trash2, Loader2, AlertCircle, Edit2, MoreVertical, User } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { createSubject, deleteSubject } from "@/features/academy/actions/subjectActions";
 import { updateSubject } from "@/features/academy/actions/academyActions";
 import { useRouter } from "next/navigation";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
+import AssignTeacherModal from "./AssignTeacherModal";
+
+interface Teacher {
+  id: string;
+  name: string;
+}
 
 interface Subject {
   id: number;
@@ -15,6 +21,8 @@ interface Subject {
   name: string;
   bookName?: string | null;
   medium: string;
+  assignedTeacherId?: string | null;
+  assignedTeacher?: Teacher | null;
 }
 
 interface SubjectManagementProps {
@@ -33,10 +41,12 @@ export default function SubjectManagement({
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAssignTeacherModalOpen, setIsAssignTeacherModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentSubject, setCurrentSubject] = useState<Subject | null>(null);
+  const [selectedSubjectForTeacher, setSelectedSubjectForTeacher] = useState<Subject | null>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -104,6 +114,11 @@ export default function SubjectManagement({
     setIsEditModalOpen(true);
   };
 
+  const openAssignTeacherModal = (subject: Subject) => {
+    setSelectedSubjectForTeacher(subject);
+    setIsAssignTeacherModalOpen(true);
+  };
+
   const handleDelete = async (subjectId: number, subjectName: string) => {
     if (confirm(`Are you sure you want to delete "${subjectName}"? This will also delete all units and chapters associated with it.`)) {
       setIsDeleting(subjectId);
@@ -154,6 +169,7 @@ export default function SubjectManagement({
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Subject Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Book Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Medium</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Content Management</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
@@ -180,6 +196,15 @@ export default function SubjectManagement({
                       <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-50 shadow-sm">
                         {subject.medium}
                       </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <button
+                        onClick={() => openAssignTeacherModal(subject)}
+                        className="inline-flex items-center gap-2.5 px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 hover:text-white transition-all group active:scale-95"
+                      >
+                        <User className="h-3.5 w-3.5" />
+                        {subject.assignedTeacher?.name || "Assign Teacher"}
+                      </button>
                     </td>
                     <td className="px-8 py-5">
                       <Link 
@@ -374,6 +399,12 @@ export default function SubjectManagement({
           </div>
         </form>
       </Modal>
+
+      <AssignTeacherModal
+        isOpen={isAssignTeacherModalOpen}
+        onClose={() => setIsAssignTeacherModalOpen(false)}
+        subject={selectedSubjectForTeacher}
+      />
     </div>
   );
 }

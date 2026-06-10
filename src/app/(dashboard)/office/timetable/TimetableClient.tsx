@@ -1051,6 +1051,25 @@ export default function TimetableClient() {
             </div>
             <div className="space-y-4">
               <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><GraduationCap size={12} /> Select Teacher</label>
+                <select value={editTeacherId} onChange={e => {
+                  const teacherId = e.target.value;
+                  setEditTeacherId(teacherId);
+                  if (teacherId && editorCell) {
+                    const mc = classesList.find(c => c.name.toLowerCase() === editorCell.className.toLowerCase());
+                    const classSubjects = subjectsList.filter(s => s.classId === mc?.id);
+                    const matchedSubject = classSubjects.find(s => s.assignedTeacherId === teacherId);
+                    if (matchedSubject) {
+                      setEditSubjectId(String(matchedSubject.id));
+                    }
+                  }
+                }}
+                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500">
+                  <option value="">-- Choose Teacher --</option>
+                  {teachersList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><BookOpen size={12} /> Select Subject</label>
                 <select value={editSubjectId} onChange={e => setEditSubjectId(e.target.value)}
                   className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500">
@@ -1061,14 +1080,6 @@ export default function TimetableClient() {
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ));
                   })()}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><GraduationCap size={12} /> Select Teacher</label>
-                <select value={editTeacherId} onChange={e => setEditTeacherId(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500">
-                  <option value="">-- Choose Teacher --</option>
-                  {teachersList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
             </div>
