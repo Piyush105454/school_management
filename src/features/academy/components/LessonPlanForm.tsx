@@ -1,12 +1,103 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool } from "lucide-react";
+import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { generateLessonPlanPdf } from "@/features/academy/utils/generateLessonPlanPdf";
-import { saveLessonPlan } from "@/features/academy/actions/lessonPlanActions";
+import { saveLessonPlan, getLessonPlanCount, getLessonPlanByDateAndSubject } from "@/features/academy/actions/lessonPlanActions";
 import { useRouter } from "next/navigation";
 import { getSubjectUnitsAndChapters, getChapterDivisionsForLesson } from "@/features/academy/actions/academyActions";
+import dynamic from "next/dynamic";
+import "react-quill-new/dist/quill.snow.css";
+import "katex/dist/katex.min.css";
+import "@excalidraw/excalidraw/index.css";
+import katex from "katex";
+import DrawingModal from "./DrawingModal";
+
+// Ensure katex is available globally for Quill
+if (typeof window !== "undefined") {
+  (window as any).katex = katex;
+}
+
+const ReactQuill = dynamic(() => {
+  return Promise.all([
+    import("react-quill-new"),
+    import("quill-blot-formatter")
+  ]).then(([RQ, BlotFormatterModule]) => {
+    if (typeof window !== "undefined") {
+      const Quill = RQ.default.Quill || require('quill').default || require('quill');
+      const BlotFormatter = BlotFormatterModule.default;
+
+      // Fix Quill stripping inline styles (needed for image alignment/resizing)
+      const BaseImageFormat = Quill.import('formats/image');
+      class ImageFormat extends BaseImageFormat {
+        static formats(domNode: HTMLElement) {
+          return ['alt', 'height', 'width', 'style', 'id', 'data-excalidraw'].reduce((formats: any, attribute) => {
+            if (domNode.hasAttribute(attribute)) {
+              formats[attribute] = domNode.getAttribute(attribute);
+            }
+            return formats;
+          }, {});
+        }
+        format(name: string, value: any) {
+          if (['alt', 'height', 'width', 'style', 'id', 'data-excalidraw'].indexOf(name) > -1) {
+            if (value) {
+              this.domNode.setAttribute(name, value);
+            } else {
+              this.domNode.removeAttribute(name);
+            }
+          } else {
+            super.format(name, value);
+          }
+        }
+      }
+      Quill.register(ImageFormat, true);
+
+      if (!Quill.imports['modules/blotFormatter']) {
+        Quill.register('modules/blotFormatter', BlotFormatter);
+      }
+
+      // Add SVG icons for undo/redo
+      const icons = Quill.import('ui/icons');
+      icons['undo'] = '<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>';
+      icons['redo'] = '<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>';
+    }
+    return RQ;
+  });
+}, {
+  ssr: false,
+  loading: () => <p className="text-sm text-slate-400 p-4">Loading editor...</p>,
+});
+
+const quillModules = {
+  blotFormatter: {},
+  history: {
+    delay: 500,
+    maxStack: 100,
+    userOnly: true
+  },
+  toolbar: {
+    container: [
+      [{ header: [1, 2, 3, false] }],
+      ["undo", "redo"],
+      ["bold", "italic", "underline", "strike"],
+      [{ color: [] }, { background: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      ["blockquote", "code-block"],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ],
+    handlers: {
+      undo: function (this: any) {
+        this.quill.history.undo();
+      },
+      redo: function (this: any) {
+        this.quill.history.redo();
+      },
+    },
+  },
+};
 
 interface AcademicClass {
   id: number;
@@ -22,9 +113,10 @@ interface AcademicSubject {
 interface LessonPlanFormProps {
   classes: AcademicClass[];
   subjects: AcademicSubject[];
+  teacherId?: string;
 }
 
-export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProps) {
+export default function LessonPlanForm({ classes, subjects, teacherId }: LessonPlanFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -32,6 +124,11 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
   const [activeStep, setActiveStep] = useState(1); // 1: Teacher Preparation, 2: Lesson Plan, 3: Delivery & Sign off
   const [lessonPlanMode, setLessonPlanMode] = useState("EXPLANATION"); // EXPLANATION, QA, PREPRIMARY
   
+  const [isDrawingModalOpen, setIsDrawingModalOpen] = useState(false);
+  const [drawingTarget, setDrawingTarget] = useState<"teacherNote" | "homework" | null>(null);
+  const [editingDrawingId, setEditingDrawingId] = useState<string | null>(null);
+  const [drawingInitialData, setDrawingInitialData] = useState<any[] | undefined>(undefined);
+
   const [unitsWithChapters, setUnitsWithChapters] = useState<any[]>([]);
   const [isLoadingCurriculum, setIsLoadingCurriculum] = useState(false);
   const [chapterDivisions, setChapterDivisions] = useState<any[]>([]);
@@ -87,9 +184,22 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
-        e.preventDefault();
-        alert("Copy-pasting is disabled in Lesson Plan Management to ensure organic lesson planning.");
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.classList.contains("ql-editor"))) {
+        
+        // If it's Quill editor, allow ONLY images
+        if (activeEl.classList.contains("ql-editor")) {
+          const hasImage = Array.from(e.clipboardData?.items || []).some(item => item.type.startsWith('image/'));
+          const textData = e.clipboardData?.getData('text/plain');
+          
+          if (textData && !hasImage) {
+            e.preventDefault();
+            alert("Text copy-pasting is disabled. You may only paste images/diagrams.");
+          }
+          // if it has an image, we allow the paste to go through
+        } else {
+          e.preventDefault();
+          alert("Copy-pasting is disabled in Lesson Plan Management to ensure organic lesson planning.");
+        }
       }
     };
 
@@ -157,6 +267,74 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     }
   }, [searchParams]);
 
+  // Handle Draft Restoration & Auto-save
+  const draftKey = formData.className && formData.subject 
+    ? `lessonPlanDraft_${formData.className}_${formData.subject}` 
+    : null;
+
+  useEffect(() => {
+    if (!draftKey) return;
+    const savedDraft = localStorage.getItem(draftKey);
+    if (savedDraft) {
+      if (confirm("We found an unsaved draft for this Class and Subject. Do you want to restore it?")) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          // Only restore if we haven't already restored this session
+          setFormData(parsed);
+        } catch (e) {
+          console.error("Failed to parse draft", e);
+        }
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = setTimeout(() => {
+      localStorage.setItem(draftKey, JSON.stringify(formData));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [formData, draftKey]);
+
+  // Automatically calculate Day from Date
+  useEffect(() => {
+    if (formData.date) {
+      const dateObj = new Date(formData.date);
+      if (!isNaN(dateObj.getTime())) {
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        setFormData(prev => prev.deliveryDay !== dayName ? { ...prev, deliveryDay: dayName } : prev);
+      }
+    }
+  }, [formData.date]);
+
+  // Calculate min and max dates for Lesson Plan (next day to 6 working days)
+  const { minDateStr, maxDateStr } = React.useMemo(() => {
+    const today = new Date();
+    
+    const minDate = new Date(today);
+    minDate.setDate(today.getDate() + 1); // Next day
+    
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 1); // Start from next day
+    
+    let workingDaysCount = 0;
+    while (workingDaysCount < 6) {
+      if (maxDate.getDay() !== 0) {
+        workingDaysCount++;
+      }
+      if (workingDaysCount < 6) {
+        maxDate.setDate(maxDate.getDate() + 1);
+      }
+    }
+    
+    return {
+      minDateStr: minDate.toISOString().split('T')[0],
+      maxDateStr: maxDate.toISOString().split('T')[0]
+    };
+  }, []);
+
   // Filter out any duplicates from classes and remove "Nursery"
   const uniqueClasses = React.useMemo(() => {
     const seen = new Set();
@@ -171,6 +349,77 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
       return !isDuplicate;
     });
   }, [classes]);
+
+  // Automatically calculate LP No based on Class and Subject
+  useEffect(() => {
+    async function fetchCount() {
+      if (!formData.className || !formData.subject) return;
+      const classObj = uniqueClasses.find(c => c.name === formData.className);
+      if (!classObj) return;
+      const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj.id);
+      if (!subjectObj) return;
+
+      const res = await getLessonPlanCount(classObj.id, subjectObj.id);
+      if (res.success) {
+        const nextNo = (res.count || 0) + 1;
+        setFormData(prev => prev.lpNo !== String(nextNo) ? { ...prev, lpNo: String(nextNo) } : prev);
+      }
+    }
+    fetchCount();
+  }, [formData.className, formData.subject, uniqueClasses, subjects]);
+
+  // Automatically fetch existing lesson plan if it exists for the given Date, Class, and Subject
+  useEffect(() => {
+    async function fetchExistingPlan() {
+      if (!formData.className || !formData.subject || !formData.date) return;
+      const classObj = uniqueClasses.find(c => c.name === formData.className);
+      if (!classObj) return;
+      const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj.id);
+      if (!subjectObj) return;
+
+      const res = await getLessonPlanByDateAndSubject(classObj.id, subjectObj.id, formData.date);
+      if (res.success && res.data) {
+        if (confirm("An existing lesson plan was found for this date. Do you want to load it?")) {
+          try {
+            const step1 = JSON.parse(res.data.step1Data || "{}");
+            const step2 = JSON.parse(res.data.step2Data || "{}");
+            setFormData(prev => ({
+              ...prev,
+              ...step1,
+              ...step2,
+              teacherObservation: res.data.teacherObservation || "",
+              studentPerformanceGood: res.data.studentPerformanceGood || "",
+              studentPerformanceBad: res.data.studentPerformanceBad || "",
+              reviewerRemark: res.data.reviewerRemark || "",
+            }));
+            if (res.data.type) {
+              setLessonPlanMode(res.data.type);
+            }
+            
+            // Check status to determine activeStep
+            if (res.data.status === "SUBMITTED" || res.data.status === "APPROVED" || res.data.status === "REJECTED") {
+              setActiveStep(3);
+            }
+          } catch (e) {
+            console.error("Failed to parse existing plan data", e);
+          }
+        }
+      }
+    }
+    fetchExistingPlan();
+  }, [formData.className, formData.subject, formData.date, uniqueClasses, subjects]);
+
+  const isPrePrimary = formData.className.toLowerCase().includes('kg') || 
+                       formData.className.toLowerCase().includes('nursery') || 
+                       formData.className.toLowerCase().includes('pre');
+
+  useEffect(() => {
+    if (isPrePrimary && lessonPlanMode !== "PREPRIMARY") {
+      setLessonPlanMode("PREPRIMARY");
+    } else if (!isPrePrimary && lessonPlanMode === "PREPRIMARY") {
+      setLessonPlanMode("EXPLANATION");
+    }
+  }, [isPrePrimary, lessonPlanMode]);
 
   // Calculate filtered subjects based on selected class
   const filteredSubjects = React.useMemo(() => {
@@ -217,8 +466,189 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
     fetchCurriculum();
   }, [formData.className, formData.subject, uniqueClasses, subjects]);
 
+  // Click and Double click listener to edit images
+  useEffect(() => {
+    const handleDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'IMG' && target.hasAttribute('data-excalidraw')) {
+        const data = target.getAttribute('data-excalidraw');
+        const imgId = target.getAttribute('id');
+        if (data && imgId) {
+          try {
+            const elements = JSON.parse(data);
+            setEditingDrawingId(imgId);
+            setDrawingInitialData(elements);
+            
+            // Determine if it's teacherNote or homework based on parent
+            if (target.closest('[data-field="teacherNote"]')) {
+              setDrawingTarget("teacherNote");
+            } else {
+              setDrawingTarget("homework");
+            }
+            setIsDrawingModalOpen(true);
+          } catch (err) {
+            console.error("Failed to parse drawing data", err);
+          }
+        }
+      }
+    };
+    
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'IMG' && target.hasAttribute('data-excalidraw')) {
+        // Wait for quill-blot-formatter to render its toolbar
+        setTimeout(() => {
+          const toolbars = document.querySelectorAll('.blot-formatter__toolbar');
+          if (toolbars.length > 0) {
+            const toolbar = toolbars[toolbars.length - 1] as HTMLElement;
+            
+            // Check if edit button already exists to prevent duplicates
+            if (!toolbar.querySelector('.diagram-toolbar-edit-btn')) {
+               const editBtn = document.createElement('div');
+               editBtn.className = 'diagram-toolbar-edit-btn';
+               editBtn.innerHTML = '✏️ Edit Diagram';
+               Object.assign(editBtn.style, {
+                 display: 'inline-block',
+                 padding: '4px 8px',
+                 color: '#2563eb',
+                 fontWeight: 'bold',
+                 fontSize: '12px',
+                 cursor: 'pointer',
+                 marginLeft: '8px',
+                 borderLeft: '1px solid #cbd5e1',
+                 lineHeight: '1',
+               });
+               
+               editBtn.onclick = (event) => {
+                 event.preventDefault();
+                 event.stopPropagation();
+                 
+                 const data = target.getAttribute('data-excalidraw');
+                 const imgId = target.getAttribute('id');
+                 if (data && imgId) {
+                    try {
+                      const elements = JSON.parse(data);
+                      setEditingDrawingId(imgId);
+                      setDrawingInitialData(elements);
+                      if (target.closest('[data-field="teacherNote"]')) {
+                        setDrawingTarget("teacherNote");
+                      } else {
+                        setDrawingTarget("homework");
+                      }
+                      setIsDrawingModalOpen(true);
+                    } catch (err) {}
+                 }
+               };
+               
+               toolbar.appendChild(editBtn);
+            }
+
+            // Add Delete button
+            if (!toolbar.querySelector('.diagram-toolbar-delete-btn')) {
+               const deleteBtn = document.createElement('div');
+               deleteBtn.className = 'diagram-toolbar-delete-btn';
+               deleteBtn.innerHTML = '🗑️ Delete';
+               Object.assign(deleteBtn.style, {
+                 display: 'inline-block',
+                 padding: '4px 8px',
+                 color: '#ef4444',
+                 fontWeight: 'bold',
+                 fontSize: '12px',
+                 cursor: 'pointer',
+                 marginLeft: '4px',
+                 borderLeft: '1px solid #cbd5e1',
+                 lineHeight: '1',
+               });
+               
+               deleteBtn.onclick = (event) => {
+                 event.preventDefault();
+                 event.stopPropagation();
+                 
+                 const imgId = target.getAttribute('id');
+                 if (imgId) {
+                    const isTeacherNote = target.closest('[data-field="teacherNote"]');
+                    const targetHtml = isTeacherNote ? formData.teacherNote : formData.homework;
+                    const imgRegex = new RegExp(`<p><img([^>]*)id=["']${imgId}["']([^>]*)><\/p>|<img([^>]*)id=["']${imgId}["']([^>]*)>`, "i");
+                    
+                    if (isTeacherNote) {
+                      setFormData(prev => ({ ...prev, teacherNote: prev.teacherNote.replace(imgRegex, '') }));
+                    } else {
+                      setFormData(prev => ({ ...prev, homework: prev.homework.replace(imgRegex, '') }));
+                    }
+                    toolbar.style.display = 'none';
+                 }
+               };
+               
+               toolbar.appendChild(deleteBtn);
+            }
+          }
+        }, 10);
+      }
+    };
+
+    document.addEventListener('dblclick', handleDblClick);
+    document.addEventListener('click', handleClick);
+    
+    return () => {
+      document.removeEventListener('dblclick', handleDblClick);
+      document.removeEventListener('click', handleClick);
+    };
+  }, []);
+
+  const handleDrawingSave = (base64Image: string, elements: any[]) => {
+    const safeExcalidraw = JSON.stringify(elements).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+    
+    if (editingDrawingId) {
+      // Edit existing image
+      const targetHtml = drawingTarget === "teacherNote" ? formData.teacherNote : formData.homework;
+      const imgRegex = new RegExp(`<img([^>]*)id=["']${editingDrawingId}["']([^>]*)>`, "i");
+      const match = targetHtml.match(imgRegex);
+      
+      let styleAttr = "";
+      if (match) {
+        const styleMatch = match[0].match(/style=["']([^"']+)["']/i);
+        if (styleMatch) styleAttr = `style="${styleMatch[1]}"`;
+      }
+      
+      const newImgHtml = `<img id="${editingDrawingId}" src="${base64Image}" alt="Diagram" data-excalidraw="${safeExcalidraw}" ${styleAttr} />`;
+      
+      setFormData(prev => ({
+        ...prev,
+        [drawingTarget!]: (prev as any)[drawingTarget!].replace(imgRegex, newImgHtml)
+      }));
+      
+      setEditingDrawingId(null);
+      setDrawingInitialData(undefined);
+    } else {
+      // New insertion
+      const newId = "draw_" + Date.now();
+      const newImgHtml = `<p><img id="${newId}" src="${base64Image}" alt="Diagram" data-excalidraw="${safeExcalidraw}" /></p>`;
+      
+      if (drawingTarget === "teacherNote") {
+        setFormData(prev => ({ 
+          ...prev, 
+          teacherNote: prev.teacherNote + newImgHtml 
+        }));
+      } else if (drawingTarget === "homework") {
+        setFormData(prev => ({ 
+          ...prev, 
+          homework: prev.homework + newImgHtml 
+        }));
+      }
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    // Check if user selected Sunday for the Date
+    if (name === "date" && value) {
+      const selectedDate = new Date(value);
+      if (selectedDate.getDay() === 0) {
+        alert("Sundays are holidays. Please select another day.");
+        return;
+      }
+    }
 
     // When class changes, reset subject
     if (name === "className") {
@@ -244,6 +674,7 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
 
       const res = await (saveLessonPlan as any)({
+        teacherId,
         classId: classObj?.id,
         subjectId: subjectObj?.id,
         date: formData.date,
@@ -279,6 +710,8 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
       });
 
       if (res.success) {
+        if (draftKey) localStorage.removeItem(draftKey);
+        
         if (submitForValidation) {
           alert("Lesson Plan submitted for validation successfully!");
           router.push("/office/academy-management/lesson-plan/review");
@@ -382,16 +815,9 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
             </div>
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">Day:</span>
-              <select
-                name="deliveryDay"
-                value={formData.deliveryDay}
-                onChange={handleChange}
-                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1"
-              >
-                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
-                  <option key={day} value={day}>{day}</option>
-                ))}
-              </select>
+              <span className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
+                {formData.deliveryDay || "..."}
+              </span>
             </div>
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">Date:</span>
@@ -399,20 +825,17 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
                 type="date"
                 name="date"
                 value={formData.date}
+                min={minDateStr}
+                max={maxDateStr}
                 onChange={handleChange}
-                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1"
+                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 cursor-pointer"
               />
             </div>
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">LP No:</span>
-              <input
-                type="text"
-                name="lpNo"
-                value={formData.lpNo}
-                onChange={handleChange}
-                placeholder="No."
-                className="w-12 bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1"
-              />
+              <span className="w-12 bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
+                {formData.lpNo || "..."}
+              </span>
             </div>
 
             {/* Division Selector in Header */}
@@ -482,15 +905,27 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
               </div>
 
               {/* 3. WRITING SPACE */}
-              <div className="relative">
-                <textarea
-                  name="teacherNote"
+              <div className="relative" data-field="teacherNote">
+                <ReactQuill
+                  theme="snow"
+                  modules={quillModules}
                   value={formData.teacherNote}
-                  onChange={handleChange}
-                  rows={12}
-                  className="w-full p-6 text-base font-medium outline-none resize-none border-none placeholder:text-slate-200"
-                  placeholder="Enter your preparation notes here..."
+                  onChange={(val) => setFormData(prev => ({ ...prev, teacherNote: val }))}
+                  className="w-full bg-white text-slate-900 border-none"
+                  placeholder="Enter your preparation notes, formulas, or paste diagrams here..."
                 />
+              </div>
+              <div className="bg-slate-50 p-2 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrawingTarget("teacherNote");
+                    setIsDrawingModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm"
+                >
+                  <PenTool className="w-3.5 h-3.5 text-blue-600" /> Draw Diagram (Whiteboard)
+                </button>
               </div>
             </div>
 
@@ -526,14 +961,28 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
               </div>
 
               {/* 3. WRITING SPACE */}
-              <textarea
-                name="homework"
-                value={formData.homework}
-                onChange={handleChange}
-                rows={8}
-                className="w-full p-6 text-base font-medium outline-none resize-none border-none placeholder:text-slate-200"
-                placeholder="Enter student homework assignments here..."
-              />
+              <div className="bg-white relative" data-field="homework">
+                <ReactQuill
+                  theme="snow"
+                  modules={quillModules}
+                  value={formData.homework}
+                  onChange={(val) => setFormData(prev => ({ ...prev, homework: val }))}
+                  className="w-full text-slate-900 border-none"
+                  placeholder="Enter student homework assignments here..."
+                />
+              </div>
+              <div className="bg-slate-50 p-2 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrawingTarget("homework");
+                    setIsDrawingModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm"
+                >
+                  <PenTool className="w-3.5 h-3.5 text-blue-600" /> Draw Diagram (Whiteboard)
+                </button>
+              </div>
             </div>
           </div>
         ) : activeStep === 2 ? (
@@ -541,27 +990,33 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Mode Switcher */}
             <div className="flex items-center gap-4 p-2 bg-slate-50 border border-slate-200 rounded-2xl w-full md:w-fit mx-auto">
-              <button
-                onClick={() => setLessonPlanMode("EXPLANATION")}
-                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "EXPLANATION" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                  }`}
-              >
-                2A. Lesson Plan (EXPLANATION)
-              </button>
-              <button
-                onClick={() => setLessonPlanMode("QA")}
-                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "QA" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                  }`}
-              >
-                2B. Lesson Plan (Q & A)
-              </button>
-              <button
-                onClick={() => setLessonPlanMode("PREPRIMARY")}
-                className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "PREPRIMARY" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                  }`}
-              >
-                2C. PRE-PRIMARY
-              </button>
+              {!isPrePrimary && (
+                <>
+                  <button
+                    onClick={() => setLessonPlanMode("EXPLANATION")}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "EXPLANATION" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                      }`}
+                  >
+                    2A. Lesson Plan (EXPLANATION)
+                  </button>
+                  <button
+                    onClick={() => setLessonPlanMode("QA")}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "QA" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                      }`}
+                  >
+                    2B. Lesson Plan (Q & A)
+                  </button>
+                </>
+              )}
+              {isPrePrimary && (
+                <button
+                  onClick={() => setLessonPlanMode("PREPRIMARY")}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "PREPRIMARY" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                    }`}
+                >
+                  2C. PRE-PRIMARY
+                </button>
+              )}
             </div>
 
             {lessonPlanMode === "EXPLANATION" || lessonPlanMode === "PREPRIMARY" ? (
@@ -1112,6 +1567,16 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
         )}
       </div>
 
+      <DrawingModal
+        isOpen={isDrawingModalOpen}
+        onClose={() => {
+          setIsDrawingModalOpen(false);
+          setEditingDrawingId(null);
+          setDrawingInitialData(undefined);
+        }}
+        onSave={handleDrawingSave}
+        initialData={drawingInitialData}
+      />
 
       {/* 3. SIMPLIFIED FOOTER */}
       <div className="border border-slate-300 bg-white p-8">
@@ -1124,14 +1589,36 @@ export default function LessonPlanForm({ classes, subjects }: LessonPlanFormProp
             {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
             Save Draft
           </button>
-          <button
-            onClick={() => handleSave(true)}
-            disabled={isSaving}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
-          >
-            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
-            Submit for Validation
-          </button>
+          
+          {activeStep === 1 && (
+            <button
+              onClick={() => setActiveStep(2)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
+            >
+              Continue to Step 2 <ChevronRight className="h-3 w-3" />
+            </button>
+          )}
+
+          {activeStep === 2 && (
+            <button
+              onClick={() => setActiveStep(3)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
+            >
+              Submit for Validation <ChevronRight className="h-3 w-3" />
+            </button>
+          )}
+
+          {activeStep === 3 && (
+            <button
+              onClick={() => handleSave(true)}
+              disabled={isSaving}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md flex items-center gap-2"
+            >
+              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
+              Confirm & Final Submit
+            </button>
+          )}
+
           <button
             onClick={handleGeneratePdf}
             disabled={isGenerating}

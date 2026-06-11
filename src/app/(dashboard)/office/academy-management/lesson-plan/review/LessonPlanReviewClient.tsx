@@ -16,9 +16,12 @@ import {
   PenTool,
   Save,
   Download,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
-import { updateLessonPlanStatus } from "@/features/academy/actions/lessonPlanActions";
+import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
+import "katex/dist/katex.min.css";
+import "react-quill-new/dist/quill.snow.css";
 
 export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { initialPlans: any[], reviewerId: string }) {
   const [plans, setPlans] = useState(initialPlans);
@@ -40,12 +43,15 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
   };
 
   const filteredPlans = plans.filter(p => {
-    const matchesSearch = 
-      p.class?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.subject?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.teacher?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-    if (!matchesSearch) return false;
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      const matchesSearch = 
+        (p.class?.name && p.class.name.toLowerCase().includes(lowerSearch)) ||
+        (p.subject?.name && p.subject.name.toLowerCase().includes(lowerSearch)) ||
+        (p.teacher?.name && p.teacher.name.toLowerCase().includes(lowerSearch));
+        
+      if (!matchesSearch) return false;
+    }
     
     if (activeTab === "PENDING") return p.status === "SUBMITTED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
@@ -77,6 +83,21 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
       alert("Error: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (planId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this lesson plan? This action cannot be undone.")) return;
+    
+    try {
+      const res = await deleteLessonPlan(planId);
+      if (res.success) {
+        setPlans(prev => prev.filter(p => p.id !== planId));
+      } else {
+        alert("Failed to delete lesson plan: " + res.error);
+      }
+    } catch (error: any) {
+      alert("Error deleting lesson plan: " + error.message);
     }
   };
 
@@ -249,12 +270,21 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                         )}
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <button 
-                          onClick={() => selectPlanForReview(plan)}
-                          className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10"
-                        >
-                          {plan.status === "SUBMITTED" ? "Review Plan" : "View Details"}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => selectPlanForReview(plan)}
+                            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10"
+                          >
+                            {plan.status === "SUBMITTED" ? "Review Plan" : "View Details"}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(plan.id)}
+                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            title="Delete Lesson Plan"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -377,9 +407,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                   </div>
 
                   {/* WRITING SPACE */}
-                  <div className="w-full p-6 text-base font-medium min-h-[300px] whitespace-pre-wrap text-slate-800 bg-white select-text">
-                    {step1.teacherNote || "No preparation notes provided."}
-                  </div>
+                  <div 
+                    className="w-full p-6 text-base font-medium min-h-[300px] text-slate-800 bg-white select-text ql-editor"
+                    dangerouslySetInnerHTML={{ __html: step1.teacherNote || "No preparation notes provided." }}
+                  />
                 </div>
 
                 {/* 1B. Homework Table */}
@@ -414,9 +445,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                   </div>
 
                   {/* WRITING SPACE */}
-                  <div className="w-full p-6 text-base font-medium min-h-[200px] whitespace-pre-wrap text-slate-800 bg-white select-text">
-                    {step1.homework || "No homework assigned."}
-                  </div>
+                  <div 
+                    className="w-full p-6 text-base font-medium min-h-[200px] text-slate-800 bg-white select-text ql-editor"
+                    dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }}
+                  />
                 </div>
               </div>
             )}
@@ -568,7 +600,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                         <div className="grid grid-cols-10">
                           <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
                           <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Homework for the day</div>
-                          <div className="col-span-6 p-3 font-bold text-slate-700 text-xs italic select-text whitespace-pre-wrap overflow-y-auto">{step1.homework || "No homework assigned."}</div>
+                          <div 
+                            className="col-span-6 p-3 font-bold text-slate-700 text-xs select-text overflow-y-auto ql-editor ql-editor-small" 
+                            dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }}
+                          />
                         </div>
                         <div className="grid grid-cols-10">
                           <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
@@ -750,9 +785,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                           <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
                             Homework for the day
                           </div>
-                          <div className="col-span-7 p-3 font-bold text-slate-700 text-xs italic select-text whitespace-pre-wrap overflow-y-auto">
-                            {step1.homework || "No homework assigned."}
-                          </div>
+                          <div 
+                            className="col-span-7 p-3 font-bold text-slate-700 text-xs select-text overflow-y-auto ql-editor ql-editor-small"
+                            dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }}
+                          />
                         </div>
                         <div className="grid grid-cols-10">
                           <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>

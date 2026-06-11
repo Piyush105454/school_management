@@ -39,6 +39,7 @@ export async function saveLessonPlan(data: {
         return { success: true, id: existing.id, action: "updated" };
     } else {
         const result = await db.insert(lessonPlans).values({
+            teacherId: data.teacherId,
             classId: data.classId,
             subjectId: data.subjectId,
             date: data.date,
@@ -104,6 +105,51 @@ export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'R
     return { success: true };
   } catch (error: any) {
     console.error('updateLessonPlanStatus error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getLessonPlanCount(classId: number, subjectId: number) {
+  try {
+    // Count all lesson plans for this specific class and subject
+    const plans = await db.query.lessonPlans.findMany({
+      where: and(
+        eq(lessonPlans.classId, classId),
+        eq(lessonPlans.subjectId, subjectId)
+      )
+    });
+    return { success: true, count: plans.length };
+  } catch (error: any) {
+    console.error("getLessonPlanCount error:", error);
+    return { success: false, error: error.message, count: 0 };
+  }
+}
+
+export async function getLessonPlanByDateAndSubject(classId: number, subjectId: number, date: string) {
+  try {
+    const existing = await db.query.lessonPlans.findFirst({
+        where: and(
+            eq(lessonPlans.date, date),
+            eq(lessonPlans.classId, classId),
+            eq(lessonPlans.subjectId, subjectId)
+        )
+    });
+    if (existing) {
+      return { success: true, data: existing };
+    }
+    return { success: false };
+  } catch (error: any) {
+    console.error("getLessonPlanByDateAndSubject error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteLessonPlan(id: string) {
+  try {
+    await db.delete(lessonPlans).where(eq(lessonPlans.id, id));
+    return { success: true };
+  } catch (error: any) {
+    console.error("deleteLessonPlan error:", error);
     return { success: false, error: error.message };
   }
 }

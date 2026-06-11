@@ -6,6 +6,9 @@ import { db } from "@/db";
 import { teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function LessonPlanReviewPage() {
   const session = await getServerSession(authOptions);
   

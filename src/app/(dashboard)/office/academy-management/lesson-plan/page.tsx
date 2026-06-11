@@ -46,6 +46,11 @@ export default async function LessonPlanPage({
     }
   }
   
+  let teacherId: string | undefined = undefined;
+  if (session?.user?.id) {
+    teacherId = session.user.id;
+  }
+
   if (!metadata.success) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
@@ -82,6 +87,7 @@ export default async function LessonPlanPage({
             <LessonPlanForm 
               classes={classes} 
               subjects={subjects} 
+              teacherId={teacherId}
             />
           </div>
         </div>

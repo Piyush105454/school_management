@@ -43,7 +43,7 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
     <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center gap-4">
         <Link 
-          href="/office/school-management/classes"
+          href="/office/academy-management/classes"
           className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-600"
         >
           <ArrowLeft className="h-5 w-5" />

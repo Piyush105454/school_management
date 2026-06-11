@@ -58,8 +58,19 @@ export async function generateLessonPlanPdf(data: LessonPlanData) {
   const wrappedPrep = wrapText(prepText, (width - 2 * margin) / 2 - 20, 10, font);
   wrappedPrep.forEach((line, i) => page1.drawText(line, { x: margin + 10, y: cursorY - 30 - i * 14, size: 10, font: font, color: rgb(0.4, 0.4, 0.4) }));
 
+  const stripHtml = (html: string) => {
+    if (!html) return "";
+    return html.replace(/<br\s*[\/]?>/gi, '\n')
+               .replace(/<\/(p|div|h[1-6])>/gi, '\n')
+               .replace(/<[^>]+>/g, '')
+               .replace(/&nbsp;/g, ' ')
+               .replace(/\n\s*\n/g, '\n\n')
+               .trim();
+  };
+
   // Note Content (Right)
-  const wrappedNote = wrapText(data.teacherNote || "No notes provided.", (width - 2 * margin) / 2 - 20, 11, font);
+  const plainTeacherNote = stripHtml(data.teacherNote || "No notes provided.");
+  const wrappedNote = wrapText(plainTeacherNote, (width - 2 * margin) / 2 - 20, 11, font);
   wrappedNote.forEach((line, i) => page1.drawText(line, { x: margin + (width - 2 * margin) / 2 + 10, y: cursorY - 30 - i * 14, size: 11, font: font }));
 
   cursorY -= noteBoxHeight + 40;
@@ -72,7 +83,8 @@ export async function generateLessonPlanPdf(data: LessonPlanData) {
   cursorY -= 30;
   const hwBoxHeight = 250;
   page1.drawRectangle({ x: margin, y: cursorY - hwBoxHeight, width: width - 2 * margin, height: hwBoxHeight, borderWidth: 1, borderColor: rgb(0, 0, 0) });
-  const wrappedHw = wrapText(data.homework || "No homework assigned.", width - 2 * margin - 20, 11, font);
+  const plainHomework = stripHtml(data.homework || "No homework assigned.");
+  const wrappedHw = wrapText(plainHomework, width - 2 * margin - 20, 11, font);
   wrappedHw.forEach((line, i) => page1.drawText(line, { x: margin + 10, y: cursorY - 30 - i * 14, size: 11, font: font }));
 
   // Signature Footer Page 1

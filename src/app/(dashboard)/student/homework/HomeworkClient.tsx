@@ -133,6 +133,7 @@ export default function HomeworkClient({
           const formData = new FormData();
           formData.append("file", file);
           formData.append("rollNumber", studentRoll);
+          formData.append("className", className);
           formData.append("date", selectedDate || new Date().toISOString().split('T')[0]);
 
           const uploadRes = await fetch("/api/upload/homework", {

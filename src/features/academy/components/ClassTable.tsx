@@ -54,7 +54,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {classData.map((cls) => (
-              <tr key={cls.name} className="hover:bg-slate-50/30 transition-colors group">
+              <tr key={cls.id} className="hover:bg-slate-50/30 transition-colors group">
                 <td className="px-8 py-5">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
@@ -93,7 +93,7 @@ export default function ClassTable({ classData }: ClassTableProps) {
                       {
                         label: "View Students",
                         icon: <Users className="h-4 w-4" />,
-                        onClick: () => router.push(`/office/school-management/classes/${cls.name}?institute=${encodeURIComponent(cls.institute)}`)
+                        onClick: () => router.push(`/office/academy-management/classes/${cls.name}?institute=${encodeURIComponent(cls.institute)}`)
                       }
                     ]}
                   />

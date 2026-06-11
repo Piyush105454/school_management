@@ -428,6 +428,21 @@ export const lessonPlans = pgTable("lesson_plans", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
+  teacher: one(users, {
+    fields: [lessonPlans.teacherId],
+    references: [users.id],
+  }),
+  class: one(classes, {
+    fields: [lessonPlans.classId],
+    references: [classes.id],
+  }),
+  subject: one(subjects, {
+    fields: [lessonPlans.subjectId],
+    references: [subjects.id],
+  }),
+}));
+
 export const homeworkSubmissions = pgTable("homework_submissions", {
   id: uuid("id").defaultRandom().primaryKey(),
   lessonPlanId: uuid("lesson_plan_id").notNull().references(() => lessonPlans.id, { onDelete: 'cascade' }),
