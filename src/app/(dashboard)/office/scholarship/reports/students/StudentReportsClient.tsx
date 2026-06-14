@@ -43,6 +43,7 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
   const [year, setYear] = useState(searchParams.get("year") || currentYearStr);
   const [selectedClass, setSelectedClass] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("SCHOLARSHIP");
   const [studentsData, setStudentsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,8 +292,47 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
         </div>
       </div>
 
-      {/* KPI Stats summary blocks */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Tabs Section */}
+      <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar print:hidden mt-2">
+        <button 
+          onClick={() => setActiveTab('SCHOLARSHIP')}
+          className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+            activeTab === 'SCHOLARSHIP' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Scholarship Report
+          {activeTab === 'SCHOLARSHIP' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+          )}
+        </button>
+        <button 
+          onClick={() => setActiveTab('ATTENDANCE')}
+          className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+            activeTab === 'ATTENDANCE' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Attendance Report
+          {activeTab === 'ATTENDANCE' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+          )}
+        </button>
+        <button 
+          onClick={() => setActiveTab('HOMEWORK')}
+          className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+            activeTab === 'HOMEWORK' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Homework Report
+          {activeTab === 'HOMEWORK' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'SCHOLARSHIP' && (
+        <>
+          {/* KPI Stats summary blocks */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex items-center gap-4">
           <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-500 shadow-inner">
             <Users className="h-6 w-6" />
@@ -495,6 +535,24 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
           </div>
         )}
       </div>
+        </>
+      )}
+
+      {activeTab === 'ATTENDANCE' && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-20 text-center shadow-sm animate-in fade-in duration-300">
+          <Clock className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <h2 className="text-xl font-black text-slate-700 uppercase tracking-tight">Attendance Reports</h2>
+          <p className="text-slate-500 mt-2">Comprehensive student attendance metrics and analytics will appear here.</p>
+        </div>
+      )}
+
+      {activeTab === 'HOMEWORK' && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-20 text-center shadow-sm animate-in fade-in duration-300">
+          <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <h2 className="text-xl font-black text-slate-700 uppercase tracking-tight">Homework Reports</h2>
+          <p className="text-slate-500 mt-2">Detailed homework submission and performance metrics will appear here.</p>
+        </div>
+      )}
     </div>
   );
 }

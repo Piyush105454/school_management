@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   CheckCircle, 
   XCircle, 
@@ -17,7 +17,8 @@ import {
   Save,
   Download,
   Loader2,
-  Trash2
+  Trash2,
+  ChevronLeft
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 import "katex/dist/katex.min.css";
@@ -31,10 +32,23 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterClass, setFilterClass] = useState("ALL");
+  const [filterSubject, setFilterSubject] = useState("ALL");
+  const [filterDateRange, setFilterDateRange] = useState("ALL");
+  const [customDate, setCustomDate] = useState("");
+  const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, filterClass, filterSubject, filterDateRange, customDate]);
 
   const pendingPlans = plans.filter(p => p.status === "SUBMITTED");
   const approvedPlans = plans.filter(p => p.status === "APPROVED");
   const rejectedPlans = plans.filter(p => p.status === "REJECTED");
+
+  const uniqueClasses = Array.from(new Set(plans.map(p => p.class?.name).filter(Boolean)));
+  const uniqueSubjects = Array.from(new Set(plans.map(p => p.subject?.name).filter(Boolean)));
 
   const selectPlanForReview = (plan: any) => {
     setSelectedPlan(plan);
@@ -53,6 +67,34 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
       if (!matchesSearch) return false;
     }
     
+    if (filterClass !== "ALL" && p.class?.name !== filterClass) return false;
+    if (filterSubject !== "ALL" && p.subject?.name !== filterSubject) return false;
+
+    if (filterDateRange !== "ALL" && p.date) {
+      const planDate = new Date(p.date);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const next7Days = new Date(today);
+      next7Days.setDate(next7Days.getDate() + 7);
+
+      const last7Days = new Date(today);
+      last7Days.setDate(last7Days.getDate() - 7);
+
+      if (filterDateRange === "TODAY" && planDate.getTime() !== today.getTime()) return false;
+      if (filterDateRange === "TOMORROW" && planDate.getTime() !== tomorrow.getTime()) return false;
+      if (filterDateRange === "NEXT_7_DAYS" && (planDate < today || planDate > next7Days)) return false;
+      if (filterDateRange === "LAST_7_DAYS" && (planDate > today || planDate < last7Days)) return false;
+      if (filterDateRange === "CUSTOM" && customDate) {
+        const customD = new Date(customDate);
+        customD.setHours(0,0,0,0);
+        if (planDate.getTime() !== customD.getTime()) return false;
+      }
+    }
+
     if (activeTab === "PENDING") return p.status === "SUBMITTED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
@@ -104,42 +146,46 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
   const getStep1Data = () => JSON.parse(selectedPlan?.step1Data || "{}");
   const getStep2Data = () => JSON.parse(selectedPlan?.step2Data || "{}");
 
+  const totalPages = Math.ceil(filteredPlans.length / ITEMS_PER_PAGE);
+  const paginatedPlans = filteredPlans.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   if (!selectedPlan) {
     return (
-      <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-1">
-              <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-3">
-                <ClipboardList className="h-8 w-8 text-blue-600" />
-                Lesson Plan Review
-              </h1>
-              <p className="text-sm text-slate-500 font-medium italic">Validate curriculum delivery and preparation quality.</p>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 text-white shrink-0">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase">Lesson Plan Review</h1>
+              </div>
+              <p className="text-sm font-bold text-slate-500 italic ml-14">Validate curriculum delivery and preparation quality.</p>
             </div>
             
-            <div className="relative group max-w-sm w-full">
+            <div className="relative w-full md:w-96 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
               <input 
                 type="text" 
                 placeholder="Search by class, subject, or teacher..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
+                className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
               />
             </div>
           </div>
 
-          {/* Status Tabs */}
-          <div className="flex flex-wrap border-b border-slate-200 gap-6 text-sm font-bold mt-2">
-            <button
+          <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
+            <button 
               onClick={() => setActiveTab('PENDING')}
-              className={`pb-4 relative transition-colors ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
                 activeTab === 'PENDING' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              Pending Review
+              Pending Review 
               <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
-                activeTab === 'PENDING' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+                activeTab === 'PENDING' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
               }`}>
                 {pendingPlans.length}
               </span>
@@ -147,16 +193,15 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
               )}
             </button>
-            
-            <button
+            <button 
               onClick={() => setActiveTab('APPROVED')}
-              className={`pb-4 relative transition-colors ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
                 activeTab === 'APPROVED' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
               Approved
               <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
-                activeTab === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                activeTab === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
               }`}>
                 {approvedPlans.length}
               </span>
@@ -164,16 +209,15 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
               )}
             </button>
-            
-            <button
+            <button 
               onClick={() => setActiveTab('REJECTED')}
-              className={`pb-4 relative transition-colors ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
                 activeTab === 'REJECTED' ? 'text-rose-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
               Rejected
               <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
-                activeTab === 'REJECTED' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+                activeTab === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'
               }`}>
                 {rejectedPlans.length}
               </span>
@@ -181,11 +225,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-600 rounded-full" />
               )}
             </button>
-            
-            <button
+            <button 
               onClick={() => setActiveTab('ALL')}
-              className={`pb-4 relative transition-colors ${
-                activeTab === 'ALL' ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600'
+              className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+                activeTab === 'ALL' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
               All Plans
@@ -195,25 +238,74 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                 {plans.length}
               </span>
               {activeTab === 'ALL' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800 rounded-full" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-full" />
               )}
             </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <select
+              value={filterClass}
+              onChange={(e) => setFilterClass(e.target.value)}
+              className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+            >
+              <option value="ALL">All Classes</option>
+              {uniqueClasses.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterSubject}
+              onChange={(e) => setFilterSubject(e.target.value)}
+              className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+            >
+              <option value="ALL">All Subjects</option>
+              {uniqueSubjects.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterDateRange}
+              onChange={(e) => {
+                setFilterDateRange(e.target.value);
+                if (e.target.value !== "CUSTOM") setCustomDate("");
+              }}
+              className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+            >
+              <option value="ALL">All Dates</option>
+              <option value="TODAY">Today</option>
+              <option value="TOMORROW">Tomorrow</option>
+              <option value="NEXT_7_DAYS">Next 7 Days</option>
+              <option value="LAST_7_DAYS">Last 7 Days</option>
+              <option value="CUSTOM">Custom Date</option>
+            </select>
+
+            {filterDateRange === "CUSTOM" && (
+              <input 
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              />
+            )}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class & Subject</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class & Subject</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPlans.length === 0 ? (
+                {paginatedPlans.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-20 text-center">
                       <div className="space-y-3">
@@ -233,9 +325,9 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                     </td>
                   </tr>
                 ) : (
-                  filteredPlans.map(plan => (
+                  paginatedPlans.map(plan => (
                     <tr key={plan.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-6">
+                      <td className="px-6 py-4">
                         <div className="space-y-1">
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
                             {plan.class?.name}
@@ -243,16 +335,16 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                           <p className="font-black text-slate-900 group-hover:text-blue-600 transition-colors capitalize">{plan.subject?.name}</p>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-6 py-4">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{plan.type}</span>
                       </td>
-                      <td className="px-8 py-6 text-sm font-bold text-slate-600">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-600">
                         {plan.teacher?.name || "Teacher"}
                       </td>
-                      <td className="px-8 py-6 text-sm font-bold text-slate-600">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-600">
                         {plan.date}
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-6 py-4">
                         {plan.status === "SUBMITTED" && (
                           <span className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-wider">
                             Pending
@@ -269,7 +361,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                           </span>
                         )}
                       </td>
-                      <td className="px-8 py-6 text-right">
+                      <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={() => selectPlanForReview(plan)}
@@ -291,6 +383,30 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                 )}
               </tbody>
             </table>
+            
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-4">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2 mr-4">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

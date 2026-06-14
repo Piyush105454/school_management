@@ -1140,14 +1140,28 @@ export default function TimetableClient() {
                 {holidayType === "HALF_DAY" && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Start Time *</label>
-                      <input type="time" value={holidayStartTime} onChange={e => setHolidayStartTime(e.target.value)} required
-                        className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Start Period *</label>
+                      <select value={holidayStartTime} onChange={e => setHolidayStartTime(e.target.value)} required
+                        className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500">
+                        <option value="">Select Start Period</option>
+                        {PERIOD_ROWS.map((p, i) => (
+                          <option key={`start-${i}`} value={p.start}>
+                            {p.name} ({p.start})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-black uppercase text-slate-500 tracking-wider">End Time *</label>
-                      <input type="time" value={holidayEndTime} onChange={e => setHolidayEndTime(e.target.value)} required
-                        className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500" />
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-wider">End Period *</label>
+                      <select value={holidayEndTime} onChange={e => setHolidayEndTime(e.target.value)} required
+                        className="w-full text-xs font-semibold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-rose-500">
+                        <option value="">Select End Period</option>
+                        {PERIOD_ROWS.map((p, i) => (
+                          <option key={`end-${i}`} value={p.end}>
+                            {p.name} ({p.end})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </>
                 )}

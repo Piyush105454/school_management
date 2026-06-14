@@ -109,7 +109,8 @@ export async function uploadFileToDrive(
       });
     }
 
-    return file.data.webViewLink || "";
+    // Return a direct image link format so it can be rendered in <img> tags or viewed directly
+    return file.data.id ? `https://drive.google.com/uc?export=view&id=${file.data.id}` : (file.data.webViewLink || "");
   } catch (error: any) {
     console.error("Google Drive Upload Error:", error);
     throw new Error(`Failed to upload to Google Drive: ${error.message}`);
