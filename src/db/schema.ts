@@ -882,4 +882,20 @@ export const studentAttendanceRelations = relations(studentAttendance, ({ one })
   }),
 }));
 
+// ── Committee Meetings ──────────────────────────────────────────────────────
+// Each row = one scheduled meeting for a committee.
+// attendeeIds is stored as a comma-separated list of teacher UUIDs.
+
+export const committeeMeetings = pgTable("committee_meetings", {
+  id: serial("id").primaryKey(),
+  committeeName: text("committee_name").notNull(),
+  title: text("title").notNull(),
+  date: text("date").notNull(),          // "YYYY-MM-DD"
+  month: text("month"),                  // "January", "February", …
+  time: text("time"),                    // "HH:MM"
+  venue: text("venue"),
+  attendeeIds: text("attendee_ids"),     // comma-separated teacher UUIDs
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
