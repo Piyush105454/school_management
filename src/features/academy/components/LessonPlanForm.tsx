@@ -787,32 +787,31 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         <div className="border-b border-slate-300 h-16">
           <div className="flex items-center px-4 gap-4 overflow-x-auto h-full">
             <div className="flex items-center gap-2 min-w-max">
-              <span className="text-[10px] font-black uppercase text-slate-400">Class:</span>
+              <span className="text-[10px] font-black uppercase text-slate-400">Class & Subject:</span>
               <select
-                name="className"
-                value={formData.className}
-                onChange={handleChange}
+                name="classAndSubject"
+                value={formData.className && formData.subject ? `${formData.className}|${formData.subject}` : ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) {
+                    setFormData(prev => ({ ...prev, className: "", subject: "" }));
+                  } else {
+                    const [cName, sName] = val.split("|");
+                    setFormData(prev => ({ ...prev, className: cName, subject: sName }));
+                  }
+                }}
                 className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1"
               >
                 <option value="">Select</option>
-                {uniqueClasses.map(c => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2 min-w-max">
-              <span className="text-[10px] font-black uppercase text-slate-400">Subject:</span>
-              <select
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                disabled={!formData.className}
-                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 disabled:opacity-30"
-              >
-                <option value="">Select</option>
-                {filteredSubjects.map(s => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
-                ))}
+                {subjects.map(s => {
+                  const cObj = uniqueClasses.find(c => c.id === s.classId);
+                  if (!cObj) return null;
+                  return (
+                    <option key={s.id} value={`${cObj.name}|${s.name}`}>
+                      {cObj.name} - {s.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="flex items-center gap-2 min-w-max">

@@ -24,14 +24,14 @@ import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/act
 import "katex/dist/katex.min.css";
 import "react-quill-new/dist/quill.snow.css";
 
-export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { initialPlans: any[], reviewerId: string }) {
+export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTeacher = false }: { initialPlans: any[], reviewerId: string, isTeacher?: boolean }) {
   const [plans, setPlans] = useState(initialPlans);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [remark, setRemark] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'ALL'>('PENDING');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
@@ -46,6 +46,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
   const pendingPlans = plans.filter(p => p.status === "SUBMITTED");
   const approvedPlans = plans.filter(p => p.status === "APPROVED");
   const rejectedPlans = plans.filter(p => p.status === "REJECTED");
+  const draftPlans = plans.filter(p => p.status === "DRAFT");
 
   const uniqueClasses = Array.from(new Set(plans.map(p => p.class?.name).filter(Boolean)));
   const uniqueSubjects = Array.from(new Set(plans.map(p => p.subject?.name).filter(Boolean)));
@@ -71,7 +72,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
     if (filterSubject !== "ALL" && p.subject?.name !== filterSubject) return false;
 
     if (filterDateRange !== "ALL" && p.date) {
-      const planDate = new Date(p.date);
+      const [year, month, day] = p.date.split('-');
+      const planDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       const today = new Date();
       today.setHours(0,0,0,0);
       
@@ -98,7 +100,9 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
     if (activeTab === "PENDING") return p.status === "SUBMITTED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
-    return true; // "ALL"
+    if (activeTab === "DRAFT") return p.status === "DRAFT";
+    if (activeTab === "ALL") return isTeacher ? p.status !== "DRAFT" : true;
+    return true;
   });
 
   const handleAction = async (status: "APPROVED" | "REJECTED") => {
@@ -175,7 +179,6 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
               />
             </div>
           </div>
-
           <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
             <button 
               onClick={() => setActiveTab('PENDING')}
@@ -212,30 +215,48 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
             <button 
               onClick={() => setActiveTab('REJECTED')}
               className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
-                activeTab === 'REJECTED' ? 'text-rose-600' : 'text-slate-400 hover:text-slate-600'
+                activeTab === 'REJECTED' ? 'text-red-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              Rejected
+              Rejected 
               <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
-                activeTab === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'
+                activeTab === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'
               }`}>
                 {rejectedPlans.length}
               </span>
               {activeTab === 'REJECTED' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-600 rounded-full" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
               )}
             </button>
+            {!isTeacher && (
+              <button 
+                onClick={() => setActiveTab('DRAFT')}
+                className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+                  activeTab === 'DRAFT' ? 'text-slate-500' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                Drafts 
+                <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                  activeTab === 'DRAFT' ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {draftPlans.length}
+                </span>
+                {activeTab === 'DRAFT' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-500 rounded-full" />
+                )}
+              </button>
+            )}
             <button 
               onClick={() => setActiveTab('ALL')}
               className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
                 activeTab === 'ALL' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              All Plans
+              All Plans 
               <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
                 activeTab === 'ALL' ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-500'
               }`}>
-                {plans.length}
+                {isTeacher ? plans.filter(p => p.status !== 'DRAFT').length : plans.length}
               </span>
               {activeTab === 'ALL' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-full" />
@@ -313,12 +334,14 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                           {activeTab === 'PENDING' && "No pending reviews found"}
                           {activeTab === 'APPROVED' && "No approved plans found"}
                           {activeTab === 'REJECTED' && "No rejected plans found"}
+                          {activeTab === 'DRAFT' && "No draft plans found"}
                           {activeTab === 'ALL' && "No lesson plans found"}
                         </p>
                         <p className="text-slate-400 text-xs italic">
                           {activeTab === 'PENDING' && "All submitted plans have been processed."}
                           {activeTab === 'APPROVED' && "Approved lesson plans will appear here."}
                           {activeTab === 'REJECTED' && "Rejected lesson plans will appear here."}
+                          {activeTab === 'DRAFT' && "Saved drafts will appear here."}
                           {activeTab === 'ALL' && "Lesson plans submitted by teachers will appear here."}
                         </p>
                       </div>
@@ -360,15 +383,26 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId }: { i
                             Rejected
                           </span>
                         )}
+                        {plan.status === "DRAFT" && (
+                          <span className="px-3 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Draft
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => selectPlanForReview(plan)}
-                            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10"
-                          >
-                            {plan.status === "SUBMITTED" ? "Review Plan" : "View Details"}
-                          </button>
+                          {plan.status !== "DRAFT" ? (
+                            <button
+                              onClick={() => selectPlanForReview(plan)}
+                              className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-colors active:scale-95 shadow-sm"
+                            >
+                              Review Plan
+                            </button>
+                          ) : (
+                            <span className="px-4 py-1.5 text-slate-400 text-[10px] font-black uppercase tracking-widest italic">
+                              Incomplete
+                            </span>
+                          )}
                           <button
                             onClick={() => handleDelete(plan.id)}
                             className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"

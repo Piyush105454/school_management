@@ -1071,11 +1071,20 @@ export default function TimetableClient() {
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><BookOpen size={12} /> Select Subject</label>
-                <select value={editSubjectId} onChange={e => setEditSubjectId(e.target.value)}
+                <select value={editSubjectId} onChange={e => {
+                  const subjectId = e.target.value;
+                  setEditSubjectId(subjectId);
+                  if (subjectId) {
+                    const subject = subjectsList.find(s => String(s.id) === subjectId);
+                    if (subject && subject.assignedTeacherId) {
+                      setEditTeacherId(String(subject.assignedTeacherId));
+                    }
+                  }
+                }}
                   className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500">
                   <option value="">-- Choose Subject --</option>
                   {(() => {
-                    const mc = classesList.find(c => c.name.toLowerCase() === editorCell.className.toLowerCase());
+                    const mc = classesList.find(c => c.name.toLowerCase() === editorCell?.className.toLowerCase());
                     return subjectsList.filter(s => s.classId === mc?.id).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ));

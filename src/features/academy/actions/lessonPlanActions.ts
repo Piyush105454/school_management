@@ -57,12 +57,10 @@ export async function saveLessonPlan(data: {
   }
 }
 
-export async function getLessonPlansForReview(specialization?: string) {
+export async function getLessonPlansForReview(specialization?: string, isTeacher: boolean = false) {
   try {
-    let whereClause = ne(lessonPlans.status, "DRAFT");
-
     const plans = await db.query.lessonPlans.findMany({
-      where: whereClause,
+      where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined, // Only filter drafts out for teachers
       with: {
         class: true,
         subject: true,
@@ -71,8 +69,10 @@ export async function getLessonPlansForReview(specialization?: string) {
       orderBy: (lp, { desc }) => [desc(lp.updatedAt)],
     });
 
-    // If specialization is provided, filter plans where subject name is in specialization
-    if (specialization) {
+    if (isTeacher) {
+      if (!specialization) {
+        return { success: true, data: [] }; // If teacher has no specialization, they review nothing
+      }
       const specializedSubjects = specialization.split(',').map(s => s.trim().toLowerCase());
       return { 
         success: true, 
@@ -150,6 +150,23 @@ export async function deleteLessonPlan(id: string) {
     return { success: true };
   } catch (error: any) {
     console.error("deleteLessonPlan error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getMyLessonPlans(teacherId: string) {
+  try {
+    const plans = await db.query.lessonPlans.findMany({
+      where: eq(lessonPlans.teacherId, teacherId),
+      with: {
+        class: true,
+        subject: true,
+      },
+      orderBy: (lp, { desc }) => [desc(lp.date)],
+    });
+    return { success: true, data: plans };
+  } catch (error: any) {
+    console.error("getMyLessonPlans error:", error);
     return { success: false, error: error.message };
   }
 }

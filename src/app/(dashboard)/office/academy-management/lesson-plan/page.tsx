@@ -27,19 +27,17 @@ export default async function LessonPlanPage({
     });
 
     if (teacherProfile) {
-      const assigned = teacherProfile.classAssigned 
-        ? teacherProfile.classAssigned.split(",").map(c => c.trim().toLowerCase()) 
-        : [];
       const teacherInstitute = teacherProfile.institute;
 
-      classes = classes.filter(c => {
-        const nameMatch = assigned.includes(c.name.toLowerCase()) || assigned.includes(c.name.replace(/^Class\s+/i, '').toLowerCase());
-        const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
-        return nameMatch && instituteMatch;
-      });
+      // Filter subjects directly assigned to this teacher
+      subjects = subjects.filter(s => s.assignedTeacherId === teacherProfile.id);
 
-      const classIds = classes.map(c => c.id);
-      subjects = subjects.filter(s => classIds.includes(s.classId));
+      // Filter classes to only include those that have assigned subjects
+      const classIds = subjects.map(s => s.classId);
+      classes = classes.filter(c => {
+        const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
+        return instituteMatch && classIds.includes(c.id);
+      });
     } else {
       classes = [];
       subjects = [];

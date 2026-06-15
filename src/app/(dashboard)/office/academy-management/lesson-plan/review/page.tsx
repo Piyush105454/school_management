@@ -13,19 +13,22 @@ export default async function LessonPlanReviewPage() {
   const session = await getServerSession(authOptions);
   
   let specialization: string | undefined = undefined;
+  let isTeacher = false;
   if (session?.user?.role === "TEACHER") {
+    isTeacher = true;
     const teacher = await db.query.teachers.findFirst({
       where: eq(teachers.userId, session.user.id)
     });
     specialization = teacher?.specialization || undefined;
   }
 
-  const res = await getLessonPlansForReview(specialization);
+  const res = await getLessonPlansForReview(specialization, isTeacher);
   
   return (
     <LessonPlanReviewClient 
       initialPlans={(res.success && res.data) ? res.data : []} 
       reviewerId={session?.user?.id || "SYSTEM"}
+      isTeacher={isTeacher}
     />
   );
 }
