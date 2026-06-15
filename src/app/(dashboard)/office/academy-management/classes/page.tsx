@@ -88,7 +88,10 @@ export default async function ClassManagementPage({
         </div>
       </div>
 
-      <ClassTable classData={classData} />
+      <ClassTable 
+        classData={classData} 
+        isAdmin={["ADMIN", "OFFICE", "PRINCIPAL"].includes(session?.user?.role ?? "")} 
+      />
 
     </div>
   );

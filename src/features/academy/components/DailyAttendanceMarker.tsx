@@ -31,7 +31,7 @@ export default function DailyAttendanceMarker({
     const initial: Record<number, string> = {};
     return students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial);
   });
-  const [isHoliday, setIsHoliday] = useState(false);
+  const [autoHolidayInfo, setAutoHolidayInfo] = useState<{ isHoliday: boolean, type?: string, title?: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
@@ -43,17 +43,6 @@ export default function DailyAttendanceMarker({
     }));
   };
 
-  const markAllHoliday = () => {
-    const newStatus = !isHoliday;
-    setIsHoliday(newStatus);
-    const initial: Record<number, string> = {};
-    if (newStatus) {
-      setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: "H" }), initial));
-    } else {
-      setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial));
-    }
-  };
-
   // Fetch existing attendance when date changes
   useEffect(() => {
     const fetchExisting = async () => {
@@ -62,13 +51,23 @@ export default function DailyAttendanceMarker({
         const res = await fetch(`/api/attendance/daily?class_id=${classId}&date=${date}`);
         if (res.ok) {
           const data = await res.json();
+          const records = data.records || [];
+          const holidayInfo = data.holiday || { isHoliday: false };
+          
+          setAutoHolidayInfo(holidayInfo);
           const initial: Record<number, string> = {};
-          if (data.length > 0) {
+          
+          if (records.length > 0) {
+            // Already have saved attendance
             const newAttendance: Record<number, string> = { ...students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial) };
-            data.forEach((r: any) => {
+            records.forEach((r: any) => {
               if (r.studentId) newAttendance[Number(r.studentId)] = r.status;
             });
             setAttendance(newAttendance);
+          } else if (holidayInfo.isHoliday) {
+            // No saved attendance, but it's a calendar holiday -> Auto fill
+            const autoStatus = holidayInfo.type === "HALF_DAY" ? "HD" : "H";
+            setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: autoStatus }), initial));
           } else {
             // Default to all present if no record found
             setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial));
@@ -140,19 +139,6 @@ export default function DailyAttendanceMarker({
           />
           <div className="flex items-center gap-2">
             <button
-              onClick={markAllHoliday}
-              className={cn(
-                "flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border",
-                isHoliday 
-                  ? "bg-amber-500 text-white border-amber-600 shadow-lg shadow-amber-500/20" 
-                  : "bg-white text-amber-600 border-amber-200 hover:bg-amber-50"
-              )}
-            >
-              <Calendar className="h-3.5 w-3.5" />
-              {isHoliday ? "Holiday" : "Class Holiday"}
-            </button>
-
-            <button
               onClick={handleSubmit}
               disabled={isSubmitting || isLoading}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
@@ -163,6 +149,13 @@ export default function DailyAttendanceMarker({
           </div>
         </div>
       </div>
+
+      {autoHolidayInfo?.isHoliday && (
+        <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center gap-2 text-amber-700 text-xs font-bold animate-in fade-in zoom-in-95 duration-300">
+          <Info className="h-4 w-4 shrink-0" />
+          <span>Automated {autoHolidayInfo.type === "HALF_DAY" ? "Half Day" : "Holiday"}: {autoHolidayInfo.title || "School Calendar Holiday"}</span>
+        </div>
+      )}
 
       {message && (
         <div className={cn(
@@ -213,9 +206,11 @@ export default function DailyAttendanceMarker({
                         { code: "A", label: "A", active: "bg-rose-600 text-white border-rose-700 ring-2 ring-rose-100", inactive: "text-rose-600 bg-rose-50 border-rose-100" },
                         { code: "L", label: "L", active: "bg-blue-600 text-white border-blue-700", inactive: "text-blue-600 bg-blue-50 border-blue-100" },
                         { code: "ML", label: "ML", active: "bg-violet-600 text-white border-violet-700", inactive: "text-violet-600 bg-violet-50 border-violet-100" },
-                        { code: "HD", label: "HD", active: "bg-amber-600 text-white border-amber-700", inactive: "text-amber-600 bg-amber-50 border-amber-100" },
-                        { code: "H", label: "H", active: "bg-slate-800 text-white border-slate-900", inactive: "text-slate-500 bg-slate-50 border-slate-200" }
-                      ].map((status) => (
+                        { code: "NA", label: "NA", active: "bg-slate-400 text-white border-slate-500", inactive: "text-slate-400 bg-slate-50 border-slate-200" }
+                      ]
+                      .concat(attendance[student.id] === "HD" ? [{ code: "HD", label: "HD", active: "bg-amber-600 text-white border-amber-700", inactive: "text-amber-600 bg-amber-50 border-amber-100" }] : [])
+                      .concat(attendance[student.id] === "H" ? [{ code: "H", label: "H", active: "bg-slate-800 text-white border-slate-900", inactive: "text-slate-500 bg-slate-50 border-slate-200" }] : [])
+                      .map((status) => (
                         <button
                           key={status.code}
                           onClick={() => setStatus(student.id, status.code)}

@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 interface Teacher {
   id: string;
   name: string;
-  specialization?: string;
+  specialization?: string | null;
 }
 
 interface Subject {

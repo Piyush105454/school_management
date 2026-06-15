@@ -22,6 +22,7 @@ import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import EditUnitModal from "@/features/academy/components/EditUnitModal";
 import EditChapterModal from "@/features/academy/components/EditChapterModal";
 import DivideChapterModal from "@/features/academy/components/DivideChapterModal";
+import AddChapterModal from "@/features/academy/components/AddChapterModal";
 import { useRouter } from "next/navigation";
 
 interface Chapter {
@@ -77,6 +78,7 @@ export default function UnitChapterManagementClient({
   const [editingUnit, setEditingUnit] = useState<{ id: number; name: string } | null>(null);
   const [editingChapter, setEditingChapter] = useState<{ chapter: Chapter; pdfUrl?: string } | null>(null);
   const [dividingChapter, setDividingChapter] = useState<{ id: number; name: string; pageStart: number; pageEnd: number } | null>(null);
+  const [addingChapterToUnit, setAddingChapterToUnit] = useState<{unitId: number; nextOrderNo: number} | null>(null);
 
   interface DisplayRow {
     unit: Unit;
@@ -103,8 +105,8 @@ export default function UnitChapterManagementClient({
   });
 
   return (
-    <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden animate-in fade-in duration-500">
-      <div className="overflow-x-auto">
+    <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm animate-in fade-in duration-500">
+      <div>
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-200">
@@ -298,6 +300,15 @@ export default function UnitChapterManagementClient({
                         ] : []),
                         ...(!isNA ? [
                           {
+                            label: "Add Chapter",
+                            icon: <PlusCircle className="h-4 w-4" />,
+                            onClick: () => {
+                              const unitChapters = chapters.filter(c => c.unitId === unit.id);
+                              const nextOrderNo = unitChapters.length > 0 ? Math.max(...unitChapters.map(c => c.orderNo)) + 1 : 1;
+                              setAddingChapterToUnit({ unitId: unit.id, nextOrderNo });
+                            }
+                          },
+                          {
                             label: "Edit Unit",
                             icon: <Edit2 className="h-4 w-4" />,
                             onClick: () => setEditingUnit({ id: unit.id, name: unit.name })
@@ -343,6 +354,16 @@ export default function UnitChapterManagementClient({
           chapterName={dividingChapter.name}
           pageStart={dividingChapter.pageStart}
           pageEnd={dividingChapter.pageEnd}
+        />
+      )}
+
+      {addingChapterToUnit && (
+        <AddChapterModal
+          unitId={addingChapterToUnit.unitId}
+          nextOrderNo={addingChapterToUnit.nextOrderNo}
+          showTrigger={false}
+          isOpen={!!addingChapterToUnit}
+          onClose={() => setAddingChapterToUnit(null)}
         />
       )}
     </div>

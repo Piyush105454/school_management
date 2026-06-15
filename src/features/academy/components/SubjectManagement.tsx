@@ -30,13 +30,15 @@ interface SubjectManagementProps {
   classNameParam: string;
   dbClassName: string;
   initialSubjects: Subject[];
+  isAdmin?: boolean;
 }
 
 export default function SubjectManagement({ 
   classId, 
   classNameParam, 
   dbClassName,
-  initialSubjects 
+  initialSubjects,
+  isAdmin = true 
 }: SubjectManagementProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -161,15 +163,15 @@ export default function SubjectManagement({
           </div>
         </div>
       ) : (
-        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-sm">
+          <div>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Subject Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Book Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Medium</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</th>
+                  {isAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</th>}
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Content Management</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
@@ -197,15 +199,17 @@ export default function SubjectManagement({
                         {subject.medium}
                       </span>
                     </td>
-                    <td className="px-8 py-5">
-                      <button
-                        onClick={() => openAssignTeacherModal(subject)}
-                        className="inline-flex items-center gap-2.5 px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 hover:text-white transition-all group active:scale-95"
-                      >
-                        <User className="h-3.5 w-3.5" />
-                        {subject.assignedTeacher?.name || "Assign Teacher"}
-                      </button>
-                    </td>
+                    {isAdmin && (
+                      <td className="px-8 py-5">
+                        <button
+                          onClick={() => openAssignTeacherModal(subject)}
+                          className="inline-flex items-center gap-2.5 px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 hover:text-white transition-all group active:scale-95"
+                        >
+                          <User className="h-3.5 w-3.5" />
+                          {subject.assignedTeacher?.name || "Assign Teacher"}
+                        </button>
+                      </td>
+                    )}
                     <td className="px-8 py-5">
                       <Link 
                         href={`/office/academy-management/classes/${classNameParam}/subjects/${subject.id}`}

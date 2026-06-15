@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { studentAttendance } from "@/db/schema";
+import { studentAttendance, holidays } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
@@ -27,7 +27,12 @@ export async function GET(req: NextRequest) {
       )
     );
 
-    return NextResponse.json(records);
+    const holidayRecord = await db.select().from(holidays).where(eq(holidays.date, dateStr)).limit(1);
+    const holidayInfo = holidayRecord.length > 0 
+      ? { isHoliday: true, type: holidayRecord[0].type, title: holidayRecord[0].title } 
+      : { isHoliday: false };
+
+    return NextResponse.json({ records, holiday: holidayInfo });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

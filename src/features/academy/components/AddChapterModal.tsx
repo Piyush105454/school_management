@@ -7,10 +7,22 @@ import { createChapter } from "@/features/academy/actions/chapterActions";
 interface AddChapterModalProps {
   unitId: number;
   nextOrderNo: number;
+  showTrigger?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function AddChapterModal({ unitId, nextOrderNo }: AddChapterModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function AddChapterModal({ 
+  unitId, 
+  nextOrderNo,
+  showTrigger = true,
+  isOpen: externalIsOpen,
+  onClose: externalOnClose
+}: AddChapterModalProps) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnClose || setInternalIsOpen;
+
   
   const [name, setName] = useState("");
   const [chapterNo, setChapterNo] = useState(nextOrderNo);
@@ -67,13 +79,15 @@ export default function AddChapterModal({ unitId, nextOrderNo }: AddChapterModal
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 hover:text-slate-800 transition-colors"
-      >
-        <Plus className="h-3 w-3" />
-        Add Chapter
-      </button>
+      {showTrigger && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 hover:text-slate-800 transition-colors"
+        >
+          <Plus className="h-3 w-3" />
+          Add Chapter
+        </button>
+      )}
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">

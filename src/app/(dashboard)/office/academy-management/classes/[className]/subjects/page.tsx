@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { classes, subjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import SubjectManagement from "@/features/academy/components/SubjectManagement";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface SubjectPageProps {
   params: Promise<{
@@ -19,6 +21,9 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
   const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const decodedClassNameParam = decodeURIComponent(resolvedParams.className);
   const institute = resolvedSearchParams.institute || "Dhanpuri Public School";
+  
+  const session = await getServerSession(authOptions);
+  const isAdmin = ["ADMIN", "OFFICE", "PRINCIPAL"].includes(session?.user?.role ?? "");
   
   // Resolve DB class name ("1" -> "Class 1", "Nursery" -> "Nursery", "KG1" -> "KG1")
   const dbClassName =
@@ -79,6 +84,7 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
         classNameParam={decodedClassNameParam}
         dbClassName={dbClassName}
         initialSubjects={classSubjects}
+        isAdmin={isAdmin}
       />
     </div>
   );

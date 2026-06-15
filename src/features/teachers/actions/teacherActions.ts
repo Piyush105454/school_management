@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { teachers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { teachers, subjects, timetable } from "@/db/schema";
+import { eq, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import bcrypt from "bcryptjs";
@@ -166,14 +166,56 @@ export async function updateTeacher(id: string, data: {
   }
 }
 
-export async function deleteTeacher(id: string, userId: string) {
+export async function deleteTeacher(id: string, userId: string | null) {
   try {
-    // Deleting the user will cascade delete the teacher profile due to ON DELETE CASCADE
-    await db.delete(users).where(eq(users.id, userId));
+    // ── Guard: block deletion if teacher has active assignments ─────────────────
+    // 1. Check if teacher has classAssigned set
+    const teacherRecord = await db.query.teachers.findFirst({
+      where: eq(teachers.id, id),
+    });
+
+    if (teacherRecord?.classAssigned && teacherRecord.classAssigned.trim() !== "") {
+      return {
+        success: false,
+        error: `Cannot delete: teacher is still assigned to class(es) "${teacherRecord.classAssigned}". Remove class assignments first.`,
+      };
+    }
+
+    // 2. Check if teacher is assigned to any subject
+    const assignedSubject = await db.query.subjects.findFirst({
+      where: eq(subjects.assignedTeacherId, id),
+    });
+    if (assignedSubject) {
+      return {
+        success: false,
+        error: `Cannot delete: teacher is assigned to subject "${assignedSubject.name}". Unassign from subjects first.`,
+      };
+    }
+
+    // 3. Check if teacher is assigned to any timetable slot
+    const assignedTimetable = await db.query.timetable.findFirst({
+      where: eq(timetable.teacherId, id),
+    });
+    if (assignedTimetable) {
+      return {
+        success: false,
+        error: `Cannot delete: teacher has active timetable entries. Remove timetable assignments first.`,
+      };
+    }
+
+    // ── Safe to delete ──────────────────────────────────────────────────────────
+    // Delete the teacher profile first (in case userId is null/unlinked)
+    await db.delete(teachers).where(eq(teachers.id, id));
+
+    // If a linked user account exists, delete that too (this will also cascade)
+    if (userId) {
+      await db.delete(users).where(eq(users.id, userId));
+    }
 
     revalidatePath("/office/school-management/teachers");
     return { success: true };
   } catch (error: any) {
+    console.error("DELETE_TEACHER_ERROR:", error.message);
     return { success: false, error: error.message };
   }
 }

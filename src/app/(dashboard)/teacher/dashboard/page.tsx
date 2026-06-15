@@ -45,10 +45,10 @@ export default async function TeacherDashboardPage() {
 
     let teacherSchedule: any[] = [];
     if (teacherProfile) {
-        teacherSchedule = await db
-            .select()
-            .from(timetable)
-            .where(eq(timetable.teacherId, teacherProfile.id));
+        teacherSchedule = await db.query.timetable.findMany({
+            where: eq(timetable.teacherId, teacherProfile.id),
+            with: { subject: true }
+        });
     }
 
     // Determine current day of week (and show Monday's schedule if it's Sunday)
@@ -118,7 +118,7 @@ export default async function TeacherDashboardPage() {
                                         <p className="text-[10px] font-bold text-slate-400">{slot.endTime}</p>
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-sm font-black text-slate-900">{slot.customSubject || "Lecture"}</p>
+                                        <p className="text-sm font-black text-slate-900">{slot.subject?.name || slot.customSubject || "Lecture"}</p>
                                         <p className="text-xs font-bold text-slate-500">{slot.className} • {slot.periodName}</p>
                                     </div>
                                 </div>

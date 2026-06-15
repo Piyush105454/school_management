@@ -29,7 +29,7 @@ const ReactQuill = dynamic(() => {
       const BlotFormatter = BlotFormatterModule.default;
 
       // Fix Quill stripping inline styles (needed for image alignment/resizing)
-      const BaseImageFormat = Quill.import('formats/image');
+      const BaseImageFormat = Quill.import('formats/image') as any;
       class ImageFormat extends BaseImageFormat {
         static formats(domNode: HTMLElement) {
           return ['alt', 'height', 'width', 'style', 'id', 'data-excalidraw'].reduce((formats: any, attribute) => {
@@ -42,25 +42,27 @@ const ReactQuill = dynamic(() => {
         format(name: string, value: any) {
           if (['alt', 'height', 'width', 'style', 'id', 'data-excalidraw'].indexOf(name) > -1) {
             if (value) {
-              this.domNode.setAttribute(name, value);
+              (this as any).domNode.setAttribute(name, value);
             } else {
-              this.domNode.removeAttribute(name);
+              (this as any).domNode.removeAttribute(name);
             }
           } else {
             super.format(name, value);
           }
         }
       }
-      Quill.register(ImageFormat, true);
+      Quill.register(ImageFormat as any, true);
 
       if (!Quill.imports['modules/blotFormatter']) {
-        Quill.register('modules/blotFormatter', BlotFormatter);
+        Quill.register('modules/blotFormatter', BlotFormatter as any);
       }
 
       // Add SVG icons for undo/redo
-      const icons = Quill.import('ui/icons');
-      icons['undo'] = '<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>';
-      icons['redo'] = '<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>';
+      const icons = Quill.import('ui/icons') as Record<string, any>;
+      if (icons) {
+        icons['undo'] = '<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>';
+        icons['redo'] = '<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>';
+      }
     }
     return RQ;
   });
@@ -387,9 +389,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               ...prev,
               ...step1,
               ...step2,
-              teacherObservation: res.data.teacherObservation || "",
-              studentPerformanceGood: res.data.studentPerformanceGood || "",
-              studentPerformanceBad: res.data.studentPerformanceBad || "",
+              teacherObservation: (res.data as any).teacherObservation || step2.teacherObservation || "",
+              studentPerformanceGood: (res.data as any).studentPerformanceGood || step2.studentPerformanceGood || "",
+              studentPerformanceBad: (res.data as any).studentPerformanceBad || step2.studentPerformanceBad || "",
               reviewerRemark: res.data.reviewerRemark || "",
             }));
             if (res.data.type) {
