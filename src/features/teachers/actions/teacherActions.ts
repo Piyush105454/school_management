@@ -181,6 +181,13 @@ export async function deleteTeacher(id: string, userId: string | null) {
       };
     }
 
+    if (teacherRecord?.institute && teacherRecord.institute.trim() !== "") {
+      return {
+        success: false,
+        error: `Cannot delete: teacher is assigned to institute "${teacherRecord.institute}". Remove institute assignment first.`,
+      };
+    }
+
     // 2. Check if teacher is assigned to any subject
     const assignedSubject = await db.query.subjects.findFirst({
       where: eq(subjects.assignedTeacherId, id),

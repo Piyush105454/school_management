@@ -28,7 +28,10 @@ interface RenameModalProps {
 
 function RenameClassModal({ cls, onClose, onSuccess }: RenameModalProps) {
   const displayName =
-    cls?.name.startsWith("Class ") || ["LKG", "UKG", "KG1", "KG2"].includes(cls?.name ?? "")
+    cls?.name.startsWith("Class ") ||
+    ["LKG", "UKG", "KG1", "KG2"].includes(cls?.name ?? "") ||
+    cls?.name.toLowerCase().startsWith("wesa") ||
+    cls?.institute?.toLowerCase() === "wes academy"
       ? cls?.name
       : `Class ${cls?.name}`;
 
@@ -249,7 +252,10 @@ export default function ClassTable({ classData, isAdmin = false }: ClassTablePro
             <tbody className="divide-y divide-slate-50">
               {classData.map((cls) => {
                 const displayName =
-                  cls.name.startsWith("Class ") || ["LKG", "UKG", "KG1", "KG2"].includes(cls.name)
+                  cls.name.startsWith("Class ") ||
+                  ["LKG", "UKG", "KG1", "KG2"].includes(cls.name) ||
+                  cls.name.toLowerCase().startsWith("wesa") ||
+                  cls.institute?.toLowerCase() === "wes academy"
                     ? cls.name
                     : `Class ${cls.name}`;
 

@@ -483,11 +483,10 @@ export function TeacherManagementClient({
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Institute / Branch</label>
                 <select
                   value={formData.institute}
-                  onChange={(e) => setFormData({ ...formData, institute: e.target.value, classAssigned: [] })}
+                  onChange={(e) => setFormData({ ...formData, institute: e.target.value === "UNASSIGNED" ? "" : e.target.value, classAssigned: [] })}
                   className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
-                  required
                 >
-                  <option value="">Select Institute</option>
+                  <option value="">Not Assigned (Clear)</option>
                   <option value="Dhanpuri Public School">Dhanpuri Public School</option>
                   <option value="WES Academy">WES Academy</option>
                 </select>
