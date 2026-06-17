@@ -138,6 +138,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
   const [formData, setFormData] = useState({
     // Common Meta
+    status: "DRAFT",
     deliveryDay: "Monday",
     date: new Date().toISOString().split('T')[0],
     lpNo: "",
@@ -389,18 +390,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               ...prev,
               ...step1,
               ...step2,
+              ...step2,
               teacherObservation: (res.data as any).teacherObservation || step2.teacherObservation || "",
               studentPerformanceGood: (res.data as any).studentPerformanceGood || step2.studentPerformanceGood || "",
               studentPerformanceBad: (res.data as any).studentPerformanceBad || step2.studentPerformanceBad || "",
               reviewerRemark: res.data.reviewerRemark || "",
+              status: res.data.status || "DRAFT",
             }));
             if (res.data.type) {
               setLessonPlanMode(res.data.type);
-            }
-            
-            // Check status to determine activeStep
-            if (res.data.status === "SUBMITTED" || res.data.status === "APPROVED" || res.data.status === "REJECTED") {
-              setActiveStep(3);
             }
           } catch (e) {
             console.error("Failed to parse existing plan data", e);
@@ -772,11 +770,17 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           2. LESSON PLAN
         </button>
         <button
-          onClick={() => setActiveStep(3)}
+          onClick={() => {
+            if (formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "REJECTED") {
+              alert("The Sign Off section will only unlock after your lesson plan has been reviewed.");
+              return;
+            }
+            setActiveStep(3);
+          }}
           className={`px-6 py-2 rounded-lg font-bold text-xs transition-all ${activeStep === 3
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
-            }`}
+            } ${formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "REJECTED" ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           3. LESSON delivery & Sign off
         </button>
@@ -1602,10 +1606,20 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
           {activeStep === 2 && (
             <button
-              onClick={() => setActiveStep(3)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
+              onClick={() => {
+                if (formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED") {
+                  setActiveStep(3);
+                } else {
+                  handleSave(true);
+                }
+              }}
+              disabled={isSaving}
+              className={`px-6 py-3 text-white rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-md flex items-center gap-2 ${
+                formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED" ? "bg-slate-600 hover:bg-slate-700" : "bg-blue-600 hover:bg-blue-700"
+              }`}
             >
-              Submit for Validation <ChevronRight className="h-3 w-3" />
+              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED" ? <ChevronRight className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+              {formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED" ? "Continue to Step 3" : "Submit for Validation"}
             </button>
           )}
 
