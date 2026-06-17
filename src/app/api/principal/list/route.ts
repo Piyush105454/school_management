@@ -1,21 +1,24 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const principals = await db
+    const principalsList = await db
       .select({
         id: users.id,
         email: users.email,
         role: users.role,
         createdAt: users.createdAt,
+        name: teachers.name,
+        institute: teachers.institute,
       })
       .from(users)
+      .leftJoin(teachers, eq(users.id, teachers.userId))
       .where(eq(users.role, "PRINCIPAL"));
 
-    return NextResponse.json(principals);
+    return NextResponse.json(principalsList);
   } catch (error) {
     console.error("Error fetching principals:", error);
     return NextResponse.json(

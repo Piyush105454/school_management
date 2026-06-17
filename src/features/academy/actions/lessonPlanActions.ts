@@ -64,7 +64,10 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
       with: {
         class: true,
         subject: true,
-        teacher: true,
+        teacherProfile: true,
+        teacherUser: true,
+        reviewerProfile: true,
+        reviewerUser: true,
       },
       orderBy: (lp, { desc }) => [desc(lp.updatedAt)],
     });
@@ -132,14 +135,50 @@ export async function getLessonPlanByDateAndSubject(classId: number, subjectId: 
             eq(lessonPlans.date, date),
             eq(lessonPlans.classId, classId),
             eq(lessonPlans.subjectId, subjectId)
-        )
+        ),
+        with: {
+          class: true,
+          subject: true,
+          teacherProfile: true,
+          teacherUser: true,
+          reviewerProfile: true,
+          reviewerUser: true,
+        }
+    });
+    if (existing) {
+      const allTeachers = await db.query.teachers.findMany();
+      const specialist = allTeachers.find(t => 
+        t.specialization?.toLowerCase().trim() === existing.subject?.name?.toLowerCase().trim() &&
+        t.institute === existing.class?.institute
+      );
+      return { success: true, data: { ...existing, specialistProfile: specialist || null } };
+    }
+    return { success: false };
+  } catch (error: any) {
+    console.error("getLessonPlanByDateAndSubject error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getLessonPlanById(id: string) {
+  try {
+    const existing = await db.query.lessonPlans.findFirst({
+        where: eq(lessonPlans.id, id),
+        with: {
+          class: true,
+          subject: true,
+          teacherProfile: true,
+          teacherUser: true,
+          reviewerProfile: true,
+          reviewerUser: true,
+        }
     });
     if (existing) {
       return { success: true, data: existing };
     }
     return { success: false };
   } catch (error: any) {
-    console.error("getLessonPlanByDateAndSubject error:", error);
+    console.error("getLessonPlanById error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -161,10 +200,24 @@ export async function getMyLessonPlans(teacherId: string) {
       with: {
         class: true,
         subject: true,
+        teacherProfile: true,
+        teacherUser: true,
+        reviewerProfile: true,
+        reviewerUser: true,
       },
       orderBy: (lp, { desc }) => [desc(lp.date)],
     });
-    return { success: true, data: plans };
+
+    const allTeachers = await db.query.teachers.findMany();
+    const plansWithSpecialists = plans.map(p => {
+      const specialist = allTeachers.find(t => 
+        t.specialization?.toLowerCase().trim() === p.subject?.name?.toLowerCase().trim() &&
+        t.institute === p.class?.institute
+      );
+      return { ...p, specialistProfile: specialist || null };
+    });
+
+    return { success: true, data: plansWithSpecialists };
   } catch (error: any) {
     console.error("getMyLessonPlans error:", error);
     return { success: false, error: error.message };

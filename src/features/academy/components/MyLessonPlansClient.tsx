@@ -10,6 +10,10 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'>('ALL');
 
+  React.useEffect(() => {
+    setPlans(initialPlans);
+  }, [initialPlans]);
+
   const filteredPlans = plans.filter(p => {
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
@@ -171,13 +175,14 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Validation By</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPlans.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-20 text-center">
+                  <td colSpan={6} className="p-20 text-center">
                     <div className="space-y-3">
                       <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">No lesson plans found</p>
                       <p className="text-slate-400 text-xs italic">Create your first lesson plan by clicking the button above.</p>
@@ -223,17 +228,40 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                         </span>
                       )}
                     </td>
+                    <td className="px-6 py-4">
+                      {plan.status === "DRAFT" ? (
+                        <span className="text-slate-300 italic text-xs">Not submitted</span>
+                      ) : (plan.status !== "SUBMITTED" && (plan.reviewerProfile?.name || plan.reviewerUser)) ? (
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-700">
+                            {plan.reviewerProfile?.name || plan.reviewerUser?.email?.split('@')[0] || (plan.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : plan.reviewerUser?.role === 'ADMIN' ? 'Admin' : "Reviewer")}
+                          </p>
+                          <p className="text-[9px] text-slate-400 uppercase tracking-wider">
+                            {plan.status === "APPROVED" ? "Approved" : "Rejected"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-xs italic text-slate-500 font-medium">Pending with:</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                            {plan.specialistProfile?.name ? `${plan.specialistProfile.name} ➔ Principal` : "Principal"}
+                          </p>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {plan.status === "DRAFT" || plan.status === "REJECTED" ? (
-                          <Link
-                            href={`/office/academy-management/lesson-plan?edit=${plan.id}`}
-                            className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                            title="Edit Plan"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Link>
-                        ) : null}
+                        <Link
+                          href={`/office/academy-management/lesson-plan?edit=${plan.id}`}
+                          className={`flex items-center justify-center transition-all ${
+                            plan.status === "DRAFT" || plan.status === "REJECTED" 
+                              ? "p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl"
+                              : "px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm"
+                          }`}
+                          title={plan.status === "DRAFT" || plan.status === "REJECTED" ? "Edit Plan" : "View Your Lesson Plan"}
+                        >
+                          {plan.status === "DRAFT" || plan.status === "REJECTED" ? <Edit className="h-4 w-4" /> : "View Your Lesson Plan"}
+                        </Link>
                         <button
                           onClick={() => handleDelete(plan.id)}
                           className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"

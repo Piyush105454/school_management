@@ -8,7 +8,7 @@ export const genderEnum = pgEnum("gender", ["M", "F", "O"]);
 export const casteEnum = pgEnum("caste", ["GEN", "OBC", "ST", "SC"]);
 export const documentStatusEnum = pgEnum("document_status", ["SUBMITTED", "NOT_SUBMITTED", "VERIFIED", "REJECTED"]);
 export const testStatusEnum = pgEnum("test_status", ["NOT_SCHEDULED", "PENDING", "PASS", "FAIL"]);
-export const lessonPlanStatusEnum = pgEnum("lesson_plan_status", ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"]);
+export const lessonPlanStatusEnum = pgEnum("lesson_plan_status", ["DRAFT", "SUBMITTED", "REVIEWED", "APPROVED", "REJECTED"]);
 export const homeworkSubmissionStatusEnum = pgEnum("homework_submission_status", ["PENDING", "COMPLETED", "REJECTED"]);
 
 export const users = pgTable("users", {
@@ -429,9 +429,21 @@ export const lessonPlans = pgTable("lesson_plans", {
 });
 
 export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
-  teacher: one(users, {
+  teacherUser: one(users, {
     fields: [lessonPlans.teacherId],
     references: [users.id],
+  }),
+  teacherProfile: one(teachers, {
+    fields: [lessonPlans.teacherId],
+    references: [teachers.userId],
+  }),
+  reviewerUser: one(users, {
+    fields: [lessonPlans.reviewerId],
+    references: [users.id],
+  }),
+  reviewerProfile: one(teachers, {
+    fields: [lessonPlans.reviewerId],
+    references: [teachers.userId],
   }),
   class: one(classes, {
     fields: [lessonPlans.classId],

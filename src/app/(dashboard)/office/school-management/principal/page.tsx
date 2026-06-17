@@ -8,6 +8,8 @@ interface Principal {
   id: string;
   email: string;
   role: string;
+  name?: string;
+  institute?: string;
   createdAt: string;
 }
 
@@ -27,6 +29,13 @@ export default function PrincipalManagementPage() {
   const [showAddPrincipalModal, setShowAddPrincipalModal] = useState(false);
   const [newPrincipalEmail, setNewPrincipalEmail] = useState<string>("");
   const [newPrincipalPassword, setNewPrincipalPassword] = useState<string>("");
+  const [newPrincipalName, setNewPrincipalName] = useState<string>("");
+  const [newPrincipalInstitute, setNewPrincipalInstitute] = useState<string>("WES Academy");
+
+  // Edit principal states
+  const [showEditPrincipalModal, setShowEditPrincipalModal] = useState<Principal | null>(null);
+  const [editPrincipalName, setEditPrincipalName] = useState<string>("");
+  const [editPrincipalInstitute, setEditPrincipalInstitute] = useState<string>("");
   
   // Dropdown states
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -85,8 +94,8 @@ export default function PrincipalManagementPage() {
   };
 
   const handleAddPrincipal = async () => {
-    if (!newPrincipalEmail.trim() || !newPrincipalPassword.trim()) {
-      setErrorMessage("Please enter both email and password");
+    if (!newPrincipalEmail.trim() || !newPrincipalPassword.trim() || !newPrincipalName.trim() || !newPrincipalInstitute.trim()) {
+      setErrorMessage("Please fill all required fields");
       return;
     }
     if (newPrincipalPassword.length < 6) {
@@ -100,7 +109,12 @@ export default function PrincipalManagementPage() {
       const response = await fetch("/api/principal/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newPrincipalEmail, password: newPrincipalPassword }),
+        body: JSON.stringify({ 
+          email: newPrincipalEmail, 
+          password: newPrincipalPassword,
+          name: newPrincipalName,
+          institute: newPrincipalInstitute
+        }),
       });
 
       const resData = await response.json();
@@ -110,11 +124,48 @@ export default function PrincipalManagementPage() {
       setShowAddPrincipalModal(false);
       setNewPrincipalEmail("");
       setNewPrincipalPassword("");
+      setNewPrincipalName("");
+      setNewPrincipalInstitute("WES Academy");
       fetchPrincipals();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error: any) {
       console.error("Error creating principal:", error);
       setErrorMessage(error.message || "Error creating principal account");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEditPrincipal = async () => {
+    if (!showEditPrincipalModal) return;
+    if (!editPrincipalName.trim() || !editPrincipalInstitute.trim()) {
+      setErrorMessage("Name and Institute are required");
+      return;
+    }
+
+    try {
+      setActionLoading("editing");
+      setErrorMessage(null);
+      const response = await fetch("/api/principal/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          principalId: showEditPrincipalModal.id,
+          name: editPrincipalName,
+          institute: editPrincipalInstitute
+        }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || "Failed to update principal");
+
+      setSuccessMessage(`Principal account updated successfully`);
+      setShowEditPrincipalModal(null);
+      fetchPrincipals();
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Error updating principal:", error);
+      setErrorMessage(error.message || "Error updating principal account");
     } finally {
       setActionLoading(null);
     }
@@ -211,6 +262,7 @@ export default function PrincipalManagementPage() {
               <thead className="bg-slate-50/50 text-slate-500 font-bold border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Principal Account Email</th>
+                  <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Name & Institute</th>
                   <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Role / Access</th>
                   <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Account Created</th>
                   <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-right">Actions</th>
@@ -226,51 +278,50 @@ export default function PrincipalManagementPage() {
                       {principal.email}
                     </td>
                     <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-800">{principal.name || "N/A"}</span>
+                        <span className="text-xs text-slate-500">{principal.institute || "N/A"}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
                       <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-100">
                         {principal.role}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 font-medium flex items-center gap-2 mt-2 border-none">
-                      <Calendar size={14} className="text-slate-400" />
-                      {new Date(principal.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    <td className="px-6 py-4 text-slate-500 font-medium">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-slate-400" />
+                        {new Date(principal.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="relative inline-block text-left">
+                      <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setOpenMenuId(openMenuId === principal.id ? null : principal.id)}
-                          className="p-2 hover:bg-slate-100 rounded-xl transition-colors active:scale-95"
+                          onClick={() => {
+                            setEditPrincipalName(principal.name || "");
+                            setEditPrincipalInstitute(principal.institute || "");
+                            setShowEditPrincipalModal(principal);
+                          }}
+                          className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors font-bold text-[10px] uppercase tracking-wider"
+                          title="Edit Details"
                         >
-                          <MoreVertical size={18} className="text-slate-500" />
+                          Edit
                         </button>
-                        
-                        {openMenuId === principal.id && (
-                          <>
-                            <div 
-                              className="fixed inset-0 z-10" 
-                              onClick={() => setOpenMenuId(null)}
-                            />
-                            <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                              <button
-                                onClick={() => {
-                                  setShowManualPasswordModal(principal.id);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b border-slate-50 transition-colors"
-                              >
-                                <Key size={14} className="text-slate-500" />
-                                Edit Password
-                              </button>
-                              <button
-                                onClick={() => handleDeletePrincipal(principal.id)}
-                                disabled={actionLoading === principal.id}
-                                className="w-full text-left px-4 py-3 hover:bg-rose-50 text-rose-600 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors disabled:opacity-50"
-                              >
-                                <Trash2 size={14} />
-                                Delete Account
-                              </button>
-                            </div>
-                          </>
-                        )}
+                        <button
+                          onClick={() => setShowManualPasswordModal(principal.id)}
+                          className="p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl transition-colors font-bold text-[10px] uppercase tracking-wider flex items-center gap-1"
+                          title="Change Password"
+                        >
+                          <Key size={12} /> Pwd
+                        </button>
+                        <button
+                          onClick={() => handleDeletePrincipal(principal.id)}
+                          disabled={actionLoading === principal.id}
+                          className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors font-bold text-[10px] uppercase tracking-wider disabled:opacity-50"
+                          title="Delete Account"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -306,30 +357,60 @@ export default function PrincipalManagementPage() {
             </div>
             
             <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={newPrincipalEmail}
-                  onChange={(e) => setNewPrincipalEmail(e.target.value)}
-                  placeholder="principal@school.com"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold placeholder:text-slate-300 transition-all bg-slate-50/50"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={newPrincipalEmail}
+                    onChange={(e) => setNewPrincipalEmail(e.target.value)}
+                    placeholder="principal@school.com"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold placeholder:text-slate-300 transition-all bg-slate-50/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                    Access Password
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrincipalPassword}
+                    onChange={(e) => setNewPrincipalPassword(e.target.value)}
+                    placeholder="Min 6 chars"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold placeholder:text-slate-300 transition-all bg-slate-50/50"
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                  Access Password
-                </label>
-                <input
-                  type="text"
-                  value={newPrincipalPassword}
-                  onChange={(e) => setNewPrincipalPassword(e.target.value)}
-                  placeholder="Min 6 characters"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold placeholder:text-slate-300 transition-all bg-slate-50/50"
-                />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                    Principal Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrincipalName}
+                    onChange={(e) => setNewPrincipalName(e.target.value)}
+                    placeholder="E.g. Dr. John Doe"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold placeholder:text-slate-300 transition-all bg-slate-50/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                    Institute
+                  </label>
+                  <select
+                    value={newPrincipalInstitute}
+                    onChange={(e) => setNewPrincipalInstitute(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold transition-all bg-slate-50/50"
+                  >
+                    <option value="WES Academy">WES Academy</option>
+                    <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                    <option value="Jaitpur Public School">Jaitpur Public School</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -412,6 +493,78 @@ export default function PrincipalManagementPage() {
                 className="flex-1 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl transition-colors font-bold text-xs uppercase tracking-wider disabled:opacity-50"
               >
                 {actionLoading === showManualPasswordModal ? "Setting..." : "Update Password"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Principal Modal */}
+      {showEditPrincipalModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full mx-4 border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                  <Shield size={16} />
+                </div>
+                <h2 className="text-lg font-black text-slate-900 font-outfit uppercase tracking-tight">Edit Principal</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditPrincipalModal(null);
+                  setErrorMessage(null);
+                }}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-all active:scale-95"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                  Principal Name
+                </label>
+                <input
+                  type="text"
+                  value={editPrincipalName}
+                  onChange={(e) => setEditPrincipalName(e.target.value)}
+                  placeholder="E.g. Dr. John Doe"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold placeholder:text-slate-300 transition-all bg-slate-50/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                  Institute
+                </label>
+                <select
+                  value={editPrincipalInstitute}
+                  onChange={(e) => setEditPrincipalInstitute(e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold transition-all bg-slate-50/50"
+                >
+                  <option value="WES Academy">WES Academy</option>
+                  <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                  <option value="Jaitpur Public School">Jaitpur Public School</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowEditPrincipalModal(null);
+                  setErrorMessage(null);
+                }}
+                className="flex-1 px-4 py-3 border border-slate-200 text-slate-500 rounded-2xl hover:bg-slate-50 transition-colors font-bold text-xs uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditPrincipal}
+                disabled={actionLoading === "editing"}
+                className="flex-1 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl transition-colors font-bold text-xs uppercase tracking-wider disabled:opacity-50"
+              >
+                {actionLoading === "editing" ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>

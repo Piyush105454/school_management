@@ -1,16 +1,16 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
+    const { email, password, name, institute } = await request.json();
 
-    if (!email || !password) {
+    if (!email || !password || !name || !institute) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Email, password, name, and institute are required" },
         { status: 400 }
       );
     }
@@ -48,6 +48,19 @@ export async function POST(request: Request) {
         role: "PRINCIPAL",
       })
       .returning();
+
+    const userId = result[0].id;
+
+    // Create teacher record for the principal
+    await db.insert(teachers).values({
+      userId: userId,
+      employeeId: `PR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      name: name,
+      email: email,
+      gender: "Not Specified",
+      assignedRole: "PRINCIPAL",
+      institute: institute,
+    });
 
     return NextResponse.json({
       success: true,

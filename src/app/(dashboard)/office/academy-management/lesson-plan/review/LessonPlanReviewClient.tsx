@@ -63,7 +63,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       const matchesSearch = 
         (p.class?.name && p.class.name.toLowerCase().includes(lowerSearch)) ||
         (p.subject?.name && p.subject.name.toLowerCase().includes(lowerSearch)) ||
-        (p.teacher?.name && p.teacher.name.toLowerCase().includes(lowerSearch));
+        (p.teacherProfile?.name && p.teacherProfile.name.toLowerCase().includes(lowerSearch)) ||
+        (p.teacherUser?.email && p.teacherUser.email.toLowerCase().includes(lowerSearch));
         
       if (!matchesSearch) return false;
     }
@@ -97,7 +98,9 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       }
     }
 
-    if (activeTab === "PENDING") return p.status === "SUBMITTED";
+    if (activeTab === "PENDING") {
+      return isTeacher ? p.status === "SUBMITTED" : (p.status === "SUBMITTED" || p.status === "REVIEWED");
+    }
     if (activeTab === "APPROVED") return p.status === "APPROVED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
     if (activeTab === "DRAFT") return p.status === "DRAFT";
@@ -105,7 +108,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     return true;
   });
 
-  const handleAction = async (status: "APPROVED" | "REJECTED") => {
+  const handleAction = async (status: "APPROVED" | "REJECTED" | "REVIEWED") => {
     if (!selectedPlan) return;
     if (status === "REJECTED" && !remark) {
       alert("Please provide a remark for rejection.");
@@ -322,13 +325,14 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reviewed By</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedPlans.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-20 text-center">
+                    <td colSpan={7} className="p-20 text-center">
                       <div className="space-y-3">
                         <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">
                           {activeTab === 'PENDING' && "No pending reviews found"}
@@ -362,7 +366,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{plan.type}</span>
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-600">
-                        {plan.teacher?.name || "Teacher"}
+                        {plan.teacherProfile?.name || plan.teacherUser?.email?.split('@')[0] || "Teacher"}
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-slate-600">
                         {plan.date}
@@ -378,6 +382,11 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                             Approved
                           </span>
                         )}
+                        {plan.status === "REVIEWED" && (
+                          <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Reviewed
+                          </span>
+                        )}
                         {plan.status === "REJECTED" && (
                           <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-[10px] font-black uppercase tracking-wider">
                             Rejected
@@ -386,6 +395,15 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         {plan.status === "DRAFT" && (
                           <span className="px-3 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-[10px] font-black uppercase tracking-wider">
                             Draft
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {plan.status === "SUBMITTED" || plan.status === "DRAFT" ? (
+                          <span className="text-slate-300 text-xs italic">-</span>
+                        ) : (
+                          <span className="text-sm font-bold text-slate-700">
+                            {plan.reviewerProfile?.name || plan.reviewerUser?.email?.split('@')[0] || (plan.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : plan.reviewerUser?.role === 'ADMIN' ? 'Admin' : "Reviewer")}
                           </span>
                         )}
                       </td>
@@ -1016,7 +1034,21 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         <div className="w-48 border-b border-black"></div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Digital Signature</p>
                       </div>
+                      <div className="space-y-1 text-center">
+                        <div className="mb-2 h-8 flex flex-col justify-end">
+                           <p className="text-xs font-black text-slate-800">
+                              {selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" ? (selectedPlan.specialistProfile?.name || "Specialist") : ""}
+                           </p>
+                        </div>
+                        <div className="w-48 border-b border-black mx-auto"></div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject Specialist</p>
+                      </div>
                       <div className="space-y-1 text-right">
+                        <div className="mb-2 h-8 flex flex-col justify-end">
+                           <p className="text-xs font-black text-slate-800">
+                              {selectedPlan.status === "APPROVED" ? ("Principal, " + (selectedPlan.class?.institute || "WES Academy")) : ""}
+                           </p>
+                        </div>
                         <div className="w-48 border-b border-black ml-auto"></div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head/Principal Signoff</p>
                       </div>
@@ -1050,12 +1082,12 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 Reject & Send Back
               </button>
               <button 
-                onClick={() => handleAction("APPROVED")}
+                onClick={() => handleAction(isTeacher ? "REVIEWED" : "APPROVED")}
                 disabled={loading}
                 className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
               >
                 <CheckCircle className="h-4 w-4" />
-                Approve Plan
+                {isTeacher ? "Mark as Reviewed" : "Approve Plan"}
               </button>
             </div>
           </div>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { generateLessonPlanPdf } from "@/features/academy/utils/generateLessonPlanPdf";
-import { saveLessonPlan, getLessonPlanCount, getLessonPlanByDateAndSubject } from "@/features/academy/actions/lessonPlanActions";
+import { saveLessonPlan, getLessonPlanCount, getLessonPlanByDateAndSubject, getLessonPlanById } from "@/features/academy/actions/lessonPlanActions";
 import { useRouter } from "next/navigation";
 import { getSubjectUnitsAndChapters, getChapterDivisionsForLesson } from "@/features/academy/actions/academyActions";
 import dynamic from "next/dynamic";
@@ -139,6 +139,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   const [formData, setFormData] = useState({
     // Common Meta
     status: "DRAFT",
+    reviewerName: "",
+    specialistName: "",
+    reviewedAt: "",
     deliveryDay: "Monday",
     date: new Date().toISOString().split('T')[0],
     lpNo: "",
@@ -268,6 +271,39 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         setActiveStep(1);
       }
     }
+
+    const editId = searchParams.get("edit");
+    if (editId) {
+      getLessonPlanById(editId).then(res => {
+        if (res.success && res.data) {
+          try {
+            const step1 = JSON.parse(res.data.step1Data || "{}");
+            const step2 = JSON.parse(res.data.step2Data || "{}");
+            setFormData(prev => ({
+              ...prev,
+              ...step1,
+              ...step2,
+              className: res.data.class?.name || prev.className,
+              subject: res.data.subject?.name || prev.subject,
+              date: res.data.date || prev.date,
+              teacherObservation: (res.data as any).teacherObservation || step2.teacherObservation || "",
+              studentPerformanceGood: (res.data as any).studentPerformanceGood || step2.studentPerformanceGood || "",
+              studentPerformanceBad: (res.data as any).studentPerformanceBad || step2.studentPerformanceBad || "",
+              reviewerRemark: res.data.reviewerRemark || "",
+              status: res.data.status || "DRAFT",
+              reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || (res.data.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : res.data.reviewerUser?.role === 'ADMIN' ? 'Admin' : ""),
+              specialistName: (res.data as any).specialistProfile?.name || "",
+              reviewedAt: res.data.updatedAt || "",
+            }));
+            if (res.data.type) {
+              setLessonPlanMode(res.data.type);
+            }
+          } catch (e) {
+            console.error("Failed to parse edit plan data", e);
+          }
+        }
+      });
+    }
   }, [searchParams]);
 
   // Handle Draft Restoration & Auto-save
@@ -396,6 +432,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               studentPerformanceBad: (res.data as any).studentPerformanceBad || step2.studentPerformanceBad || "",
               reviewerRemark: res.data.reviewerRemark || "",
               status: res.data.status || "DRAFT",
+              reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || (res.data.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : res.data.reviewerUser?.role === 'ADMIN' ? 'Admin' : ""),
+              specialistName: (res.data as any).specialistProfile?.name || "",
+              reviewedAt: res.data.updatedAt || "",
             }));
             if (res.data.type) {
               setLessonPlanMode(res.data.type);
@@ -712,11 +751,14 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       if (res.success) {
         if (draftKey) localStorage.removeItem(draftKey);
         
+        router.refresh();
+        
         if (submitForValidation) {
           alert("Lesson Plan submitted for validation successfully!");
-          router.push("/office/academy-management/lesson-plan/review");
+          router.push("/office/academy-management/my-lesson-plans");
         } else {
           alert("Lesson Plan saved as Draft!");
+          router.push("/office/academy-management/my-lesson-plans");
         }
       } else {
         alert("Error saving lesson plan: " + res.error);
@@ -1493,7 +1535,18 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               <div className="bg-slate-800 text-white p-6 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black uppercase tracking-tight">3. LESSON delivery & Sign off</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Observations & Feedback</p>
+                  <div className="flex flex-col gap-1 mt-1">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Observations & Feedback</p>
+                    {(formData.status === 'APPROVED' || formData.status === 'REJECTED') && formData.reviewerName ? (
+                      <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">
+                        Validated By: {formData.reviewerName}
+                      </p>
+                    ) : (formData.status === 'SUBMITTED' || formData.status === 'DRAFT') ? (
+                      <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">
+                        To be validated by: {formData.specialistName ? `${formData.specialistName} & Principal` : "Principal"}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <Save className="h-6 w-6 opacity-20" />
               </div>
@@ -1553,15 +1606,38 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   name="reviewerRemark" 
                   value={formData.reviewerRemark} 
                   onChange={handleChange} 
-                  className="w-full h-32 p-6 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-sm resize-none shadow-sm focus:border-slate-400 transition-all" 
-                  placeholder="Reviewer feedback goes here..." 
+                  className="w-full h-32 p-6 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-sm resize-none shadow-sm focus:border-slate-400 transition-all text-slate-500" 
+                  placeholder="Reviewer feedback goes here..."
+                  readOnly
                 />
                 <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
                   <div className="space-y-1">
                     <div className="w-48 border-b border-black"></div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Digital Signature</p>
                   </div>
+                  <div className="space-y-1 text-center">
+                    <div className="mb-2 h-8 flex flex-col justify-end">
+                      <p className="text-xs font-black text-slate-800">
+                        {formData.status === "REVIEWED" || formData.status === "APPROVED" ? formData.specialistName || "Specialist" : ""}
+                      </p>
+                      {formData.reviewedAt && (formData.status === "REVIEWED" || formData.status === "APPROVED") && (
+                        <p className="text-[9px] font-bold text-slate-400">
+                          {new Date(formData.reviewedAt).toLocaleString('en-US', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-48 border-b border-black mx-auto"></div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject Specialist</p>
+                  </div>
                   <div className="space-y-1 text-right">
+                    <div className="mb-2 h-8 flex flex-col justify-end">
+                      <p className="text-xs font-black text-slate-800">
+                        {formData.status === "APPROVED" ? ("Principal, " + (uniqueClasses.find(c => c.name === formData.className)?.institute || "WES Academy")) : ""}
+                      </p>
+                    </div>
                     <div className="w-48 border-b border-black ml-auto"></div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head/Principal Signoff</p>
                   </div>
