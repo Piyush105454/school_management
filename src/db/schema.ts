@@ -911,3 +911,38 @@ export const committeeMeetings = pgTable("committee_meetings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ── Dynamic Committee Roles ──────────────────────────────────────────────────
+export const committeeRoles = pgTable("committee_roles", {
+  id: serial("id").primaryKey(),
+  roleName: text("role_name").notNull(),
+  canApproveAcademy: boolean("can_approve_academy").default(false).notNull(),
+  canManageTimetable: boolean("can_manage_timetable").default(false).notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ── Committee Members ────────────────────────────────────────────────────────
+export const committeeMembers = pgTable("committee_members", {
+  id: serial("id").primaryKey(),
+  teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: "cascade" }).notNull(),
+  committeeName: text("committee_name").notNull(),
+  roleId: integer("role_id").references(() => committeeRoles.id, { onDelete: "set null" }),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+});
+
+export const committeeRoleRelations = relations(committeeRoles, ({ many }) => ({
+  members: many(committeeMembers),
+}));
+
+export const committeeMemberRelations = relations(committeeMembers, ({ one }) => ({
+  teacher: one(teachers, {
+    fields: [committeeMembers.teacherId],
+    references: [teachers.id],
+  }),
+  role: one(committeeRoles, {
+    fields: [committeeMembers.roleId],
+    references: [committeeRoles.id],
+  }),
+}));
+

@@ -6,7 +6,7 @@ import { Search, Filter, X, FileSpreadsheet } from "lucide-react";
 import { BulkImportModal } from "./BulkImportModal";
 import { ADMISSION_STEPS, getComputedStep, getStatusText } from "../utils/admissionSteps";
 
-const CLASSES = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+
 const STATUSES = [
   "Drafting Application",
   "Remarks Sent",
@@ -27,7 +27,7 @@ export function AdmissionsManager({
   admissions: any[],
   role?: string
 }) {
-  const { selectedInstitute, setSelectedInstitute, institutes } = useInstitute();
+  const { selectedInstitute, setSelectedInstitute, institutes, dbClasses } = useInstitute();
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("");
   const [stepFilter, setStepFilter] = useState("");
@@ -117,8 +117,8 @@ export function AdmissionsManager({
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">All Classes</option>
-            {CLASSES.map(c => (
-              <option key={c} value={c}>{c === "LKG" || c === "UKG" ? c : `Class ${c}`}</option>
+            {(dbClasses || []).map(c => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
@@ -154,9 +154,10 @@ export function AdmissionsManager({
               setInstituteFilter(val);
               setSelectedInstitute(val || "ALL");
             }}
+            disabled={institutes.length === 1}
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">All Institutes</option>
+            {institutes.length !== 1 && <option value="">All Institutes</option>}
             {institutes.map(i => (
               <option key={i} value={i}>{i}</option>
             ))}

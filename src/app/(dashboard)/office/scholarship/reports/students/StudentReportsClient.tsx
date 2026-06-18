@@ -27,7 +27,7 @@ interface StudentReportsClientProps {
 export default function StudentReportsClient({ classesList, limitToClasses }: StudentReportsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { selectedInstitute } = useInstitute();
+  const { selectedInstitute, dbClasses } = useInstitute();
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -48,8 +48,8 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Available classes based on teacher assignments if any
-  const availableClasses = limitToClasses !== undefined ? limitToClasses : classesList;
+  // Available classes based on teacher assignments if any, else dbClasses
+  const availableClasses = limitToClasses !== undefined ? limitToClasses : (dbClasses || []);
 
   useEffect(() => {
     loadReports();

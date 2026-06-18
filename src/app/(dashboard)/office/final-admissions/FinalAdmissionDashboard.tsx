@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Search, Filter, X, ClipboardCheck } from "lucide-react";
 import { FinalAdmissionTable } from "./FinalAdmissionTable";
 
-const CLASSES = ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+import { useInstitute } from "@/providers/InstituteProvider";
 const FEE_STATUSES = [
   { value: "SCHOLARSHIP", label: "Scholarship Applied" },
   { value: "NORMAL", label: "Normal Fee Selected" },
@@ -17,6 +17,7 @@ export function FinalAdmissionDashboard({
   applicants: any[] 
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { dbClasses } = useInstitute();
   const [classFilter, setClassFilter] = useState("");
   const [feeFilter, setFeeFilter] = useState("");
 
@@ -91,8 +92,8 @@ export function FinalAdmissionDashboard({
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">All Classes</option>
-            {CLASSES.map(c => (
-              <option key={c} value={c}>{c === "LKG" || c === "UKG" ? c : `Class ${c}`}</option>
+            {(dbClasses || []).map(c => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 

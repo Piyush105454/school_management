@@ -6,6 +6,7 @@ import { Plus, Users, Phone, Award, CheckCircle, Loader2, Trash2, Edit, Filter, 
 import { Modal } from "@/components/ui/Modal";
 import { createTeacher, updateTeacher, deleteTeacher } from "@/features/teachers/actions/teacherActions";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 const COMMITTEES = [
   "Sexual Harassment Committee/Internal Complaints Committee",
@@ -58,6 +59,8 @@ export function TeacherManagementClient({
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [committeeFilter, setCommitteeFilter] = useState("ALL");
+  const { data: session } = useSession();
+  const userInstitute = session?.user?.institute;
 
   // Tagged logs states
   const [isLogsOpen, setIsLogsOpen] = useState(false);
@@ -243,11 +246,14 @@ export function TeacherManagementClient({
     }
   };
 
-  const filteredTeachers = initialTeachers.filter(t => {
-    const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          t.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCommittee = committeeFilter === "ALL" || (t.committees && t.committees.includes(committeeFilter));
-    return matchesSearch && matchesCommittee;
+  const filteredTeachers = initialTeachers.filter(teacher => {
+    if (userInstitute && teacher.institute !== userInstitute) return false;
+    const matchesSearch = teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          teacher.assignedRole?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (committeeFilter === "ALL") return matchesSearch;
+    return matchesSearch && teacher.committees?.includes(committeeFilter);
   });
 
   return (
@@ -484,11 +490,16 @@ export function TeacherManagementClient({
                 <select
                   value={formData.institute}
                   onChange={(e) => setFormData({ ...formData, institute: e.target.value === "UNASSIGNED" ? "" : e.target.value, classAssigned: [] })}
+                  disabled={!!userInstitute}
                   className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium outline-none"
                 >
                   <option value="">Not Assigned (Clear)</option>
-                  <option value="Dhanpuri Public School">Dhanpuri Public School</option>
-                  <option value="WES Academy">WES Academy</option>
+                  {(!userInstitute || userInstitute === "Dhanpuri Public School") && (
+                    <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                  )}
+                  {(!userInstitute || userInstitute === "WES Academy") && (
+                    <option value="WES Academy">WES Academy</option>
+                  )}
                 </select>
               </div>
               <div className="space-y-1">

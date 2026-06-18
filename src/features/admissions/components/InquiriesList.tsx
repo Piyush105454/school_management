@@ -16,9 +16,10 @@ import {
   ExternalLink,
   Pencil
 } from "lucide-react";
-import { Modal } from "@/components/ui/Modal";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { Modal } from "@/components/ui/Modal";
 
 interface InquiriesListProps {
   initialInquiries: any[];
@@ -27,6 +28,7 @@ interface InquiriesListProps {
 
 export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [inquiries, setInquiries] = useState(initialInquiries);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,12 +48,13 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
     setInquiries(initialInquiries);
   }, [initialInquiries]);
 
-  const filteredInquiries = inquiries.filter(inq => 
-    inq.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inq.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inq.entryNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInquiries = inquiries.filter(inq => {
+    if (session?.user?.institute && inq.school !== session.user.institute) return false;
+    return inq.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           inq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           inq.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           inq.entryNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const handleShortlist = async (id: string) => {
     setLoadingId(id);
@@ -396,9 +399,16 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
 
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">School / Institute</label>
-              <select name="school" defaultValue={editingInquiry.school} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                 <option value="Dhanpuri Public School">Dhanpuri Public School</option>
-                 <option value="WES Academy">WES Academy</option>
+              <select name="school" defaultValue={editingInquiry.school} disabled={!!session?.user?.institute} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                 {(!session?.user?.institute || session?.user?.institute === "Dhanpuri Public School") && (
+                   <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                 )}
+                 {(!session?.user?.institute || session?.user?.institute === "WES Academy") && (
+                   <option value="WES Academy">WES Academy</option>
+                 )}
+                 {(!session?.user?.institute || session?.user?.institute === "Jaitpur Public School") && (
+                   <option value="Jaitpur Public School">Jaitpur Public School</option>
+                 )}
               </select>
             </div>
 

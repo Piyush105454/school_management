@@ -97,10 +97,23 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Export
 // ─────────────────────────────────────────────────────────────────────────────
-export function CommitteeManagementClient({ initialTeachers }: { initialTeachers: Teacher[] }) {
+export function CommitteeManagementClient({ 
+  initialTeachers, 
+  initialRoles = [], 
+  initialMembers = [] 
+}: { 
+  initialTeachers: Teacher[];
+  initialRoles?: any[];
+  initialMembers?: any[];
+}) {
   const [teachers, setTeachers] = useState<Teacher[]>(initialTeachers);
+  const [roles, setRoles] = useState<any[]>(initialRoles);
+  const [committeeMembers, setCommitteeMembers] = useState<any[]>(initialMembers);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCommittee, setActiveCommittee] = useState<string | null>(null);
+  const [showRolesModal, setShowRolesModal] = useState(false);
+  const [newRole, setNewRole] = useState({ roleName: "", canApproveAcademy: false, canManageTimetable: false });
+  const [creatingRole, setCreatingRole] = useState(false);
 
   // Reload teachers from API after mutations
   const reloadTeachers = useCallback(async () => {
@@ -110,6 +123,45 @@ export function CommitteeManagementClient({ initialTeachers }: { initialTeachers
       setTeachers(data);
     }
   }, []);
+
+  // Handle creating a new role
+  const handleCreateRole = async () => {
+    if (!newRole.roleName.trim()) return;
+    setCreatingRole(true);
+    try {
+      const res = await fetch("/api/committees/roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newRole),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setRoles([...roles, created.data]);
+        setNewRole({ roleName: "", canApproveAcademy: false, canManageTimetable: false });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreatingRole(false);
+    }
+  };
+
+  // Handle deleting a role
+  const handleDeleteRole = async (roleId: number) => {
+    try {
+      const res = await fetch(`/api/committees/roles/${roleId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setRoles(roles.filter(r => r.id !== roleId));
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete role");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Grouped view
   const groupedCommittees = COMMITTEES.map((name) => ({
@@ -142,6 +194,8 @@ export function CommitteeManagementClient({ initialTeachers }: { initialTeachers
         committeeName={activeCommittee}
         allTeachers={teachers}
         members={group.members}
+        committeeRoles={roles}
+        committeeMembersData={committeeMembers.filter(m => m.committeeName === activeCommittee)}
         onBack={() => setActiveCommittee(null)}
         onReload={reloadTeachers}
       />
@@ -163,6 +217,15 @@ export function CommitteeManagementClient({ initialTeachers }: { initialTeachers
           <p className="text-slate-500 mt-1 font-medium text-sm">
             View, manage members & schedule meetings for each committee.
           </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowRolesModal(true)}
+            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-xs transition-colors"
+          >
+            <ShieldCheck size={16} />
+            Manage Roles
+          </button>
         </div>
       </div>
 
@@ -199,12 +262,13 @@ export function CommitteeManagementClient({ initialTeachers }: { initialTeachers
         </div>
       </div>
 
-      {/* Committee Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* List */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {filtered.map((group) => (
           <div
             key={group.name}
-            className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:border-indigo-100 transition-all"
+            onClick={() => setActiveCommittee(group.name)}
+            className="group cursor-pointer bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:border-indigo-100 transition-all"
           >
             {/* Card header */}
             <div className="p-5 border-b border-slate-50 bg-gradient-to-r from-slate-50/50 to-indigo-50/20 flex items-center justify-between gap-3">
@@ -265,6 +329,110 @@ export function CommitteeManagementClient({ initialTeachers }: { initialTeachers
           </div>
         ))}
       </div>
+
+      {/* Manage Roles Modal */}
+      {showRolesModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-800">Manage Committee Roles</h2>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Define dynamic roles & permissions</p>
+                </div>
+              </div>
+              <button onClick={() => setShowRolesModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {roles.map(r => (
+                  <div key={r.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                    <div>
+                      <div className="font-black text-slate-800 text-sm flex items-center gap-2">
+                        {r.roleName}
+                        {r.isDefault && <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md uppercase">Default</span>}
+                      </div>
+                      <div className="flex gap-2 mt-1.5">
+                        {r.canApproveAcademy && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Can Approve Academy</span>}
+                        {r.canManageTimetable && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Can Manage Timetable</span>}
+                      </div>
+                    </div>
+                    {!r.isDefault && (
+                      <button 
+                        onClick={() => handleDeleteRole(r.id)}
+                        className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                        title="Delete Role"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Role Form */}
+              <div className="mt-6 p-5 rounded-2xl border border-indigo-100 bg-indigo-50/50">
+                <h3 className="text-xs font-black text-indigo-800 uppercase tracking-wider mb-4">Create New Role</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">Role Name</label>
+                    <input 
+                      type="text" 
+                      value={newRole.roleName}
+                      onChange={e => setNewRole({...newRole, roleName: e.target.value})}
+                      placeholder="e.g. Academy Reviewer"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-indigo-200 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={newRole.canApproveAcademy}
+                        onChange={e => setNewRole({...newRole, canApproveAcademy: e.target.checked})}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                      />
+                      <div>
+                        <div className="text-sm font-bold text-slate-800">Can Approve Academy</div>
+                        <div className="text-[10px] text-slate-500">Allows validating and approving lesson plans.</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-indigo-200 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={newRole.canManageTimetable}
+                        onChange={e => setNewRole({...newRole, canManageTimetable: e.target.checked})}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                      />
+                      <div>
+                        <div className="text-sm font-bold text-slate-800">Can Manage Timetable</div>
+                        <div className="text-[10px] text-slate-500">Allows managing the master timetable.</div>
+                      </div>
+                    </label>
+                  </div>
+                  <button 
+                    onClick={handleCreateRole}
+                    disabled={creatingRole || !newRole.roleName.trim()}
+                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-wider disabled:opacity-50 hover:bg-indigo-700 transition-colors"
+                  >
+                    {creatingRole ? "Saving..." : "Save Role"}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button onClick={() => setShowRolesModal(false)} className="px-6 py-2.5 bg-slate-900 text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-800 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -276,23 +444,29 @@ function CommitteeDetailPanel({
   committeeName,
   allTeachers,
   members: initialMembers,
+  committeeRoles = [],
+  committeeMembersData: initialCommitteeMembersData = [],
   onBack,
   onReload,
 }: {
   committeeName: string;
   allTeachers: Teacher[];
   members: Teacher[];
+  committeeRoles?: any[];
+  committeeMembersData?: any[];
   onBack: () => void;
   onReload: () => Promise<void>;
 }) {
   const [tab, setTab] = useState<"members" | "meetings">("members");
   const [members, setMembers] = useState<Teacher[]>(initialMembers);
+  const [committeeMembersData, setCommitteeMembersData] = useState<any[]>(initialCommitteeMembersData);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loadingMeetings, setLoadingMeetings] = useState(true);
 
   // Member assignment
   const [memberSearch, setMemberSearch] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, number>>({});
 
   // Meeting form
   const [showMeetingForm, setShowMeetingForm] = useState(false);
@@ -322,21 +496,44 @@ function CommitteeDetailPanel({
   const isMember = (t: Teacher) =>
     t.committees?.split(",").map((c) => c.trim()).includes(committeeName) ?? false;
 
-  async function toggleMember(teacher: Teacher) {
+  async function toggleMember(teacher: Teacher, forceRole?: number) {
     const action = isMember(teacher) ? "remove" : "add";
+    let roleId: number | null | undefined = forceRole;
+    if (roleId === undefined) {
+      roleId = selectedRoles[teacher.id] || null;
+    }
+    
     setSaving(teacher.id);
+    // Backward compatibility for generic committees list
     const res = await fetch("/api/committees", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teacherId: teacher.id, committeeName, action }),
     });
+
     if (res.ok) {
+      if (action === "add") {
+        // Create actual committee member mapping with role
+        await fetch("/api/committees/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teacherId: teacher.id, committeeName, roleId: roleId || null }),
+        });
+      } else if (action === "remove") {
+        // Delete committee member mapping
+        await fetch(`/api/committees/members?teacherId=${teacher.id}&committeeName=${committeeName}`, {
+          method: "DELETE"
+        });
+      }
+
       await onReload();
       // Update local members list
       if (action === "add") {
         setMembers((prev) => [...prev, { ...teacher, committees: (teacher.committees ? teacher.committees + "," : "") + committeeName }]);
+        setCommitteeMembersData(prev => [...prev, { teacherId: teacher.id, committeeName, roleId: roleId || null }]);
       } else {
         setMembers((prev) => prev.filter((m) => m.id !== teacher.id));
+        setCommitteeMembersData(prev => prev.filter(m => m.teacherId !== teacher.id));
       }
     }
     setSaving(null);
@@ -464,8 +661,28 @@ function CommitteeDetailPanel({
                   <div key={m.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/50 group transition-colors">
                     <Avatar name={m.name} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{m.name}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight truncate">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 truncate">{m.name}</p>
+                          {committeeMembersData.find(d => d.teacherId === m.id) && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700">
+                              {committeeRoles.find(r => r.id === committeeMembersData.find(d => d.teacherId === m.id)?.roleId)?.roleName || "Member"}
+                            </span>
+                          )}
+                        </div>
+                        {(() => {
+                          const assignedRoleId = committeeMembersData.find(d => d.teacherId === m.id)?.roleId;
+                          const assignedRole = committeeRoles.find(r => r.id === assignedRoleId);
+                          if (!assignedRole) return null;
+                          return (
+                            <div className="flex gap-1">
+                              {assignedRole.canApproveAcademy && <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Approve Academy</span>}
+                              {assignedRole.canManageTimetable && <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Manage Timetable</span>}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight truncate mt-1">
                         {m.assignedRole || m.specialization || "Staff"}
                       </p>
                     </div>
@@ -517,24 +734,38 @@ function CommitteeDetailPanel({
                           {t.assignedRole || t.specialization || "Staff"}
                         </p>
                       </div>
-                      <button
-                        onClick={() => toggleMember(t)}
-                        disabled={saving === t.id}
-                        className={cn(
-                          "h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 disabled:opacity-60 active:scale-95",
-                          member
-                            ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
-                            : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                      <div className="flex items-center gap-2">
+                        {!member && (
+                          <select 
+                            value={selectedRoles[t.id] || ""}
+                            onChange={(e) => setSelectedRoles({...selectedRoles, [t.id]: e.target.value ? Number(e.target.value) : 0})}
+                            className="h-7 px-2 rounded-lg text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 outline-none max-w-[100px] truncate"
+                          >
+                            <option value="">Member</option>
+                            {committeeRoles.map(r => (
+                              <option key={r.id} value={r.id}>{r.roleName}</option>
+                            ))}
+                          </select>
                         )}
-                      >
-                        {saving === t.id ? (
-                          <Loader2 size={11} className="animate-spin" />
-                        ) : member ? (
-                          <><X size={11} /> Remove</>
-                        ) : (
-                          <><Plus size={11} /> Add</>
-                        )}
-                      </button>
+                        <button
+                          onClick={() => toggleMember(t)}
+                          disabled={saving === t.id}
+                          className={cn(
+                            "h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 disabled:opacity-60 active:scale-95",
+                            member
+                              ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
+                              : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                          )}
+                        >
+                          {saving === t.id ? (
+                            <Loader2 size={11} className="animate-spin" />
+                          ) : member ? (
+                            <><X size={11} /> Remove</>
+                          ) : (
+                            <><Plus size={11} /> Add</>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   );
                 })

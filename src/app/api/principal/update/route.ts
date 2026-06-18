@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (existingTeacher && existingTeacher.length > 0) {
       await db.update(teachers).set({ name: name, institute: institute, updatedAt: new Date() }).where(eq(teachers.userId, principalId));
     } else {
-      await db.insert(teachers).values({ userId: principalId, employeeId: 'PR-' + Math.random().toString(36).substring(2, 8).toUpperCase(), name: name, email: 'pr_' + principalId.substring(0,6) + '@update.com', gender: 'Not Specified', assignedRole: 'PRINCIPAL', institute: institute });
+      await db.insert(teachers).values({ userId: principalId, name: name, assignedRole: 'PRINCIPAL', institute: institute });
     }
 
     return NextResponse.json({ success: true, message: 'Principal updated successfully' });

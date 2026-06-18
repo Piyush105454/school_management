@@ -57,7 +57,9 @@ export async function saveLessonPlan(data: {
   }
 }
 
-export async function getLessonPlansForReview(specialization?: string, isTeacher: boolean = false) {
+import { getTeacherCommitteePermissions } from "./committeeActions";
+
+export async function getLessonPlansForReview(specialization?: string, isTeacher: boolean = false, teacherId?: string) {
   try {
     const plans = await db.query.lessonPlans.findMany({
       where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined, // Only filter drafts out for teachers
@@ -72,28 +74,53 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
       orderBy: (lp, { desc }) => [desc(lp.updatedAt)],
     });
 
+    const allTeachers = await db.query.teachers.findMany();
+    const plansWithProfiles = plans.map(p => {
+      const specialist = allTeachers.find(t => 
+        t.specialization?.toLowerCase().trim() === p.subject?.name?.toLowerCase().trim() &&
+        t.institute === p.class?.institute
+      );
+      const principal = allTeachers.find(t =>
+        t.assignedRole === 'PRINCIPAL' &&
+        t.institute === p.class?.institute
+      );
+      return { ...p, specialistProfile: specialist || null, principalProfile: principal || null };
+    });
+
     if (isTeacher) {
-      if (!specialization) {
-        return { success: true, data: [] }; // If teacher has no specialization, they review nothing
+      let canApproveAcademy = false;
+      if (teacherId) {
+        const perms = await getTeacherCommitteePermissions(teacherId);
+        canApproveAcademy = perms.canApproveAcademy;
       }
-      const specializedSubjects = specialization.split(',').map(s => s.trim().toLowerCase());
-      return { 
-        success: true, 
-        data: plans.filter(p => 
-          p.subject?.name && 
-          specializedSubjects.some(ss => p.subject!.name.toLowerCase().includes(ss))
-        ) 
-      };
+
+      if (canApproveAcademy) {
+        // If they are an academy approver, they can see EVERYTHING (like a Principal)
+        return { success: true, data: plansWithProfiles };
+      } else {
+        // Normal specialist teacher logic
+        if (!specialization) {
+          return { success: true, data: [] }; // If teacher has no specialization, they review nothing
+        }
+        const specializedSubjects = specialization.split(',').map(s => s.trim().toLowerCase());
+        return { 
+          success: true, 
+          data: plansWithProfiles.filter(p => 
+            p.subject?.name && 
+            specializedSubjects.some(ss => p.subject!.name.toLowerCase().includes(ss))
+          ) 
+        };
+      }
     }
 
-    return { success: true, data: plans };
+    return { success: true, data: plansWithProfiles };
   } catch (error: any) {
     console.error("getLessonPlansForReview error:", error);
     return { success: false, error: error.message };
   }
 }
 
-export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'REJECTED', remark: string, reviewerId: string) {
+export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'REVIEWED', remark: string, reviewerId: string) {
   try {
     await db.update(lessonPlans)
       .set({
@@ -151,7 +178,11 @@ export async function getLessonPlanByDateAndSubject(classId: number, subjectId: 
         t.specialization?.toLowerCase().trim() === existing.subject?.name?.toLowerCase().trim() &&
         t.institute === existing.class?.institute
       );
-      return { success: true, data: { ...existing, specialistProfile: specialist || null } };
+      const principal = allTeachers.find(t =>
+        t.assignedRole === 'PRINCIPAL' &&
+        t.institute === existing.class?.institute
+      );
+      return { success: true, data: { ...existing, specialistProfile: specialist || null, principalProfile: principal || null } };
     }
     return { success: false };
   } catch (error: any) {
@@ -174,7 +205,16 @@ export async function getLessonPlanById(id: string) {
         }
     });
     if (existing) {
-      return { success: true, data: existing };
+      const allTeachers = await db.query.teachers.findMany();
+      const specialist = allTeachers.find(t => 
+        t.specialization?.toLowerCase().trim() === existing.subject?.name?.toLowerCase().trim() &&
+        t.institute === existing.class?.institute
+      );
+      const principal = allTeachers.find(t =>
+        t.assignedRole === 'PRINCIPAL' &&
+        t.institute === existing.class?.institute
+      );
+      return { success: true, data: { ...existing, specialistProfile: specialist || null, principalProfile: principal || null } };
     }
     return { success: false };
   } catch (error: any) {
@@ -209,15 +249,19 @@ export async function getMyLessonPlans(teacherId: string) {
     });
 
     const allTeachers = await db.query.teachers.findMany();
-    const plansWithSpecialists = plans.map(p => {
+    const plansWithProfiles = plans.map(p => {
       const specialist = allTeachers.find(t => 
         t.specialization?.toLowerCase().trim() === p.subject?.name?.toLowerCase().trim() &&
         t.institute === p.class?.institute
       );
-      return { ...p, specialistProfile: specialist || null };
+      const principal = allTeachers.find(t =>
+        t.assignedRole === 'PRINCIPAL' &&
+        t.institute === p.class?.institute
+      );
+      return { ...p, specialistProfile: specialist || null, principalProfile: principal || null };
     });
 
-    return { success: true, data: plansWithSpecialists };
+    return { success: true, data: plansWithProfiles };
   } catch (error: any) {
     console.error("getMyLessonPlans error:", error);
     return { success: false, error: error.message };

@@ -21,12 +21,14 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
+import { useInstitute } from "@/providers/InstituteProvider";
 import "katex/dist/katex.min.css";
 import "react-quill-new/dist/quill.snow.css";
 
-export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTeacher = false }: { initialPlans: any[], reviewerId: string, isTeacher?: boolean }) {
+export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTeacher = false, isApprover = false }: { initialPlans: any[], reviewerId: string, isTeacher?: boolean, isApprover?: boolean }) {
   const [plans, setPlans] = useState(initialPlans);
   const [searchTerm, setSearchTerm] = useState("");
+  const { dbClasses } = useInstitute();
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [remark, setRemark] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,12 +45,14 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     setCurrentPage(1);
   }, [activeTab, searchTerm, filterClass, filterSubject, filterDateRange, customDate]);
 
-  const pendingPlans = plans.filter(p => p.status === "SUBMITTED");
+  const pendingPlans = plans.filter(p => p.status === "SUBMITTED" || p.status === "REVIEWED");
   const approvedPlans = plans.filter(p => p.status === "APPROVED");
   const rejectedPlans = plans.filter(p => p.status === "REJECTED");
   const draftPlans = plans.filter(p => p.status === "DRAFT");
 
-  const uniqueClasses = Array.from(new Set(plans.map(p => p.class?.name).filter(Boolean)));
+  const uniqueClasses = dbClasses && dbClasses.length > 0 
+    ? dbClasses 
+    : Array.from(new Set(plans.map(p => p.class?.name).filter(Boolean)));
   const uniqueSubjects = Array.from(new Set(plans.map(p => p.subject?.name).filter(Boolean)));
 
   const selectPlanForReview = (plan: any) => {
@@ -98,9 +102,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       }
     }
 
-    if (activeTab === "PENDING") {
-      return isTeacher ? p.status === "SUBMITTED" : (p.status === "SUBMITTED" || p.status === "REVIEWED");
-    }
+    if (activeTab === "PENDING") return p.status === "SUBMITTED" || p.status === "REVIEWED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
     if (activeTab === "DRAFT") return p.status === "DRAFT";
@@ -231,7 +233,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
               )}
             </button>
-            {!isTeacher && (
+            {isApprover && (
               <button 
                 onClick={() => setActiveTab('DRAFT')}
                 className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
@@ -1031,23 +1033,43 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
                     <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
                       <div className="space-y-1">
+                        <div className="mb-2 h-8 flex flex-col justify-end">
+                           <p className="text-xs font-black text-slate-800">
+                              {selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "Teacher"}
+                           </p>
+                           {selectedPlan.createdAt && (
+                             <p className="text-[9px] font-bold text-slate-400">
+                                {new Date(selectedPlan.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                             </p>
+                           )}
+                        </div>
                         <div className="w-48 border-b border-black"></div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Digital Signature</p>
                       </div>
                       <div className="space-y-1 text-center">
-                        <div className="mb-2 h-8 flex flex-col justify-end">
+                        <div className="mb-2 h-8 flex flex-col justify-end items-center">
                            <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" ? (selectedPlan.specialistProfile?.name || "Specialist") : ""}
+                              {selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" ? (selectedPlan.specialistProfile?.name || "Reviewer") : ""}
                            </p>
+                           {selectedPlan.status === "REVIEWED" && (
+                              <p className="text-[9px] font-bold text-blue-500">
+                                Validated
+                              </p>
+                           )}
                         </div>
                         <div className="w-48 border-b border-black mx-auto"></div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject Specialist</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer Signoff</p>
                       </div>
                       <div className="space-y-1 text-right">
-                        <div className="mb-2 h-8 flex flex-col justify-end">
+                        <div className="mb-2 h-8 flex flex-col justify-end items-end">
                            <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.status === "APPROVED" ? ("Principal, " + (selectedPlan.class?.institute || "WES Academy")) : ""}
+                              {selectedPlan.status === "APPROVED" ? ((selectedPlan as any).principalProfile?.name || selectedPlan.reviewerProfile?.name || selectedPlan.reviewerUser?.email?.split('@')[0] || "Principal") : ""}
                            </p>
+                           {selectedPlan.status === "APPROVED" && (
+                              <p className="text-[9px] font-bold text-emerald-500">
+                                Approved
+                              </p>
+                           )}
                         </div>
                         <div className="w-48 border-b border-black ml-auto"></div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head/Principal Signoff</p>
@@ -1081,14 +1103,29 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 <XCircle className="h-4 w-4" />
                 Reject & Send Back
               </button>
-              <button 
-                onClick={() => handleAction(isTeacher ? "REVIEWED" : "APPROVED")}
-                disabled={loading}
-                className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
-              >
-                <CheckCircle className="h-4 w-4" />
-                {isTeacher ? "Mark as Reviewed" : "Approve Plan"}
-              </button>
+              {/* Show Validate for Specialists (SUBMITTED) */}
+              {isTeacher && selectedPlan.status === "SUBMITTED" && (
+                <button 
+                  onClick={() => handleAction("REVIEWED")}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 disabled:opacity-30"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Validate
+                </button>
+              )}
+
+              {/* Show Approve for Approvers (REVIEWED) */}
+              {isApprover && selectedPlan.status === "REVIEWED" && (
+                <button 
+                  onClick={() => handleAction("APPROVED")}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Approve Plan
+                </button>
+              )}
             </div>
           </div>
         </div>

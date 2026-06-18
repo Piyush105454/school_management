@@ -10,6 +10,7 @@ import {
   X, Filter, Search, ChevronDown, AlertCircle, CheckCircle2, Play, Ban
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 const EXAM_TYPES = [
   { value: "WEEKLY_TEST",    label: "📝 Weekly Test",      color: "bg-blue-100 text-blue-700",     border: "border-blue-200" },
@@ -54,6 +55,11 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
   const [exams, setExams] = useState<any[]>(initialExams);
   const [showForm, setShowForm] = useState(false);
   const [editExam, setEditExam] = useState<any | null>(null);
+
+  const { selectedInstitute } = useInstitute();
+  const instituteClasses = React.useMemo(() => {
+    return classes.filter(c => selectedInstitute === "ALL" || !c.institute || c.institute === selectedInstitute);
+  }, [classes, selectedInstitute]);
 
   // Filters
   const [filterType, setFilterType] = useState("ALL");
@@ -402,7 +408,7 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
         <select value={filterClass} onChange={e => setFilterClass(e.target.value)}
           className="text-xs font-bold p-2 pl-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-amber-500">
           <option value="ALL">All Classes</option>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {instituteClasses.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="text-xs font-bold p-2 pl-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-amber-500">
@@ -643,7 +649,7 @@ export default function ExamManagementClient({ initialExams, classes, allSubject
                 <select value={fClassId} onChange={e => handleClassChange(e.target.value)} required
                   className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-amber-500">
                   <option value="">— Select Class —</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {instituteClasses.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 

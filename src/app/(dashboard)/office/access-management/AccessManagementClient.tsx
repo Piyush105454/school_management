@@ -190,6 +190,12 @@ const isDefaultForItem = (role: string, href: string): boolean => {
 };
 
 const isForbiddenForRoleInAccessUI = (role: string, href: string): boolean => {
+  if (role === "STUDENT_PARENT") {
+    const item = MASTER_STRUCTURE.find(i => i.href === href);
+    if (item && item.roleNames && !(item.roleNames as any).STUDENT_PARENT) {
+      return true;
+    }
+  }
   return false;
 };
 
@@ -519,10 +525,20 @@ export default function AccessManagementClient() {
               }
 
               if (isSection) {
-                // Section Visibility check
-                const isDefaultSec = isDefaultSectionForRole(activeRole, item.name);
-                const isChecked = permissions.sections[item.name] !== undefined
-                  ? permissions.sections[item.name]
+                // Section Visibility check - hide section if all its children are forbidden
+                let hasVisibleChildren = false;
+                for (let i = idx + 1; i < MASTER_STRUCTURE.length; i++) {
+                  if (MASTER_STRUCTURE[i].type === "section") break;
+                  if (!isForbiddenForRoleInAccessUI(activeRole, MASTER_STRUCTURE[i].href || "")) {
+                    hasVisibleChildren = true;
+                    break;
+                  }
+                }
+                if (!hasVisibleChildren) return null;
+
+                const isDefaultSec = isDefaultSectionForRole(activeRole, item.name || "");
+                const isChecked = permissions.sections[item.name!] !== undefined
+                  ? permissions.sections[item.name!]
                   : isDefaultSec;
 
                 return (
@@ -532,7 +548,7 @@ export default function AccessManagementClient() {
                         id={`sec-chk-${idx}`}
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => handleToggleSection(item.name)}
+                        onChange={() => handleToggleSection(item.name!)}
                         className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                       />
                       <label htmlFor={`sec-chk-${idx}`} className="text-xs font-black uppercase tracking-wider text-slate-800 cursor-pointer select-none">

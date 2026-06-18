@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import { updateLeaveStatusAction, getAllStudentLeavesForManagementAction } from "@/features/academy/actions/leaveActions";
 import { Calendar, Clock, Check, X, Filter, Image as ImageIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 interface LeaveManagementClientProps {
   classes: any[];
@@ -16,6 +17,11 @@ export default function LeaveManagementClient({ classes, initialLeaves }: LeaveM
 
   const [selectedClassId, setSelectedClassId] = useState<string>("ALL");
   const [leaves, setLeaves] = useState<any[]>(initialLeaves);
+
+  const { selectedInstitute } = useInstitute();
+  const instituteClasses = React.useMemo(() => {
+    return classes.filter(c => selectedInstitute === "ALL" || !c.institute || c.institute === selectedInstitute);
+  }, [classes, selectedInstitute]);
 
   // Quick helper to refetch/refresh client-side filtered leaves
   const handleClassFilterChange = async (classId: string) => {
@@ -62,7 +68,7 @@ export default function LeaveManagementClient({ classes, initialLeaves }: LeaveM
             className="text-xs font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer"
           >
             <option value="ALL">All Classes</option>
-            {classes.map((cls) => (
+            {instituteClasses.map((cls: any) => (
               <option key={cls.id} value={cls.id}>
                 {cls.name}
               </option>

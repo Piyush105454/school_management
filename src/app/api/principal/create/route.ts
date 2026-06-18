@@ -54,10 +54,7 @@ export async function POST(request: Request) {
     // Create teacher record for the principal
     await db.insert(teachers).values({
       userId: userId,
-      employeeId: `PR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       name: name,
-      email: email,
-      gender: "Not Specified",
       assignedRole: "PRINCIPAL",
       institute: institute,
     });

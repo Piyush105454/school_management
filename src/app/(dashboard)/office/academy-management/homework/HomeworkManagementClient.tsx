@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { formatDate } from "@/lib/utils";
 import { 
   ClipboardCheck, 
@@ -21,6 +21,7 @@ import {
   Eye
 } from "lucide-react";
 import { getSubmissionsByPlanAction, reviewHomeworkAction } from "@/features/academy/actions/homeworkActions";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 interface HomeworkPlan {
   id: string;
@@ -67,6 +68,11 @@ export default function HomeworkManagementClient({
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
+
+  const { selectedInstitute } = useInstitute();
+  const instituteClasses = useMemo(() => {
+    return classes.filter((c: any) => selectedInstitute === "ALL" || !c.institute || c.institute === selectedInstitute);
+  }, [classes, selectedInstitute]);
 
   const filteredPlans = plans.filter(plan => {
     const d = new Date(plan.date);
@@ -348,12 +354,14 @@ export default function HomeworkManagementClient({
         </select>
 
         <select 
-          value={filterClass} 
+          className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          value={filterClass}
           onChange={(e) => setFilterClass(e.target.value)}
-          className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
         >
           <option value="all">All Classes</option>
-          {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          {instituteClasses.map(c => (
+            <option key={c.id} value={c.name}>{c.name}</option>
+          ))}
         </select>
 
         <select 

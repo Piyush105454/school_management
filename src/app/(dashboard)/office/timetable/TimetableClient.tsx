@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const CLASSES_COLS = ["Nursery", "KG I", "KG II", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5"];
+const CLASSES_COLS = ["Nursery", "KG I", "KG II", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7"];
 
 const PERIOD_ROWS = [
   { name: "Period 1st",    start: "09:00", end: "09:40", isBreak: false },
@@ -271,7 +271,8 @@ export default function TimetableClient() {
     if (!editorCell) return;
     const { className, periodName, forDay } = editorCell;
     const cellKey = `${className}-${periodName}`;
-    const matchedClass = classesList.find(c => c.name.toLowerCase() === className.toLowerCase());
+    const normalizeClass = (name: string) => name.toLowerCase().replace(/^class\s+/i, "").trim();
+    const matchedClass = classesList.find(c => normalizeClass(c.name) === normalizeClass(className));
     const classId = matchedClass?.id || null;
     const value = {
       classId, subjectId: editSubjectId ? parseInt(editSubjectId) : null,
@@ -1056,11 +1057,15 @@ export default function TimetableClient() {
                   const teacherId = e.target.value;
                   setEditTeacherId(teacherId);
                   if (teacherId && editorCell) {
-                    const mc = classesList.find(c => c.name.toLowerCase() === editorCell.className.toLowerCase());
+                    const normalizeClass = (name: string) => name.toLowerCase().replace(/^class\s+/i, "").trim();
+                    const mc = classesList.find(c => normalizeClass(c.name) === normalizeClass(editorCell.className));
                     const classSubjects = subjectsList.filter(s => s.classId === mc?.id);
                     const matchedSubject = classSubjects.find(s => s.assignedTeacherId === teacherId);
                     if (matchedSubject) {
-                      setEditSubjectId(String(matchedSubject.id));
+                      const isSubjectLocked = !isMasterMode && !!gridData[`${editorCell.className}-${editorCell.periodName}`]?.subjectId;
+                      if (!isSubjectLocked) {
+                        setEditSubjectId(String(matchedSubject.id));
+                      }
                     }
                   }
                 }}
@@ -1081,10 +1086,14 @@ export default function TimetableClient() {
                     }
                   }
                 }}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500">
+                  disabled={!isMasterMode && !!editorCell && !!gridData[`${editorCell.className}-${editorCell.periodName}`]?.subjectId}
+                  className={cn("w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-pink-500", 
+                    (!isMasterMode && !!editorCell && !!gridData[`${editorCell.className}-${editorCell.periodName}`]?.subjectId) && "opacity-60 cursor-not-allowed"
+                  )}>
                   <option value="">-- Choose Subject --</option>
                   {(() => {
-                    const mc = classesList.find(c => c.name.toLowerCase() === editorCell?.className.toLowerCase());
+                    const normalizeClass = (name: string) => name.toLowerCase().replace(/^class\s+/i, "").trim();
+                    const mc = classesList.find(c => normalizeClass(c.name) === normalizeClass(editorCell?.className || ""));
                     return subjectsList.filter(s => s.classId === mc?.id).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ));

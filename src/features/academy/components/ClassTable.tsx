@@ -217,9 +217,10 @@ export default function ClassTable({ classData, isAdmin = false }: ClassTablePro
           <select
             value={selectedInstitute}
             onChange={(e) => setSelectedInstitute(e.target.value)}
+            disabled={institutes.length === 1}
             className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
           >
-            <option value="ALL">All Institutes</option>
+            {institutes.length !== 1 && <option value="ALL">All Institutes</option>}
             {institutes.map((inst) => (
               <option key={inst} value={inst}>
                 {inst}

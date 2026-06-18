@@ -104,6 +104,7 @@ const quillModules = {
 interface AcademicClass {
   id: number;
   name: string;
+  institute?: string | null;
 }
 
 interface AcademicSubject {
@@ -141,7 +142,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     status: "DRAFT",
     reviewerName: "",
     specialistName: "",
+    principalName: "",
     reviewedAt: "",
+    createdAt: "",
     deliveryDay: "Monday",
     date: new Date().toISOString().split('T')[0],
     lpNo: "",
@@ -293,7 +296,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               status: res.data.status || "DRAFT",
               reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || (res.data.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : res.data.reviewerUser?.role === 'ADMIN' ? 'Admin' : ""),
               specialistName: (res.data as any).specialistProfile?.name || "",
+              principalName: (res.data as any).principalProfile?.name || "",
               reviewedAt: res.data.updatedAt || "",
+              teacherName: res.data.teacherProfile?.name || "",
+              createdAt: res.data.createdAt || "",
             }));
             if (res.data.type) {
               setLessonPlanMode(res.data.type);
@@ -337,13 +343,18 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     return () => clearTimeout(timer);
   }, [formData, draftKey]);
 
-  // Automatically calculate Day from Date
+  // Automatically calculate Day from Date and sync Prep Date
   useEffect(() => {
     if (formData.date) {
       const dateObj = new Date(formData.date);
       if (!isNaN(dateObj.getTime())) {
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-        setFormData(prev => prev.deliveryDay !== dayName ? { ...prev, deliveryDay: dayName } : prev);
+        setFormData(prev => ({
+          ...prev,
+          deliveryDay: dayName,
+          prepDate: prev.date,
+          prepDay: dayName
+        }));
       }
     }
   }, [formData.date]);
@@ -1361,11 +1372,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   <div className="grid grid-cols-4 h-12">
                     <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Progress Status:</div>
                     <div className="col-span-3 p-3 flex items-center font-bold text-xs">
-                      <select name="progressStatus" value={formData.progressStatus} onChange={handleChange} className="bg-transparent border-none outline-none font-bold text-sm cursor-pointer">
-                        {["Not Started", "In Progress", "Completed", "Pending Review"].map(status => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
-                      </select>
+                      {formData.status === "DRAFT" ? "Draft" : 
+                       formData.status === "SUBMITTED" ? "Pending Review" : 
+                       formData.status === "REVIEWED" ? "Reviewed" : 
+                       formData.status === "APPROVED" ? "Approved" : 
+                       formData.status === "REJECTED" ? "Rejected" : formData.status}
                     </div>
                   </div>
                   <div className="grid grid-cols-4 h-12">
@@ -1612,31 +1623,43 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 />
                 <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
                   <div className="space-y-1">
+                    <div className="mb-2 h-8 flex flex-col justify-end">
+                      <p className="text-xs font-black text-slate-800">
+                        {formData.teacherName || "Teacher"}
+                      </p>
+                      {formData.createdAt && (
+                        <p className="text-[9px] font-bold text-slate-400">
+                          {new Date(formData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
                     <div className="w-48 border-b border-black"></div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Digital Signature</p>
                   </div>
                   <div className="space-y-1 text-center">
-                    <div className="mb-2 h-8 flex flex-col justify-end">
+                    <div className="mb-2 h-8 flex flex-col justify-end items-center">
                       <p className="text-xs font-black text-slate-800">
-                        {formData.status === "REVIEWED" || formData.status === "APPROVED" ? formData.specialistName || "Specialist" : ""}
+                        {formData.status === "REVIEWED" || formData.status === "APPROVED" ? (formData.specialistName || "Reviewer") : ""}
                       </p>
-                      {formData.reviewedAt && (formData.status === "REVIEWED" || formData.status === "APPROVED") && (
-                        <p className="text-[9px] font-bold text-slate-400">
-                          {new Date(formData.reviewedAt).toLocaleString('en-US', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                          })}
+                      {formData.status === "REVIEWED" && (
+                        <p className="text-[9px] font-bold text-blue-500">
+                          Validated
                         </p>
                       )}
                     </div>
                     <div className="w-48 border-b border-black mx-auto"></div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject Specialist</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer Signoff</p>
                   </div>
                   <div className="space-y-1 text-right">
-                    <div className="mb-2 h-8 flex flex-col justify-end">
+                    <div className="mb-2 h-8 flex flex-col justify-end items-end">
                       <p className="text-xs font-black text-slate-800">
-                        {formData.status === "APPROVED" ? ("Principal, " + (uniqueClasses.find(c => c.name === formData.className)?.institute || "WES Academy")) : ""}
+                        {formData.status === "APPROVED" ? (formData.principalName || formData.reviewerName || "Principal") : ""}
                       </p>
+                      {formData.status === "APPROVED" && (
+                        <p className="text-[9px] font-bold text-emerald-500">
+                          Approved
+                        </p>
+                      )}
                     </div>
                     <div className="w-48 border-b border-black ml-auto"></div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head/Principal Signoff</p>

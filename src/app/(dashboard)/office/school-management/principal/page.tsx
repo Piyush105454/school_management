@@ -50,7 +50,11 @@ export default function PrincipalManagementPage() {
       const response = await fetch("/api/principal/list");
       if (!response.ok) throw new Error("Failed to fetch principals");
       const data = await response.json();
-      setPrincipals(data);
+      if (session?.user?.institute) {
+        setPrincipals(data.filter((p: any) => p.institute === session.user.institute));
+      } else {
+        setPrincipals(data);
+      }
     } catch (error) {
       console.error("Error fetching principals:", error);
       setErrorMessage("Failed to fetch principal accounts.");
@@ -404,11 +408,18 @@ export default function PrincipalManagementPage() {
                   <select
                     value={newPrincipalInstitute}
                     onChange={(e) => setNewPrincipalInstitute(e.target.value)}
+                    disabled={!!session?.user?.institute}
                     className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold transition-all bg-slate-50/50"
                   >
-                    <option value="WES Academy">WES Academy</option>
-                    <option value="Dhanpuri Public School">Dhanpuri Public School</option>
-                    <option value="Jaitpur Public School">Jaitpur Public School</option>
+                    {(!session?.user?.institute || session?.user?.institute === "WES Academy") && (
+                      <option value="WES Academy">WES Academy</option>
+                    )}
+                    {(!session?.user?.institute || session?.user?.institute === "Dhanpuri Public School") && (
+                      <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                    )}
+                    {(!session?.user?.institute || session?.user?.institute === "Jaitpur Public School") && (
+                      <option value="Jaitpur Public School">Jaitpur Public School</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -540,11 +551,18 @@ export default function PrincipalManagementPage() {
                 <select
                   value={editPrincipalInstitute}
                   onChange={(e) => setEditPrincipalInstitute(e.target.value)}
+                  disabled={!!session?.user?.institute}
                   className="w-full px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-sm font-bold transition-all bg-slate-50/50"
                 >
-                  <option value="WES Academy">WES Academy</option>
-                  <option value="Dhanpuri Public School">Dhanpuri Public School</option>
-                  <option value="Jaitpur Public School">Jaitpur Public School</option>
+                  {(!session?.user?.institute || session?.user?.institute === "WES Academy") && (
+                    <option value="WES Academy">WES Academy</option>
+                  )}
+                  {(!session?.user?.institute || session?.user?.institute === "Dhanpuri Public School") && (
+                    <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                  )}
+                  {(!session?.user?.institute || session?.user?.institute === "Jaitpur Public School") && (
+                    <option value="Jaitpur Public School">Jaitpur Public School</option>
+                  )}
                 </select>
               </div>
             </div>

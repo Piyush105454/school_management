@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/db";
-import { users, inquiries } from "@/db/schema";
+import { users, inquiries, teachers } from "@/db/schema";
 import { eq, or, sql, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -55,12 +55,21 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         console.log("PASSWORD_VALID:", isValid);
 
-        if (!isValid) return null;
+        let institute = undefined;
+        if (user.role === "TEACHER" || user.role === "PRINCIPAL") {
+          const teacherRecord = await db.query.teachers.findFirst({
+            where: eq(teachers.userId, user.id)
+          });
+          if (teacherRecord && teacherRecord.institute) {
+            institute = teacherRecord.institute;
+          }
+        }
 
         return {
           id: user.id,
           email: user.email,
           role: user.role,
+          institute: institute,
         };
       }
     })
@@ -70,6 +79,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.institute = (user as any).institute;
       }
       return token;
     },
@@ -79,6 +89,7 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id as string,
           role: token.role as string,
+          institute: token.institute as string | undefined,
         };
       }
       return session;

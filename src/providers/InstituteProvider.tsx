@@ -2,11 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 interface InstituteContextType {
   selectedInstitute: string;
   setSelectedInstitute: (institute: string) => void;
   institutes: string[];
+  dbClasses: string[];
   loading: boolean;
 }
 
@@ -15,11 +17,14 @@ const InstituteContext = createContext<InstituteContextType | undefined>(undefin
 export function InstituteProvider({ children }: { children: ReactNode }) {
   const [selectedInstitute, setSelectedInstituteState] = useState<string>("ALL");
   const [institutes, setInstitutes] = useState<string[]>([]);
+  const [dbClasses, setDbClasses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const userInstitute = session?.user?.institute;
 
   // Tracks whether initial mount setup is done so the URL sync effect
   // doesn't fire too early (before localStorage has been read).
@@ -35,7 +40,9 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
     const urlInstitute = searchParams.get("institute");
     const saved = localStorage.getItem("selectedInstitute");
 
-    if (urlInstitute) {
+    if (userInstitute) {
+      setSelectedInstituteState(userInstitute);
+    } else if (urlInstitute) {
       // URL has an explicit selection – use it as source of truth
       setSelectedInstituteState(urlInstitute);
       localStorage.setItem("selectedInstitute", urlInstitute);
@@ -49,7 +56,11 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
     fetch("/api/institutes")
       .then((res) => res.json())
       .then((data: string[]) => {
-        setInstitutes(data);
+        if (userInstitute) {
+          setInstitutes([userInstitute]);
+        } else {
+          setInstitutes(data);
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -57,7 +68,7 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount only
+  }, [userInstitute]); // mount and userInstitute change
 
   // Effect 2 – runs when the URL's search params change (e.g. after navigation).
   // We READ from the URL; we NEVER push state back to the URL automatically.
@@ -65,6 +76,10 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
   // overridden by an auto-redirect that re-added ?institute=DPS.
   useEffect(() => {
     if (!initialized.current) return; // skip the very first render
+    if (userInstitute) {
+      if (selectedInstitute !== userInstitute) setSelectedInstituteState(userInstitute);
+      return;
+    }
 
     const urlInstitute = searchParams.get("institute");
 
@@ -83,7 +98,25 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); // only re-run when URL params change
+  }, [searchParams, userInstitute]); // only re-run when URL params change
+
+  // Effect 3 - Fetch classes when selectedInstitute changes
+  useEffect(() => {
+    if (!initialized.current) return;
+    
+    fetch(`/api/classes?institute=${selectedInstitute}`)
+      .then((res) => res.json())
+      .then((data: any[]) => {
+        if (Array.isArray(data)) {
+          // Extract unique class names
+          const uniqueClasses = Array.from(new Set(data.map((c) => c.name)));
+          setDbClasses(uniqueClasses);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch classes for provider:", err);
+      });
+  }, [selectedInstitute]);
 
   // Called when the user explicitly picks an institute from the dropdown
   const setSelectedInstitute = (institute: string) => {
@@ -105,7 +138,7 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <InstituteContext.Provider value={{ selectedInstitute, setSelectedInstitute, institutes, loading }}>
+    <InstituteContext.Provider value={{ selectedInstitute, setSelectedInstitute, institutes, dbClasses, loading }}>
       {children}
     </InstituteContext.Provider>
   );
