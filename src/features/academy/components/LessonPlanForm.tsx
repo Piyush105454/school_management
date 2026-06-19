@@ -140,6 +140,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   const [drawingTarget, setDrawingTarget] = useState<"teacherNote" | "homework" | null>(null);
   const [editingDrawingId, setEditingDrawingId] = useState<string | null>(null);
   const [drawingInitialData, setDrawingInitialData] = useState<any[] | undefined>(undefined);
+  
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [draftRestorationChecked, setDraftRestorationChecked] = useState(false);
 
   const [unitsWithChapters, setUnitsWithChapters] = useState<any[]>([]);
   const [isLoadingCurriculum, setIsLoadingCurriculum] = useState(false);
@@ -147,6 +150,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
+    id: undefined as string | undefined,
     // Common Meta
     status: "DRAFT",
     reviewerName: "",
@@ -319,6 +323,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               ...prev,
               ...step1,
               ...step2,
+              id: res.data.id,
               className: res.data.class?.name || prev.className,
               subject: res.data.subject?.name || prev.subject,
               date: res.data.date || prev.date,
@@ -341,23 +346,36 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
             console.error("Failed to parse edit plan data", e);
           }
         }
+      }).finally(() => {
+        setIsDataLoaded(true);
       });
+    } else {
+      setIsDataLoaded(true);
     }
   }, [searchParams]);
 
   // Handle Draft Restoration & Auto-save
-  const draftKey = formData.className && formData.subject 
-    ? `lessonPlanDraft_${formData.className}_${formData.subject}` 
-    : null;
+  const editId = searchParams.get("edit");
+  const divisionId = searchParams.get("divisionId");
+  const draftKey = editId 
+    ? `lessonPlanDraft_edit_${editId}` 
+    : (divisionId 
+        ? `lessonPlanDraft_new_div_${divisionId}` 
+        : (formData.className && formData.subject 
+            ? `lessonPlanDraft_new_${formData.className}_${formData.subject}` 
+            : null));
 
   useEffect(() => {
-    if (!draftKey) return;
+    if (!isDataLoaded || !draftKey || draftRestorationChecked) return;
+
     const savedDraft = localStorage.getItem(draftKey);
     if (savedDraft) {
-      if (confirm("We found an unsaved draft for this Class and Subject. Do you want to restore it?")) {
+      const message = editId 
+        ? "We found an unsaved draft for this lesson plan. Do you want to restore it?"
+        : "We found an unsaved draft for this new lesson plan. Do you want to restore it?";
+      if (confirm(message)) {
         try {
           const parsed = JSON.parse(savedDraft);
-          // Only restore if we haven't already restored this session
           setFormData(parsed);
         } catch (e) {
           console.error("Failed to parse draft", e);
@@ -366,15 +384,17 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         localStorage.removeItem(draftKey);
       }
     }
-  }, [draftKey]);
+    setDraftRestorationChecked(true);
+  }, [isDataLoaded, draftKey, draftRestorationChecked, editId]);
 
   useEffect(() => {
-    if (!draftKey) return;
+    if (!isDataLoaded || !draftRestorationChecked || !draftKey) return;
+
     const timer = setTimeout(() => {
       localStorage.setItem(draftKey, JSON.stringify(formData));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [formData, draftKey]);
+  }, [formData, draftKey, isDataLoaded, draftRestorationChecked]);
 
   // Automatically calculate Day from Date and sync Prep Date
   useEffect(() => {
@@ -776,6 +796,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       const targetStatus = forceStatus || (submitForValidation ? "SUBMITTED" : (formData.id ? formData.status : "DRAFT"));
 
       const res = await (saveLessonPlan as any)({
+        id: formData.id,
         teacherId,
         classId: classObj?.id,
         subjectId: subjectObj?.id,

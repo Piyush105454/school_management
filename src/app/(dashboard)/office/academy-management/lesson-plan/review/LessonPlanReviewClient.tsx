@@ -1002,49 +1002,83 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     <Save className="h-6 w-6 opacity-20" />
                   </div>
 
-                  {/* Observation Section */}
-                  <div className="p-8 border-b border-slate-100">
+                  {/* 1. Reviewer & Principal Feedback Section (3A) */}
+                  <div className="p-8 border-b border-slate-100 bg-slate-50/30">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3A</div>
-                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Teacher Observation</h4>
+                      <div className="h-8 w-8 bg-slate-800 text-white rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3A</div>
+                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer & Principal Feedback</h4>
                     </div>
-                    <div className="w-full min-h-[160px] p-6 bg-slate-50 border border-slate-100 rounded-2xl font-medium text-sm whitespace-pre-wrap text-slate-800 select-text">
-                      {step2.teacherObservation || "No observations recorded."}
+                    
+                    <div className="space-y-6">
+                      {/* Specialist Remark */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Specialist / Reviewer Feedback</label>
+                        <textarea 
+                          value={selectedPlan.reviewerRemark || ""} 
+                          className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500" 
+                          placeholder="No specialist feedback provided yet."
+                          readOnly
+                        />
+                      </div>
+
+                      {/* Principal Remark */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Principal / Approver Feedback</label>
+                        <textarea 
+                          value={selectedPlan.principalRemark || ""} 
+                          className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500" 
+                          placeholder="No principal feedback provided yet."
+                          readOnly
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Student Performance Section */}
+                  {/* 2. Observation Section (3B) */}
+                  <div className="p-8 border-b border-slate-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3B</div>
+                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Teacher Observation</h4>
+                    </div>
+                    <textarea 
+                      value={step2.teacherObservation || ""} 
+                      className="w-full h-40 p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none text-slate-500" 
+                      placeholder="Write observations here..." 
+                      readOnly
+                    />
+                  </div>
+
+                  {/* 3. Student Performance Section */}
                   <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row gap-8">
                     <div className="flex-1 space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="h-6 w-6 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-black text-[10px] uppercase shadow-sm">Good</div>
                         <h4 className="font-black text-slate-600 text-xs uppercase tracking-widest">Student Performance (Positive)</h4>
                       </div>
-                      <div className="w-full min-h-[128px] p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl font-medium text-sm whitespace-pre-wrap text-slate-800 select-text">
-                        {step2.studentPerformanceGood || "No positive highlights recorded."}
-                      </div>
+                      <textarea 
+                        value={step2.studentPerformanceGood || ""} 
+                        className="w-full h-32 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500" 
+                        placeholder="Note positive highlights..." 
+                        readOnly
+                      />
                     </div>
                     <div className="flex-1 space-y-4 border-l border-slate-100 md:pl-8">
                       <div className="flex items-center gap-3">
                         <div className="h-6 w-6 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center font-black text-[10px] uppercase shadow-sm">Bad</div>
                         <h4 className="font-black text-slate-600 text-xs uppercase tracking-widest">Student Performance (Concerns)</h4>
                       </div>
-                      <div className="w-full min-h-[128px] p-4 bg-rose-50/30 border border-rose-100 rounded-xl font-medium text-sm whitespace-pre-wrap text-slate-800 select-text">
-                        {step2.studentPerformanceBad || "No areas for improvement recorded."}
-                      </div>
+                      <textarea 
+                        value={step2.studentPerformanceBad || ""} 
+                        className="w-full h-32 p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500" 
+                        placeholder="Note areas for improvement..." 
+                        readOnly
+                      />
                     </div>
                   </div>
 
-                  {/* Reviewer Section */}
+                  {/* 4. Signatures Section */}
                   <div className="p-8 bg-slate-50/30">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-8 w-8 bg-slate-800 text-white rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3B</div>
-                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer Remark and Signoff</h4>
-                    </div>
-                    <div className="w-full min-h-[128px] p-6 bg-white border border-slate-200 rounded-2xl font-bold text-sm whitespace-pre-wrap text-slate-800 select-text shadow-sm">
-                      {selectedPlan.reviewerRemark || "No reviewer remarks recorded yet."}
-                    </div>
-                    <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
+                    <div className="mt-8 pt-8 flex justify-between items-end">
                       <div className="space-y-1">
                         <div className="mb-2 h-8 flex flex-col justify-end">
                            <p className="text-xs font-black text-slate-800">

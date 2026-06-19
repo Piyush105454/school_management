@@ -6,18 +6,37 @@ import { eq, and, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function saveLessonPlan(data: {
+  id?: string;
   teacherId?: string;
   classId?: number;
   subjectId?: number;
   date: string;
   type: string;
+  status?: string;
+  chapterDivisionId?: number;
   step1Data: any;
   step2Data: any;
 }) {
   try {
+    // If id is provided, perform a direct update on that specific lesson plan
+    if (data.id) {
+      await db.update(lessonPlans)
+        .set({
+          date: data.date,
+          classId: data.classId,
+          subjectId: data.subjectId,
+          type: data.type,
+          status: data.status,
+          chapterDivisionId: data.chapterDivisionId,
+          step1Data: JSON.stringify(data.step1Data),
+          step2Data: JSON.stringify(data.step2Data),
+          updatedAt: new Date()
+        })
+        .where(eq(lessonPlans.id, data.id));
+      return { success: true, id: data.id, action: "updated" };
+    }
+
     // Check if a plan already exists for this teacher, class, subject, and date
-    // (Simplification: for now, we just insert or update based on date/subject if provided)
-    
     const existing = await db.query.lessonPlans.findFirst({
         where: and(
             eq(lessonPlans.date, data.date),
@@ -32,7 +51,7 @@ export async function saveLessonPlan(data: {
                 step1Data: JSON.stringify(data.step1Data),
                 step2Data: JSON.stringify(data.step2Data),
                 type: data.type,
-                status: (data as any).status || existing.status,
+                status: data.status || existing.status,
                 updatedAt: new Date()
             })
             .where(eq(lessonPlans.id, existing.id));
@@ -47,7 +66,7 @@ export async function saveLessonPlan(data: {
             chapterDivisionId: data.chapterDivisionId,
             step1Data: JSON.stringify(data.step1Data),
             step2Data: JSON.stringify(data.step2Data),
-            status: (data as any).status || "DRAFT"
+            status: data.status || "DRAFT"
         }).returning({ id: lessonPlans.id });
         
         return { success: true, id: result[0].id, action: "created" };
