@@ -2,8 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/db";
-import { classes, subjects } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { classes, subjects, teachers, timetable } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import SubjectManagement from "@/features/academy/components/SubjectManagement";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -52,13 +52,55 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
   }
 
   // Fetch subjects for this class with assigned teacher
-  const classSubjects = await db.query.subjects.findMany({
+  let classSubjects = await db.query.subjects.findMany({
     where: eq(subjects.classId, classRecord.id),
     with: {
       assignedTeacher: true,
     },
     orderBy: (subjects, { asc }) => [asc(subjects.name)],
   });
+
+  if (session?.user?.role === "TEACHER") {
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: eq(teachers.userId, session.user.id)
+    });
+    
+    if (teacherProfile) {
+      // Primary: show only subjects where this teacher is the assigned teacher
+      classSubjects = classSubjects.filter(s => s.assignedTeacherId === teacherProfile.id);
+
+      // Secondary: if none found via direct assignment, check timetable entries for this class
+      if (classSubjects.length === 0) {
+        const normalizeName = (name: string) => {
+          if (!name) return "";
+          const n = name.trim();
+          if (/^kg\s*ii$/i.test(n)) return "kg2";
+          if (/^kg\s*i$/i.test(n)) return "kg1";
+          return n.toLowerCase().replace(/^class\s+/i, "").trim();
+        };
+
+        const teacherTimetable = await db.query.timetable.findMany({
+          where: eq(timetable.teacherId, teacherProfile.id),
+          columns: { subjectId: true, classId: true, className: true }
+        });
+
+        const classNorm = normalizeName(classRecord.name);
+        const relevantRows = teacherTimetable.filter(t =>
+          t.classId === classRecord.id ||
+          (t.className && normalizeName(t.className) === classNorm)
+        );
+        const timetableSubjectIds = new Set(relevantRows.map(t => t.subjectId).filter(Boolean));
+
+        const allSubjects = await db.query.subjects.findMany({
+          where: eq(subjects.classId, classRecord.id),
+          with: { assignedTeacher: true }
+        });
+        classSubjects = allSubjects.filter(s => timetableSubjectIds.has(s.id));
+      }
+    } else {
+      classSubjects = [];
+    }
+  }
 
   return (
     <div className="p-6 md:p-10 space-y-8 animate-in fade-in duration-300">

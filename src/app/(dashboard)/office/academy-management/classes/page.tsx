@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { inquiries, studentProfiles, admissionMeta, teachers, classes, students } from "@/db/schema";
+import { inquiries, studentProfiles, admissionMeta, teachers, classes, students, timetable } from "@/db/schema";
 import { count, eq } from "drizzle-orm";
 import { Users, Presentation, BookOpen } from "lucide-react";
 import GlobalExcelImportModal from "@/features/academy/components/GlobalExcelImportModal";
@@ -48,15 +48,44 @@ export default async function ClassManagementPage({
     });
     
     if (teacherProfile) {
-      const assigned = teacherProfile.classAssigned 
-        ? teacherProfile.classAssigned.split(",").map(c => c.trim().toLowerCase()) 
-        : [];
+      const normalizeName = (name: string) => {
+        if (!name) return "";
+        const n = name.trim();
+        if (/^kg\s*ii$/i.test(n)) return "kg2";
+        if (/^kg\s*i$/i.test(n)) return "kg1";
+        return n.toLowerCase().replace(/^class\s+/i, "").trim();
+      };
+
+      const assignedClassIds = new Set<number>();
+      const assignedClassNames = new Set<string>();
+
+      // Source 1: Subjects where this teacher is the assigned teacher
+      const { subjects: subjectsTable } = await import("@/db/schema");
+      const assignedSubjects = await db.query.subjects.findMany({
+        where: eq(subjectsTable.assignedTeacherId, teacherProfile.id),
+        columns: { classId: true }
+      });
+      for (const s of assignedSubjects) {
+        if (s.classId) assignedClassIds.add(s.classId);
+      }
+
+      // Source 2: Timetable rows for this teacher
+      const teacherTimetable = await db.query.timetable.findMany({
+        where: eq(timetable.teacherId, teacherProfile.id),
+        columns: { classId: true, className: true }
+      });
+      for (const t of teacherTimetable) {
+        if (t.classId) assignedClassIds.add(t.classId);
+        if (t.className) assignedClassNames.add(normalizeName(t.className));
+      }
+
       const teacherInstitute = teacherProfile.institute;
 
       classData = classData.filter(c => {
-        const nameMatch = assigned.includes(c.name.toLowerCase()) || assigned.includes(c.name.replace(/^Class\s+/i, '').toLowerCase());
+        const matchId = assignedClassIds.has(c.id);
+        const matchName = assignedClassNames.has(normalizeName(c.name));
         const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
-        return nameMatch && instituteMatch;
+        return (matchId || matchName) && instituteMatch;
       });
     } else {
       classData = [];

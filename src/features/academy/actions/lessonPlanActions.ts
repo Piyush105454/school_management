@@ -44,6 +44,7 @@ export async function saveLessonPlan(data: {
             subjectId: data.subjectId,
             date: data.date,
             type: data.type,
+            chapterDivisionId: data.chapterDivisionId,
             step1Data: JSON.stringify(data.step1Data),
             step2Data: JSON.stringify(data.step2Data),
             status: (data as any).status || "DRAFT"
@@ -63,6 +64,10 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
   try {
     const plans = await db.query.lessonPlans.findMany({
       where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined, // Only filter drafts out for teachers
+      columns: {
+        step1Data: false,
+        step2Data: false,
+      },
       with: {
         class: true,
         subject: true,
@@ -120,12 +125,12 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
   }
 }
 
-export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'REVIEWED', remark: string, reviewerId: string) {
+export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'REVIEWED' | 'COMPLETED', remark: string, reviewerId: string, isPrincipal: boolean = false) {
   try {
     await db.update(lessonPlans)
       .set({
         status,
-        reviewerRemark: remark,
+        ...(isPrincipal ? { principalRemark: remark } : { reviewerRemark: remark }),
         reviewerId,
         updatedAt: new Date()
       })
@@ -237,6 +242,10 @@ export async function getMyLessonPlans(teacherId: string) {
   try {
     const plans = await db.query.lessonPlans.findMany({
       where: eq(lessonPlans.teacherId, teacherId),
+      columns: {
+        step1Data: false,
+        step2Data: false,
+      },
       with: {
         class: true,
         subject: true,
@@ -265,5 +274,23 @@ export async function getMyLessonPlans(teacherId: string) {
   } catch (error: any) {
     console.error("getMyLessonPlans error:", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function getLessonPlansByChapterDivisionIds(divisionIds: number[]) {
+  if (divisionIds.length === 0) return [];
+  try {
+    const plans = await db.query.lessonPlans.findMany({
+      where: inArray(lessonPlans.chapterDivisionId, divisionIds),
+      columns: {
+        id: true,
+        chapterDivisionId: true,
+        status: true,
+      }
+    });
+    return plans;
+  } catch (error) {
+    console.error('getLessonPlansByChapterDivisionIds error:', error);
+    return [];
   }
 }

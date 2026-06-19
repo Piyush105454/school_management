@@ -117,6 +117,15 @@ interface LessonPlanFormProps {
   classes: AcademicClass[];
   subjects: AcademicSubject[];
   teacherId?: string;
+  studentPerformanceBad?: string;
+  reviewerRemark?: string;
+  principalRemark?: string;
+  status?: string;
+  reviewerName?: string;
+  specialistName?: string;
+  principalName?: string;
+  reviewedAt?: string;
+  chapterDivisionId?: number;
 }
 
 export default function LessonPlanForm({ classes, subjects, teacherId }: LessonPlanFormProps) {
@@ -253,18 +262,42 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   useEffect(() => {
     const className = searchParams.get("class");
     const subject = searchParams.get("subject");
-    const unitChapter = searchParams.get("unitChapter");
+    const unitName = searchParams.get("unitName");
+    const chapterName = searchParams.get("chapterName");
+    const unitChapter = searchParams.get("unitChapter"); // Legacy compatibility
     const pages = searchParams.get("pages");
     const chapterId = searchParams.get("chapterId");
     const type = searchParams.get("type"); // Optional: for Add Homework mode
+    const divisionId = searchParams.get("divisionId");
+    const divisionNo = searchParams.get("divisionNo");
 
-    if (className || subject || unitChapter || pages || chapterId) {
-      setFormData(prev => ({
-        ...prev,
-        className: className || prev.className,
-        subject: subject || prev.subject,
-        unitChapterPage: unitChapter && pages ? `${unitChapter}, Pg ${pages}` : (unitChapter || pages || prev.unitChapterPage),
-      }));
+    if (className || subject || unitName || chapterName || unitChapter || pages || chapterId || divisionId) {
+      setFormData(prev => {
+        let exactUnitChapterPage = prev.unitChapterPage;
+        
+        // If we have unitName and chapterName, build the exact format needed for the select
+        if (unitName && chapterName && pages) {
+          exactUnitChapterPage = unitName === "NA" || unitName === ""
+            ? `${chapterName}, Pg ${pages}`
+            : `${unitName}, ${chapterName}, Pg ${pages}`;
+        } else if (unitChapter && pages) {
+          exactUnitChapterPage = `${unitChapter}, Pg ${pages}`;
+        }
+
+        // Include (Div X) only if it's a custom input or if we handle it elsewhere
+        // Wait, since we are showing this exact value in the input when divisionId is present, we CAN include (Div X)
+        if (divisionId && exactUnitChapterPage) {
+           exactUnitChapterPage = `${exactUnitChapterPage} (Div ${divisionNo || ''})`;
+        }
+
+        return {
+          ...prev,
+          className: className || prev.className,
+          subject: subject || prev.subject,
+          unitChapterPage: exactUnitChapterPage,
+          chapterDivisionId: divisionId ? parseInt(divisionId, 10) : prev.chapterDivisionId,
+        };
+      });
 
       if (chapterId) {
         setSelectedChapterId(parseInt(chapterId, 10));
@@ -421,6 +454,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   // Automatically fetch existing lesson plan if it exists for the given Date, Class, and Subject
   useEffect(() => {
     async function fetchExistingPlan() {
+      // If we are currently editing an existing plan, skip auto-fetching to prevent overwrite prompts
+      if (searchParams.get("edit")) return;
+
       if (!formData.className || !formData.subject || !formData.date) return;
       const classObj = uniqueClasses.find(c => c.name === formData.className);
       if (!classObj) return;
@@ -708,14 +744,28 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     }
   };
 
-  const handleSave = async (submitForValidation = false) => {
+  const handleSave = async (submitForValidation = false, forceStatus?: string) => {
     if (!formData.className || !formData.subject) {
       alert("Please select Class and Subject first.");
       return;
     }
     
-    if (submitForValidation && !confirm("Are you sure you want to submit this lesson plan for validation? You won't be able to edit it until it's reviewed.")) {
-      return;
+    if (submitForValidation) {
+      const missingFields = [];
+      if (!formData.teacherNote) missingFields.push("Teacher Note");
+      if (!formData.homework) missingFields.push("Homework");
+      if (!formData.unitChapterPage) missingFields.push("Unit/Chapter");
+      if (!formData.learningIndicators) missingFields.push("Learning Indicators");
+      if (!formData.lessonIntroObjective) missingFields.push("Lesson Intro/Objective");
+      
+      if (missingFields.length > 0) {
+        alert("Please fill all required fields in Step 1 and 2 before submitting for validation. Missing: " + missingFields.join(", "));
+        return;
+      }
+
+      if (!confirm("Are you sure you want to submit this lesson plan for validation? You won't be able to edit it until it's reviewed.")) {
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -723,13 +773,16 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       const classObj = uniqueClasses.find(c => c.name === formData.className);
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
 
+      const targetStatus = forceStatus || (submitForValidation ? "SUBMITTED" : (formData.id ? formData.status : "DRAFT"));
+
       const res = await (saveLessonPlan as any)({
         teacherId,
         classId: classObj?.id,
         subjectId: subjectObj?.id,
         date: formData.date,
         type: lessonPlanMode,
-        status: submitForValidation ? "SUBMITTED" : "DRAFT",
+        status: targetStatus,
+        chapterDivisionId: formData.chapterDivisionId,
         step1Data: {
           teacherNote: formData.teacherNote,
           homework: formData.homework
@@ -756,6 +809,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           studentPerformanceGood: formData.studentPerformanceGood,
           studentPerformanceBad: formData.studentPerformanceBad,
           reviewerRemark: formData.reviewerRemark,
+          principalRemark: formData.principalRemark,
         }
       });
 
@@ -764,11 +818,14 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         
         router.refresh();
         
-        if (submitForValidation) {
+        if (forceStatus === "COMPLETED") {
+          alert("Lesson Plan Signed Off and Completed successfully!");
+          router.push("/office/academy-management/my-lesson-plans");
+        } else if (submitForValidation) {
           alert("Lesson Plan submitted for validation successfully!");
           router.push("/office/academy-management/my-lesson-plans");
         } else {
-          alert("Lesson Plan saved as Draft!");
+          alert("Lesson Plan saved successfully!");
           router.push("/office/academy-management/my-lesson-plans");
         }
       } else {
@@ -814,7 +871,19 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           1. Teacher Preparation
         </button>
         <button
-          onClick={() => setActiveStep(2)}
+          onClick={() => {
+            // Validate Step 1 required fields before proceeding
+            const missingFields: string[] = [];
+            const stripHtml = (html: string) => html?.replace(/<[^>]*>/g, "").trim();
+            if (!formData.className || !formData.subject) missingFields.push("Class & Subject");
+            if (!stripHtml(formData.teacherNote)) missingFields.push("Teacher's Note (1A)");
+            if (!stripHtml(formData.homework)) missingFields.push("Today's Homework (1B)");
+            if (missingFields.length > 0) {
+              alert(`Please fill all required fields in Step 1 before proceeding:\n\n• ${missingFields.join("\n• ")}`);
+              return;
+            }
+            setActiveStep(2);
+          }}
           className={`px-6 py-2 rounded-lg font-bold text-xs transition-all ${activeStep === 2
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
@@ -857,7 +926,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     setFormData(prev => ({ ...prev, className: cName, subject: sName }));
                   }
                 }}
-                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1"
+                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!!formData.chapterDivisionId || !!formData.id}
               >
                 <option value="">Select</option>
                 {subjects.map(s => {
@@ -1102,67 +1172,79 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
                 </div>
 
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
-                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300">
-                    <select 
-                      name="unitChapterPage" 
-                      value={formData.unitChapterPage} 
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        handleChange(e);
-                        
-                        // Find the chapter and fetch its divisions
-                        if (selectedValue && selectedValue !== "custom") {
-                          let foundChapter: any = null;
+                <div className="grid grid-cols-12 border-b border-slate-300 min-h-14">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500 shrink-0">Unit/Chapter:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
+                    {!!formData.chapterDivisionId ? (
+                      <input 
+                        type="text"
+                        name="unitChapterPage" 
+                        value={formData.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '')} 
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <select 
+                        name="unitChapterPage" 
+                        value={formData.unitChapterPage} 
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!!formData.id}
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          handleChange(e);
                           
-                          for (const unit of unitsWithChapters) {
-                            const chapter = unit.chapters?.find((ch: any) => {
-                              const value = unit.name === "NA" 
-                                ? `${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`
-                                : `${unit.name}, ${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`;
-                              return value === selectedValue;
-                            });
-                            if (chapter) {
-                              foundChapter = chapter;
-                              break;
-                            }
-                          }
-                          
-                          if (foundChapter) {
-                            setSelectedChapterId(foundChapter.id);
-                            getChapterDivisionsForLesson(foundChapter.id).then(res => {
-                              if (res.success) {
-                                setChapterDivisions(res.divisions || []);
+                          // Find the chapter and fetch its divisions
+                          if (selectedValue && selectedValue !== "custom") {
+                            let foundChapter: any = null;
+                            
+                            for (const unit of unitsWithChapters) {
+                              const chapter = unit.chapters?.find((ch: any) => {
+                                const value = unit.name === "NA" 
+                                  ? `${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`
+                                  : `${unit.name}, ${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`;
+                                return value === selectedValue;
+                              });
+                              if (chapter) {
+                                foundChapter = chapter;
+                                break;
                               }
-                            });
+                            }
+                            
+                            if (foundChapter) {
+                              setSelectedChapterId(foundChapter.id);
+                              getChapterDivisionsForLesson(foundChapter.id).then(res => {
+                                if (res.success) {
+                                  setChapterDivisions(res.divisions || []);
+                                }
+                              });
+                            }
+                          } else {
+                            setChapterDivisions([]);
+                            setSelectedChapterId(null);
                           }
-                        } else {
-                          setChapterDivisions([]);
-                          setSelectedChapterId(null);
-                        }
-                      }}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm appearance-none cursor-pointer"
-                      disabled={isLoadingCurriculum || !formData.subject}
-                    >
-                      <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
-                      {unitsWithChapters.map(unit => (
-                        <optgroup key={unit.id} label={unit.name === "NA" ? "Direct Chapters" : unit.name}>
-                          {unit.chapters?.map((chapter: any) => {
-                            const value = unit.name === "NA" 
-                              ? `${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`
-                              : `${unit.name}, ${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`;
-                            return (
-                              <option key={chapter.id} value={value}>
-                                {chapter.chapterNo}. {chapter.name} (Pg {chapter.pageStart}-{chapter.pageEnd})
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      ))}
-                      <option value="custom">-- Custom Entry --</option>
-                    </select>
-                    {formData.unitChapterPage === "custom" && (
+                        }}
+                        className="w-full bg-transparent border-none outline-none font-bold text-[13px] appearance-none cursor-pointer"
+                      >
+                        <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
+                        {unitsWithChapters.map(unit => (
+                          <optgroup key={unit.id} label={unit.name === "NA" ? "Direct Chapters" : unit.name}>
+                            {unit.chapters?.map((chapter: any) => {
+                              const value = unit.name === "NA" 
+                                ? `${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`
+                                : `${unit.name}, ${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`;
+                              return (
+                                <option key={chapter.id} value={value}>
+                                  {chapter.chapterNo}. {chapter.name} (Pg {chapter.pageStart}-{chapter.pageEnd})
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        ))}
+                        <option value="custom">-- Custom Entry --</option>
+                      </select>
+                    )}
+                    {formData.unitChapterPage === "custom" && !formData.chapterDivisionId && (
                       <input
                         type="text"
                         placeholder="Type manually..."
@@ -1171,28 +1253,42 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       />
                     )}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
-                  <div className="col-span-4 p-3 flex items-center">
-                    <select
-                      disabled={chapterDivisions.length === 0}
-                      onChange={(e) => {
-                        const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
-                        if (division) {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
-                          }));
-                        }
-                      }}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-30 cursor-pointer"
-                    >
-                      <option value="">{chapterDivisions.length > 0 ? "Select Divided Pages" : "No Divisions Available"}</option>
-                      {chapterDivisions.map((division) => (
-                        <option key={division.id} value={division.id}>
-                          Pages {division.pageStart} — {division.pageEnd}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500 shrink-0">Page Range:</div>
+                  <div className="col-span-4 p-3 flex items-center overflow-hidden">
+                    {!!formData.chapterDivisionId ? (
+                      <input 
+                        type="text"
+                        value={(() => {
+                          const pagesMatch = formData.unitChapterPage.match(/Pg ([0-9-]+)/);
+                          const divMatch = formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
+                          return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : "Fixed Division Pages";
+                        })()}
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <select
+                        disabled={chapterDivisions.length === 0}
+                        onChange={(e) => {
+                          const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
+                          if (division) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                            }));
+                          }
+                        }}
+                        className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-30 cursor-pointer"
+                      >
+                        <option value="">{chapterDivisions.length > 0 ? "Select Divided Pages" : "No Divisions Available"}</option>
+                        {chapterDivisions.map((division) => (
+                          <option key={division.id} value={division.id}>
+                            Pages {division.pageStart} — {division.pageEnd}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -1200,15 +1296,23 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 <div className="grid grid-cols-10 border-b border-slate-300 h-14">
                   <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300">
-                    <select name="prepDay" value={formData.prepDay} onChange={handleChange} className="w-full bg-transparent font-bold text-sm outline-none">
-                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
-                        <option key={day} value={day}>{day}</option>
-                      ))}
-                    </select>
+                    {!!formData.chapterDivisionId ? (
+                      <span className="font-bold text-sm text-slate-800 opacity-60">{formData.prepDay}</span>
+                    ) : (
+                      <select name="prepDay" value={formData.prepDay} onChange={handleChange} className="w-full bg-transparent font-bold text-sm outline-none">
+                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
+                          <option key={day} value={day}>{day}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
                   <div className="col-span-4 p-3 flex items-center">
-                    <input type="date" name="prepDate" value={formData.prepDate} onChange={handleChange} className="bg-transparent font-bold text-sm outline-none w-full" />
+                    {!!formData.chapterDivisionId ? (
+                      <span className="font-bold text-sm text-slate-800 opacity-60">{formData.prepDate}</span>
+                    ) : (
+                      <input type="date" name="prepDate" value={formData.prepDate} onChange={handleChange} className="bg-transparent font-bold text-sm outline-none w-full" />
+                    )}
                   </div>
                 </div>
 
@@ -1562,10 +1666,46 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 <Save className="h-6 w-6 opacity-20" />
               </div>
 
-              {/* Observation Section */}
+              {/* 1. Reviewer & Principal Feedback Section (Moved to top of Step 3) */}
+              <div className="p-8 border-b border-slate-100 bg-slate-50/30">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-8 bg-slate-800 text-white rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3A</div>
+                  <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer & Principal Feedback</h4>
+                </div>
+                
+                <div className="space-y-6">
+                  {/* Specialist Remark */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Specialist / Reviewer Feedback</label>
+                    <textarea 
+                      name="reviewerRemark" 
+                      value={formData.reviewerRemark} 
+                      onChange={handleChange} 
+                      className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm focus:border-slate-400 transition-all text-slate-500" 
+                      placeholder="No specialist feedback provided yet."
+                      readOnly
+                    />
+                  </div>
+
+                  {/* Principal Remark */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Principal / Approver Feedback</label>
+                    <textarea 
+                      name="principalRemark" 
+                      value={formData.principalRemark || ""} 
+                      onChange={handleChange} 
+                      className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm focus:border-slate-400 transition-all text-slate-500" 
+                      placeholder="No principal feedback provided yet."
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Observation Section */}
               <div className="p-8 border-b border-slate-100">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3A</div>
+                  <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3B</div>
                   <h4 className="font-black text-slate-800 uppercase tracking-tight">Teacher Observation</h4>
                 </div>
                 <textarea 
@@ -1577,7 +1717,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 />
               </div>
 
-              {/* Student Performance Section */}
+              {/* 3. Student Performance Section */}
               <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row gap-8">
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-3">
@@ -1607,21 +1747,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
               </div>
 
-              {/* Reviewer Section */}
+              {/* 4. Signatures */}
               <div className="p-8 bg-slate-50/30">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-8 w-8 bg-slate-800 text-white rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3B</div>
-                  <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer Remark and Signoff</h4>
-                </div>
-                <textarea 
-                  name="reviewerRemark" 
-                  value={formData.reviewerRemark} 
-                  onChange={handleChange} 
-                  className="w-full h-32 p-6 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-sm resize-none shadow-sm focus:border-slate-400 transition-all text-slate-500" 
-                  placeholder="Reviewer feedback goes here..."
-                  readOnly
-                />
-                <div className="mt-8 pt-8 border-t border-slate-200 flex justify-between items-end">
+                <div className="mt-8 pt-8 flex justify-between items-end">
                   <div className="space-y-1">
                     <div className="mb-2 h-8 flex flex-col justify-end">
                       <p className="text-xs font-black text-slate-800">
@@ -1639,9 +1767,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   <div className="space-y-1 text-center">
                     <div className="mb-2 h-8 flex flex-col justify-end items-center">
                       <p className="text-xs font-black text-slate-800">
-                        {formData.status === "REVIEWED" || formData.status === "APPROVED" ? (formData.specialistName || "Reviewer") : ""}
+                        {formData.status === "REVIEWED" || formData.status === "APPROVED" || formData.status === "COMPLETED" ? (formData.specialistName || "Reviewer") : ""}
                       </p>
-                      {formData.status === "REVIEWED" && (
+                      {(formData.status === "REVIEWED" || formData.status === "APPROVED" || formData.status === "COMPLETED") && (
                         <p className="text-[9px] font-bold text-blue-500">
                           Validated
                         </p>
@@ -1653,9 +1781,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   <div className="space-y-1 text-right">
                     <div className="mb-2 h-8 flex flex-col justify-end items-end">
                       <p className="text-xs font-black text-slate-800">
-                        {formData.status === "APPROVED" ? (formData.principalName || formData.reviewerName || "Principal") : ""}
+                        {formData.status === "APPROVED" || formData.status === "COMPLETED" ? (formData.principalName || formData.reviewerName || "Principal") : ""}
                       </p>
-                      {formData.status === "APPROVED" && (
+                      {(formData.status === "APPROVED" || formData.status === "COMPLETED") && (
                         <p className="text-[9px] font-bold text-emerald-500">
                           Approved
                         </p>
@@ -1722,7 +1850,24 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
             </button>
           )}
 
-          {activeStep === 3 && (
+          {activeStep === 3 && formData.status === "APPROVED" && (
+            <button
+              onClick={() => {
+                if (!formData.teacherObservation || !formData.studentPerformanceGood || !formData.studentPerformanceBad) {
+                  alert("Please fill out Teacher Observation and Student Performance (Good & Bad) before signing off.");
+                  return;
+                }
+                handleSave(false, "COMPLETED");
+              }}
+              disabled={isSaving}
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-purple-700 transition-all shadow-md flex items-center gap-2"
+            >
+              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
+              Sign Off & Complete
+            </button>
+          )}
+
+          {activeStep === 3 && formData.status !== "APPROVED" && formData.status !== "COMPLETED" && (
             <button
               onClick={() => handleSave(true)}
               disabled={isSaving}

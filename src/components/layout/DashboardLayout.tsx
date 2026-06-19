@@ -22,7 +22,9 @@ const ROLE_ROUTES: Record<string, string[]> = {
     "/office/entrance-tests", 
     "/office/home-visits",
     "/office/final-admissions", // Added just in case
-    "/office/academy-management" 
+    "/office/academy-management",
+    "/office/timetable",
+    "/teacher/timetable"
   ],
 };
 

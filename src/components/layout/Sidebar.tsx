@@ -207,7 +207,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/academy-management/attendance", icon: CalendarCheck, roleNames: { OFFICE: "Attendance Management", PRINCIPAL: "Attendance Management", TEACHER: "Attendance" } },
     { href: "/office/academy-management/classes", icon: School, roleNames: { OFFICE: "Class Management", PRINCIPAL: "Class Management", TEACHER: "My Classes" } },
     { href: "/office/academy-management/my-lesson-plans", icon: BookOpen, roleNames: { TEACHER: "My Lesson Plans" } },
-    { href: "/office/academy-management/lesson-plan", icon: FileText, roleNames: { OFFICE: "Lesson Plan Management", PRINCIPAL: "Lesson Plan Management", TEACHER: "Create Lesson Plan" } },
+    { href: "/office/academy-management/lesson-plan", icon: FileText, roleNames: { OFFICE: "Lesson Plan Management", PRINCIPAL: "Lesson Plan Management" } },
     { href: "/office/academy-management/lesson-plan/review", icon: ClipboardList, roleNames: { OFFICE: "Lesson Plan Review", PRINCIPAL: "Lesson Plan Review", TEACHER: "Review Lesson Plans" } },
     { href: "/office/academy-management/homework", icon: ClipboardCheck, roleNames: { OFFICE: "Homework Management", PRINCIPAL: "Homework Management", TEACHER: "My Homework Review" } },
     { href: "/office/academy-management/exams", icon: ScrollText, roleNames: { OFFICE: "Test & Exam Management", PRINCIPAL: "Test & Exam Management" } },
@@ -219,6 +219,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     // Time Table Management Category
     { type: "section", name: "Time Table Management" },
     { href: "/office/timetable", icon: Calendar, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
+    { href: "/teacher/timetable", icon: Calendar, roleNames: { TEACHER: "Timetable" } },
 
     // Leave Management Category
     { type: "section", name: "Leave Management" },
@@ -277,7 +278,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       ].includes(name);
     }
     if (r === "TEACHER") {
-      return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports"].includes(name);
+      return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports", "Time Table Management"].includes(name);
     }
     if (r === "STUDENT_PARENT") {
       return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management", "Transport Management"].includes(name);
@@ -345,7 +346,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/home-visits",
         "/teacher/scholarship-criteria",
         "/office/scholarship/reports",
-        "/office/scholarship/reports/students"
+        "/office/scholarship/reports/students",
+        "/teacher/timetable"
       ].includes(href);
     }
     if (r === "STUDENT_PARENT") {
@@ -368,27 +370,51 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   };
 
   const filteredItems = React.useMemo(() => {
-    let isCurrentSectionVisible = true;
-    const results: any[] = [];
-
-    for (const item of MASTER_STRUCTURE) {
+    // 1. Determine which items are visible
+    const visibleItems = MASTER_STRUCTURE.map((item, idx) => {
       if (item.type === "section") {
-        const isDefaultSec = isDefaultSectionForRole(role, item.name);
-        const isSecVisible = permissions?.sections?.[item.name] !== undefined
-          ? permissions.sections[item.name]
-          : isDefaultSec;
+        return { ...item, idx, visible: false }; // will decide below
+      }
+      const isDefaultBtn = isDefaultForItem(role, item.href || "");
+      const isBtnVisible = permissions?.items?.[item.href || ""] !== undefined
+        ? permissions.items[item.href || ""]
+        : isDefaultBtn;
+      return { ...item, idx, visible: isBtnVisible };
+    });
 
-        isCurrentSectionVisible = isSecVisible;
-        if (isSecVisible) {
-          results.push(item);
+    // 2. Determine section visibility: a section is visible if it has at least one visible child
+    let currentSectionIdx = -1;
+    let hasVisibleChild = false;
+
+    visibleItems.forEach((item, idx) => {
+      if (item.type === "section") {
+        if (currentSectionIdx !== -1) {
+          visibleItems[currentSectionIdx].visible = hasVisibleChild;
+        }
+        currentSectionIdx = idx;
+        hasVisibleChild = false;
+      } else {
+        if (item.visible) {
+          hasVisibleChild = true;
+        }
+      }
+    });
+    if (currentSectionIdx !== -1) {
+      visibleItems[currentSectionIdx].visible = hasVisibleChild;
+    }
+
+    // 3. Filter and resolve names
+    const results: any[] = [];
+    let isCurrentSectionVisible = false;
+
+    for (const item of visibleItems) {
+      if (item.type === "section") {
+        isCurrentSectionVisible = item.visible;
+        if (isCurrentSectionVisible) {
+          results.push({ type: "section", name: item.name });
         }
       } else {
-        const isDefaultBtn = isDefaultForItem(role, item.href || "");
-        const isBtnVisible = permissions?.items?.[item.href || ""] !== undefined
-          ? permissions.items[item.href || ""]
-          : isDefaultBtn;
-
-        if (isCurrentSectionVisible && isBtnVisible) {
+        if (isCurrentSectionVisible && item.visible) {
           // Resolve name
           let nameToUse = "";
           const activeRole = role === "ADMIN" ? "OFFICE" : role;

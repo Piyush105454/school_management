@@ -30,6 +30,18 @@ const DAY_INDEX_MAP: Record<number, string> = {
 
 const isEarlyDismissalClass = (c: string) => ["Nursery", "KG I", "KG II"].includes(c);
 
+// Normalize class names so "KG I" matches "KG1", "KG II" matches "KG2", "Class 3" matches "3"
+const normalizeClassName = (name: string): string => {
+  if (!name) return "";
+  const n = name.trim();
+  // KG I / KG II → kg1 / kg2
+  if (/^kg\s*i{1,2}$/i.test(n)) {
+    return n.replace(/\s+/g, "").toLowerCase().replace("kgii", "kg2").replace("kgi", "kg1");
+  }
+  // Strip leading "Class "
+  return n.toLowerCase().replace(/^class\s+/i, "").trim();
+};
+
 type TabType = "timetable" | "analysis";
 type AnalysisFilter = "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_YEAR";
 
@@ -50,7 +62,8 @@ function getFilterMultiplier(filter: AnalysisFilter, todayName: string) {
   }
 }
 
-export default function TimetableClient() {
+export default function TimetableClient({ userRole = "OFFICE" }: { userRole?: string }) {
+  const isTeacher = userRole === "TEACHER";
   const todayName = DAY_INDEX_MAP[new Date().getDay()] || "Monday";
 
   // Tabs
@@ -271,8 +284,7 @@ export default function TimetableClient() {
     if (!editorCell) return;
     const { className, periodName, forDay } = editorCell;
     const cellKey = `${className}-${periodName}`;
-    const normalizeClass = (name: string) => name.toLowerCase().replace(/^class\s+/i, "").trim();
-    const matchedClass = classesList.find(c => normalizeClass(c.name) === normalizeClass(className));
+    const matchedClass = classesList.find(c => normalizeClassName(c.name) === normalizeClassName(className));
     const classId = matchedClass?.id || null;
     const value = {
       classId, subjectId: editSubjectId ? parseInt(editSubjectId) : null,
@@ -559,45 +571,64 @@ export default function TimetableClient() {
                 activeTab === "timetable" ? "bg-pink-600 text-white shadow-md" : "text-slate-500 hover:text-slate-700")}>
               <Calendar size={12} /> Timetable
             </button>
-            <button onClick={() => setActiveTab("analysis")}
-              className={cn("flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-lg transition-all",
-                activeTab === "analysis" ? "bg-violet-600 text-white shadow-md" : "text-slate-500 hover:text-slate-700")}>
-              <BarChart3 size={12} /> Teacher Analysis
-            </button>
+            {!isTeacher && (
+              <button onClick={() => setActiveTab("analysis")}
+                className={cn("flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-lg transition-all",
+                  activeTab === "analysis" ? "bg-violet-600 text-white shadow-md" : "text-slate-500 hover:text-slate-700")}>
+                <BarChart3 size={12} /> Teacher Analysis
+              </button>
+            )}
           </div>
+
+          {isTeacher && activeDay !== todayName && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-lg border border-blue-100 uppercase tracking-wider">
+              👁 View Only
+            </span>
+          )}
+          {isTeacher && activeDay === todayName && !isEditMode && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-lg border border-emerald-100 uppercase tracking-wider animate-pulse">
+              ✏️ Editable Today
+            </span>
+          )}
 
           {activeTab === "timetable" && !isMasterMode && (
             <>
-              {/* Set Holiday button */}
-              <button onClick={() => { setShowHolidayModal(true); setHolidayActionMsg(null); }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95">
-                <Calendar size={12} /> Set Holiday
-              </button>
-
-              {/* Master Timetable button */}
-              <button onClick={openMasterMode}
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95">
-                <LayoutGrid size={12} /> Master Timetable
-              </button>
-
-              {/* Edit / Save / Cancel */}
-              {!isEditMode ? (
-                <button onClick={enterEditMode}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-amber-500/20 active:scale-95">
-                  <Pencil size={12} /> Edit Day
+              {/* Set Holiday button - admin only */}
+              {!isTeacher && (
+                <button onClick={() => { setShowHolidayModal(true); setHolidayActionMsg(null); }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95">
+                  <Calendar size={12} /> Set Holiday
                 </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button onClick={cancelEditMode}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-all active:scale-95">
-                    <X size={12} /> Cancel
+              )}
+
+              {/* Master Timetable button - admin only */}
+              {!isTeacher && (
+                <button onClick={openMasterMode}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95">
+                  <LayoutGrid size={12} /> Master Timetable
+                </button>
+              )}
+
+              {/* Edit / Save / Cancel - teachers can only edit today's timetable */}
+              {(!isTeacher || activeDay === todayName) && (
+                !isEditMode ? (
+                  <button onClick={enterEditMode}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-amber-500/20 active:scale-95">
+                    <Pencil size={12} /> Edit Day
                   </button>
-                  <button onClick={handleSaveCurrentDay} disabled={saving}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50">
-                    {saving ? <RefreshCw className="animate-spin" size={12} /> : <Save size={12} />}
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button onClick={cancelEditMode}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black rounded-xl transition-all active:scale-95">
+                      <X size={12} /> Cancel
+                    </button>
+                    <button onClick={handleSaveCurrentDay} disabled={saving}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-pink-500/20 active:scale-95 disabled:opacity-50">
+                      {saving ? <RefreshCw className="animate-spin" size={12} /> : <Save size={12} />}
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
+                )
               )}
             </>
           )}
@@ -1057,8 +1088,7 @@ export default function TimetableClient() {
                   const teacherId = e.target.value;
                   setEditTeacherId(teacherId);
                   if (teacherId && editorCell) {
-                    const normalizeClass = (name: string) => name.toLowerCase().replace(/^class\s+/i, "").trim();
-                    const mc = classesList.find(c => normalizeClass(c.name) === normalizeClass(editorCell.className));
+                    const mc = classesList.find(c => normalizeClassName(c.name) === normalizeClassName(editorCell.className));
                     const classSubjects = subjectsList.filter(s => s.classId === mc?.id);
                     const matchedSubject = classSubjects.find(s => s.assignedTeacherId === teacherId);
                     if (matchedSubject) {
@@ -1092,8 +1122,7 @@ export default function TimetableClient() {
                   )}>
                   <option value="">-- Choose Subject --</option>
                   {(() => {
-                    const normalizeClass = (name: string) => name.toLowerCase().replace(/^class\s+/i, "").trim();
-                    const mc = classesList.find(c => normalizeClass(c.name) === normalizeClass(editorCell?.className || ""));
+                    const mc = classesList.find(c => normalizeClassName(c.name) === normalizeClassName(editorCell?.className || ""));
                     return subjectsList.filter(s => s.classId === mc?.id).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ));

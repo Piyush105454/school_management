@@ -50,6 +50,7 @@ const MASTER_STRUCTURE = [
   // Time Table Management Category
   { type: "section", name: "Time Table Management" },
   { href: "/office/timetable", roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
+  { href: "/teacher/timetable", roleNames: { TEACHER: "Timetable" } },
 
   // Leave Management Category
   { type: "section", name: "Leave Management" },
@@ -200,15 +201,18 @@ const isForbiddenForRoleInAccessUI = (role: string, href: string): boolean => {
 };
 
 const getItemName = (item: any, role: string): string => {
-  if (item.roleNames && item.roleNames[role]) {
-    return item.roleNames[role];
+  const roleNames = item.roleNames || {};
+  // 1. Exact match for selected role
+  if (roleNames[role]) return roleNames[role];
+  // 2. For ADMIN, fallback to OFFICE name
+  if (role === "ADMIN" && roleNames["OFFICE"]) return roleNames["OFFICE"];
+  // 3. Try OFFICE, PRINCIPAL, TEACHER in that order for staff views
+  for (const fallback of ["OFFICE", "PRINCIPAL", "TEACHER"]) {
+    if (roleNames[fallback]) return roleNames[fallback];
   }
-  // Fallback to first available role specific name
-  const keys = Object.keys(item.roleNames || {});
-  if (keys.length > 0) {
-    return item.roleNames[keys[0]];
-  }
-  return "Unknown Module";
+  // 4. Return first available
+  const keys = Object.keys(roleNames);
+  return keys.length > 0 ? roleNames[keys[0]] : "Unknown Module";
 };
 
 export default function AccessManagementClient() {
@@ -520,19 +524,31 @@ export default function AccessManagementClient() {
             {MASTER_STRUCTURE.map((item, idx) => {
               const isSection = item.type === "section";
 
-              if (!isSection && item.href && isForbiddenForRoleInAccessUI(activeRole, item.href)) {
-                return null;
+              if (!isSection && item.href) {
+                const rolesForItem = Object.keys(item.roleNames || {});
+                const isStudentOnly = rolesForItem.length > 0 && rolesForItem.every(r => r === "STUDENT_PARENT");
+                const isStaffOnly = rolesForItem.length > 0 && rolesForItem.every(r => r !== "STUDENT_PARENT");
+
+                // When managing non-student roles: hide items that are exclusively student-only
+                if (activeRole !== "STUDENT_PARENT" && isStudentOnly) return null;
+                // When managing students: hide items that are exclusively staff-only
+                if (activeRole === "STUDENT_PARENT" && isStaffOnly) return null;
               }
 
               if (isSection) {
-                // Section Visibility check - hide section if all its children are forbidden
+                // Section Visibility check - hide section if none of its items would be visible
                 let hasVisibleChildren = false;
                 for (let i = idx + 1; i < MASTER_STRUCTURE.length; i++) {
                   if (MASTER_STRUCTURE[i].type === "section") break;
-                  if (!isForbiddenForRoleInAccessUI(activeRole, MASTER_STRUCTURE[i].href || "")) {
-                    hasVisibleChildren = true;
-                    break;
-                  }
+                  const child = MASTER_STRUCTURE[i];
+                  if (!child.href) continue;
+                  const childRoles = Object.keys(child.roleNames || {});
+                  const childIsStudentOnly = childRoles.length > 0 && childRoles.every(r => r === "STUDENT_PARENT");
+                  const childIsStaffOnly = childRoles.length > 0 && childRoles.every(r => r !== "STUDENT_PARENT");
+                  if (activeRole !== "STUDENT_PARENT" && childIsStudentOnly) continue;
+                  if (activeRole === "STUDENT_PARENT" && childIsStaffOnly) continue;
+                  hasVisibleChildren = true;
+                  break;
                 }
                 if (!hasVisibleChildren) return null;
 

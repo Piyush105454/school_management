@@ -55,10 +55,23 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     : Array.from(new Set(plans.map(p => p.class?.name).filter(Boolean)));
   const uniqueSubjects = Array.from(new Set(plans.map(p => p.subject?.name).filter(Boolean)));
 
-  const selectPlanForReview = (plan: any) => {
-    setSelectedPlan(plan);
-    setRemark(plan.reviewerRemark || "");
-    setActiveStep(1);
+  const selectPlanForReview = async (plan: any) => {
+    setLoading(true);
+    try {
+      const { getLessonPlanById } = await import("@/features/academy/actions/lessonPlanActions");
+      const res = await getLessonPlanById(plan.id);
+      if (res.success && res.data) {
+        setSelectedPlan({ ...plan, ...res.data });
+        setRemark(isApprover ? (res.data.principalRemark || "") : (res.data.reviewerRemark || ""));
+        setActiveStep(1);
+      } else {
+        alert("Failed to load full lesson plan details.");
+      }
+    } catch (e) {
+      alert("Error loading lesson plan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredPlans = plans.filter(p => {
@@ -119,11 +132,11 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
     setLoading(true);
     try {
-      const res = await updateLessonPlanStatus(selectedPlan.id, status, remark, reviewerId);
+      const res = await updateLessonPlanStatus(selectedPlan.id, status, remark, reviewerId, isApprover);
       if (res.success) {
         alert(`Lesson Plan ${status.toLowerCase()} successfully!`);
         // Update the plan status and remark in local state in-place so it transitions tabs without disappearing
-        setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, status, reviewerRemark: remark } : p));
+        setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, status, ...(isApprover ? { principalRemark: remark } : { reviewerRemark: remark }) } : p));
         setSelectedPlan(null);
         setRemark("");
         setActiveStep(1);
@@ -1083,28 +1096,50 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
           <div className="p-8 md:p-12 bg-slate-900 text-white rounded-b-[2.5rem] space-y-6">
             <div className="space-y-4">
+              {/* Show Specialist's Remark read-only if it exists and user is Approver */}
+              {isApprover && selectedPlan.reviewerRemark && (
+                <div className="mb-6">
+                  <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 mb-2">
+                    <CheckCircle className="h-4 w-4" /> Specialist / Reviewer Feedback
+                  </label>
+                  <div className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 text-sm font-medium text-slate-300">
+                    {selectedPlan.reviewerRemark}
+                  </div>
+                </div>
+              )}
+
               <label className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
-                <PenTool className="h-4 w-4" /> Final Validation & Feedback
+                <PenTool className="h-4 w-4" /> Final Validation & Feedback {isApprover ? "(Principal)" : "(Specialist)"}
               </label>
-              <textarea 
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
-                placeholder="Enter feedback for the teacher (Required for rejection)..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none"
-              />
+              {(() => {
+                const canTakeAction = ((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && (selectedPlan.status === "SUBMITTED" || selectedPlan.status === "REVIEWED")));
+                return (
+                  <textarea 
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    placeholder={canTakeAction ? "Enter feedback for the teacher (Required for rejection)..." : "No further feedback can be added at this stage."}
+                    readOnly={!canTakeAction}
+                    className={`w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none ${!canTakeAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  />
+                );
+              })()}
             </div>
 
             <div className="flex items-center justify-end gap-4">
-              <button 
-                onClick={() => handleAction("REJECTED")}
-                disabled={loading}
-                className="flex items-center justify-center gap-2 px-8 py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all disabled:opacity-30 shadow-lg shadow-rose-500/10"
-              >
-                <XCircle className="h-4 w-4" />
-                Reject & Send Back
-              </button>
-              {/* Show Validate for Specialists (SUBMITTED) */}
-              {isTeacher && selectedPlan.status === "SUBMITTED" && (
+              {/* Show Reject for Specialist (only on SUBMITTED) or Approver (on SUBMITTED or REVIEWED) */}
+              {((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && (selectedPlan.status === "SUBMITTED" || selectedPlan.status === "REVIEWED"))) && (
+                <button 
+                  onClick={() => handleAction("REJECTED")}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-8 py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all disabled:opacity-30 shadow-lg shadow-rose-500/10"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Reject & Send Back
+                </button>
+              )}
+
+              {/* Show Validate only for Specialists (not approvers) on SUBMITTED */}
+              {isTeacher && !isApprover && selectedPlan.status === "SUBMITTED" && (
                 <button 
                   onClick={() => handleAction("REVIEWED")}
                   disabled={loading}
@@ -1115,8 +1150,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 </button>
               )}
 
-              {/* Show Approve for Approvers (REVIEWED) */}
-              {isApprover && selectedPlan.status === "REVIEWED" && (
+              {/* Show Approve only for Approvers on REVIEWED or SUBMITTED */}
+              {isApprover && (selectedPlan.status === "REVIEWED" || selectedPlan.status === "SUBMITTED") && (
                 <button 
                   onClick={() => handleAction("APPROVED")}
                   disabled={loading}

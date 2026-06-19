@@ -7,7 +7,7 @@ export const documentStatus = pgEnum("document_status", ['SUBMITTED', 'NOT_SUBMI
 export const gender = pgEnum("gender", ['M', 'F', 'O'])
 export const homeworkSubmissionStatus = pgEnum("homework_submission_status", ['PENDING', 'COMPLETED', 'REJECTED'])
 export const inquiryStatus = pgEnum("inquiry_status", ['PENDING', 'SHORTLISTED', 'REJECTED'])
-export const lessonPlanStatus = pgEnum("lesson_plan_status", ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'])
+export const lessonPlanStatus = pgEnum("lesson_plan_status", ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'COMPLETED'])
 export const role = pgEnum("role", ['OFFICE', 'STUDENT_PARENT', 'TEACHER', 'PRINCIPAL', 'ADMIN'])
 export const scholarshipStatus = pgEnum("scholarship_status", ['PENDING', 'APPROVED', 'PAID'])
 export const testStatus = pgEnum("test_status", ['NOT_SCHEDULED', 'PENDING', 'PASS', 'FAIL'])
@@ -160,6 +160,8 @@ export const lessonPlans = pgTable("lesson_plans", {
 	status: lessonPlanStatus().default('DRAFT').notNull(),
 	reviewerId: uuid("reviewer_id"),
 	reviewerRemark: text("reviewer_remark"),
+	principalRemark: text("principal_remark"),
+	chapterDivisionId: integer("chapter_division_id"),
 }, (table) => [
 	foreignKey({
 			columns: [table.teacherId],

@@ -24,6 +24,9 @@ interface DivideChapterModalProps {
   chapterName: string;
   pageStart: number;
   pageEnd: number;
+  className: string;
+  subjectName: string;
+  unitName: string;
 }
 
 export default function DivideChapterModal({
@@ -33,6 +36,9 @@ export default function DivideChapterModal({
   chapterName,
   pageStart,
   pageEnd,
+  className,
+  subjectName,
+  unitName,
 }: DivideChapterModalProps) {
   const [divisions, setDivisions] = useState<ChapterDivision[]>([]);
   const [newPageStart, setNewPageStart] = useState<string>("");
@@ -51,6 +57,24 @@ export default function DivideChapterModal({
       setLoading(true);
       const data = await getChapterDivisions(chapterId);
       setDivisions(data);
+      
+      if (data.length > 0) {
+        const { getLessonPlansByChapterDivisionIds } = await import("@/features/academy/actions/lessonPlanActions");
+        const divisionIds = data.map((d: any) => d.id);
+        const plans = await getLessonPlansByChapterDivisionIds(divisionIds);
+        
+        // Map lesson plan to division
+        const plansByDivId: Record<number, any> = {};
+        plans.forEach((p: any) => {
+          if (p.chapterDivisionId) plansByDivId[p.chapterDivisionId] = p;
+        });
+        
+        setDivisions((prev: any) => prev.map((d: any) => ({
+          ...d,
+          lessonPlan: plansByDivId[d.id] || null
+        })));
+      }
+      
       setError("");
     } catch (err) {
       setError("Failed to load divisions");
@@ -252,9 +276,41 @@ export default function DivideChapterModal({
                         <p className="text-sm font-bold text-slate-900">
                           Pages {division.pageStart} — {division.pageEnd}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {division.pageEnd - division.pageStart + 1} page(s)
-                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-xs text-slate-500">
+                            {division.pageEnd - division.pageStart + 1} page(s)
+                          </p>
+                          {(division as any).lessonPlan ? (
+                            <button
+                              onClick={() => {
+                                // Add window.location logic instead of router to avoid missing imports if not at top level
+                                window.location.href = `/office/academy-management/lesson-plan?edit=${(division as any).lessonPlan.id}`;
+                              }}
+                              className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 hover:bg-emerald-100"
+                            >
+                              View/Edit Lesson Plan
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const params = new URLSearchParams({
+                                  class: className,
+                                  subject: subjectName,
+                                  chapterId: chapterId.toString(),
+                                  unitName: unitName,
+                                  chapterName: chapterName,
+                                  pages: `${division.pageStart}-${division.pageEnd}`,
+                                  divisionId: division.id.toString(),
+                                  divisionNo: division.orderNo.toString()
+                                });
+                                window.location.href = `/office/academy-management/lesson-plan?${params.toString()}`;
+                              }}
+                              className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 hover:bg-blue-100"
+                            >
+                              + Create Lesson Plan
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <button

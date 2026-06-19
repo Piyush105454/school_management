@@ -24,14 +24,14 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
     }
     
     if (activeTab === "DRAFT") return p.status === "DRAFT";
-    if (activeTab === "SUBMITTED") return p.status === "SUBMITTED";
+    if (activeTab === "SUBMITTED") return p.status === "SUBMITTED" || p.status === "REVIEWED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
     return true; // ALL
   });
 
   const draftCount = plans.filter(p => p.status === "DRAFT").length;
-  const submittedCount = plans.filter(p => p.status === "SUBMITTED").length;
+  const submittedCount = plans.filter(p => p.status === "SUBMITTED" || p.status === "REVIEWED").length;
   const approvedCount = plans.filter(p => p.status === "APPROVED").length;
   const rejectedCount = plans.filter(p => p.status === "REJECTED").length;
 
@@ -123,7 +123,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
               activeTab === 'SUBMITTED' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            Submitted 
+            Pending
             <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
               activeTab === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
             }`}>
@@ -212,6 +212,11 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                           Pending Review
                         </span>
                       )}
+                      {plan.status === "REVIEWED" && (
+                        <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                          Validated
+                        </span>
+                      )}
                       {plan.status === "APPROVED" && (
                         <span className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[10px] font-black uppercase tracking-wider">
                           Approved
@@ -231,7 +236,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                     <td className="px-6 py-4">
                       {plan.status === "DRAFT" ? (
                         <span className="text-slate-300 italic text-xs">Not submitted</span>
-                      ) : (plan.status !== "SUBMITTED" && (plan.reviewerProfile?.name || plan.reviewerUser)) ? (
+                      ) : (plan.status !== "SUBMITTED" && plan.status !== "REVIEWED" && (plan.reviewerProfile?.name || plan.reviewerUser)) ? (
                         <div className="space-y-1">
                           <p className="text-xs font-bold text-slate-700">
                             {plan.reviewerProfile?.name || plan.reviewerUser?.email?.split('@')[0] || (plan.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : plan.reviewerUser?.role === 'ADMIN' ? 'Admin' : "Reviewer")}
@@ -244,7 +249,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                         <div className="space-y-1">
                           <p className="text-xs italic text-slate-500 font-medium">Pending with:</p>
                           <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
-                            {plan.specialistProfile?.name ? `${plan.specialistProfile.name} ➔ Principal` : "Principal"}
+                            {plan.status === "REVIEWED" ? "Principal" : (plan.specialistProfile?.name ? `${plan.specialistProfile.name} ➔ Principal` : "Reviewer")}
                           </p>
                         </div>
                       )}

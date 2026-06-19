@@ -4,11 +4,11 @@ import React from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { protectRoute } from "@/lib/roleGuard";
-import TimetableClient from "./TimetableClient";
+import TimetableClient from "../../office/timetable/TimetableClient";
 
-export default async function TimetablePage() {
-  // Allow OFFICE, PRINCIPAL, ADMIN, and TEACHER roles (with dynamic DB override check)
-  await protectRoute(["OFFICE", "PRINCIPAL", "ADMIN", "TEACHER"], "/office/timetable");
+export default async function TeacherTimetablePage() {
+  // Protect route for TEACHER role (with optional dynamic DB override check)
+  await protectRoute(["TEACHER"], "/teacher/timetable");
 
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role || "TEACHER";

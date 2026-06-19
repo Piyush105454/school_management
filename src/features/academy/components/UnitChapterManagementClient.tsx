@@ -77,7 +77,7 @@ export default function UnitChapterManagementClient({
   // State for controlling modals
   const [editingUnit, setEditingUnit] = useState<{ id: number; name: string } | null>(null);
   const [editingChapter, setEditingChapter] = useState<{ chapter: Chapter; pdfUrl?: string } | null>(null);
-  const [dividingChapter, setDividingChapter] = useState<{ id: number; name: string; pageStart: number; pageEnd: number } | null>(null);
+  const [dividingChapter, setDividingChapter] = useState<{ id: number; name: string; pageStart: number; pageEnd: number; unitName: string } | null>(null);
   const [addingChapterToUnit, setAddingChapterToUnit] = useState<{unitId: number; nextOrderNo: number} | null>(null);
 
   interface DisplayRow {
@@ -200,7 +200,8 @@ export default function UnitChapterManagementClient({
                               id: chapter.id,
                               name: chapter.name,
                               pageStart: chapter.pageStart,
-                              pageEnd: chapter.pageEnd
+                              pageEnd: chapter.pageEnd,
+                              unitName: isNA ? "NA" : unit.name
                             })}
                             className="flex items-center gap-1.5 py-1.5 px-3 bg-white text-purple-600 hover:bg-purple-50 font-black rounded-xl transition-all text-[10px] uppercase tracking-wider border border-purple-100 shadow-sm group active:scale-95"
                           >
@@ -350,10 +351,13 @@ export default function UnitChapterManagementClient({
         <DivideChapterModal
           isOpen={!!dividingChapter}
           onClose={() => setDividingChapter(null)}
-          chapterId={dividingChapter.id}
-          chapterName={dividingChapter.name}
-          pageStart={dividingChapter.pageStart}
-          pageEnd={dividingChapter.pageEnd}
+          chapterId={dividingChapter?.id || 0}
+          chapterName={dividingChapter?.name || ""}
+          pageStart={dividingChapter?.pageStart || 0}
+          pageEnd={dividingChapter?.pageEnd || 0}
+          className={className}
+          subjectName={subjectName}
+          unitName={dividingChapter?.unitName || ""}
         />
       )}
 
