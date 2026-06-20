@@ -130,6 +130,12 @@ interface LessonPlanFormProps {
 
 export default function LessonPlanForm({ classes, subjects, teacherId }: LessonPlanFormProps) {
   const router = useRouter();
+  const adjustHeight = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
   const searchParams = useSearchParams();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -137,7 +143,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   const [lessonPlanMode, setLessonPlanMode] = useState("EXPLANATION"); // EXPLANATION, QA, PREPRIMARY
   
   const [isDrawingModalOpen, setIsDrawingModalOpen] = useState(false);
-  const [drawingTarget, setDrawingTarget] = useState<"teacherNote" | "homework" | null>(null);
+  const [drawingTarget, setDrawingTarget] = useState<"teacherNote" | "homework" | "newTopicIntro" | null>(null);
   const [editingDrawingId, setEditingDrawingId] = useState<string | null>(null);
   const [drawingInitialData, setDrawingInitialData] = useState<any[] | undefined>(undefined);
   
@@ -396,7 +402,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     return () => clearTimeout(timer);
   }, [formData, draftKey, isDataLoaded, draftRestorationChecked]);
 
-  // Automatically calculate Day from Date and sync Prep Date
+  // Automatically calculate Delivery Day from Delivery Date
   useEffect(() => {
     if (formData.date) {
       const dateObj = new Date(formData.date);
@@ -404,13 +410,28 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
         setFormData(prev => ({
           ...prev,
-          deliveryDay: dayName,
-          prepDate: prev.date,
-          prepDay: dayName
+          deliveryDay: dayName
         }));
       }
     }
   }, [formData.date]);
+
+  // Set LP Prep Date and Day to today's live date (fixed, non-editable)
+  useEffect(() => {
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateStr = today.toISOString().split('T')[0];
+    setFormData(prev => {
+      if (prev.status === "DRAFT") {
+        return {
+          ...prev,
+          prepDate: dateStr,
+          prepDay: dayName
+        };
+      }
+      return prev;
+    });
+  }, [formData.status]);
 
   // Calculate min and max dates for Lesson Plan (next day to 6 working days)
   const { minDateStr, maxDateStr } = React.useMemo(() => {
@@ -585,9 +606,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
             setEditingDrawingId(imgId);
             setDrawingInitialData(elements);
             
-            // Determine if it's teacherNote or homework based on parent
+            // Determine if it's teacherNote, homework or newTopicIntro based on parent
             if (target.closest('[data-field="teacherNote"]')) {
               setDrawingTarget("teacherNote");
+            } else if (target.closest('[data-field="newTopicIntro"]')) {
+              setDrawingTarget("newTopicIntro");
             } else {
               setDrawingTarget("homework");
             }
@@ -638,6 +661,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       setDrawingInitialData(elements);
                       if (target.closest('[data-field="teacherNote"]')) {
                         setDrawingTarget("teacherNote");
+                      } else if (target.closest('[data-field="newTopicIntro"]')) {
+                        setDrawingTarget("newTopicIntro");
                       } else {
                         setDrawingTarget("homework");
                       }
@@ -673,11 +698,18 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                  const imgId = target.getAttribute('id');
                  if (imgId) {
                     const isTeacherNote = target.closest('[data-field="teacherNote"]');
-                    const targetHtml = isTeacherNote ? formData.teacherNote : formData.homework;
+                    const isNewTopicIntro = target.closest('[data-field="newTopicIntro"]');
+                    const targetHtml = isTeacherNote 
+                      ? formData.teacherNote 
+                      : isNewTopicIntro 
+                        ? formData.newTopicIntro 
+                        : formData.homework;
                     const imgRegex = new RegExp(`<p><img([^>]*)id=["']${imgId}["']([^>]*)><\/p>|<img([^>]*)id=["']${imgId}["']([^>]*)>`, "i");
                     
                     if (isTeacherNote) {
                       setFormData(prev => ({ ...prev, teacherNote: prev.teacherNote.replace(imgRegex, '') }));
+                    } else if (isNewTopicIntro) {
+                      setFormData(prev => ({ ...prev, newTopicIntro: prev.newTopicIntro.replace(imgRegex, '') }));
                     } else {
                       setFormData(prev => ({ ...prev, homework: prev.homework.replace(imgRegex, '') }));
                     }
@@ -706,7 +738,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     
     if (editingDrawingId) {
       // Edit existing image
-      const targetHtml = drawingTarget === "teacherNote" ? formData.teacherNote : formData.homework;
+      const targetHtml = drawingTarget === "teacherNote" 
+        ? formData.teacherNote 
+        : drawingTarget === "newTopicIntro" 
+          ? formData.newTopicIntro 
+          : formData.homework;
       const imgRegex = new RegExp(`<img([^>]*)id=["']${editingDrawingId}["']([^>]*)>`, "i");
       const match = targetHtml.match(imgRegex);
       
@@ -734,6 +770,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         setFormData(prev => ({ 
           ...prev, 
           teacherNote: prev.teacherNote + newImgHtml 
+        }));
+      } else if (drawingTarget === "newTopicIntro") {
+        setFormData(prev => ({ 
+          ...prev, 
+          newTopicIntro: prev.newTopicIntro + newImgHtml 
         }));
       } else if (drawingTarget === "homework") {
         setFormData(prev => ({ 
@@ -831,6 +872,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           studentPerformanceBad: formData.studentPerformanceBad,
           reviewerRemark: formData.reviewerRemark,
           principalRemark: formData.principalRemark,
+          reviewerPrincipal: formData.reviewerPrincipal,
         }
       });
 
@@ -948,7 +990,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   }
                 }}
                 className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!!formData.chapterDivisionId || !!formData.id}
+                disabled={!!formData.chapterDivisionId || !!formData.id || formData.status !== "DRAFT"}
               >
                 <option value="">Select</option>
                 {subjects.map(s => {
@@ -961,6 +1003,17 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   );
                 })}
               </select>
+            </div>
+            <div className="flex items-center gap-2 min-w-max">
+              <span className="text-[10px] font-black uppercase text-slate-400">Status:</span>
+              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-full font-black text-[10px] uppercase tracking-wider">
+                {formData.status === "DRAFT" ? "Draft" : 
+                 formData.status === "SUBMITTED" ? "Pending Review" : 
+                 formData.status === "REVIEWED" ? "Reviewed" : 
+                 formData.status === "APPROVED" ? "Approved" : 
+                 formData.status === "REJECTED" ? "Rejected" : 
+                 formData.status === "COMPLETED" ? "Completed" : formData.status}
+              </span>
             </div>
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">Day:</span>
@@ -977,7 +1030,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 min={minDateStr}
                 max={maxDateStr}
                 onChange={handleChange}
-                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 cursor-pointer"
+                disabled={formData.status !== "DRAFT"}
+                className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <div className="flex items-center gap-2 min-w-max">
@@ -1193,8 +1247,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
                 </div>
 
-                <div className="grid grid-cols-12 border-b border-slate-300 min-h-14">
-                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500 shrink-0">Unit/Chapter:</div>
+                <div className="grid grid-cols-10 border-b border-slate-300 min-h-14">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
                     {!!formData.chapterDivisionId ? (
                       <input 
@@ -1209,8 +1263,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       <select 
                         name="unitChapterPage" 
                         value={formData.unitChapterPage} 
-                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!!formData.id}
+                        disabled={formData.status !== "DRAFT" || !!formData.id}
+                        className="w-full bg-transparent border-none outline-none font-bold text-[13px] appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         onChange={(e) => {
                           const selectedValue = e.target.value;
                           handleChange(e);
@@ -1245,7 +1299,6 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                             setSelectedChapterId(null);
                           }
                         }}
-                        className="w-full bg-transparent border-none outline-none font-bold text-[13px] appearance-none cursor-pointer"
                       >
                         <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
                         {unitsWithChapters.map(unit => (
@@ -1269,19 +1322,20 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       <input
                         type="text"
                         placeholder="Type manually..."
-                        className="w-full ml-2 border-b border-slate-300 outline-none font-bold text-xs"
+                        disabled={formData.status !== "DRAFT"}
+                        className="w-full ml-2 border-b border-slate-300 outline-none font-bold text-xs disabled:opacity-50"
                         onChange={(e) => setFormData(prev => ({ ...prev, unitChapterPage: e.target.value }))}
                       />
                     )}
                   </div>
-                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500 shrink-0">Page Range:</div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                   <div className="col-span-4 p-3 flex items-center overflow-hidden">
                     {!!formData.chapterDivisionId ? (
                       <input 
                         type="text"
                         value={(() => {
                           const pagesMatch = formData.unitChapterPage.match(/Pg ([0-9-]+)/);
-                          const divMatch = formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
+                          const divMatch = formData.unitTransition || formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
                           return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : "Fixed Division Pages";
                         })()}
                         className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1290,7 +1344,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       />
                     ) : (
                       <select
-                        disabled={chapterDivisions.length === 0}
+                        disabled={chapterDivisions.length === 0 || formData.status !== "DRAFT"}
                         onChange={(e) => {
                           const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
                           if (division) {
@@ -1313,27 +1367,46 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   </div>
                 </div>
 
-                {/* LP Prep Day Row */}
+                {/* LP Prep Day/Date Row */}
                 <div className="grid grid-cols-10 border-b border-slate-300 h-14">
                   <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
-                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300">
-                    {!!formData.chapterDivisionId ? (
-                      <span className="font-bold text-sm text-slate-800 opacity-60">{formData.prepDay}</span>
-                    ) : (
-                      <select name="prepDay" value={formData.prepDay} onChange={handleChange} className="w-full bg-transparent font-bold text-sm outline-none">
-                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
-                          <option key={day} value={day}>{day}</option>
-                        ))}
-                      </select>
-                    )}
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
+                    {formData.prepDay}
                   </div>
                   <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                  <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
+                    {formData.prepDate}
+                  </div>
+                </div>
+
+                {/* LP Delivery Day/Date Row */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
+                    {formData.deliveryDay || "-"}
+                  </div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                  <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
+                    {formData.date || "-"}
+                  </div>
+                </div>
+
+                {/* Teacher Sign & Reviewer Row */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
+                    {formData.teacherName || "______"}
+                  </div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
                   <div className="col-span-4 p-3 flex items-center">
-                    {!!formData.chapterDivisionId ? (
-                      <span className="font-bold text-sm text-slate-800 opacity-60">{formData.prepDate}</span>
-                    ) : (
-                      <input type="date" name="prepDate" value={formData.prepDate} onChange={handleChange} className="bg-transparent font-bold text-sm outline-none w-full" />
-                    )}
+                    <input 
+                      name="reviewerPrincipal" 
+                      value={formData.reviewerPrincipal} 
+                      onChange={handleChange} 
+                      disabled={formData.status !== "DRAFT"}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-50" 
+                      placeholder="Reviewer Signature..." 
+                    />
                   </div>
                 </div>
 
@@ -1371,7 +1444,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300 border-b">2 min</div>
                   <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b font-medium text-[11px] text-slate-600">Lead students to perform an energizer/fun activity</div>
                   <div className="col-span-6 p-4 border-b">
-                    <textarea name="openingTimeEnergizer" value={formData.openingTimeEnergizer} onChange={handleChange} rows={2} className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none" placeholder="Describe the activity..." />
+                    <textarea 
+                      name="openingTimeEnergizer" 
+                      value={formData.openingTimeEnergizer} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="Describe the activity..." 
+                    />
                   </div>
 
                   <div className="contents">
@@ -1380,69 +1461,161 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       <p className="font-bold text-[11px] text-slate-600 mb-2">Roadmap of the day & Learning Indicators</p>
                     </div>
                     <div className="col-span-6 p-4 grid grid-cols-2 gap-4">
-                      <textarea name="openingTimeRoadmap" value={formData.openingTimeRoadmap} onChange={handleChange} rows={2} className="w-full bg-white border border-slate-100 rounded-lg p-2 font-bold text-xs" placeholder="Roadmap detail..." />
-                      <textarea name="learningIndicators" value={formData.learningIndicators} onChange={handleChange} rows={2} className="w-full bg-white border border-slate-100 rounded-lg p-2 font-bold text-xs" placeholder="Indicators 1, 2, 3..." />
+                      <textarea 
+                        name="openingTimeRoadmap" 
+                        value={formData.openingTimeRoadmap} 
+                        onChange={handleChange} 
+                        ref={adjustHeight}
+                        onInput={(e) => adjustHeight(e.currentTarget)}
+                        className="w-full bg-white border border-slate-100 rounded-lg p-2 font-bold text-xs resize-none overflow-hidden" 
+                        placeholder="Roadmap detail..." 
+                      />
+                      <textarea 
+                        name="learningIndicators" 
+                        value={formData.learningIndicators} 
+                        onChange={handleChange} 
+                        ref={adjustHeight}
+                        onInput={(e) => adjustHeight(e.currentTarget)}
+                        className="w-full bg-white border border-slate-100 rounded-lg p-2 font-bold text-xs resize-none overflow-hidden" 
+                        placeholder="Indicators 1, 2, 3..." 
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Active Learning Time */}
                 <div className="grid grid-cols-12 border-b border-slate-300">
-                  <div className="col-span-2 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30 min-h-[300px]">Active Learning Time (30 min)</div>
-                  <div className="col-span-10 grid grid-rows-4 divide-y divide-slate-300">
-                    <div className="grid grid-cols-10 h-16">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                      <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Lesson Intro & Objective</div>
-                      <div className="col-span-6 p-3">
-                        <input name="lessonIntroObjective" value={formData.lessonIntroObjective} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" placeholder="..." />
-                      </div>
+                  <div className="col-span-2 row-span-4 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Active Learning Time (30 min)</div>
+                  
+                  {/* Row 1 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Lesson Intro & Objective</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200">
+                    <textarea 
+                      name="lessonIntroObjective" 
+                      value={formData.lessonIntroObjective} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="..." 
+                    />
+                  </div>
+
+                  {/* Row 2 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">8 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight">New topic Introduction & Explanation</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200 flex flex-col gap-2">
+                    <div className="relative w-full" data-field="newTopicIntro">
+                      <ReactQuill
+                        theme="snow"
+                        modules={quillModules}
+                        value={formData.newTopicIntro}
+                        onChange={(val) => setFormData(prev => ({ ...prev, newTopicIntro: val }))}
+                        readOnly={formData.status !== "DRAFT"}
+                        className="w-full bg-white text-slate-900 border border-slate-100 rounded-lg"
+                        placeholder="Enter description, notes, or paste diagrams here..."
+                      />
                     </div>
-                    <div className="grid grid-cols-10 h-24">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">8 min</div>
-                      <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">New topic Introduction & Explanation</div>
-                      <div className="col-span-6 p-3">
-                        <textarea name="newTopicIntro" value={formData.newTopicIntro} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-xs resize-none h-full" placeholder="..." />
+                    {formData.status === "DRAFT" && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDrawingTarget("newTopicIntro");
+                            setIsDrawingModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                          <PenTool className="w-3 h-3 text-blue-600" /> Draw Diagram (Whiteboard)
+                        </button>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Row 3 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">5 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Knowledge Building / Discussion</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200">
+                    <textarea 
+                      name="knowledgeBuilding" 
+                      value={formData.knowledgeBuilding} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      placeholder="..." 
+                    />
+                  </div>
+
+                  {/* Row 4 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">15 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600">Lesson Activity & Outcome Feedback</div>
+                  <div className="col-span-6 grid grid-rows-2 divide-y divide-slate-200 p-3">
+                    <div className="pb-2">
+                      <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Activity:</span>
+                      <textarea 
+                        name="lessonActivity" 
+                        value={formData.lessonActivity} 
+                        onChange={handleChange} 
+                        ref={adjustHeight}
+                        onInput={(e) => adjustHeight(e.currentTarget)}
+                        className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                        placeholder="Activity details..." 
+                      />
                     </div>
-                    <div className="grid grid-cols-10 h-24">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">5 min</div>
-                      <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Knowledge Building / Discussion</div>
-                      <div className="col-span-6 p-3">
-                        <textarea name="knowledgeBuilding" value={formData.knowledgeBuilding} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-xs resize-none h-full" placeholder="..." />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-10 h-32">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">15 min</div>
-                      <div className="col-span-3 flex flex-col p-4 border-r border-slate-300 justify-center">
-                        <p className="font-bold text-[11px] text-slate-600">Lesson Activity & Outcome Feedback</p>
-                      </div>
-                      <div className="col-span-6 p-3 grid grid-rows-2 divide-y divide-slate-100">
-                        <textarea name="lessonActivity" value={formData.lessonActivity} onChange={handleChange} className="w-full py-2 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Activity details..." />
-                        <textarea name="outcomeFeedback" value={formData.outcomeFeedback} onChange={handleChange} className="w-full py-2 bg-transparent outline-none font-bold text-xs resize-none" placeholder="Feedback/Learning outcome..." />
-                      </div>
+                    <div className="pt-2">
+                      <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Outcome Feedback:</span>
+                      <textarea 
+                        name="outcomeFeedback" 
+                        value={formData.outcomeFeedback} 
+                        onChange={handleChange} 
+                        ref={adjustHeight}
+                        onInput={(e) => adjustHeight(e.currentTarget)}
+                        className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                        placeholder="Feedback/Learning outcome..." 
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Closing Time */}
-                <div className="grid grid-cols-12 h-48 border-b border-slate-300">
-                  <div className="col-span-2 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Closing Time (5 min)</div>
-                  <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-300">
-                    <div className="grid grid-cols-10">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">1 min</div>
-                      <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Closure, Reward & Recognition</div>
-                      <div className="col-span-6 p-3"><input name="closure" value={formData.closure} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" /></div>
-                    </div>
-                    <div className="grid grid-cols-10">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                      <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Homework for the day</div>
-                      <div className="col-span-6 p-3 font-bold text-slate-400 italic text-[10px] flex items-center">Synced from Step 1 Homework Space</div>
-                    </div>
-                    <div className="grid grid-cols-10">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                      <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">Submission of Previous day work check</div>
-                      <div className="col-span-6 p-3"><input name="prevDayCheck" value={formData.prevDayCheck} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" /></div>
-                    </div>
+                <div className="grid grid-cols-12 border-b border-slate-300">
+                  <div className="col-span-2 row-span-3 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Closing Time (5 min)</div>
+                  
+                  {/* Row 1 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Closure, Reward & Recognition</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200">
+                    <textarea 
+                      name="closure" 
+                      value={formData.closure} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="..." 
+                    />
+                  </div>
+
+                  {/* Row 2 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Homework for the day</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200 font-bold text-slate-400 italic text-[10px] flex items-center">Synced from Step 1 Homework Space</div>
+
+                  {/* Row 3 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">Submission of Previous day work check</div>
+                  <div className="col-span-6 p-3">
+                    <textarea 
+                      name="prevDayCheck" 
+                      value={formData.prevDayCheck} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="..." 
+                    />
                   </div>
                 </div>
 
@@ -1470,56 +1643,174 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   </div>
                 </div>
 
-                {/* Meta Grid (Q & A Style) */}
-                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.subject || "-"}</div>
+                {/* Meta Rows (Grid style) */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                  <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{formData.subject || "-"}</div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                  <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
+                </div>
+
+                <div className="grid grid-cols-10 border-b border-slate-300 min-h-14 text-slate-900">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
+                    {!!formData.chapterDivisionId ? (
+                      <input 
+                        type="text"
+                        name="unitChapterPage" 
+                        value={formData.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '')} 
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <select 
+                        name="unitChapterPage" 
+                        value={formData.unitChapterPage} 
+                        disabled={formData.status !== "DRAFT" || !!formData.id}
+                        className="w-full bg-transparent border-none outline-none font-bold text-[13px] appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          handleChange(e);
+                          
+                          // Find the chapter and fetch its divisions
+                          if (selectedValue && selectedValue !== "custom") {
+                            let foundChapter: any = null;
+                            
+                            for (const unit of unitsWithChapters) {
+                              const chapter = unit.chapters?.find((ch: any) => {
+                                const value = unit.name === "NA" 
+                                  ? `${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`
+                                  : `${unit.name}, ${ch.name}, Pg ${ch.pageStart}-${ch.pageEnd}`;
+                                return value === selectedValue;
+                              });
+                              if (chapter) {
+                                foundChapter = chapter;
+                                break;
+                              }
+                            }
+                            
+                            if (foundChapter) {
+                              setSelectedChapterId(foundChapter.id);
+                              getChapterDivisionsForLesson(foundChapter.id).then(res => {
+                                if (res.success) {
+                                  setChapterDivisions(res.divisions || []);
+                                }
+                              });
+                            }
+                          } else {
+                            setChapterDivisions([]);
+                            setSelectedChapterId(null);
+                          }
+                        }}
+                      >
+                        <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
+                        {unitsWithChapters.map(unit => (
+                          <optgroup key={unit.id} label={unit.name === "NA" ? "Direct Chapters" : unit.name}>
+                            {unit.chapters?.map((chapter: any) => {
+                              const value = unit.name === "NA" 
+                                ? `${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`
+                                : `${unit.name}, ${chapter.name}, Pg ${chapter.pageStart}-${chapter.pageEnd}`;
+                              return (
+                                <option key={chapter.id} value={value}>
+                                  {chapter.chapterNo}. {chapter.name} (Pg {chapter.pageStart}-{chapter.pageEnd})
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        ))}
+                        <option value="custom">-- Custom Entry --</option>
+                      </select>
+                    )}
+                    {formData.unitChapterPage === "custom" && !formData.chapterDivisionId && (
+                      <input
+                        type="text"
+                        placeholder="Type manually..."
+                        disabled={formData.status !== "DRAFT"}
+                        className="w-full ml-2 border-b border-slate-300 outline-none font-bold text-xs disabled:opacity-50"
+                        onChange={(e) => setFormData(prev => ({ ...prev, unitChapterPage: e.target.value }))}
+                      />
+                    )}
                   </div>
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                  <div className="col-span-4 p-3 flex items-center overflow-hidden">
+                    {!!formData.chapterDivisionId ? (
+                      <input 
+                        type="text"
+                        value={(() => {
+                          const pagesMatch = formData.unitChapterPage.match(/Pg ([0-9-]+)/);
+                          const divMatch = formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
+                          return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : "Fixed Division Pages";
+                        })()}
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <select
+                        disabled={chapterDivisions.length === 0 || formData.status !== "DRAFT"}
+                        onChange={(e) => {
+                          const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
+                          if (division) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                            }));
+                          }
+                        }}
+                        className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-30 cursor-pointer"
+                      >
+                        <option value="">{chapterDivisions.length > 0 ? "Select Divided Pages" : "No Divisions Available"}</option>
+                        {chapterDivisions.map((division) => (
+                          <option key={division.id} value={division.id}>
+                            Pages {division.pageStart} — {division.pageEnd}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter/Page(s):</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.unitChapterPage || "-"}</div>
+                {/* LP Prep Day/Date Row */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
+                    {formData.prepDay}
                   </div>
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day/Date:</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-xs truncate">{formData.prepDay}, {formData.prepDate}</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Progress Status:</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-xs">
-                      {formData.status === "DRAFT" ? "Draft" : 
-                       formData.status === "SUBMITTED" ? "Pending Review" : 
-                       formData.status === "REVIEWED" ? "Reviewed" : 
-                       formData.status === "APPROVED" ? "Approved" : 
-                       formData.status === "REJECTED" ? "Rejected" : formData.status}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day/Date:</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-xs truncate">{formData.deliveryDay}, {formData.date}</div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                  <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
+                    {formData.prepDate}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
-                    <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{formData.teacherName || "______"}</div>
+                {/* LP Delivery Day/Date Row */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
+                    {formData.deliveryDay || "-"}
                   </div>
-                  <div className="grid grid-cols-4 h-12">
-                    <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
-                    <div className="col-span-3 p-3 flex items-center h-full">
-                      <input name="reviewerPrincipal" value={formData.reviewerPrincipal} onChange={handleChange} className="w-full bg-transparent border-none outline-none font-bold text-sm" placeholder="Reviewer Signature..." />
-                    </div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                  <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
+                    {formData.date || "-"}
+                  </div>
+                </div>
+
+                {/* Teacher Sign & Reviewer Row */}
+                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                  <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
+                    {formData.teacherName || "______"}
+                  </div>
+                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                  <div className="col-span-4 p-3 flex items-center">
+                    <input 
+                      name="reviewerPrincipal" 
+                      value={formData.reviewerPrincipal} 
+                      onChange={handleChange} 
+                      disabled={formData.status !== "DRAFT"}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-50" 
+                      placeholder="Reviewer Signature..." 
+                    />
                   </div>
                 </div>
 
@@ -1555,105 +1846,158 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 {/* Opening Time (Shared Layout) */}
-                <div className="grid grid-cols-12 border-b border-slate-200">
-                  <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 row-span-2 min-h-[120px]">
+                <div className="grid grid-cols-12 border-b border-slate-300">
+                  <div className="col-span-2 row-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30">
                     <span className="font-black text-[10px] uppercase">Opening Time</span>
                     <span className="font-black text-[10px] mt-1 tracking-widest text-blue-600">घेरा समय</span>
                     <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
                   </div>
-                  <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300 border-b">2 minutes</div>
-                  <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b font-medium text-[11px] text-slate-600 leading-tight">Lead the students to perform an energizer/fun activity</div>
-                  <div className="col-span-7 p-4 border-b">
-                    <textarea name="openingTimeEnergizer" value={formData.openingTimeEnergizer} onChange={handleChange} rows={2} className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none" placeholder="Describe the activity..." />
+                  
+                  {/* Row 1 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight">Lead the students to perform an energizer/fun activity</div>
+                  <div className="col-span-6 p-4 border-b border-slate-200">
+                    <textarea 
+                      name="openingTimeEnergizer" 
+                      value={formData.openingTimeEnergizer} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="Describe the activity..." 
+                    />
                   </div>
 
-                  <div className="contents">
-                    <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300">3 minutes</div>
-                    <div className="col-span-2 p-4 flex flex-col justify-center border-r border-slate-300">
-                      <p className="font-bold text-[11px] text-slate-600">Roadmap of the day</p>
+                  {/* Row 2 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">3 minutes</div>
+                  <div className="col-span-3 p-4 flex flex-col justify-center border-r border-slate-300">
+                    <p className="font-bold text-[11px] text-slate-600">Roadmap of the day & Learning Indicators</p>
+                  </div>
+                  <div className="col-span-6 grid grid-cols-2 divide-x divide-slate-300">
+                    <div className="p-3">
+                      <span className="text-[8px] font-black uppercase text-slate-400 block mb-1">Roadmap:</span>
+                      <textarea 
+                        name="openingTimeRoadmap" 
+                        value={formData.openingTimeRoadmap} 
+                        onChange={handleChange} 
+                        ref={adjustHeight}
+                        onInput={(e) => adjustHeight(e.currentTarget)}
+                        className="w-full bg-transparent border-none outline-none font-bold text-[11px] resize-none overflow-hidden" 
+                        placeholder="Roadmap detail..." 
+                      />
                     </div>
-                    <div className="col-span-7 grid grid-cols-12 divide-x divide-slate-100">
-                      <div className="col-span-8 p-3 flex flex-col gap-2">
-                        <textarea name="openingTimeRoadmap" value={formData.openingTimeRoadmap} onChange={handleChange} rows={2} className="w-full bg-transparent outline-none font-bold text-[11px] resize-none" placeholder="1. Revision of previous class..." />
-                      </div>
-                      <div className="col-span-4 p-3 flex flex-col gap-2 bg-slate-50/50">
-                        <span className="text-[8px] font-black uppercase text-slate-400">Learning Indicators:</span>
-                        <textarea name="learningIndicators" value={formData.learningIndicators} onChange={handleChange} rows={2} className="w-full bg-transparent outline-none font-bold text-[11px] resize-none" placeholder="1. ..." />
-                      </div>
+                    <div className="p-3 bg-slate-50/30">
+                      <span className="text-[8px] font-black uppercase text-slate-400 block mb-1">Indicators:</span>
+                      <textarea 
+                        name="learningIndicators" 
+                        value={formData.learningIndicators} 
+                        onChange={handleChange} 
+                        ref={adjustHeight}
+                        onInput={(e) => adjustHeight(e.currentTarget)}
+                        className="w-full bg-transparent border-none outline-none font-bold text-[11px] resize-none overflow-hidden" 
+                        placeholder="Indicators 1, 2, 3..." 
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Active Learning Time (Q & A Specific) */}
-                <div className="grid grid-cols-12 border-b border-slate-200">
-                  <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 min-h-[300px] uppercase font-black text-[10px] text-center">
-                    <span>Active Learning Time</span>
+                <div className="grid grid-cols-12 border-b border-slate-300">
+                  <div className="col-span-2 row-span-3 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30">
+                    <span className="font-black text-[10px] uppercase text-center">Active Learning Time</span>
                     <span className="text-[9px] font-bold text-slate-400 mt-2">(30mins)</span>
                   </div>
-                  <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-200">
-                    <div className="grid grid-cols-10 h-24">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">2 Minutes</div>
-                      <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
-                      <div className="col-span-7 p-3">
-                        <textarea name="chapterSummaryRevision" value={formData.chapterSummaryRevision} onChange={handleChange} className="w-full h-full bg-transparent outline-none font-bold text-xs resize-none" placeholder="Write key summary points..." />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-10 h-48">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic text-blue-600">25 Minutes</div>
-                      <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-snug italic">
-                        Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students
-                      </div>
-                      <div className="col-span-7 p-4">
-                        <textarea name="chapterBasedQA" value={formData.chapterBasedQA} onChange={handleChange} className="w-full h-full bg-transparent outline-none font-bold text-xs resize-none border-t border-slate-50 pt-2" placeholder="List questions, dictation points, and student tasks..." />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-10 h-20">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
-                      <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
-                      <div className="col-span-7 p-3">
-                        <textarea name="inspectionByTeacher" value={formData.inspectionByTeacher} onChange={handleChange} className="w-full h-full bg-transparent outline-none font-bold text-xs resize-none" placeholder="Observations during student writing..." />
-                      </div>
-                    </div>
+                  
+                  {/* Row 1 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic">2 Minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200">
+                    <textarea 
+                      name="chapterSummaryRevision" 
+                      value={formData.chapterSummaryRevision} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      placeholder="Write key summary points..." 
+                    />
+                  </div>
+
+                  {/* Row 2 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic text-blue-600">25 Minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-snug italic">Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200">
+                    <textarea 
+                      name="chapterBasedQA" 
+                      value={formData.chapterBasedQA} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      placeholder="List questions, dictation points, and student tasks..." 
+                    />
+                  </div>
+
+                  {/* Row 3 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
+                  <div className="col-span-6 p-3">
+                    <textarea 
+                      name="inspectionByTeacher" 
+                      value={formData.inspectionByTeacher} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      placeholder="Observations during student writing..." 
+                    />
                   </div>
                 </div>
 
                 {/* Closing Time (Shared Layout but Q & A specific text) */}
-                <div className="grid grid-cols-12 h-64 border-b border-slate-300">
-                  <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 p-4">
+                <div className="grid grid-cols-12 border-b border-slate-300">
+                  <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 row-span-3">
                     <span className="font-black text-[10px] uppercase text-center">Closing Time</span>
                     <span className="font-black text-[10px] mt-1 tracking-widest text-rose-600 uppercase text-center">समापन सर्किल समय</span>
                     <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
                   </div>
-                  <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-200">
-                    <div className="grid grid-cols-10">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">1 Minute</div>
-                      <div className="col-span-2 flex flex-col items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                        <span>Lesson Closure with appreciation,</span>
-                        <span>Reward and recognition</span>
-                      </div>
-                      <div className="col-span-7 p-3">
-                        <input name="closure" value={formData.closure} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" placeholder="Appreciate students..." />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-10">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 Minute</div>
-                      <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                        Homework for the day
-                      </div>
-                      <div className="col-span-7 p-3 font-bold text-slate-400 italic text-[10px] flex items-center">
-                        <ClipboardList className="h-3 w-3 mr-2" />
-                        Automated sync from Step 1 Homework Space
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-10">
-                      <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
-                      <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                        Submission of Previous day work check
-                      </div>
-                      <div className="col-span-7 p-3">
-                        <input name="prevDayCheck" value={formData.prevDayCheck} onChange={handleChange} className="w-full bg-transparent outline-none font-bold text-sm" placeholder="Check student work..." />
-                      </div>
-                    </div>
+                  
+                  {/* Row 1 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 Minute</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Lesson Closure with appreciation, Reward and recognition</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200">
+                    <textarea 
+                      name="closure" 
+                      value={formData.closure} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="Appreciate students..." 
+                    />
+                  </div>
+
+                  {/* Row 2 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 Minute</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Homework for the day</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200 font-bold text-slate-400 italic text-[10px] flex items-center">
+                    <ClipboardList className="h-3 w-3 mr-2" />
+                    Synced from Step 1 Homework Space
+                  </div>
+
+                  {/* Row 3 */}
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Submission of Previous day work check</div>
+                  <div className="col-span-6 p-3">
+                    <textarea 
+                      name="prevDayCheck" 
+                      value={formData.prevDayCheck} 
+                      onChange={handleChange} 
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      placeholder="Check student work..." 
+                    />
                   </div>
                 </div>
 
@@ -1733,7 +2077,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   name="teacherObservation" 
                   value={formData.teacherObservation} 
                   onChange={handleChange} 
-                  className="w-full h-40 p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none focus:bg-white focus:border-blue-200 transition-all placeholder:text-slate-300" 
+                  ref={adjustHeight}
+                  onInput={(e) => adjustHeight(e.currentTarget)}
+                  className="w-full min-h-[160px] p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none focus:bg-white focus:border-blue-200 transition-all placeholder:text-slate-300 overflow-hidden" 
                   placeholder="Write observations here..." 
                 />
               </div>
@@ -1749,7 +2095,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     name="studentPerformanceGood" 
                     value={formData.studentPerformanceGood} 
                     onChange={handleChange} 
-                    className="w-full h-32 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-emerald-200 transition-all" 
+                    ref={adjustHeight}
+                    onInput={(e) => adjustHeight(e.currentTarget)}
+                    className="w-full min-h-[128px] p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-emerald-200 transition-all overflow-hidden" 
                     placeholder="Note positive highlights..." 
                   />
                 </div>
@@ -1762,7 +2110,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     name="studentPerformanceBad" 
                     value={formData.studentPerformanceBad} 
                     onChange={handleChange} 
-                    className="w-full h-32 p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-rose-200 transition-all" 
+                    ref={adjustHeight}
+                    onInput={(e) => adjustHeight(e.currentTarget)}
+                    className="w-full min-h-[128px] p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-rose-200 transition-all overflow-hidden" 
                     placeholder="Note areas for improvement..." 
                   />
                 </div>

@@ -26,6 +26,12 @@ import "katex/dist/katex.min.css";
 import "react-quill-new/dist/quill.snow.css";
 
 export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTeacher = false, isApprover = false }: { initialPlans: any[], reviewerId: string, isTeacher?: boolean, isApprover?: boolean }) {
+  const adjustHeight = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
   const [plans, setPlans] = useState(initialPlans);
   const [searchTerm, setSearchTerm] = useState("");
   const { dbClasses } = useInstitute();
@@ -670,12 +676,25 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.unitChapterPage?.split(", Pg ")[1] || "-"}</div>
                     </div>
 
-                    {/* LP Prep Day Row */}
                     <div className="grid grid-cols-10 border-b border-slate-300 h-14">
                       <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{step2.prepDay || "Monday"}</div>
                       <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{step2.prepDate || "-"}</div>
+                    </div>
+
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{selectedPlan.deliveryDay || "-"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
+                    </div>
+
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "______"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
                     </div>
 
                     {/* Instruction Table */}
@@ -735,64 +754,68 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
                     {/* Active Learning Time */}
                     <div className="grid grid-cols-12 border-b border-slate-300 text-left">
-                      <div className="col-span-2 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30 min-h-[300px]">Active Learning Time (30 min)</div>
-                      <div className="col-span-10 grid grid-rows-4 divide-y divide-slate-300">
-                        <div className="grid grid-cols-10 h-16">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                          <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Lesson Intro & Objective</div>
-                          <div className="col-span-6 p-3 font-bold text-sm text-slate-700 select-text truncate">{step2.lessonIntroObjective || "-"}</div>
+                      <div className="col-span-2 row-span-4 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Active Learning Time (30 min)</div>
+                      
+                      {/* Row 1 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Lesson Intro & Objective</div>
+                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">
+                        {step2.lessonIntroObjective || "-"}
+                      </div>
+
+                      {/* Row 2 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">8 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight">New topic Introduction & Explanation</div>
+                      <div 
+                        className="col-span-6 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 select-text ql-editor ql-editor-small"
+                        dangerouslySetInnerHTML={{ __html: step2.newTopicIntro || "-" }}
+                      />
+
+                      {/* Row 3 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">5 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Knowledge Building / Discussion</div>
+                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">
+                        {step2.knowledgeBuilding || "-"}
+                      </div>
+
+                      {/* Row 4 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">15 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600">Lesson Activity & Outcome Feedback</div>
+                      <div className="col-span-6 grid grid-rows-2 divide-y divide-slate-200 p-4">
+                        <div className="pb-2">
+                          <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Activity:</span>
+                          <p className="font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.lessonActivity || "-"}</p>
                         </div>
-                        <div className="grid grid-cols-10 h-24">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">8 min</div>
-                          <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">New topic Introduction & Explanation</div>
-                          <div className="col-span-6 p-3 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">{step2.newTopicIntro || "-"}</div>
-                        </div>
-                        <div className="grid grid-cols-10 h-24">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">5 min</div>
-                          <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Knowledge Building / Discussion</div>
-                          <div className="col-span-6 p-3 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">{step2.knowledgeBuilding || "-"}</div>
-                        </div>
-                        <div className="grid grid-cols-10 h-32">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">15 min</div>
-                          <div className="col-span-3 flex flex-col p-4 border-r border-slate-300 justify-center">
-                            <p className="font-bold text-[11px] text-slate-600">Lesson Activity & Outcome Feedback</p>
-                          </div>
-                          <div className="col-span-6 p-3 grid grid-rows-2 divide-y divide-slate-100">
-                            <div className="py-2 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">
-                              <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-0.5">Activity:</span>
-                              {step2.lessonActivity || "-"}
-                            </div>
-                            <div className="py-2 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">
-                              <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-0.5">Outcome Feedback:</span>
-                              {step2.outcomeFeedback || "-"}
-                            </div>
-                          </div>
+                        <div className="pt-2">
+                          <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Outcome Feedback:</span>
+                          <p className="font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.outcomeFeedback || "-"}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Closing Time */}
-                    <div className="grid grid-cols-12 h-48 border-b border-slate-300 text-left">
-                      <div className="col-span-2 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Closing Time (5 min)</div>
-                      <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-300">
-                        <div className="grid grid-cols-10">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">1 min</div>
-                          <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Closure, Reward & Recognition</div>
-                          <div className="col-span-6 p-3 font-bold text-sm text-slate-700 select-text truncate">{step2.closure || "-"}</div>
-                        </div>
-                        <div className="grid grid-cols-10">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                          <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600">Homework for the day</div>
-                          <div 
-                            className="col-span-6 p-3 font-bold text-slate-700 text-xs select-text overflow-y-auto ql-editor ql-editor-small" 
-                            dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }}
-                          />
-                        </div>
-                        <div className="grid grid-cols-10">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                          <div className="col-span-3 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">Submission of Previous day work check</div>
-                          <div className="col-span-6 p-3 font-bold text-sm text-slate-700 select-text truncate">{step2.prevDayCheck || "-"}</div>
-                        </div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 text-left">
+                      <div className="col-span-2 row-span-3 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Closing Time (5 min)</div>
+                      
+                      {/* Row 1 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Closure, Reward & Recognition</div>
+                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">
+                        {step2.closure || "-"}
+                      </div>
+
+                      {/* Row 2 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Homework for the day</div>
+                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-slate-700 text-xs select-text ql-editor ql-editor-small">
+                        <div dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }} />
+                      </div>
+
+                      {/* Row 3 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
+                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">Submission of Previous day work check</div>
+                      <div className="col-span-6 p-4 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">
+                        {step2.prevDayCheck || "-"}
                       </div>
                     </div>
 
@@ -823,38 +846,40 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       </div>
                     </div>
 
-                    {/* Meta Grid (Q & A Style) */}
-                    <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                      <div className="grid grid-cols-4 h-12">
-                        <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter/Page(s):</div>
-                        <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{step2.unitChapterPage || "-"}</div>
-                      </div>
-                      <div className="grid grid-cols-4 h-12">
-                        <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day/Date:</div>
-                        <div className="col-span-3 p-3 flex items-center font-bold text-xs truncate">{step2.prepDay}, {step2.prepDate}</div>
-                      </div>
+                    {/* Meta Rows (Grid style) */}
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{selectedPlan.subject?.name || "-"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{selectedPlan.class?.name || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                      <div className="grid grid-cols-4 h-12">
-                        <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Progress Status:</div>
-                        <div className="col-span-3 p-3 flex items-center font-bold text-xs">{step2.progressStatus || "Not Started"}</div>
-                      </div>
-                      <div className="grid grid-cols-4 h-12">
-                        <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day/Date:</div>
-                        <div className="col-span-3 p-3 flex items-center font-bold text-xs truncate">{selectedPlan.deliveryDay || "Monday"}, {selectedPlan.date}</div>
-                      </div>
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{step2.unitChapterPage || "-"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.unitChapterPage?.split(", Pg ")[1] || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-2 divide-x divide-slate-300 border-b border-slate-300">
-                      <div className="grid grid-cols-4 h-12">
-                        <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
-                        <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{selectedPlan.teacher?.name || "______"}</div>
-                      </div>
-                      <div className="grid grid-cols-4 h-12">
-                        <div className="p-3 bg-slate-50/50 flex items-center font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
-                        <div className="col-span-3 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
-                      </div>
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{step2.prepDay || "Monday"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{step2.prepDate || "-"}</div>
+                    </div>
+
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{selectedPlan.deliveryDay || "-"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
+                    </div>
+
+                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "______"}</div>
+                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
                     </div>
 
                     {/* Instruction Table (Q & A Specific) */}
@@ -921,66 +946,61 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
 
                     {/* Active Learning Time (Q & A Specific) */}
-                    <div className="grid grid-cols-12 border-b border-slate-200">
-                      <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 min-h-[300px] uppercase font-black text-[10px] text-center">
+                    <div className="grid grid-cols-12 border-b border-slate-200 text-left">
+                      <div className="col-span-2 row-span-3 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 uppercase font-black text-[10px] text-center">
                         <span>Active Learning Time</span>
                         <span className="text-[9px] font-bold text-slate-400 mt-2">(30mins)</span>
                       </div>
-                      <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-200">
-                        <div className="grid grid-cols-10 h-24">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">2 Minutes</div>
-                          <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
-                          <div className="col-span-7 p-3 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">{step2.chapterSummaryRevision || "-"}</div>
-                        </div>
-                        <div className="grid grid-cols-10 h-48">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic text-blue-600">25 Minutes</div>
-                          <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-snug italic">
-                            Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students
-                          </div>
-                          <div className="col-span-7 p-4 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">{step2.chapterBasedQA || "-"}</div>
-                        </div>
-                        <div className="grid grid-cols-10 h-20">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
-                          <div className="col-span-2 flex items-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
-                          <div className="col-span-7 p-3 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">{step2.inspectionByTeacher || "-"}</div>
-                        </div>
+                      
+                      {/* Row 1 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic">2 Minutes</div>
+                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
+                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.chapterSummaryRevision || "-"}</div>
+
+                      {/* Row 2 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic text-blue-600">25 Minutes</div>
+                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-snug italic">
+                        Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students
                       </div>
+                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.chapterBasedQA || "-"}</div>
+
+                      {/* Row 3 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
+                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
+                      <div className="col-span-7 p-4 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.inspectionByTeacher || "-"}</div>
                     </div>
 
                     {/* Closing Time (Shared Layout but Q & A specific text) */}
-                    <div className="grid grid-cols-12 h-64 border-b border-slate-300">
-                      <div className="col-span-2 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 p-4 text-center">
+                    <div className="grid grid-cols-12 border-b border-slate-300 text-left">
+                      <div className="col-span-2 row-span-3 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 p-4 text-center">
                         <span className="font-black text-[10px] uppercase text-center">Closing Time</span>
                         <span className="font-black text-[10px] mt-1 tracking-widest text-rose-600 uppercase text-center">समापन सर्किल समय</span>
                         <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
                       </div>
-                      <div className="col-span-10 grid grid-rows-3 divide-y divide-slate-200">
-                        <div className="grid grid-cols-10">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">1 Minute</div>
-                          <div className="col-span-2 flex flex-col items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                            <span>Lesson Closure with appreciation,</span>
-                            <span>Reward and recognition</span>
-                          </div>
-                          <div className="col-span-7 p-3 font-bold text-sm text-slate-700 select-text truncate">{step2.closure || "-"}</div>
-                        </div>
-                        <div className="grid grid-cols-10">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 Minute</div>
-                          <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                            Homework for the day
-                          </div>
-                          <div 
-                            className="col-span-7 p-3 font-bold text-slate-700 text-xs select-text overflow-y-auto ql-editor ql-editor-small"
-                            dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }}
-                          />
-                        </div>
-                        <div className="grid grid-cols-10">
-                          <div className="col-span-1 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
-                          <div className="col-span-2 flex items-center justify-center p-4 border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                            Submission of Previous day work check
-                          </div>
-                          <div className="col-span-7 p-3 font-bold text-sm text-slate-700 select-text truncate">{step2.prevDayCheck || "-"}</div>
-                        </div>
+                      
+                      {/* Row 1 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 Minute</div>
+                      <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
+                        <span>Lesson Closure with appreciation,</span>
+                        <span>Reward and recognition</span>
                       </div>
+                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">{step2.closure || "-"}</div>
+
+                      {/* Row 2 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 Minute</div>
+                      <div className="col-span-2 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
+                        Homework for the day
+                      </div>
+                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-slate-700 text-xs select-text ql-editor ql-editor-small">
+                        <div dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }} />
+                      </div>
+
+                      {/* Row 3 */}
+                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
+                      <div className="col-span-2 p-4 flex items-center justify-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
+                        Submission of Previous day work check
+                      </div>
+                      <div className="col-span-7 p-4 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">{step2.prevDayCheck || "-"}</div>
                     </div>
 
                     <div className="bg-slate-50 p-6 border-t border-slate-300">
@@ -1015,7 +1035,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Specialist / Reviewer Feedback</label>
                         <textarea 
                           value={selectedPlan.reviewerRemark || ""} 
-                          className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500" 
+                          ref={adjustHeight}
+                          className="w-full min-h-[96px] p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500 overflow-hidden" 
                           placeholder="No specialist feedback provided yet."
                           readOnly
                         />
@@ -1026,7 +1047,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Principal / Approver Feedback</label>
                         <textarea 
                           value={selectedPlan.principalRemark || ""} 
-                          className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500" 
+                          ref={adjustHeight}
+                          className="w-full min-h-[96px] p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500 overflow-hidden" 
                           placeholder="No principal feedback provided yet."
                           readOnly
                         />
@@ -1042,7 +1064,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
                     <textarea 
                       value={step2.teacherObservation || ""} 
-                      className="w-full h-40 p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none text-slate-500" 
+                      ref={adjustHeight}
+                      className="w-full min-h-[160px] p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none text-slate-500 overflow-hidden" 
                       placeholder="Write observations here..." 
                       readOnly
                     />
@@ -1057,7 +1080,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       </div>
                       <textarea 
                         value={step2.studentPerformanceGood || ""} 
-                        className="w-full h-32 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500" 
+                        ref={adjustHeight}
+                        className="w-full min-h-[128px] p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500 overflow-hidden" 
                         placeholder="Note positive highlights..." 
                         readOnly
                       />
@@ -1069,7 +1093,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       </div>
                       <textarea 
                         value={step2.studentPerformanceBad || ""} 
-                        className="w-full h-32 p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500" 
+                        ref={adjustHeight}
+                        className="w-full min-h-[128px] p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500 overflow-hidden" 
                         placeholder="Note areas for improvement..." 
                         readOnly
                       />
@@ -1143,7 +1168,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               )}
 
               <label className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
-                <PenTool className="h-4 w-4" /> Final Validation & Feedback {isApprover ? "(Principal)" : "(Specialist)"}
+                <PenTool className="h-4 w-4" /> {isApprover ? "Final Validation & Approval Feedback" : "Reviewing Feedback & Review"}
               </label>
               {(() => {
                 const canTakeAction = ((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && (selectedPlan.status === "SUBMITTED" || selectedPlan.status === "REVIEWED")));
@@ -1153,7 +1178,9 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     onChange={(e) => setRemark(e.target.value)}
                     placeholder={canTakeAction ? "Enter feedback for the teacher (Required for rejection)..." : "No further feedback can be added at this stage."}
                     readOnly={!canTakeAction}
-                    className={`w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none ${!canTakeAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    ref={adjustHeight}
+                    onInput={(e) => adjustHeight(e.currentTarget)}
+                    className={`w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none overflow-hidden ${!canTakeAction ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 );
               })()}
@@ -1180,7 +1207,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                   className="flex items-center justify-center gap-2 px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 disabled:opacity-30"
                 >
                   <CheckCircle className="h-4 w-4" />
-                  Validate
+                  Reviewed
                 </button>
               )}
 

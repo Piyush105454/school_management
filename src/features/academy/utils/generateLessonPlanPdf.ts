@@ -128,7 +128,7 @@ export async function generateLessonPlanPdf(data: LessonPlanData) {
 
   drawSection("Unit / Chapter", data.unitChapterPage || "", 40);
   drawSection("Opening Time (Energizer)", data.openingTimeEnergizer || "", 60);
-  drawSection("Active Learning", data.newTopicIntro || "", 120);
+  drawSection("Active Learning", stripHtml(data.newTopicIntro || ""), 120);
   drawSection("Activity Detail", data.lessonActivity || "", 100);
   drawSection("Closure / Reward", data.closure || "", 60);
   drawSection("Teacher Observation", data.teacherObservation || "", 80);
