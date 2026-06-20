@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool, ChevronRight } from "lucide-react";
+import { FileText, Save, Download, Loader2, Calendar, ClipboardList, PenTool, ChevronRight, AlertTriangle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { generateLessonPlanPdf } from "@/features/academy/utils/generateLessonPlanPdf";
 import { saveLessonPlan, getLessonPlanCount, getLessonPlanByDateAndSubject, getLessonPlanById } from "@/features/academy/actions/lessonPlanActions";
@@ -149,6 +149,16 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [draftRestorationChecked, setDraftRestorationChecked] = useState(false);
+  const [initialFormData, setInitialFormData] = useState<any>(null);
+  // selectedDivisionsByMode is now only used for tracking the shared plan ID (both modes share same record)
+  const [selectedDivisionsByMode, setSelectedDivisionsByMode] = useState<{
+    EXPLANATION?: { chapterDivisionId?: number; unitChapterPage: string; id: string };
+    QA?: { chapterDivisionId?: number; unitChapterPage: string; id: string };
+    PREPRIMARY?: { chapterDivisionId?: number; unitChapterPage: string; id: string };
+  }>({});
+
+  // Cache for each mode's step2 fields so switching 2A<->2B doesn't lose unsaved data
+  const cachedModeDataRef = React.useRef<Record<string, any>>({});
 
   const [unitsWithChapters, setUnitsWithChapters] = useState<any[]>([]);
   const [isLoadingCurriculum, setIsLoadingCurriculum] = useState(false);
@@ -209,6 +219,21 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     studentPerformanceBad: "",
     reviewerRemark: "",
   });
+
+  const isEditable = formData.status === "DRAFT" || formData.status === "REJECTED";
+  const isStep3Editable = formData.status === "APPROVED";
+
+  const isEditableRef = React.useRef(isEditable);
+  const formDataRef = React.useRef(formData);
+  const promptedDraftKeys = React.useRef(new Set<string>());
+
+  useEffect(() => {
+    isEditableRef.current = isEditable;
+  }, [isEditable]);
+
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
 
   // Prevent copy, cut, paste, and drag-and-drop in all inputs, textareas, and rich text editors
   useEffect(() => {
@@ -307,34 +332,88 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     const divisionId = searchParams.get("divisionId");
     const divisionNo = searchParams.get("divisionNo");
 
+    // Immediately reset loading and baseline state to prevent mixing/leaking old data
+    setIsDataLoaded(false);
+    setDraftRestorationChecked(false);
+    setInitialFormData(null);
+    setSelectedDivisionsByMode({});
+
+    let resolvedInstitute = instituteParam;
+    if (!resolvedInstitute && className) {
+      const normalize = (n: string) => n.trim().toLowerCase().replace(/^class\s+/i, "");
+      const target = normalize(className);
+      const matchedClass = classes.find(c => normalize(c.name) === target);
+      if (matchedClass) {
+        resolvedInstitute = matchedClass.institute;
+      }
+    }
+
+    let exactUnitChapterPage = "";
+    if (unitName && chapterName && pages) {
+      exactUnitChapterPage = unitName === "NA" || unitName === ""
+        ? `${chapterName}, Pg ${pages}`
+        : `${unitName}, ${chapterName}, Pg ${pages}`;
+    } else if (unitChapter && pages) {
+      exactUnitChapterPage = `${unitChapter}, Pg ${pages}`;
+    }
+
+    if (divisionId && exactUnitChapterPage) {
+       exactUnitChapterPage = `${exactUnitChapterPage} (Div ${divisionNo || ''})`;
+    }
+
+    const defaultFields = {
+      id: undefined,
+      status: "DRAFT",
+      reviewerName: "",
+      specialistName: "",
+      principalName: "",
+      reviewedAt: "",
+      createdAt: "",
+      deliveryDay: "Monday",
+      date: searchParams.get("date") || new Date().toISOString().split('T')[0],
+      lpNo: "",
+      className: className || "",
+      subject: subject || "",
+      selectedInstitute: resolvedInstitute || "Dhanpuri Public School",
+      teacherName: "",
+      teacherNote: "",
+      homework: "",
+      openingTimeEnergizer: "",
+      openingTimeRoadmap: "",
+      learningIndicators: "",
+      lessonIntroObjective: "",
+      newTopicIntro: "",
+      knowledgeBuilding: "",
+      lessonActivity: "",
+      outcomeFeedback: "",
+      chapterSummaryRevision: "",
+      chapterBasedQA: "",
+      inspectionByTeacher: "",
+      closure: "",
+      prevDayCheck: "",
+      teacherObservation: "",
+      studentPerformanceGood: "",
+      studentPerformanceBad: "",
+      reviewerRemark: "",
+      principalRemark: "",
+      reviewerPrincipal: "",
+      chapterDivisionId: divisionId ? parseInt(divisionId, 10) : undefined,
+      unitChapterPage: exactUnitChapterPage,
+    };
+
+    setFormData(defaultFields);
+    setInitialFormData(defaultFields);
+
     if (className || subject || unitName || chapterName || unitChapter || pages || chapterId || divisionId || instituteParam) {
-      setFormData(prev => {
-        let exactUnitChapterPage = prev.unitChapterPage;
-        
-        // If we have unitName and chapterName, build the exact format needed for the select
-        if (unitName && chapterName && pages) {
-          exactUnitChapterPage = unitName === "NA" || unitName === ""
-            ? `${chapterName}, Pg ${pages}`
-            : `${unitName}, ${chapterName}, Pg ${pages}`;
-        } else if (unitChapter && pages) {
-          exactUnitChapterPage = `${unitChapter}, Pg ${pages}`;
-        }
-
-        // Include (Div X) only if it's a custom input or if we handle it elsewhere
-        // Wait, since we are showing this exact value in the input when divisionId is present, we CAN include (Div X)
-        if (divisionId && exactUnitChapterPage) {
-           exactUnitChapterPage = `${exactUnitChapterPage} (Div ${divisionNo || ''})`;
-        }
-
-        return {
-          ...prev,
-          className: className || prev.className,
-          subject: subject || prev.subject,
-          selectedInstitute: instituteParam || prev.selectedInstitute,
+      const initialMode = (searchParams.get("mode") as "EXPLANATION" | "QA" | "PREPRIMARY") || type || "EXPLANATION";
+      setSelectedDivisionsByMode(prev => ({
+        ...prev,
+        [initialMode]: {
+          chapterDivisionId: divisionId ? parseInt(divisionId, 10) : undefined,
           unitChapterPage: exactUnitChapterPage,
-          chapterDivisionId: divisionId ? parseInt(divisionId, 10) : prev.chapterDivisionId,
-        };
-      });
+          id: "",
+        }
+      }));
 
       if (chapterId) {
         setSelectedChapterId(parseInt(chapterId, 10));
@@ -351,31 +430,104 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         if (res.success && res.data) {
           try {
             const step1 = JSON.parse(res.data.step1Data || "{}");
-            const step2 = JSON.parse(res.data.step2Data || "{}");
-            setFormData(prev => ({
-              ...prev,
+            const rawStep2 = JSON.parse(res.data.step2Data || "{}");
+
+            // New unified format: step2Data has { explanationData, qaData, sharedData }
+            // Legacy format: flat keys directly in step2Data
+            const isNewFormat = rawStep2.explanationData !== undefined || rawStep2.qaData !== undefined || rawStep2.sharedData !== undefined;
+
+            let explanationFields: any = {};
+            let qaFields: any = {};
+            let sharedFields: any = {};
+
+            if (isNewFormat) {
+              explanationFields = rawStep2.explanationData || {};
+              qaFields = rawStep2.qaData || {};
+              sharedFields = rawStep2.sharedData || {};
+            } else {
+              // Legacy: extract fields by mode
+              const legacy = rawStep2;
+              explanationFields = {
+                openingTimeEnergizer: legacy.openingTimeEnergizer || "",
+                openingTimeRoadmap: legacy.openingTimeRoadmap || "",
+                learningIndicators: legacy.learningIndicators || "",
+                lessonIntroObjective: legacy.lessonIntroObjective || "",
+                newTopicIntro: legacy.newTopicIntro || "",
+                knowledgeBuilding: legacy.knowledgeBuilding || "",
+                lessonActivity: legacy.lessonActivity || "",
+                outcomeFeedback: legacy.outcomeFeedback || "",
+                closure: legacy.closure || "",
+                prevDayCheck: legacy.prevDayCheck || "",
+              };
+              qaFields = {
+                openingTimeEnergizer: legacy.openingTimeEnergizer || "",
+                openingTimeRoadmap: legacy.openingTimeRoadmap || "",
+                learningIndicators: legacy.learningIndicators || "",
+                chapterSummaryRevision: legacy.chapterSummaryRevision || "",
+                chapterBasedQA: legacy.chapterBasedQA || "",
+                inspectionByTeacher: legacy.inspectionByTeacher || "",
+                closure: legacy.closure || "",
+                prevDayCheck: legacy.prevDayCheck || "",
+              };
+              sharedFields = {
+                unitChapterPage: legacy.unitChapterPage || "",
+                prepDay: legacy.prepDay || "",
+                prepDate: legacy.prepDate || "",
+                progressStatus: legacy.progressStatus || "Not Started",
+                teacherObservation: legacy.teacherObservation || "",
+                studentPerformanceGood: legacy.studentPerformanceGood || "",
+                studentPerformanceBad: legacy.studentPerformanceBad || "",
+                reviewerRemark: legacy.reviewerRemark || "",
+                principalRemark: legacy.principalRemark || "",
+                reviewerPrincipal: legacy.reviewerPrincipal || "",
+              };
+            }
+
+            // Cache both modes' data so switching tabs works without a DB round-trip
+            cachedModeDataRef.current = {
+              EXPLANATION: explanationFields,
+              QA: qaFields,
+              PREPRIMARY: explanationFields,
+            };
+
+            // Start on EXPLANATION tab by default
+            const initialMode = (searchParams.get("mode") as "EXPLANATION" | "QA" | "PREPRIMARY") || "EXPLANATION";
+            const modeFields = initialMode === "QA" ? qaFields : explanationFields;
+
+            const loaded = {
+              ...defaultFields,
               ...step1,
-              ...step2,
+              ...sharedFields,
+              ...modeFields,
               id: res.data.id,
-              className: res.data.class?.name || prev.className,
-              subject: res.data.subject?.name || prev.subject,
-              selectedInstitute: res.data.class?.institute || prev.selectedInstitute,
-              date: res.data.date || prev.date,
-              teacherObservation: (res.data as any).teacherObservation || step2.teacherObservation || "",
-              studentPerformanceGood: (res.data as any).studentPerformanceGood || step2.studentPerformanceGood || "",
-              studentPerformanceBad: (res.data as any).studentPerformanceBad || step2.studentPerformanceBad || "",
+              className: res.data.class?.name || defaultFields.className,
+              subject: res.data.subject?.name || defaultFields.subject,
+              selectedInstitute: res.data.class?.institute || defaultFields.selectedInstitute,
+              date: res.data.date || defaultFields.date,
+              teacherObservation: sharedFields.teacherObservation || "",
+              studentPerformanceGood: sharedFields.studentPerformanceGood || "",
+              studentPerformanceBad: sharedFields.studentPerformanceBad || "",
               reviewerRemark: res.data.reviewerRemark || "",
+              principalRemark: res.data.principalRemark || "",
               status: res.data.status || "DRAFT",
-              reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || (res.data.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : res.data.reviewerUser?.role === 'ADMIN' ? 'Admin' : ""),
+              reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || "",
               specialistName: (res.data as any).specialistProfile?.name || "",
               principalName: (res.data as any).principalProfile?.name || "",
               reviewedAt: res.data.updatedAt || "",
               teacherName: res.data.teacherProfile?.name || "",
               createdAt: res.data.createdAt || "",
-            }));
-            if (res.data.type) {
-              setLessonPlanMode(res.data.type);
-            }
+              chapterDivisionId: res.data.chapterDivisionId || undefined,
+              unitChapterPage: sharedFields.unitChapterPage || step1.unitChapterPage || "",
+            };
+            setFormData(loaded);
+            setInitialFormData(loaded);
+            setLessonPlanMode(initialMode);
+            // Both modes share the same plan ID and division
+            setSelectedDivisionsByMode({
+              EXPLANATION: { chapterDivisionId: res.data.chapterDivisionId || undefined, unitChapterPage: sharedFields.unitChapterPage || "", id: res.data.id || "" },
+              QA: { chapterDivisionId: res.data.chapterDivisionId || undefined, unitChapterPage: sharedFields.unitChapterPage || "", id: res.data.id || "" },
+              PREPRIMARY: { chapterDivisionId: res.data.chapterDivisionId || undefined, unitChapterPage: sharedFields.unitChapterPage || "", id: res.data.id || "" },
+            });
           } catch (e) {
             console.error("Failed to parse edit plan data", e);
           }
@@ -391,26 +543,49 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   // Handle Draft Restoration & Auto-save
   const editId = searchParams.get("edit");
   const divisionId = searchParams.get("divisionId");
+  const chapterId = searchParams.get("chapterId");
+  const pagesParam = searchParams.get("pages");
+  const instituteParam = searchParams.get("institute");
+
+  // Build a highly specific key for new lesson plans to prevent mixing drafts of different divisions/pages/institutes/types
   const draftKey = editId 
     ? `lessonPlanDraft_edit_${editId}` 
-    : (divisionId 
-        ? `lessonPlanDraft_new_div_${divisionId}` 
-        : (formData.className && formData.subject 
-            ? `lessonPlanDraft_new_${formData.className}_${formData.subject}` 
-            : null));
+    : (formData.className && formData.subject 
+        ? `lessonPlanDraft_new_${formData.className}_${formData.subject}_${formData.selectedInstitute || instituteParam || "DPS"}_${formData.unitChapterPage || pagesParam || ""}_${lessonPlanMode}_${divisionId || ""}_${chapterId || ""}`.replace(/[^a-zA-Z0-9_]/g, "_")
+        : null);
+
+  // Reset draft restoration check when draftKey changes
+  useEffect(() => {
+    setDraftRestorationChecked(false);
+  }, [draftKey]);
+
+  // Set initialFormData to formData on first load if it hasn't been set yet
+  useEffect(() => {
+    if (isDataLoaded && !initialFormData) {
+      setInitialFormData(formData);
+    }
+  }, [isDataLoaded, formData, initialFormData]);
 
   useEffect(() => {
     if (!isDataLoaded || !draftKey || draftRestorationChecked) return;
 
-    const savedDraft = localStorage.getItem(draftKey);
-    if (savedDraft) {
+    // Skip if we already prompted for this draftKey in this page view session
+    if (promptedDraftKeys.current.has(draftKey)) {
+      setDraftRestorationChecked(true);
+      return;
+    }
+
+    const savedDraftVal = localStorage.getItem(draftKey);
+    if (savedDraftVal) {
+      promptedDraftKeys.current.add(draftKey);
       const message = editId 
         ? "We found an unsaved draft for this lesson plan. Do you want to restore it?"
         : "We found an unsaved draft for this new lesson plan. Do you want to restore it?";
       if (confirm(message)) {
         try {
-          const parsed = JSON.parse(savedDraft);
+          const parsed = JSON.parse(savedDraftVal);
           setFormData(parsed);
+          setInitialFormData(parsed);
         } catch (e) {
           console.error("Failed to parse draft", e);
         }
@@ -422,13 +597,17 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   }, [isDataLoaded, draftKey, draftRestorationChecked, editId]);
 
   useEffect(() => {
-    if (!isDataLoaded || !draftRestorationChecked || !draftKey) return;
+    if (!isDataLoaded || !draftRestorationChecked || !draftKey || !initialFormData) return;
+
+    // Only save draft if formData has actually changed (dirty check)
+    const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+    if (!isDirty) return;
 
     const timer = setTimeout(() => {
       localStorage.setItem(draftKey, JSON.stringify(formData));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [formData, draftKey, isDataLoaded, draftRestorationChecked]);
+  }, [formData, draftKey, isDataLoaded, draftRestorationChecked, initialFormData]);
 
   // Automatically calculate Delivery Day from Delivery Date
   useEffect(() => {
@@ -479,7 +658,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
     const dateStr = today.toISOString().split('T')[0];
     setFormData(prev => {
-      if (prev.status === "DRAFT") {
+      if (prev.status === "DRAFT" || prev.status === "REJECTED") {
         return {
           ...prev,
           prepDate: dateStr,
@@ -562,38 +741,159 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj.id);
       if (!subjectObj) return;
 
-      const res = await getLessonPlanByDateAndSubject(classObj.id, subjectObj.id, formData.date);
+      // If divisions exist for this chapter, but they haven't selected a division yet, skip auto-fetching!
+      if (chapterDivisions.length > 0 && !formData.chapterDivisionId) return;
+
+      const res = await getLessonPlanByDateAndSubject(
+        classObj.id, 
+        subjectObj.id, 
+        formData.date, 
+        lessonPlanMode, 
+        formData.chapterDivisionId,
+        formData.unitChapterPage
+      );
       if (res.success && res.data) {
-        if (confirm("An existing lesson plan was found for this date. Do you want to load it?")) {
-          try {
-            const step1 = JSON.parse(res.data.step1Data || "{}");
-            const step2 = JSON.parse(res.data.step2Data || "{}");
-            setFormData(prev => ({
+        try {
+          const step1 = JSON.parse(res.data.step1Data || "{}");
+          const rawStep2 = JSON.parse(res.data.step2Data || "{}");
+
+          // New unified format: step2Data has { explanationData, qaData, sharedData }
+          const isNewFormat = rawStep2.explanationData !== undefined || rawStep2.qaData !== undefined || rawStep2.sharedData !== undefined;
+
+          let explanationFields: any = {};
+          let qaFields: any = {};
+          let sharedFields: any = {};
+
+          if (isNewFormat) {
+            explanationFields = rawStep2.explanationData || {};
+            qaFields = rawStep2.qaData || {};
+            sharedFields = rawStep2.sharedData || {};
+          } else {
+            // Legacy flat format
+            const legacy = rawStep2;
+            explanationFields = {
+              openingTimeEnergizer: legacy.openingTimeEnergizer || "",
+              openingTimeRoadmap: legacy.openingTimeRoadmap || "",
+              learningIndicators: legacy.learningIndicators || "",
+              lessonIntroObjective: legacy.lessonIntroObjective || "",
+              newTopicIntro: legacy.newTopicIntro || "",
+              knowledgeBuilding: legacy.knowledgeBuilding || "",
+              lessonActivity: legacy.lessonActivity || "",
+              outcomeFeedback: legacy.outcomeFeedback || "",
+              closure: legacy.closure || "",
+              prevDayCheck: legacy.prevDayCheck || "",
+            };
+            qaFields = {
+              openingTimeEnergizer: legacy.openingTimeEnergizer || "",
+              openingTimeRoadmap: legacy.openingTimeRoadmap || "",
+              learningIndicators: legacy.learningIndicators || "",
+              chapterSummaryRevision: legacy.chapterSummaryRevision || "",
+              chapterBasedQA: legacy.chapterBasedQA || "",
+              inspectionByTeacher: legacy.inspectionByTeacher || "",
+              closure: legacy.closure || "",
+              prevDayCheck: legacy.prevDayCheck || "",
+            };
+            sharedFields = {
+              unitChapterPage: legacy.unitChapterPage || "",
+              prepDay: legacy.prepDay || "",
+              prepDate: legacy.prepDate || "",
+              progressStatus: legacy.progressStatus || "Not Started",
+              teacherObservation: legacy.teacherObservation || "",
+              studentPerformanceGood: legacy.studentPerformanceGood || "",
+              studentPerformanceBad: legacy.studentPerformanceBad || "",
+              reviewerRemark: legacy.reviewerRemark || "",
+              principalRemark: legacy.principalRemark || "",
+              reviewerPrincipal: legacy.reviewerPrincipal || "",
+            };
+          }
+
+          // Cache all modes' data for seamless tab-switching
+          cachedModeDataRef.current = {
+            EXPLANATION: explanationFields,
+            QA: qaFields,
+            PREPRIMARY: explanationFields,
+          };
+
+          // Apply current mode's fields
+          const modeFields = lessonPlanMode === "QA" ? qaFields : explanationFields;
+
+          setFormData(prev => {
+            const next = {
               ...prev,
+              id: res.data.id,
               ...step1,
-              ...step2,
-              ...step2,
-              teacherObservation: (res.data as any).teacherObservation || step2.teacherObservation || "",
-              studentPerformanceGood: (res.data as any).studentPerformanceGood || step2.studentPerformanceGood || "",
-              studentPerformanceBad: (res.data as any).studentPerformanceBad || step2.studentPerformanceBad || "",
+              ...sharedFields,
+              ...modeFields,
+              teacherObservation: sharedFields.teacherObservation || "",
+              studentPerformanceGood: sharedFields.studentPerformanceGood || "",
+              studentPerformanceBad: sharedFields.studentPerformanceBad || "",
               reviewerRemark: res.data.reviewerRemark || "",
+              principalRemark: res.data.principalRemark || "",
               status: res.data.status || "DRAFT",
-              reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || (res.data.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : res.data.reviewerUser?.role === 'ADMIN' ? 'Admin' : ""),
+              reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || "",
               specialistName: (res.data as any).specialistProfile?.name || "",
               reviewedAt: res.data.updatedAt || "",
               selectedInstitute: res.data.class?.institute || prev.selectedInstitute,
-            }));
-            if (res.data.type) {
-              setLessonPlanMode(res.data.type);
-            }
-          } catch (e) {
-            console.error("Failed to parse existing plan data", e);
-          }
+              chapterDivisionId: res.data.chapterDivisionId || undefined,
+              unitChapterPage: sharedFields.unitChapterPage || step1.unitChapterPage || "",
+            };
+            setInitialFormData(next);
+
+            // Both modes share the same plan record
+            const planId = res.data.id || "";
+            const divId = res.data.chapterDivisionId || undefined;
+            const ucp = sharedFields.unitChapterPage || step1.unitChapterPage || "";
+            setSelectedDivisionsByMode({
+              EXPLANATION: { chapterDivisionId: divId, unitChapterPage: ucp, id: planId },
+              QA: { chapterDivisionId: divId, unitChapterPage: ucp, id: planId },
+              PREPRIMARY: { chapterDivisionId: divId, unitChapterPage: ucp, id: planId },
+            });
+
+            return next;
+          });
+
+          return;
+        } catch (e) {
+          console.error("Failed to parse existing plan data", e);
         }
       }
+      
+      // No plan found — clear step2 fields and reset cache
+      cachedModeDataRef.current = {};
+      setFormData(prev => {
+        const next = {
+          ...prev,
+          id: "",
+          status: "DRAFT",
+          openingTimeEnergizer: "",
+          openingTimeRoadmap: "",
+          learningIndicators: "",
+          lessonIntroObjective: "",
+          newTopicIntro: "",
+          knowledgeBuilding: "",
+          lessonActivity: "",
+          outcomeFeedback: "",
+          chapterSummaryRevision: "",
+          chapterBasedQA: "",
+          inspectionByTeacher: "",
+          closure: "",
+          prevDayCheck: "",
+          teacherObservation: "",
+          studentPerformanceGood: "",
+          studentPerformanceBad: "",
+          reviewerRemark: "",
+          principalRemark: "",
+          reviewerPrincipal: "",
+          reviewerName: "",
+          specialistName: "",
+          principalName: "",
+        };
+        setInitialFormData(next);
+        return next;
+      });
     }
     fetchExistingPlan();
-  }, [formData.className, formData.subject, formData.selectedInstitute, formData.date, uniqueClasses, subjects]);
+  }, [formData.className, formData.subject, formData.selectedInstitute, formData.date, formData.chapterDivisionId, formData.unitChapterPage, chapterDivisions, uniqueClasses, subjects]);
 
   const isPrePrimary = formData.className.toLowerCase().includes('kg') || 
                        formData.className.toLowerCase().includes('nursery') || 
@@ -655,6 +955,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   // Click and Double click listener to edit images
   useEffect(() => {
     const handleDblClick = (e: MouseEvent) => {
+      if (!isEditableRef.current) return;
       const target = e.target as HTMLElement;
       if (target.tagName === 'IMG' && target.hasAttribute('data-excalidraw')) {
         const data = target.getAttribute('data-excalidraw');
@@ -710,6 +1011,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                editBtn.onclick = (event) => {
                  event.preventDefault();
                  event.stopPropagation();
+                 if (!isEditableRef.current) {
+                   alert("You can only edit diagrams in a draft or rejected state.");
+                   return;
+                 }
                  
                  const data = target.getAttribute('data-excalidraw');
                  const imgId = target.getAttribute('id');
@@ -753,16 +1058,20 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                deleteBtn.onclick = (event) => {
                  event.preventDefault();
                  event.stopPropagation();
+                 if (!isEditableRef.current) {
+                   alert("You can only delete diagrams in a draft or rejected state.");
+                   return;
+                 }
                  
                  const imgId = target.getAttribute('id');
                  if (imgId) {
                     const isTeacherNote = target.closest('[data-field="teacherNote"]');
                     const isNewTopicIntro = target.closest('[data-field="newTopicIntro"]');
                     const targetHtml = isTeacherNote 
-                      ? formData.teacherNote 
+                      ? formDataRef.current.teacherNote 
                       : isNewTopicIntro 
-                        ? formData.newTopicIntro 
-                        : formData.homework;
+                        ? formDataRef.current.newTopicIntro 
+                        : formDataRef.current.homework;
                     const imgRegex = new RegExp(`<p><img([^>]*)id=["']${imgId}["']([^>]*)><\/p>|<img([^>]*)id=["']${imgId}["']([^>]*)>`, "i");
                     
                     if (isTeacherNote) {
@@ -872,18 +1181,47 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     
     if (submitForValidation) {
       const missingFields = [];
-      if (!formData.teacherNote) missingFields.push("Teacher Note");
-      if (!formData.homework) missingFields.push("Homework");
-      if (!formData.unitChapterPage) missingFields.push("Unit/Chapter");
-      if (!formData.learningIndicators) missingFields.push("Learning Indicators");
-      if (!formData.lessonIntroObjective) missingFields.push("Lesson Intro/Objective");
+      const stripHtml = (html: string) => html?.replace(/<[^>]*>/g, "").trim();
+
+      // Step 1 check
+      if (!formData.className || !formData.subject) missingFields.push("Class & Subject");
+      if (!stripHtml(formData.teacherNote)) missingFields.push("Teacher's Note (1A)");
+      if (!stripHtml(formData.homework)) missingFields.push("Today's Homework (1B)");
+
+      // Step 2 check
+      if (!formData.unitChapterPage) missingFields.push("Unit/Chapter/Pages");
+      if (chapterDivisions.length > 0 && !formData.chapterDivisionId) {
+        missingFields.push("Page Range (Divided Pages)");
+      }
+      
+      if (lessonPlanMode === "EXPLANATION" || lessonPlanMode === "PREPRIMARY") {
+        if (!formData.openingTimeEnergizer) missingFields.push("5 min Energizer");
+        if (!formData.openingTimeRoadmap) missingFields.push("5 min Roadmap");
+        if (!formData.learningIndicators) missingFields.push("Learning Indicators");
+        if (!formData.lessonIntroObjective) missingFields.push("Lesson Intro/Objective");
+        if (!stripHtml(formData.newTopicIntro)) missingFields.push("8 min Explanation");
+        if (!formData.knowledgeBuilding) missingFields.push("5 min Knowledge Building");
+        if (!formData.lessonActivity) missingFields.push("Lesson Activity");
+        if (!formData.outcomeFeedback) missingFields.push("Outcome Feedback");
+        if (!formData.closure) missingFields.push("1 min Closure/Reward");
+        if (!formData.prevDayCheck) missingFields.push("2 min Previous Day Work Check");
+      } else if (lessonPlanMode === "QA") {
+        if (!formData.openingTimeEnergizer) missingFields.push("5 min Energizer");
+        if (!formData.openingTimeRoadmap) missingFields.push("5 min Roadmap");
+        if (!formData.learningIndicators) missingFields.push("Learning Indicators");
+        if (!formData.chapterSummaryRevision) missingFields.push("10 min Summary/Revision");
+        if (!formData.chapterBasedQA) missingFields.push("20 min Q&A");
+        if (!formData.inspectionByTeacher) missingFields.push("10 min Inspection");
+        if (!formData.closure) missingFields.push("1 min Closure/Reward");
+        if (!formData.prevDayCheck) missingFields.push("2 min Previous Day Work Check");
+      }
       
       if (missingFields.length > 0) {
-        alert("Please fill all required fields in Step 1 and 2 before submitting for validation. Missing: " + missingFields.join(", "));
+        alert("Please fill all required fields in Step 1 and 2 before submitting for review. Missing:\n\n• " + missingFields.join("\n• "));
         return;
       }
 
-      if (!confirm("Are you sure you want to submit this lesson plan for validation? You won't be able to edit it until it's reviewed.")) {
+      if (!confirm("Are you sure you want to submit this lesson plan for review? You won't be able to edit it until it's reviewed.")) {
         return;
       }
     }
@@ -894,6 +1232,47 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
 
       const targetStatus = forceStatus || (submitForValidation ? "SUBMITTED" : (formData.id ? formData.status : "DRAFT"));
+
+      // Build step2Data in the new unified format: explanationData, qaData, sharedData sub-objects
+      const isExplanation = lessonPlanMode === "EXPLANATION" || lessonPlanMode === "PREPRIMARY";
+      const isQA = lessonPlanMode === "QA";
+
+      const step2DataPayload = {
+        sharedData: {
+          unitChapterPage: formData.unitChapterPage,
+          prepDay: formData.prepDay,
+          prepDate: formData.prepDate,
+          progressStatus: formData.progressStatus,
+          teacherObservation: formData.teacherObservation,
+          studentPerformanceGood: formData.studentPerformanceGood,
+          studentPerformanceBad: formData.studentPerformanceBad,
+          reviewerRemark: formData.reviewerRemark,
+          principalRemark: formData.principalRemark,
+          reviewerPrincipal: formData.reviewerPrincipal,
+        },
+        explanationData: isExplanation ? {
+          openingTimeEnergizer: formData.openingTimeEnergizer,
+          openingTimeRoadmap: formData.openingTimeRoadmap,
+          learningIndicators: formData.learningIndicators,
+          lessonIntroObjective: formData.lessonIntroObjective,
+          newTopicIntro: formData.newTopicIntro,
+          knowledgeBuilding: formData.knowledgeBuilding,
+          lessonActivity: formData.lessonActivity,
+          outcomeFeedback: formData.outcomeFeedback,
+          closure: formData.closure,
+          prevDayCheck: formData.prevDayCheck,
+        } : undefined,
+        qaData: isQA ? {
+          openingTimeEnergizer: formData.openingTimeEnergizer,
+          openingTimeRoadmap: formData.openingTimeRoadmap,
+          learningIndicators: formData.learningIndicators,
+          chapterSummaryRevision: formData.chapterSummaryRevision,
+          chapterBasedQA: formData.chapterBasedQA,
+          inspectionByTeacher: formData.inspectionByTeacher,
+          closure: formData.closure,
+          prevDayCheck: formData.prevDayCheck,
+        } : undefined,
+      };
 
       const res = await (saveLessonPlan as any)({
         id: formData.id,
@@ -908,31 +1287,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           teacherNote: formData.teacherNote,
           homework: formData.homework
         },
-        step2Data: {
-          unitChapterPage: formData.unitChapterPage,
-          prepDay: formData.prepDay,
-          prepDate: formData.prepDate,
-          progressStatus: formData.progressStatus,
-          openingTimeEnergizer: formData.openingTimeEnergizer,
-          openingTimeRoadmap: formData.openingTimeRoadmap,
-          learningIndicators: formData.learningIndicators,
-          lessonIntroObjective: formData.lessonIntroObjective,
-          newTopicIntro: formData.newTopicIntro,
-          knowledgeBuilding: formData.knowledgeBuilding,
-          lessonActivity: formData.lessonActivity,
-          outcomeFeedback: formData.outcomeFeedback,
-          chapterSummaryRevision: formData.chapterSummaryRevision,
-          chapterBasedQA: formData.chapterBasedQA,
-          inspectionByTeacher: formData.inspectionByTeacher,
-          closure: formData.closure,
-          prevDayCheck: formData.prevDayCheck,
-          teacherObservation: formData.teacherObservation,
-          studentPerformanceGood: formData.studentPerformanceGood,
-          studentPerformanceBad: formData.studentPerformanceBad,
-          reviewerRemark: formData.reviewerRemark,
-          principalRemark: formData.principalRemark,
-          reviewerPrincipal: formData.reviewerPrincipal,
-        }
+        step2Data: step2DataPayload,
       });
 
       if (res.success) {
@@ -944,11 +1299,30 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           alert("Lesson Plan Signed Off and Completed successfully!");
           router.push("/office/academy-management/my-lesson-plans");
         } else if (submitForValidation) {
-          alert("Lesson Plan submitted for validation successfully!");
+          alert("Lesson Plan submitted for reviewer successfully!");
           router.push("/office/academy-management/my-lesson-plans");
         } else {
           alert("Lesson Plan saved successfully!");
-          router.push("/office/academy-management/my-lesson-plans");
+          
+          const savedId = res.id || "";
+          setFormData(prev => {
+            const next = { ...prev, id: savedId };
+            setInitialFormData(next);
+            return next;
+          });
+
+          // All modes share same plan ID
+          setSelectedDivisionsByMode({
+            EXPLANATION: { chapterDivisionId: formData.chapterDivisionId, unitChapterPage: formData.unitChapterPage, id: savedId },
+            QA: { chapterDivisionId: formData.chapterDivisionId, unitChapterPage: formData.unitChapterPage, id: savedId },
+            PREPRIMARY: { chapterDivisionId: formData.chapterDivisionId, unitChapterPage: formData.unitChapterPage, id: savedId },
+          });
+
+          // Update URL to edit mode so subsequent saves do targeted updates
+          const params = new URLSearchParams(window.location.search);
+          params.set("edit", savedId);
+          const newUrl = `${window.location.pathname}?${params.toString()}`;
+          window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, "", newUrl);
         }
       } else {
         alert("Error saving lesson plan: " + res.error);
@@ -958,6 +1332,74 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleContinueToStep2 = () => {
+    if (isEditable) {
+      const missingFields: string[] = [];
+      const stripHtml = (html: string) => html?.replace(/<[^>]*>/g, "").trim();
+      if (!formData.className || !formData.subject) missingFields.push("Class & Subject");
+      if (!stripHtml(formData.teacherNote)) missingFields.push("Teacher's Note (1A)");
+      if (!stripHtml(formData.homework)) missingFields.push("Today's Homework (1B)");
+      if (missingFields.length > 0) {
+        alert(`Please fill all required fields in Step 1 before proceeding:\n\n• ${missingFields.join("\n• ")}`);
+        return;
+      }
+    }
+    setActiveStep(2);
+  };
+
+  const handleModeChange = (newMode: "EXPLANATION" | "QA" | "PREPRIMARY") => {
+    if (newMode === lessonPlanMode) return;
+
+    // Step 1: Save current mode's step2 fields to cache before switching
+    const currentModeSnapshot = {
+      openingTimeEnergizer: formData.openingTimeEnergizer,
+      openingTimeRoadmap: formData.openingTimeRoadmap,
+      learningIndicators: formData.learningIndicators,
+      lessonIntroObjective: formData.lessonIntroObjective,
+      newTopicIntro: formData.newTopicIntro,
+      knowledgeBuilding: formData.knowledgeBuilding,
+      lessonActivity: formData.lessonActivity,
+      outcomeFeedback: formData.outcomeFeedback,
+      chapterSummaryRevision: formData.chapterSummaryRevision,
+      chapterBasedQA: formData.chapterBasedQA,
+      inspectionByTeacher: formData.inspectionByTeacher,
+      closure: formData.closure,
+      prevDayCheck: formData.prevDayCheck,
+    };
+    cachedModeDataRef.current[lessonPlanMode] = currentModeSnapshot;
+    // Also cache for PREPRIMARY (same as EXPLANATION)
+    if (lessonPlanMode === "EXPLANATION") cachedModeDataRef.current["PREPRIMARY"] = currentModeSnapshot;
+    if (lessonPlanMode === "PREPRIMARY") cachedModeDataRef.current["EXPLANATION"] = currentModeSnapshot;
+
+    // Step 2: Restore the new mode's fields from cache (zero if never visited)
+    const newModeCache = cachedModeDataRef.current[newMode] || {};
+    const clearedModeFields = {
+      openingTimeEnergizer: "",
+      openingTimeRoadmap: "",
+      learningIndicators: "",
+      lessonIntroObjective: "",
+      newTopicIntro: "",
+      knowledgeBuilding: "",
+      lessonActivity: "",
+      outcomeFeedback: "",
+      chapterSummaryRevision: "",
+      chapterBasedQA: "",
+      inspectionByTeacher: "",
+      closure: "",
+      prevDayCheck: "",
+    };
+
+    const restoredFields = { ...clearedModeFields, ...newModeCache };
+
+    setFormData(prev => {
+      const next = { ...prev, ...restoredFields };
+      setInitialFormData(next);
+      return next;
+    });
+
+    setLessonPlanMode(newMode);
   };
 
   const handleGeneratePdf = async () => {
@@ -993,19 +1435,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           1. Teacher Preparation
         </button>
         <button
-          onClick={() => {
-            // Validate Step 1 required fields before proceeding
-            const missingFields: string[] = [];
-            const stripHtml = (html: string) => html?.replace(/<[^>]*>/g, "").trim();
-            if (!formData.className || !formData.subject) missingFields.push("Class & Subject");
-            if (!stripHtml(formData.teacherNote)) missingFields.push("Teacher's Note (1A)");
-            if (!stripHtml(formData.homework)) missingFields.push("Today's Homework (1B)");
-            if (missingFields.length > 0) {
-              alert(`Please fill all required fields in Step 1 before proceeding:\n\n• ${missingFields.join("\n• ")}`);
-              return;
-            }
-            setActiveStep(2);
-          }}
+          onClick={handleContinueToStep2}
           className={`px-6 py-2 rounded-lg font-bold text-xs transition-all ${activeStep === 2
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
@@ -1015,7 +1445,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         </button>
         <button
           onClick={() => {
-            if (formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "REJECTED") {
+            if (formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "COMPLETED") {
               alert("The Sign Off section will only unlock after your lesson plan has been reviewed.");
               return;
             }
@@ -1024,7 +1454,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           className={`px-6 py-2 rounded-lg font-bold text-xs transition-all ${activeStep === 3
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
-            } ${formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "REJECTED" ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "COMPLETED" ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           3. LESSON delivery & Sign off
         </button>
@@ -1049,7 +1479,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   }
                 }}
                 className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!!formData.chapterDivisionId || !!formData.id || formData.status !== "DRAFT"}
+                disabled={!!formData.chapterDivisionId || !!formData.id || !isEditable}
               >
                 <option value="">Select</option>
                 {subjects.map(s => {
@@ -1090,7 +1520,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 min={minDateStr}
                 max={maxDateStr}
                 onChange={handleChange}
-                disabled={formData.status !== "DRAFT"}
+                disabled={!isEditable}
                 className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
@@ -1106,17 +1536,28 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               <div className="flex items-center gap-2 min-w-max ml-4 px-3 py-1 bg-blue-50 border border-blue-100 rounded-lg">
                 <span className="text-[10px] font-black uppercase text-blue-400">Range:</span>
                 <select
-                  value={chapterDivisions.find(d => formData.unitChapterPage.includes(`Pg ${d.pageStart}-${d.pageEnd}`))?.id || ""}
+                  value={formData.chapterDivisionId || ""}
                   onChange={(e) => {
                     const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
                     if (division) {
+                      const newPageValue = `${formData.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})`;
                       setFormData(prev => ({ 
                         ...prev, 
-                        unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                        chapterDivisionId: division.id,
+                        unitChapterPage: newPageValue 
+                      }));
+                      setSelectedDivisionsByMode(prev => ({
+                        ...prev,
+                        [lessonPlanMode]: {
+                          chapterDivisionId: division.id,
+                          unitChapterPage: newPageValue,
+                          id: formData.id || ""
+                        }
                       }));
                     }
                   }}
                   className="bg-transparent outline-none font-bold text-[11px] text-blue-600"
+                  disabled={!isEditable || !!formData.id}
                 >
                   <option value="">Select Range</option>
                   {chapterDivisions.map((division) => (
@@ -1176,6 +1617,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   onChange={(val) => setFormData(prev => ({ ...prev, teacherNote: val }))}
                   className="w-full bg-white text-slate-900 border-none"
                   placeholder="Enter your preparation notes, formulas, or paste diagrams here..."
+                  readOnly={!isEditable}
                 />
               </div>
               <div className="bg-slate-50 p-2 border-t border-slate-200 flex justify-end">
@@ -1185,7 +1627,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     setDrawingTarget("teacherNote");
                     setIsDrawingModalOpen(true);
                   }}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm"
+                  disabled={!isEditable}
+                  className={`px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm ${
+                    !isEditable ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100"
+                  }`}
                 >
                   <PenTool className="w-3.5 h-3.5 text-blue-600" /> Draw Diagram (Whiteboard)
                 </button>
@@ -1232,6 +1677,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   onChange={(val) => setFormData(prev => ({ ...prev, homework: val }))}
                   className="w-full text-slate-900 border-none"
                   placeholder="Enter student homework assignments here..."
+                  readOnly={!isEditable}
                 />
               </div>
               <div className="bg-slate-50 p-2 border-t border-slate-200 flex justify-end">
@@ -1241,7 +1687,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     setDrawingTarget("homework");
                     setIsDrawingModalOpen(true);
                   }}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm"
+                  disabled={!isEditable}
+                  className={`px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm ${
+                    !isEditable ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100"
+                  }`}
                 >
                   <PenTool className="w-3.5 h-3.5 text-blue-600" /> Draw Diagram (Whiteboard)
                 </button>
@@ -1256,14 +1705,14 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               {!isPrePrimary && (
                 <>
                   <button
-                    onClick={() => setLessonPlanMode("EXPLANATION")}
+                    onClick={() => handleModeChange("EXPLANATION")}
                     className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "EXPLANATION" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                       }`}
                   >
                     2A. Lesson Plan (EXPLANATION)
                   </button>
                   <button
-                    onClick={() => setLessonPlanMode("QA")}
+                    onClick={() => handleModeChange("QA")}
                     className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "QA" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                       }`}
                   >
@@ -1273,7 +1722,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               )}
               {isPrePrimary && (
                 <button
-                  onClick={() => setLessonPlanMode("PREPRIMARY")}
+                  onClick={() => handleModeChange("PREPRIMARY")}
                   className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lessonPlanMode === "PREPRIMARY" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                     }`}
                 >
@@ -1323,11 +1772,23 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       <select 
                         name="unitChapterPage" 
                         value={formData.unitChapterPage} 
-                        disabled={formData.status !== "DRAFT" || !!formData.id}
+                        disabled={!isEditable || !!formData.id}
                         className="w-full bg-transparent border-none outline-none font-bold text-[13px] appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         onChange={(e) => {
                           const selectedValue = e.target.value;
-                          handleChange(e);
+                          setFormData(prev => ({
+                            ...prev,
+                            unitChapterPage: selectedValue,
+                            chapterDivisionId: undefined
+                          }));
+                          setSelectedDivisionsByMode(prev => ({
+                            ...prev,
+                            [lessonPlanMode]: {
+                              ...prev[lessonPlanMode],
+                              chapterDivisionId: undefined,
+                              unitChapterPage: selectedValue,
+                            }
+                          }));
                           
                           // Find the chapter and fetch its divisions
                           if (selectedValue && selectedValue !== "custom") {
@@ -1382,15 +1843,26 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       <input
                         type="text"
                         placeholder="Type manually..."
-                        disabled={formData.status !== "DRAFT"}
+                        disabled={!isEditable}
                         className="w-full ml-2 border-b border-slate-300 outline-none font-bold text-xs disabled:opacity-50"
-                        onChange={(e) => setFormData(prev => ({ ...prev, unitChapterPage: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData(prev => ({ ...prev, unitChapterPage: val }));
+                          setSelectedDivisionsByMode(prev => ({
+                            ...prev,
+                            EXPLANATION: {
+                              ...prev.EXPLANATION,
+                              unitChapterPage: val,
+                              id: formData.id || ""
+                            }
+                          }));
+                        }}
                       />
                     )}
                   </div>
                   <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                   <div className="col-span-4 p-3 flex items-center overflow-hidden">
-                    {formData.status !== "DRAFT" || !!formData.chapterDivisionId ? (
+                    {!isEditable || !!formData.chapterDivisionId ? (
                       <input 
                         type="text"
                         value={(() => {
@@ -1405,14 +1877,23 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     ) : (
                       <select
                         value={formData.chapterDivisionId || ""}
-                        disabled={chapterDivisions.length === 0 || formData.status !== "DRAFT"}
+                        disabled={chapterDivisions.length === 0 || !isEditable}
                         onChange={(e) => {
                           const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
                           if (division) {
+                            const newPageValue = `${formData.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})`;
                             setFormData(prev => ({ 
                               ...prev, 
                               chapterDivisionId: division.id,
-                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})` 
+                              unitChapterPage: newPageValue
+                            }));
+                            setSelectedDivisionsByMode(prev => ({
+                              ...prev,
+                              [lessonPlanMode]: {
+                                chapterDivisionId: division.id,
+                                unitChapterPage: newPageValue,
+                                id: formData.id || ""
+                              }
                             }));
                           }
                         }}
@@ -1465,7 +1946,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       name="reviewerPrincipal" 
                       value={formData.reviewerPrincipal} 
                       onChange={handleChange} 
-                      disabled={formData.status !== "DRAFT"}
+                      disabled={!isEditable}
                       className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-50" 
                       placeholder="Reviewer Signature..." 
                     />
@@ -1512,8 +1993,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Describe the activity..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -1529,8 +2011,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         onChange={handleChange} 
                         ref={adjustHeight}
                         onInput={(e) => adjustHeight(e.currentTarget)}
-                        className="w-full bg-white border border-slate-100 rounded-lg p-2 font-bold text-xs resize-none overflow-hidden" 
+                        className={`w-full bg-white border rounded-lg p-2 font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 border-slate-200 bg-slate-50/50 cursor-not-allowed" : "border-slate-100"}`} 
                         placeholder="Roadmap detail..." 
+                        readOnly={!isEditable}
                       />
                       <textarea 
                         name="learningIndicators" 
@@ -1538,8 +2021,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         onChange={handleChange} 
                         ref={adjustHeight}
                         onInput={(e) => adjustHeight(e.currentTarget)}
-                        className="w-full bg-white border border-slate-100 rounded-lg p-2 font-bold text-xs resize-none overflow-hidden" 
+                        className={`w-full bg-white border rounded-lg p-2 font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 border-slate-200 bg-slate-50/50 cursor-not-allowed" : "border-slate-100"}`} 
                         placeholder="Indicators 1, 2, 3..." 
+                        readOnly={!isEditable}
                       />
                     </div>
                   </div>
@@ -1559,8 +2043,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -1574,12 +2059,12 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         modules={quillModules}
                         value={formData.newTopicIntro}
                         onChange={(val) => setFormData(prev => ({ ...prev, newTopicIntro: val }))}
-                        readOnly={formData.status !== "DRAFT"}
+                        readOnly={!isEditable}
                         className="w-full bg-white text-slate-900 border border-slate-100 rounded-lg"
                         placeholder="Enter description, notes, or paste diagrams here..."
                       />
                     </div>
-                    {formData.status === "DRAFT" && (
+                    {isEditable && (
                       <div className="flex justify-end">
                         <button
                           type="button"
@@ -1605,8 +2090,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -1622,8 +2108,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         onChange={handleChange} 
                         ref={adjustHeight}
                         onInput={(e) => adjustHeight(e.currentTarget)}
-                        className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                        className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                         placeholder="Activity details..." 
+                        readOnly={!isEditable}
                       />
                     </div>
                     <div className="pt-2">
@@ -1634,8 +2121,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         onChange={handleChange} 
                         ref={adjustHeight}
                         onInput={(e) => adjustHeight(e.currentTarget)}
-                        className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                        className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                         placeholder="Feedback/Learning outcome..." 
+                        readOnly={!isEditable}
                       />
                     </div>
                   </div>
@@ -1655,8 +2143,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -1675,8 +2164,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
+                      readOnly={!isEditable}
                     />
                   </div>
                 </div>
@@ -1733,7 +2223,19 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         className="w-full bg-transparent border-none outline-none font-bold text-[13px] appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         onChange={(e) => {
                           const selectedValue = e.target.value;
-                          handleChange(e);
+                          setFormData(prev => ({
+                            ...prev,
+                            unitChapterPage: selectedValue,
+                            chapterDivisionId: undefined
+                          }));
+                          setSelectedDivisionsByMode(prev => ({
+                            ...prev,
+                            [lessonPlanMode]: {
+                              ...prev[lessonPlanMode],
+                              chapterDivisionId: undefined,
+                              unitChapterPage: selectedValue,
+                            }
+                          }));
                           
                           // Find the chapter and fetch its divisions
                           if (selectedValue && selectedValue !== "custom") {
@@ -1788,15 +2290,26 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       <input
                         type="text"
                         placeholder="Type manually..."
-                        disabled={formData.status !== "DRAFT"}
+                        disabled={!isEditable}
                         className="w-full ml-2 border-b border-slate-300 outline-none font-bold text-xs disabled:opacity-50"
-                        onChange={(e) => setFormData(prev => ({ ...prev, unitChapterPage: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData(prev => ({ ...prev, unitChapterPage: val }));
+                          setSelectedDivisionsByMode(prev => ({
+                            ...prev,
+                            QA: {
+                              ...prev.QA,
+                              unitChapterPage: val,
+                              id: formData.id || ""
+                            }
+                          }));
+                        }}
                       />
                     )}
                   </div>
                   <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                   <div className="col-span-4 p-3 flex items-center overflow-hidden">
-                    {formData.status !== "DRAFT" || !!formData.chapterDivisionId ? (
+                    {!isEditable || !!formData.chapterDivisionId ? (
                       <input 
                         type="text"
                         value={(() => {
@@ -1811,14 +2324,23 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     ) : (
                       <select
                         value={formData.chapterDivisionId || ""}
-                        disabled={chapterDivisions.length === 0 || formData.status !== "DRAFT"}
+                        disabled={chapterDivisions.length === 0 || !isEditable}
                         onChange={(e) => {
                           const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
                           if (division) {
+                            const newPageValue = `${formData.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})`;
                             setFormData(prev => ({ 
                               ...prev, 
                               chapterDivisionId: division.id,
-                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})` 
+                              unitChapterPage: newPageValue
+                            }));
+                            setSelectedDivisionsByMode(prev => ({
+                              ...prev,
+                              QA: {
+                                chapterDivisionId: division.id,
+                                unitChapterPage: newPageValue,
+                                id: formData.id || ""
+                              }
                             }));
                           }
                         }}
@@ -1871,7 +2393,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       name="reviewerPrincipal" 
                       value={formData.reviewerPrincipal} 
                       onChange={handleChange} 
-                      disabled={formData.status !== "DRAFT"}
+                      disabled={!isEditable}
                       className="w-full bg-transparent border-none outline-none font-bold text-sm disabled:opacity-50" 
                       placeholder="Reviewer Signature..." 
                     />
@@ -1927,8 +2449,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Describe the activity..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -1946,8 +2469,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         onChange={handleChange} 
                         ref={adjustHeight}
                         onInput={(e) => adjustHeight(e.currentTarget)}
-                        className="w-full bg-transparent border-none outline-none font-bold text-[11px] resize-none overflow-hidden" 
+                        className={`w-full bg-transparent border-none outline-none font-bold text-[11px] resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                         placeholder="Roadmap detail..." 
+                        readOnly={!isEditable}
                       />
                     </div>
                     <div className="p-3 bg-slate-50/30">
@@ -1958,8 +2482,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                         onChange={handleChange} 
                         ref={adjustHeight}
                         onInput={(e) => adjustHeight(e.currentTarget)}
-                        className="w-full bg-transparent border-none outline-none font-bold text-[11px] resize-none overflow-hidden" 
+                        className={`w-full bg-transparent border-none outline-none font-bold text-[11px] resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                         placeholder="Indicators 1, 2, 3..." 
+                        readOnly={!isEditable}
                       />
                     </div>
                   </div>
@@ -1982,8 +2507,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Write key summary points..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -1997,8 +2523,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="List questions, dictation points, and student tasks..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -2012,8 +2539,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Observations during student writing..." 
+                      readOnly={!isEditable}
                     />
                   </div>
                 </div>
@@ -2036,8 +2564,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Appreciate students..." 
+                      readOnly={!isEditable}
                     />
                   </div>
 
@@ -2059,8 +2588,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className="w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden" 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Check student work..." 
+                      readOnly={!isEditable}
                     />
                   </div>
                 </div>
@@ -2075,6 +2605,17 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
         ) : (
           /* --- STEP 3: LESSON DELIVERY & SIGN OFF --- */
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {formData.status === "REVIEWED" && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4 text-amber-800 shadow-md">
+                <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-amber-900">Pending for Principal / Academic Committee Approval</h4>
+                  <p className="text-xs text-amber-700 leading-relaxed font-semibold">
+                    This lesson plan has been successfully reviewed by the specialist/reviewer and is currently awaiting approval from the Principal or Academic Committee. It will unlock for editing and sign-off once approved.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
               <div className="bg-slate-800 text-white p-6 flex items-center justify-between">
                 <div>
@@ -2143,8 +2684,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   onChange={handleChange} 
                   ref={adjustHeight}
                   onInput={(e) => adjustHeight(e.currentTarget)}
-                  className="w-full min-h-[160px] p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none focus:bg-white focus:border-blue-200 transition-all placeholder:text-slate-300 overflow-hidden" 
+                  className={`w-full min-h-[160px] p-6 border rounded-2xl outline-none font-medium text-sm resize-none transition-all placeholder:text-slate-300 overflow-hidden ${
+                    isStep3Editable ? "bg-white border-blue-200 focus:border-blue-300" : "bg-slate-50 border-slate-100 text-slate-500 cursor-not-allowed"
+                  }`} 
                   placeholder="Write observations here..." 
+                  readOnly={!isStep3Editable}
                 />
               </div>
 
@@ -2161,8 +2705,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     onChange={handleChange} 
                     ref={adjustHeight}
                     onInput={(e) => adjustHeight(e.currentTarget)}
-                    className="w-full min-h-[128px] p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-emerald-200 transition-all overflow-hidden" 
+                    className={`w-full min-h-[128px] p-4 border rounded-xl outline-none font-bold text-xs resize-none transition-all overflow-hidden ${
+                      isStep3Editable ? "bg-emerald-50/10 border-emerald-100 focus:bg-white focus:border-emerald-200" : "bg-slate-50 border-slate-100 text-slate-500 cursor-not-allowed"
+                    }`}
                     placeholder="Note positive highlights..." 
+                    readOnly={!isStep3Editable}
                   />
                 </div>
                 <div className="flex-1 space-y-4 border-l border-slate-100 md:pl-8">
@@ -2176,8 +2723,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                     onChange={handleChange} 
                     ref={adjustHeight}
                     onInput={(e) => adjustHeight(e.currentTarget)}
-                    className="w-full min-h-[128px] p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none focus:bg-white focus:border-rose-200 transition-all overflow-hidden" 
+                    className={`w-full min-h-[128px] p-4 border rounded-xl outline-none font-bold text-xs resize-none transition-all overflow-hidden ${
+                      isStep3Editable ? "bg-rose-50/10 border-rose-100 focus:bg-white focus:border-rose-200" : "bg-slate-50 border-slate-100 text-slate-500 cursor-not-allowed"
+                    }`}
                     placeholder="Note areas for improvement..." 
+                    readOnly={!isStep3Editable}
                   />
                 </div>
               </div>
@@ -2248,18 +2798,20 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       {/* 3. SIMPLIFIED FOOTER */}
       <div className="border border-slate-300 bg-white p-8">
         <div className="flex items-center justify-end gap-3">
-          <button
-            onClick={() => handleSave(false)}
-            disabled={isSaving}
-            className="px-6 py-3 border border-slate-200 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
-          >
-            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-            Save Draft
-          </button>
+          {isEditable && (
+            <button
+              onClick={() => handleSave(false)}
+              disabled={isSaving}
+              className="px-6 py-3 border border-slate-200 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+            >
+              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              Save Draft
+            </button>
+          )}
           
           {activeStep === 1 && (
             <button
-              onClick={() => setActiveStep(2)}
+              onClick={handleContinueToStep2}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
             >
               Continue to Step 2 <ChevronRight className="h-3 w-3" />
@@ -2269,19 +2821,35 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           {activeStep === 2 && (
             <button
               onClick={() => {
-                if (formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED") {
-                  setActiveStep(3);
-                } else {
+                if (isEditable) {
                   handleSave(true);
+                } else if (formData.status !== "SUBMITTED") {
+                  setActiveStep(3);
                 }
               }}
-              disabled={isSaving}
+              disabled={isSaving || formData.status === "SUBMITTED"}
               className={`px-6 py-3 text-white rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-md flex items-center gap-2 ${
-                formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED" ? "bg-slate-600 hover:bg-slate-700" : "bg-blue-600 hover:bg-blue-700"
+                isEditable 
+                  ? "bg-blue-600 hover:bg-blue-700" 
+                  : formData.status === "SUBMITTED"
+                    ? "bg-slate-400 cursor-not-allowed"
+                    : "bg-slate-600 hover:bg-slate-700"
               }`}
             >
-              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED" ? <ChevronRight className="h-3 w-3" /> : <Save className="h-3 w-3" />}
-              {formData.status === "APPROVED" || formData.status === "REVIEWED" || formData.status === "REJECTED" ? "Continue to Step 3" : "Submit for Validation"}
+              {isSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : isEditable ? (
+                <Save className="h-3 w-3" />
+              ) : formData.status === "SUBMITTED" ? (
+                <Save className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+              {isEditable 
+                ? "Submit for Reviewer" 
+                : formData.status === "SUBMITTED"
+                  ? "Submitted to Reviewer"
+                  : "Continue to Step 3"}
             </button>
           )}
 
@@ -2299,17 +2867,6 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
             >
               {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
               Sign Off & Complete
-            </button>
-          )}
-
-          {activeStep === 3 && formData.status !== "APPROVED" && formData.status !== "COMPLETED" && (
-            <button
-              onClick={() => handleSave(true)}
-              disabled={isSaving}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md flex items-center gap-2"
-            >
-              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
-              Confirm & Final Submit
             </button>
           )}
 

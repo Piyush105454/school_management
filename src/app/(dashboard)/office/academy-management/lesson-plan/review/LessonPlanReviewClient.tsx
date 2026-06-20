@@ -18,7 +18,8 @@ import {
   Download,
   Loader2,
   Trash2,
-  ChevronLeft
+  ChevronLeft,
+  Clock
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 import { useInstitute } from "@/providers/InstituteProvider";
@@ -518,6 +519,16 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 {selectedPlan.status === "SUBMITTED" && (
                   <span className="ml-3 px-3 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-full text-[10px] font-black uppercase tracking-wider">
                     Pending Review
+                  </span>
+                )}
+                {selectedPlan.status === "REVIEWED" && (
+                  <span className="ml-3 px-3 py-1 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    Reviewed (Pending Approval)
+                  </span>
+                )}
+                {selectedPlan.status === "COMPLETED" && (
+                  <span className="ml-3 px-3 py-1 bg-teal-50 text-teal-600 border border-teal-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    Completed
                   </span>
                 )}
               </h1>
@@ -1182,8 +1193,14 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               <label className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
                 <PenTool className="h-4 w-4" /> {isApprover ? "Final Validation & Approval Feedback" : "Reviewing Feedback & Review"}
               </label>
+              {isApprover && selectedPlan.status === "SUBMITTED" && (
+                <div className="flex items-center gap-2 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] mb-4 mt-2">
+                  <Clock className="h-4 w-4" />
+                  Pending for Specialist Reviewer
+                </div>
+              )}
               {(() => {
-                const canTakeAction = ((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && (selectedPlan.status === "SUBMITTED" || selectedPlan.status === "REVIEWED")));
+                const canTakeAction = ((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && selectedPlan.status === "REVIEWED"));
                 return (
                   <textarea 
                     value={remark}
@@ -1199,8 +1216,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
             </div>
 
             <div className="flex items-center justify-end gap-4">
-              {/* Show Reject for Specialist (only on SUBMITTED) or Approver (on SUBMITTED or REVIEWED) */}
-              {((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && (selectedPlan.status === "SUBMITTED" || selectedPlan.status === "REVIEWED"))) && (
+              {/* Show Reject for Specialist (only on SUBMITTED) or Approver (only on REVIEWED) */}
+              {((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && selectedPlan.status === "REVIEWED")) && (
                 <button 
                   onClick={() => handleAction("REJECTED")}
                   disabled={loading}
@@ -1223,8 +1240,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 </button>
               )}
 
-              {/* Show Approve only for Approvers on REVIEWED or SUBMITTED */}
-              {isApprover && (selectedPlan.status === "REVIEWED" || selectedPlan.status === "SUBMITTED") && (
+              {/* Show Approve only for Approvers on REVIEWED */}
+              {isApprover && selectedPlan.status === "REVIEWED" && (
                 <button 
                   onClick={() => handleAction("APPROVED")}
                   disabled={loading}

@@ -419,11 +419,13 @@ export const lessonPlans = pgTable("lesson_plans", {
   subjectId: integer("subject_id").references(() => subjects.id),
   date: text("date").notNull(),
   type: text("type").default("EXPLANATION").notNull(), // EXPLANATION, QA
+  chapterDivisionId: integer("chapter_division_id").references(() => chapterDivisions.id),
   step1Data: text("step1_data"), // JSON string
   step2Data: text("step2_data"), // JSON string
   status: lessonPlanStatusEnum("status").default("DRAFT").notNull(),
   reviewerId: uuid("reviewer_id").references(() => users.id),
   reviewerRemark: text("reviewer_remark"),
+  principalRemark: text("principal_remark"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -452,6 +454,10 @@ export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
   subject: one(subjects, {
     fields: [lessonPlans.subjectId],
     references: [subjects.id],
+  }),
+  chapterDivision: one(chapterDivisions, {
+    fields: [lessonPlans.chapterDivisionId],
+    references: [chapterDivisions.id],
   }),
 }));
 

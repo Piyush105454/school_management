@@ -23,7 +23,7 @@ import EditUnitModal from "@/features/academy/components/EditUnitModal";
 import EditChapterModal from "@/features/academy/components/EditChapterModal";
 import DivideChapterModal from "@/features/academy/components/DivideChapterModal";
 import AddChapterModal from "@/features/academy/components/AddChapterModal";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Chapter {
   id: number;
@@ -73,6 +73,8 @@ export default function UnitChapterManagementClient({
   subjectId
 }: UnitChapterManagementClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const institute = searchParams.get("institute");
   
   // State for controlling modals
   const [editingUnit, setEditingUnit] = useState<{ id: number; name: string } | null>(null);
@@ -222,7 +224,8 @@ export default function UnitChapterManagementClient({
                                       subject: subjectName,
                                       chapterId: chapter.id.toString(),
                                       unitChapter: `${unitName ? unitName + ', ' : ''}${chapter.name}`,
-                                      pages: `${div.pageStart}-${div.pageEnd}`
+                                      pages: `${div.pageStart}-${div.pageEnd}`,
+                                      ...(institute ? { institute } : {})
                                     });
                                     router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
                                   }}
@@ -278,7 +281,8 @@ export default function UnitChapterManagementClient({
                                 subject: subjectName,
                                 chapterId: chapter!.id.toString(),
                                 unitChapter: `${unitName ? unitName + ', ' : ''}${chapter!.name}`,
-                                pages: chapter!.pageStart && chapter!.pageEnd ? `${chapter!.pageStart}-${chapter!.pageEnd}` : ""
+                                pages: chapter!.pageStart && chapter!.pageEnd ? `${chapter!.pageStart}-${chapter!.pageEnd}` : "",
+                                ...(institute ? { institute } : {})
                               });
                               router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
                             }
@@ -293,7 +297,8 @@ export default function UnitChapterManagementClient({
                                 subject: subjectName,
                                 unitChapter: `${unitName ? unitName + ', ' : ''}${chapter!.name}`,
                                 pages: chapter!.pageStart && chapter!.pageEnd ? `${chapter!.pageStart}-${chapter!.pageEnd}` : "",
-                                type: "homework"
+                                type: "homework",
+                                ...(institute ? { institute } : {})
                               });
                               router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
                             }

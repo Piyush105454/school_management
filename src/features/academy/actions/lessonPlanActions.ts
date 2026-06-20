@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { lessonPlans } from "@/db/schema";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function saveLessonPlan(data: {
@@ -11,61 +11,106 @@ export async function saveLessonPlan(data: {
   classId?: number;
   subjectId?: number;
   date: string;
-  type: string;
+  type: string; // "EXPLANATION" | "QA" | "PREPRIMARY" — which sub-mode is being saved
   status?: string;
   chapterDivisionId?: number;
   step1Data: any;
-  step2Data: any;
+  step2Data: any; // Should contain { explanationData?, qaData?, sharedData? }
 }) {
   try {
-    // If id is provided, perform a direct update on that specific lesson plan
+    // Helper: parse existing step2Data safely
+    const parseStep2 = (raw: string | null | undefined): any => {
+      if (!raw) return {};
+      try { return JSON.parse(raw); } catch { return {}; }
+    };
+
+    // If id is provided, merge into that specific lesson plan record
     if (data.id) {
+      const existing = await db.query.lessonPlans.findFirst({ where: eq(lessonPlans.id, data.id) });
+      const existingStep2 = parseStep2(existing?.step2Data);
+
+      // Merge: only update the current mode's sub-object, preserve the other mode's data
+      const mergedStep2 = {
+        ...existingStep2,
+        sharedData: { ...(existingStep2.sharedData || {}), ...(data.step2Data.sharedData || {}) },
+        explanationData: data.type === "EXPLANATION" || data.type === "PREPRIMARY"
+          ? { ...(existingStep2.explanationData || {}), ...(data.step2Data.explanationData || {}) }
+          : (existingStep2.explanationData || {}),
+        qaData: data.type === "QA"
+          ? { ...(existingStep2.qaData || {}), ...(data.step2Data.qaData || {}) }
+          : (existingStep2.qaData || {}),
+      };
+
       await db.update(lessonPlans)
         .set({
           date: data.date,
           classId: data.classId,
           subjectId: data.subjectId,
-          type: data.type,
+          type: "COMBINED",
           status: data.status,
           chapterDivisionId: data.chapterDivisionId,
           step1Data: JSON.stringify(data.step1Data),
-          step2Data: JSON.stringify(data.step2Data),
+          step2Data: JSON.stringify(mergedStep2),
           updatedAt: new Date()
         })
         .where(eq(lessonPlans.id, data.id));
       return { success: true, id: data.id, action: "updated" };
     }
 
-    // Check if a plan already exists for this teacher, class, subject, and date
+    // Check if a unified plan already exists for this class, subject, and division (no type filter)
     const existing = await db.query.lessonPlans.findFirst({
         where: and(
-            eq(lessonPlans.date, data.date),
             data.classId ? eq(lessonPlans.classId, data.classId) : undefined,
-            data.subjectId ? eq(lessonPlans.subjectId, data.subjectId) : undefined
+            data.subjectId ? eq(lessonPlans.subjectId, data.subjectId) : undefined,
+            data.chapterDivisionId 
+              ? eq(lessonPlans.chapterDivisionId, data.chapterDivisionId) 
+              : undefined
         )
     });
 
     if (existing) {
+        const existingStep2 = parseStep2(existing.step2Data);
+
+        // Merge: preserve other mode's data, only update current mode
+        const mergedStep2 = {
+          ...existingStep2,
+          sharedData: { ...(existingStep2.sharedData || {}), ...(data.step2Data.sharedData || {}) },
+          explanationData: data.type === "EXPLANATION" || data.type === "PREPRIMARY"
+            ? { ...(existingStep2.explanationData || {}), ...(data.step2Data.explanationData || {}) }
+            : (existingStep2.explanationData || {}),
+          qaData: data.type === "QA"
+            ? { ...(existingStep2.qaData || {}), ...(data.step2Data.qaData || {}) }
+            : (existingStep2.qaData || {}),
+        };
+
         await db.update(lessonPlans)
             .set({
+                date: data.date,
                 step1Data: JSON.stringify(data.step1Data),
-                step2Data: JSON.stringify(data.step2Data),
-                type: data.type,
+                step2Data: JSON.stringify(mergedStep2),
+                type: "COMBINED",
                 status: data.status || existing.status,
                 updatedAt: new Date()
             })
             .where(eq(lessonPlans.id, existing.id));
         return { success: true, id: existing.id, action: "updated" };
     } else {
+        // New plan: build step2 with current mode's sub-object
+        const newStep2: any = {
+          sharedData: data.step2Data.sharedData || {},
+          explanationData: data.type === "EXPLANATION" || data.type === "PREPRIMARY" ? (data.step2Data.explanationData || {}) : {},
+          qaData: data.type === "QA" ? (data.step2Data.qaData || {}) : {},
+        };
+
         const result = await db.insert(lessonPlans).values({
             teacherId: data.teacherId,
             classId: data.classId,
             subjectId: data.subjectId,
             date: data.date,
-            type: data.type,
+            type: "COMBINED",
             chapterDivisionId: data.chapterDivisionId,
             step1Data: JSON.stringify(data.step1Data),
-            step2Data: JSON.stringify(data.step2Data),
+            step2Data: JSON.stringify(newStep2),
             status: data.status || "DRAFT"
         }).returning({ id: lessonPlans.id });
         
@@ -179,13 +224,23 @@ export async function getLessonPlanCount(classId: number, subjectId: number) {
   }
 }
 
-export async function getLessonPlanByDateAndSubject(classId: number, subjectId: number, date: string) {
+export async function getLessonPlanByDateAndSubject(
+  classId: number, 
+  subjectId: number, 
+  date: string, 
+  type: string, // kept for API compat but no longer used to filter — all modes share one record
+  chapterDivisionId?: number,
+  unitChapterPage?: string
+) {
   try {
     const existing = await db.query.lessonPlans.findFirst({
         where: and(
-            eq(lessonPlans.date, date),
             eq(lessonPlans.classId, classId),
-            eq(lessonPlans.subjectId, subjectId)
+            eq(lessonPlans.subjectId, subjectId),
+            // Match by chapterDivisionId (preferred) — no type filter since one record holds all modes
+            chapterDivisionId 
+              ? eq(lessonPlans.chapterDivisionId, chapterDivisionId) 
+              : undefined
         ),
         with: {
           class: true,

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { X, Plus, Trash2 } from "lucide-react";
 import {
   createChapterDivision,
@@ -40,6 +41,8 @@ export default function DivideChapterModal({
   subjectName,
   unitName,
 }: DivideChapterModalProps) {
+  const searchParams = useSearchParams();
+  const instituteParam = searchParams.get("institute");
   const [divisions, setDivisions] = useState<ChapterDivision[]>([]);
   const [newPageStart, setNewPageStart] = useState<string>("");
   const [newPageEnd, setNewPageEnd] = useState<string>("");
@@ -301,7 +304,8 @@ export default function DivideChapterModal({
                                   chapterName: chapterName,
                                   pages: `${division.pageStart}-${division.pageEnd}`,
                                   divisionId: division.id.toString(),
-                                  divisionNo: division.orderNo.toString()
+                                  divisionNo: division.orderNo.toString(),
+                                  ...(instituteParam ? { institute: instituteParam } : {})
                                 });
                                 window.location.href = `/office/academy-management/lesson-plan?${params.toString()}`;
                               }}
