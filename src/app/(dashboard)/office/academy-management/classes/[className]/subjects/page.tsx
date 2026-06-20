@@ -25,25 +25,40 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
   const session = await getServerSession(authOptions);
   const isAdmin = ["ADMIN", "OFFICE", "PRINCIPAL"].includes(session?.user?.role ?? "");
   
-  // Resolve DB class name ("1" -> "Class 1", "Nursery" -> "Nursery", "KG1" -> "KG1")
-  const dbClassName =
-    ["Nursery", "LKG", "UKG", "KG1", "KG2"].includes(decodedClassNameParam) || decodedClassNameParam.startsWith("Class ")
-      ? decodedClassNameParam
-      : `Class ${decodedClassNameParam}`;
+  let dbClassName = decodedClassNameParam;
 
-  // Fetch the class ID with institute context
-  const classRecord = await db.query.classes.findFirst({
+  // Fetch the class ID with institute context (try exact match first)
+  let classRecord = await db.query.classes.findFirst({
     where: (cls, { and, eq }) => and(
-      eq(cls.name, dbClassName),
+      eq(cls.name, decodedClassNameParam),
       eq(cls.institute, institute)
     ),
   });
+
+  // If exact match not found, resolve fallback name ("1" -> "Class 1", "Nursery" -> "Nursery")
+  if (!classRecord) {
+    const fallbackClassName =
+      ["Nursery", "LKG", "UKG", "KG1", "KG2"].includes(decodedClassNameParam) || decodedClassNameParam.startsWith("Class ")
+        ? decodedClassNameParam
+        : `Class ${decodedClassNameParam}`;
+
+    classRecord = await db.query.classes.findFirst({
+      where: (cls, { and, eq }) => and(
+        eq(cls.name, fallbackClassName),
+        eq(cls.institute, institute)
+      ),
+    });
+
+    if (classRecord) {
+      dbClassName = fallbackClassName;
+    }
+  }
 
   if (!classRecord) {
     return (
       <div className="p-10 text-center">
         <h1 className="text-2xl font-bold text-slate-800">Class Not Found</h1>
-        <p className="text-slate-500 mt-2">The class "{dbClassName}" does not exist in the database.</p>
+        <p className="text-slate-500 mt-2">The class "{decodedClassNameParam}" does not exist in the database.</p>
         <Link href="/office/academy-management/classes" className="text-blue-600 font-bold mt-4 inline-block hover:underline">
           Back to Classes
         </Link>
