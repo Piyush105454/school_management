@@ -12,7 +12,7 @@ export async function saveLessonPlan(data: {
   subjectId?: number;
   date: string;
   type: string; // "EXPLANATION" | "QA" | "PREPRIMARY" — which sub-mode is being saved
-  status?: string;
+  status?: "DRAFT" | "SUBMITTED" | "REVIEWED" | "APPROVED" | "REJECTED" | "COMPLETED";
   chapterDivisionId?: number;
   step1Data: any;
   step2Data: any; // Should contain { explanationData?, qaData?, sharedData? }
@@ -58,14 +58,27 @@ export async function saveLessonPlan(data: {
     }
 
     // Check if a unified plan already exists for this class, subject, and division (no type filter)
-    const existing = await db.query.lessonPlans.findFirst({
+    const plans = await db.query.lessonPlans.findMany({
         where: and(
             data.classId ? eq(lessonPlans.classId, data.classId) : undefined,
-            data.subjectId ? eq(lessonPlans.subjectId, data.subjectId) : undefined,
-            data.chapterDivisionId 
-              ? eq(lessonPlans.chapterDivisionId, data.chapterDivisionId) 
-              : undefined
+            data.subjectId ? eq(lessonPlans.subjectId, data.subjectId) : undefined
         )
+    });
+
+    const existing = plans.find(p => {
+      if (data.chapterDivisionId) {
+        return p.chapterDivisionId === data.chapterDivisionId;
+      }
+      if (!p.chapterDivisionId) {
+        try {
+          const step2 = JSON.parse(p.step2Data || "{}");
+          const step2Ucp = step2.sharedData?.unitChapterPage || "";
+          return step2Ucp === data.step2Data.sharedData?.unitChapterPage;
+        } catch {
+          return false;
+        }
+      }
+      return false;
     });
 
     if (existing) {
@@ -233,14 +246,10 @@ export async function getLessonPlanByDateAndSubject(
   unitChapterPage?: string
 ) {
   try {
-    const existing = await db.query.lessonPlans.findFirst({
+    const plans = await db.query.lessonPlans.findMany({
         where: and(
             eq(lessonPlans.classId, classId),
-            eq(lessonPlans.subjectId, subjectId),
-            // Match by chapterDivisionId (preferred) — no type filter since one record holds all modes
-            chapterDivisionId 
-              ? eq(lessonPlans.chapterDivisionId, chapterDivisionId) 
-              : undefined
+            eq(lessonPlans.subjectId, subjectId)
         ),
         with: {
           class: true,
@@ -250,6 +259,22 @@ export async function getLessonPlanByDateAndSubject(
           reviewerProfile: true,
           reviewerUser: true,
         }
+    });
+
+    const existing = plans.find(p => {
+      if (chapterDivisionId) {
+        return p.chapterDivisionId === chapterDivisionId;
+      }
+      if (!p.chapterDivisionId) {
+        try {
+          const step2 = JSON.parse(p.step2Data || "{}");
+          const step2Ucp = step2.sharedData?.unitChapterPage || "";
+          return step2Ucp === unitChapterPage;
+        } catch {
+          return false;
+        }
+      }
+      return false;
     });
     if (existing) {
       const allTeachers = await db.query.teachers.findMany();

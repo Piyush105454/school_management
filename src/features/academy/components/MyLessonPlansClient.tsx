@@ -222,6 +222,11 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                           Approved
                         </span>
                       )}
+                      {plan.status === "COMPLETED" && (
+                        <span className="px-3 py-1 bg-teal-50 text-teal-600 border border-teal-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                          Completed
+                        </span>
+                      )}
                       {plan.status === "REJECTED" && (
                         <span className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-[10px] font-black uppercase tracking-wider">
                           Rejected
@@ -242,7 +247,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                             {plan.reviewerProfile?.name || plan.reviewerUser?.email?.split('@')[0] || (plan.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : plan.reviewerUser?.role === 'ADMIN' ? 'Admin' : "Reviewer")}
                           </p>
                           <p className="text-[9px] text-slate-400 uppercase tracking-wider">
-                            {plan.status === "APPROVED" ? "Approved" : "Rejected"}
+                            {(plan.status === "APPROVED" || plan.status === "COMPLETED") ? "Approved" : "Rejected"}
                           </p>
                         </div>
                       ) : (

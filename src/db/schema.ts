@@ -8,7 +8,7 @@ export const genderEnum = pgEnum("gender", ["M", "F", "O"]);
 export const casteEnum = pgEnum("caste", ["GEN", "OBC", "ST", "SC"]);
 export const documentStatusEnum = pgEnum("document_status", ["SUBMITTED", "NOT_SUBMITTED", "VERIFIED", "REJECTED"]);
 export const testStatusEnum = pgEnum("test_status", ["NOT_SCHEDULED", "PENDING", "PASS", "FAIL"]);
-export const lessonPlanStatusEnum = pgEnum("lesson_plan_status", ["DRAFT", "SUBMITTED", "REVIEWED", "APPROVED", "REJECTED"]);
+export const lessonPlanStatusEnum = pgEnum("lesson_plan_status", ["DRAFT", "SUBMITTED", "REVIEWED", "APPROVED", "REJECTED", "COMPLETED"]);
 export const homeworkSubmissionStatusEnum = pgEnum("homework_submission_status", ["PENDING", "COMPLETED", "REJECTED"]);
 
 export const users = pgTable("users", {

@@ -218,6 +218,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     studentPerformanceGood: "",
     studentPerformanceBad: "",
     reviewerRemark: "",
+    principalRemark: "",
   });
 
   const isEditable = formData.status === "DRAFT" || formData.status === "REJECTED";
@@ -338,13 +339,13 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     setInitialFormData(null);
     setSelectedDivisionsByMode({});
 
-    let resolvedInstitute = instituteParam;
+    let resolvedInstitute: string | null = instituteParam || null;
     if (!resolvedInstitute && className) {
       const normalize = (n: string) => n.trim().toLowerCase().replace(/^class\s+/i, "");
       const target = normalize(className);
       const matchedClass = classes.find(c => normalize(c.name) === target);
       if (matchedClass) {
-        resolvedInstitute = matchedClass.institute;
+        resolvedInstitute = matchedClass.institute || null;
       }
     }
 
@@ -378,6 +379,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       teacherName: "",
       teacherNote: "",
       homework: "",
+      prepDay: "Monday",
+      prepDate: new Date().toISOString().split('T')[0],
+      progressStatus: "Not Started",
       openingTimeEnergizer: "",
       openingTimeRoadmap: "",
       learningIndicators: "",
@@ -1784,7 +1788,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                           setSelectedDivisionsByMode(prev => ({
                             ...prev,
                             [lessonPlanMode]: {
-                              ...prev[lessonPlanMode],
+                              ...prev[lessonPlanMode as keyof typeof prev],
                               chapterDivisionId: undefined,
                               unitChapterPage: selectedValue,
                             }
@@ -2231,7 +2235,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                           setSelectedDivisionsByMode(prev => ({
                             ...prev,
                             [lessonPlanMode]: {
-                              ...prev[lessonPlanMode],
+                              ...prev[lessonPlanMode as keyof typeof prev],
                               chapterDivisionId: undefined,
                               unitChapterPage: selectedValue,
                             }

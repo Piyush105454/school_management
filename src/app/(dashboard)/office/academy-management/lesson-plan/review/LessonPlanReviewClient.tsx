@@ -404,6 +404,11 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                             Approved
                           </span>
                         )}
+                        {plan.status === "COMPLETED" && (
+                          <span className="px-3 py-1 bg-teal-50 text-teal-600 border border-teal-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Completed
+                          </span>
+                        )}
                         {plan.status === "REVIEWED" && (
                           <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-wider">
                             Reviewed
