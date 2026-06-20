@@ -85,7 +85,7 @@ export default async function ClassManagementPage({
         const matchId = assignedClassIds.has(c.id);
         const matchName = assignedClassNames.has(normalizeName(c.name));
         const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
-        return (matchId || matchName) && instituteMatch;
+        return matchId || (matchName && instituteMatch);
       });
     } else {
       classData = [];

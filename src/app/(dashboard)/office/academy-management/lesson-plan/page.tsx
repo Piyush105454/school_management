@@ -5,7 +5,7 @@ import { getAllAcademicMetadata } from "@/features/academy/actions/academyAction
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { teachers } from "@/db/schema";
+import { teachers, timetable } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export default async function LessonPlanPage({
@@ -29,14 +29,37 @@ export default async function LessonPlanPage({
     if (teacherProfile) {
       const teacherInstitute = teacherProfile.institute;
 
-      // Filter subjects directly assigned to this teacher
-      subjects = subjects.filter(s => s.assignedTeacherId === teacherProfile.id);
+      // 1. Fetch timetable entries for this teacher to include classes/subjects they teach
+      const teacherTimetable = await db.query.timetable.findMany({
+        where: eq(timetable.teacherId, teacherProfile.id),
+        columns: { subjectId: true, classId: true, className: true }
+      });
 
-      // Filter classes to only include those that have assigned subjects
-      const classIds = subjects.map(s => s.classId);
+      const timetableSubjectIds = new Set(teacherTimetable.map(t => t.subjectId).filter(Boolean));
+      const timetableClassIds = new Set(teacherTimetable.map(t => t.classId).filter(Boolean));
+      
+      const normalizeName = (name: string) => {
+        if (!name) return "";
+        const n = name.trim();
+        if (/^kg\s*ii$/i.test(n)) return "kg2";
+        if (/^kg\s*i$/i.test(n)) return "kg1";
+        return n.toLowerCase().replace(/^class\s+/i, "").trim();
+      };
+      
+      const timetableClassNames = new Set(teacherTimetable.map(t => t.className ? normalizeName(t.className) : "").filter(Boolean));
+
+      // 2. Filter subjects (directly assigned OR in timetable)
+      subjects = subjects.filter(s => 
+        s.assignedTeacherId === teacherProfile.id || timetableSubjectIds.has(s.id)
+      );
+
+      // 3. Filter classes (has assigned subjects OR matched classId/className from timetable)
+      const classIdsFromSubjects = new Set(subjects.map(s => s.classId));
       classes = classes.filter(c => {
         const instituteMatch = !teacherInstitute || c.institute === teacherInstitute;
-        return instituteMatch && classIds.includes(c.id);
+        const matchesClassId = classIdsFromSubjects.has(c.id) || timetableClassIds.has(c.id);
+        const matchesClassName = timetableClassNames.has(normalizeName(c.name));
+        return matchesClassId || (matchesClassName && instituteMatch);
       });
     } else {
       classes = [];

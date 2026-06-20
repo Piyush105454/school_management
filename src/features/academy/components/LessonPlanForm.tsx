@@ -169,6 +169,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     lpNo: "",
     className: "",
     subject: "",
+    selectedInstitute: "",
     teacherName: "",
 
     // Step 1: Teacher's Note
@@ -177,6 +178,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
     // Step 2: Lesson Plan Details (Excel Fields)
     unitChapterPage: "",
+    chapterDivisionId: undefined as number | undefined,
     prepDay: "Monday",
     prepDate: new Date().toISOString().split('T')[0],
     progressStatus: "Not Started",
@@ -295,6 +297,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   useEffect(() => {
     const className = searchParams.get("class");
     const subject = searchParams.get("subject");
+    const instituteParam = searchParams.get("institute");
     const unitName = searchParams.get("unitName");
     const chapterName = searchParams.get("chapterName");
     const unitChapter = searchParams.get("unitChapter"); // Legacy compatibility
@@ -304,7 +307,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     const divisionId = searchParams.get("divisionId");
     const divisionNo = searchParams.get("divisionNo");
 
-    if (className || subject || unitName || chapterName || unitChapter || pages || chapterId || divisionId) {
+    if (className || subject || unitName || chapterName || unitChapter || pages || chapterId || divisionId || instituteParam) {
       setFormData(prev => {
         let exactUnitChapterPage = prev.unitChapterPage;
         
@@ -327,6 +330,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           ...prev,
           className: className || prev.className,
           subject: subject || prev.subject,
+          selectedInstitute: instituteParam || prev.selectedInstitute,
           unitChapterPage: exactUnitChapterPage,
           chapterDivisionId: divisionId ? parseInt(divisionId, 10) : prev.chapterDivisionId,
         };
@@ -355,6 +359,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               id: res.data.id,
               className: res.data.class?.name || prev.className,
               subject: res.data.subject?.name || prev.subject,
+              selectedInstitute: res.data.class?.institute || prev.selectedInstitute,
               date: res.data.date || prev.date,
               teacherObservation: (res.data as any).teacherObservation || step2.teacherObservation || "",
               studentPerformanceGood: (res.data as any).studentPerformanceGood || step2.studentPerformanceGood || "",
@@ -439,6 +444,35 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     }
   }, [formData.date]);
 
+  // Automatically fetch divisions when editing an existing lesson plan
+  useEffect(() => {
+    if (unitsWithChapters.length === 0 || !formData.unitChapterPage) return;
+    
+    let matchedChapterId: number | null = null;
+    const cleanUnitChapter = formData.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '').trim();
+
+    for (const unit of unitsWithChapters) {
+      const chapter = unit.chapters?.find((ch: any) => {
+        const value1 = `${ch.name}`;
+        const value2 = `${unit.name}, ${ch.name}`;
+        return cleanUnitChapter === value1 || cleanUnitChapter === value2 || cleanUnitChapter.endsWith(ch.name);
+      });
+      if (chapter) {
+        matchedChapterId = chapter.id;
+        break;
+      }
+    }
+
+    if (matchedChapterId && matchedChapterId !== selectedChapterId) {
+      setSelectedChapterId(matchedChapterId);
+      getChapterDivisionsForLesson(matchedChapterId).then(res => {
+        if (res.success && res.divisions) {
+          setChapterDivisions(res.divisions);
+        }
+      });
+    }
+  }, [unitsWithChapters, formData.unitChapterPage]);
+
   // Set LP Prep Date and Day to today's live date (fixed, non-editable)
   useEffect(() => {
     const today = new Date();
@@ -491,8 +525,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
       if (normalized === "nursery") return false;
 
-      const isDuplicate = seen.has(normalized);
-      seen.add(normalized);
+      const key = `${normalized}|${(c.institute || "Dhanpuri Public School").toLowerCase().trim()}`;
+      const isDuplicate = seen.has(key);
+      seen.add(key);
       return !isDuplicate;
     });
   }, [classes]);
@@ -501,7 +536,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   useEffect(() => {
     async function fetchCount() {
       if (!formData.className || !formData.subject) return;
-      const classObj = uniqueClasses.find(c => c.name === formData.className);
+      const classObj = uniqueClasses.find(c => c.name === formData.className && (c.institute || "Dhanpuri Public School") === (formData.selectedInstitute || "Dhanpuri Public School"));
       if (!classObj) return;
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj.id);
       if (!subjectObj) return;
@@ -513,7 +548,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       }
     }
     fetchCount();
-  }, [formData.className, formData.subject, uniqueClasses, subjects]);
+  }, [formData.className, formData.subject, formData.selectedInstitute, uniqueClasses, subjects]);
 
   // Automatically fetch existing lesson plan if it exists for the given Date, Class, and Subject
   useEffect(() => {
@@ -522,7 +557,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       if (searchParams.get("edit")) return;
 
       if (!formData.className || !formData.subject || !formData.date) return;
-      const classObj = uniqueClasses.find(c => c.name === formData.className);
+      const classObj = uniqueClasses.find(c => c.name === formData.className && (c.institute || "Dhanpuri Public School") === (formData.selectedInstitute || "Dhanpuri Public School"));
       if (!classObj) return;
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj.id);
       if (!subjectObj) return;
@@ -546,6 +581,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               reviewerName: res.data.reviewerProfile?.name || res.data.reviewerUser?.email?.split('@')[0] || (res.data.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : res.data.reviewerUser?.role === 'ADMIN' ? 'Admin' : ""),
               specialistName: (res.data as any).specialistProfile?.name || "",
               reviewedAt: res.data.updatedAt || "",
+              selectedInstitute: res.data.class?.institute || prev.selectedInstitute,
             }));
             if (res.data.type) {
               setLessonPlanMode(res.data.type);
@@ -557,7 +593,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       }
     }
     fetchExistingPlan();
-  }, [formData.className, formData.subject, formData.date, uniqueClasses, subjects]);
+  }, [formData.className, formData.subject, formData.selectedInstitute, formData.date, uniqueClasses, subjects]);
 
   const isPrePrimary = formData.className.toLowerCase().includes('kg') || 
                        formData.className.toLowerCase().includes('nursery') || 
@@ -574,10 +610,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   // Calculate filtered subjects based on selected class
   const filteredSubjects = React.useMemo(() => {
     if (!formData.className) return [];
-    const classObj = uniqueClasses.find(c => c.name === formData.className);
+    const classObj = uniqueClasses.find(c => c.name === formData.className && (c.institute || "Dhanpuri Public School") === (formData.selectedInstitute || "Dhanpuri Public School"));
     if (!classObj) return [];
     return subjects.filter(s => s.classId === classObj.id);
-  }, [formData.className, uniqueClasses, subjects]);
+  }, [formData.className, formData.selectedInstitute, uniqueClasses, subjects]);
 
   // Fetch Units/Chapters when subject changes
   useEffect(() => {
@@ -589,7 +625,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
       setIsLoadingCurriculum(true);
       try {
-        const classObj = uniqueClasses.find(c => c.name === formData.className);
+        const classObj = uniqueClasses.find(c => c.name === formData.className && (c.institute || "Dhanpuri Public School") === (formData.selectedInstitute || "Dhanpuri Public School"));
         const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
         
         if (subjectObj) {
@@ -614,7 +650,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     };
 
     fetchCurriculum();
-  }, [formData.className, formData.subject, uniqueClasses, subjects]);
+  }, [formData.className, formData.subject, formData.selectedInstitute, uniqueClasses, subjects]);
 
   // Click and Double click listener to edit images
   useEffect(() => {
@@ -854,7 +890,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
     setIsSaving(true);
     try {
-      const classObj = uniqueClasses.find(c => c.name === formData.className);
+      const classObj = uniqueClasses.find(c => c.name === formData.className && (c.institute || "Dhanpuri Public School") === (formData.selectedInstitute || "Dhanpuri Public School"));
       const subjectObj = subjects.find(s => s.name === formData.subject && s.classId === classObj?.id);
 
       const targetStatus = forceStatus || (submitForValidation ? "SUBMITTED" : (formData.id ? formData.status : "DRAFT"));
@@ -1002,14 +1038,14 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               <span className="text-[10px] font-black uppercase text-slate-400">Class & Subject:</span>
               <select
                 name="classAndSubject"
-                value={formData.className && formData.subject ? `${formData.className}|${formData.subject}` : ""}
+                value={formData.className && formData.subject && formData.selectedInstitute ? `${formData.className}|${formData.subject}|${formData.selectedInstitute}` : ""}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (!val) {
-                    setFormData(prev => ({ ...prev, className: "", subject: "" }));
+                    setFormData(prev => ({ ...prev, className: "", subject: "", selectedInstitute: "" }));
                   } else {
-                    const [cName, sName] = val.split("|");
-                    setFormData(prev => ({ ...prev, className: cName, subject: sName }));
+                    const [cName, sName, instName] = val.split("|");
+                    setFormData(prev => ({ ...prev, className: cName, subject: sName, selectedInstitute: instName }));
                   }
                 }}
                 className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1019,9 +1055,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 {subjects.map(s => {
                   const cObj = uniqueClasses.find(c => c.id === s.classId);
                   if (!cObj) return null;
+                  const inst = cObj.institute || "Dhanpuri Public School";
                   return (
-                    <option key={s.id} value={`${cObj.name}|${s.name}`}>
-                      {cObj.name} - {s.name}
+                    <option key={s.id} value={`${cObj.name}|${s.name}|${inst}`}>
+                      {cObj.name} - {s.name} ({inst})
                     </option>
                   );
                 })}
@@ -1263,15 +1300,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 {/* Meta Rows (Grid style) */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{formData.subject || "-"}</div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
                 </div>
 
-                <div className="grid grid-cols-10 border-b border-slate-300 min-h-14">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 min-h-14">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
                     {!!formData.chapterDivisionId ? (
                       <input 
@@ -1351,29 +1388,31 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       />
                     )}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                   <div className="col-span-4 p-3 flex items-center overflow-hidden">
-                    {!!formData.chapterDivisionId ? (
+                    {formData.status !== "DRAFT" || !!formData.chapterDivisionId ? (
                       <input 
                         type="text"
                         value={(() => {
                           const pagesMatch = formData.unitChapterPage.match(/Pg ([0-9-]+)/);
-                          const divMatch = formData.unitTransition || formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
-                          return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : "Fixed Division Pages";
+                          const divMatch = formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
+                          return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : (formData.unitChapterPage.includes("Pg") ? `Pages ${formData.unitChapterPage.split("Pg ")[1]}` : formData.unitChapterPage || "-");
                         })()}
-                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50"
                         disabled
                         readOnly
                       />
                     ) : (
                       <select
+                        value={formData.chapterDivisionId || ""}
                         disabled={chapterDivisions.length === 0 || formData.status !== "DRAFT"}
                         onChange={(e) => {
                           const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
                           if (division) {
                             setFormData(prev => ({ 
                               ...prev, 
-                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                              chapterDivisionId: division.id,
+                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})` 
                             }));
                           }
                         }}
@@ -1391,36 +1430,36 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 {/* LP Prep Day/Date Row */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
                     {formData.prepDay}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
                     {formData.prepDate}
                   </div>
                 </div>
 
                 {/* LP Delivery Day/Date Row */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
                     {formData.deliveryDay || "-"}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
                     {formData.date || "-"}
                   </div>
                 </div>
 
                 {/* Teacher Sign & Reviewer Row */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
                     {formData.teacherName || "______"}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
                   <div className="col-span-4 p-3 flex items-center">
                     <input 
                       name="reviewerPrincipal" 
@@ -1667,15 +1706,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 {/* Meta Rows (Grid style) */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{formData.subject || "-"}</div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{formData.className || "-"}</div>
                 </div>
 
-                <div className="grid grid-cols-10 border-b border-slate-300 min-h-14 text-slate-900">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 min-h-14 text-slate-900">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
                     {!!formData.chapterDivisionId ? (
                       <input 
@@ -1755,29 +1794,31 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                       />
                     )}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                   <div className="col-span-4 p-3 flex items-center overflow-hidden">
-                    {!!formData.chapterDivisionId ? (
+                    {formData.status !== "DRAFT" || !!formData.chapterDivisionId ? (
                       <input 
                         type="text"
                         value={(() => {
                           const pagesMatch = formData.unitChapterPage.match(/Pg ([0-9-]+)/);
                           const divMatch = formData.unitChapterPage.match(/\(Div ([0-9]+)\)/);
-                          return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : "Fixed Division Pages";
+                          return pagesMatch ? `Pages ${pagesMatch[1]} ${divMatch ? `(Div ${divMatch[1]})` : ''}` : (formData.unitChapterPage.includes("Pg") ? `Pages ${formData.unitChapterPage.split("Pg ")[1]}` : formData.unitChapterPage || "-");
                         })()}
-                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-transparent font-bold text-[13px] outline-none text-slate-800 disabled:opacity-50"
                         disabled
                         readOnly
                       />
                     ) : (
                       <select
+                        value={formData.chapterDivisionId || ""}
                         disabled={chapterDivisions.length === 0 || formData.status !== "DRAFT"}
                         onChange={(e) => {
                           const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
                           if (division) {
                             setFormData(prev => ({ 
                               ...prev, 
-                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd}` 
+                              chapterDivisionId: division.id,
+                              unitChapterPage: `${prev.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})` 
                             }));
                           }
                         }}
@@ -1795,36 +1836,36 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 {/* LP Prep Day/Date Row */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
                     {formData.prepDay}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
                     {formData.prepDate}
                   </div>
                 </div>
 
                 {/* LP Delivery Day/Date Row */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm text-slate-800">
                     {formData.deliveryDay || "-"}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
                   <div className="col-span-4 p-3 flex items-center font-bold text-sm text-slate-800">
                     {formData.date || "-"}
                   </div>
                 </div>
 
                 {/* Teacher Sign & Reviewer Row */}
-                <div className="grid grid-cols-10 border-b border-slate-300 h-14 text-slate-900">
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                <div className="grid grid-cols-12 border-b border-slate-300 h-14 text-slate-900">
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
                     {formData.teacherName || "______"}
                   </div>
-                  <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
                   <div className="col-span-4 p-3 flex items-center">
                     <input 
                       name="reviewerPrincipal" 

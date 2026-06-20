@@ -7,8 +7,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const CLASSES_COLS = ["Nursery", "KG I", "KG II", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7"];
-
 const PERIOD_ROWS = [
   { name: "Period 1st",    start: "09:00", end: "09:40", isBreak: false },
   { name: "Period 2nd",    start: "09:40", end: "10:20", isBreak: false },
@@ -62,9 +60,10 @@ function getFilterMultiplier(filter: AnalysisFilter, todayName: string) {
   }
 }
 
-export default function TimetableClient({ userRole = "OFFICE" }: { userRole?: string }) {
+export default function TimetableClient({ userRole = "OFFICE", initialInstitute }: { userRole?: string; initialInstitute?: string }) {
   const isTeacher = userRole === "TEACHER";
   const todayName = DAY_INDEX_MAP[new Date().getDay()] || "Monday";
+  const targetInstitute = initialInstitute || "Dhanpuri Public School";
 
   // Tabs
   const [activeTab, setActiveTab] = useState<TabType>("timetable");
@@ -92,6 +91,23 @@ export default function TimetableClient({ userRole = "OFFICE" }: { userRole?: st
 
   // Holidays state
   const [holidaysList, setHolidaysList] = useState<any[]>([]);
+
+  const CLASSES_COLS = useMemo(() => {
+    if (classesList.length === 0) {
+      if (targetInstitute.toLowerCase() === "wes academy") {
+        return ["WESa 5", "WESa 6", "WESa 7", "WESa 8", "WESa 9", "WESa 10"];
+      }
+      return ["Nursery", "KG I", "KG II", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7"];
+    }
+
+    const filtered = classesList.filter(c => {
+      const classInst = c.institute || "Dhanpuri Public School";
+      return classInst.toLowerCase() === targetInstitute.toLowerCase();
+    });
+
+    const sorted = [...filtered].sort((a, b) => (a.grade || 0) - (b.grade || 0));
+    return sorted.map(c => c.name);
+  }, [classesList, targetInstitute]);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [holidayDate, setHolidayDate] = useState("");
   const [holidayTitle, setHolidayTitle] = useState("");

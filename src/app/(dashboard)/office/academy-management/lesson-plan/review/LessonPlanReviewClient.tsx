@@ -662,38 +662,44 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
 
                     {/* Meta Rows (Grid style) */}
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{selectedPlan.subject?.name || "-"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{selectedPlan.class?.name || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{step2.unitChapterPage || "-"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.unitChapterPage?.split(", Pg ")[1] || "-"}</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">
+                        {step2.unitChapterPage ? (() => {
+                          const pagesMatch = step2.unitChapterPage.match(/Pg ([0-9-]+)/);
+                          const divMatch = step2.unitChapterPage.match(/\(Div ([0-9]+)\)/);
+                          return pagesMatch ? `${pagesMatch[1]}${divMatch ? ` (Div ${divMatch[1]})` : ''}` : (step2.unitChapterPage.includes("Pg") ? step2.unitChapterPage.split("Pg ")[1] : step2.unitChapterPage);
+                        })() : "-"}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{step2.prepDay || "Monday"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{step2.prepDate || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{selectedPlan.deliveryDay || "-"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "______"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
                     </div>
 
@@ -847,38 +853,44 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
 
                     {/* Meta Rows (Grid style) */}
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{selectedPlan.subject?.name || "-"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{selectedPlan.class?.name || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{step2.unitChapterPage || "-"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.unitChapterPage?.split(", Pg ")[1] || "-"}</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
+                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">
+                        {step2.unitChapterPage ? (() => {
+                          const pagesMatch = step2.unitChapterPage.match(/Pg ([0-9-]+)/);
+                          const divMatch = step2.unitChapterPage.match(/\(Div ([0-9]+)\)/);
+                          return pagesMatch ? `${pagesMatch[1]}${divMatch ? ` (Div ${divMatch[1]})` : ''}` : (step2.unitChapterPage.includes("Pg") ? step2.unitChapterPage.split("Pg ")[1] : step2.unitChapterPage);
+                        })() : "-"}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{step2.prepDay || "Monday"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{step2.prepDate || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{selectedPlan.deliveryDay || "-"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
                     </div>
 
-                    <div className="grid grid-cols-10 border-b border-slate-300 h-14">
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
+                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
                       <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "______"}</div>
-                      <div className="col-span-1 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
                     </div>
 
