@@ -208,63 +208,86 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     reviewerRemark: "",
   });
 
-  // Prevent copy, cut, paste, and drag-and-drop in all inputs and textareas
+  // Prevent copy, cut, paste, and drag-and-drop in all inputs, textareas, and rich text editors
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.classList.contains("ql-editor"))) {
-        
-        // If it's Quill editor, allow ONLY images
-        if (activeEl.classList.contains("ql-editor")) {
+      const targetEl = e.target as HTMLElement;
+      if (!targetEl) return;
+
+      const isQuill = targetEl.classList.contains("ql-editor") || targetEl.closest(".ql-editor");
+      const isInputOrTextarea = targetEl.tagName === "INPUT" || targetEl.tagName === "TEXTAREA";
+
+      if (isQuill || isInputOrTextarea) {
+        if (isQuill) {
           const hasImage = Array.from(e.clipboardData?.items || []).some(item => item.type.startsWith('image/'));
           const textData = e.clipboardData?.getData('text/plain');
           
           if (textData && !hasImage) {
             e.preventDefault();
+            e.stopPropagation();
             alert("Text copy-pasting is disabled. You may only paste images/diagrams.");
           }
-          // if it has an image, we allow the paste to go through
         } else {
           e.preventDefault();
+          e.stopPropagation();
           alert("Copy-pasting is disabled in Lesson Plan Management to ensure organic lesson planning.");
         }
       }
     };
 
     const handleCopy = (e: ClipboardEvent) => {
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+      const targetEl = e.target as HTMLElement;
+      if (!targetEl) return;
+
+      const isQuill = targetEl.classList.contains("ql-editor") || targetEl.closest(".ql-editor");
+      const isInputOrTextarea = targetEl.tagName === "INPUT" || targetEl.tagName === "TEXTAREA";
+
+      if (isQuill || isInputOrTextarea) {
         e.preventDefault();
+        e.stopPropagation();
         alert("Copying text is disabled in Lesson Plan Management.");
       }
     };
 
     const handleCut = (e: ClipboardEvent) => {
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+      const targetEl = e.target as HTMLElement;
+      if (!targetEl) return;
+
+      const isQuill = targetEl.classList.contains("ql-editor") || targetEl.closest(".ql-editor");
+      const isInputOrTextarea = targetEl.tagName === "INPUT" || targetEl.tagName === "TEXTAREA";
+
+      if (isQuill || isInputOrTextarea) {
         e.preventDefault();
+        e.stopPropagation();
         alert("Cutting text is disabled in Lesson Plan Management.");
       }
     };
 
     const handleDrop = (e: DragEvent) => {
-      const activeEl = e.target as HTMLElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+      const targetEl = e.target as HTMLElement;
+      if (!targetEl) return;
+
+      const isQuill = targetEl.classList.contains("ql-editor") || targetEl.closest(".ql-editor");
+      const isInputOrTextarea = targetEl.tagName === "INPUT" || targetEl.tagName === "TEXTAREA";
+
+      if (isQuill || isInputOrTextarea) {
         e.preventDefault();
+        e.stopPropagation();
         alert("Drag and drop is disabled in Lesson Plan Management.");
       }
     };
 
-    document.addEventListener("paste", handlePaste);
-    document.addEventListener("copy", handleCopy);
-    document.addEventListener("cut", handleCut);
-    document.addEventListener("drop", handleDrop);
+    // Use capturing phase (true) to intercept events before other listeners (like Quill's) handle them
+    document.addEventListener("paste", handlePaste, true);
+    document.addEventListener("copy", handleCopy, true);
+    document.addEventListener("cut", handleCut, true);
+    document.addEventListener("drop", handleDrop, true);
 
     return () => {
-      document.removeEventListener("paste", handlePaste);
-      document.removeEventListener("copy", handleCopy);
-      document.removeEventListener("cut", handleCut);
-      document.removeEventListener("drop", handleDrop);
+      document.removeEventListener("paste", handlePaste, true);
+      document.removeEventListener("copy", handleCopy, true);
+      document.removeEventListener("cut", handleCut, true);
+      document.removeEventListener("drop", handleDrop, true);
     };
   }, []);
 
