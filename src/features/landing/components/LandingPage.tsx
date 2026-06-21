@@ -56,8 +56,8 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-16 items-center">
           {/* Hero Content - Second on mobile, First on desktop */}
           <div className="space-y-6 md:space-y-8 order-2 lg:order-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-center">Admissions 2026-27</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-center">Admissions 2027-28 Coming Soon</span>
             </div>
             <h1 className="text-3xl md:text-6xl font-bold text-slate-900 leading-tight">
               Empowering <span className="text-blue-600">Curiosity</span>,<br />
@@ -88,14 +88,11 @@ export function LandingPage() {
 
           {/* Login Section - First on mobile, Second on desktop */}
           <div id="login" className="w-full max-w-md mx-auto lg:mr-0 order-1 lg:order-2">
-            <div className="mb-6 bg-blue-50/50 p-5 rounded-2xl border border-blue-100/50 text-center shadow-sm">
-                <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-2">New Admissions Open 2026-27</p>
-                <button 
-                  onClick={() => setIsApplyOpen(true)}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
-                >
-                    Apply Online Now <ArrowRight size={16} />
-                </button>
+            <div className="mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 text-center shadow-sm">
+                <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Admissions 2026-27 Closed</p>
+                <div className="w-full py-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 shadow-sm">
+                    Admissions 2027-28 Coming Soon
+                </div>
             </div>
 
             <LoginForm />
