@@ -52,7 +52,7 @@ export function TeacherManagementClient({
 }: { 
   initialTeachers: Teacher[], 
   allClasses: ClassData[],
-  allSubjects?: string[]
+  allSubjects?: { id: number; name: string; classId: number; }[]
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -122,6 +122,8 @@ export function TeacherManagementClient({
   const closeModal = () => {
     setIsOpen(false);
     setSelectedTeacher(null);
+    setSpecClassId("");
+    setSpecSubjectId("");
     setFormData({
       name: "",
       contactNumber: "",
@@ -220,7 +222,8 @@ export function TeacherManagementClient({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   
-  const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
+  const [specClassId, setSpecClassId] = useState<number | "">("");
+  const [specSubjectId, setSpecSubjectId] = useState<string>("");
   const [committeeDropdownOpen, setCommitteeDropdownOpen] = useState(false);
   const [classDropdownOpen, setClassDropdownOpen] = useState(false);
 
@@ -532,67 +535,94 @@ export function TeacherManagementClient({
             </div>
           </div>
 
-          {/* Subject Assignments (Custom multi-select dropdown) */}
+          {/* Specialization Subject Assignments */}
           <div className="space-y-3">
             <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest flex items-center gap-2">
-              <span className="h-1 w-4 bg-violet-600 rounded-full"></span> Subject Assignments
+              <span className="h-1 w-4 bg-violet-600 rounded-full"></span> Specialization Subject Assignments
             </h3>
-            <div className="space-y-2 relative">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
-                Select Subjects This Teacher Specializes In
-              </label>
-              
-              <div 
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 cursor-pointer flex justify-between items-center hover:border-violet-300 transition-colors"
-                onClick={() => setSubjectDropdownOpen(!subjectDropdownOpen)}
-              >
-                <span className={formData.specialization.length > 0 ? "text-slate-900" : "text-slate-400"}>
-                  {formData.specialization.length > 0 
-                    ? `${formData.specialization.length} subject(s) selected` 
-                    : "Select Subject"}
-                </span>
-                <span className="text-slate-400 text-xs">▼</span>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                    Select Class
+                  </label>
+                  <select
+                    value={specClassId}
+                    onChange={(e) => {
+                      setSpecClassId(e.target.value ? Number(e.target.value) : "");
+                      setSpecSubjectId("");
+                    }}
+                    className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  >
+                    <option value="">Select Class</option>
+                    {allClasses.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.institute || "DPS"})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                    Select Subject
+                  </label>
+                  <select
+                    value={specSubjectId}
+                    onChange={(e) => setSpecSubjectId(e.target.value)}
+                    disabled={!specClassId}
+                    className="w-full bg-slate-50 border-slate-100 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium disabled:opacity-50"
+                  >
+                    <option value="">Select Subject</option>
+                    {specClassId && [
+                      ...Array.from(new Set(
+                        allSubjects
+                          .filter(s => s.classId === specClassId)
+                          .map(s => s.name)
+                      )).map((name, idx) => ({ id: `subj-${idx}`, name })),
+                      { id: "general", name: "General" },
+                      { id: "all", name: "All Subjects" }
+                    ].map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {subjectDropdownOpen && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-10" 
-                    onClick={() => setSubjectDropdownOpen(false)} 
-                  />
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-auto">
-                    {[...allSubjects, "General", "All Subjects"].map(subject => (
-                      <div
-                        key={subject}
-                        onClick={() => toggleSubject(subject)}
-                        className={`px-4 py-2.5 cursor-pointer text-sm font-medium transition-colors hover:bg-violet-50 flex items-center gap-2 ${
-                          formData.specialization.includes(subject) ? 'bg-violet-50/50 text-violet-700' : 'text-slate-600'
-                        }`}
+              <button
+                type="button"
+                disabled={!specClassId || !specSubjectId}
+                onClick={() => {
+                  const cObj = allClasses.find(c => c.id === Number(specClassId));
+                  if (cObj && specSubjectId) {
+                    const specString = `${cObj.name} - ${specSubjectId}`;
+                    if (!formData.specialization.includes(specString)) {
+                      setFormData(prev => ({
+                        ...prev,
+                        specialization: [...prev.specialization, specString]
+                      }));
+                    }
+                    setSpecSubjectId("");
+                  }
+                }}
+                className="w-full py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 shadow-sm"
+              >
+                + Add Specialization Subject Assignment
+              </button>
+
+              {formData.specialization.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Assigned Specializations:</span>
+                  <div className="flex flex-wrap gap-1.5 animate-in fade-in duration-300">
+                    {formData.specialization.map(s => (
+                      <span
+                        key={s}
+                        onClick={() => toggleSubject(s)}
+                        className="bg-violet-100 text-violet-700 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-red-100 hover:text-red-600 transition-colors"
+                        title="Click to remove"
                       >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                          formData.specialization.includes(subject) ? 'bg-violet-500 border-violet-500' : 'border-slate-300'
-                        }`}>
-                          {formData.specialization.includes(subject) && <CheckCircle size={12} className="text-white" />}
-                        </div>
-                        {subject}
-                      </div>
+                        {s} ×
+                      </span>
                     ))}
                   </div>
-                </>
-              )}
-              {formData.specialization.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest self-center">Selected:</span>
-                  {formData.specialization.map(s => (
-                    <span
-                      key={s}
-                      onClick={() => toggleSubject(s)}
-                      className="bg-violet-100 text-violet-700 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-red-100 hover:text-red-600 transition-colors"
-                      title="Click to remove"
-                    >
-                      {s} ×
-                    </span>
-                  ))}
                 </div>
               )}
             </div>

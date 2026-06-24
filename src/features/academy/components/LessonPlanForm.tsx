@@ -613,6 +613,29 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     return () => clearTimeout(timer);
   }, [formData, draftKey, isDataLoaded, draftRestorationChecked, initialFormData]);
 
+  // Enable browser native spellcheck and autocorrect on all textareas, inputs, and rich text editors dynamically
+  useEffect(() => {
+    const enableSpellcheck = () => {
+      const elements = document.querySelectorAll('input, textarea, [contenteditable="true"]');
+      elements.forEach(el => {
+        if (el.getAttribute('spellcheck') !== 'true') {
+          el.setAttribute('spellcheck', 'true');
+        }
+        if (el.getAttribute('autocorrect') !== 'on') {
+          el.setAttribute('autocorrect', 'on');
+        }
+      });
+    };
+
+    enableSpellcheck();
+
+    const observer = new MutationObserver(enableSpellcheck);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+
   // Automatically calculate Delivery Day from Delivery Date
   useEffect(() => {
     if (formData.date) {

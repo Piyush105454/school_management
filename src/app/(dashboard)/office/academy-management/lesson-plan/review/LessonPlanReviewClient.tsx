@@ -19,14 +19,33 @@ import {
   Loader2,
   Trash2,
   ChevronLeft,
-  Clock
+  Clock,
+  Users,
+  X
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
+import { updateTeacher } from "@/features/teachers/actions/teacherActions";
 import { useInstitute } from "@/providers/InstituteProvider";
 import "katex/dist/katex.min.css";
 import "react-quill-new/dist/quill.snow.css";
 
-export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTeacher = false, isApprover = false }: { initialPlans: any[], reviewerId: string, isTeacher?: boolean, isApprover?: boolean }) {
+export default function LessonPlanReviewClient({ 
+  initialPlans, 
+  reviewerId, 
+  isTeacher = false, 
+  isApprover = false,
+  allTeachers = [],
+  allClasses = [],
+  allSubjects = []
+}: { 
+  initialPlans: any[], 
+  reviewerId: string, 
+  isTeacher?: boolean, 
+  isApprover?: boolean,
+  allTeachers?: any[],
+  allClasses?: any[],
+  allSubjects?: any[]
+}) {
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
     if (el) {
       el.style.height = "auto";
@@ -47,6 +66,25 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
   const [filterDateRange, setFilterDateRange] = useState("ALL");
   const [customDate, setCustomDate] = useState("");
   const ITEMS_PER_PAGE = 10;
+
+  // States for Assigning Reviewer UI
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [teachers, setTeachers] = useState(allTeachers);
+  const [editingTeacher, setEditingTeacher] = useState<any | null>(null);
+  const [specClassId, setSpecClassId] = useState<number | "">("");
+  const [specSubjectId, setSpecSubjectId] = useState("");
+  const [specList, setSpecList] = useState<string[]>([]);
+  const [savingSpec, setSavingSpec] = useState(false);
+  const [teacherSearchTerm, setTeacherSearchTerm] = useState("");
+
+  const filteredTeachers = teachers.filter(t => {
+    if (!teacherSearchTerm) return true;
+    const lower = teacherSearchTerm.toLowerCase();
+    return (
+      (t.name && t.name.toLowerCase().includes(lower)) ||
+      (t.email && t.email.toLowerCase().includes(lower))
+    );
+  });
 
   useEffect(() => {
     setCurrentPage(1);
@@ -193,15 +231,29 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               <p className="text-sm font-bold text-slate-500 italic ml-14">Validate curriculum delivery and preparation quality.</p>
             </div>
             
-            <div className="relative w-full md:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Search by class, subject, or teacher..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-              />
+            <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+              <div className="relative w-full md:w-80 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <input 
+                  type="text" 
+                  placeholder="Search by class, subject, or teacher..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                />
+              </div>
+              {isApprover && (
+                <button
+                  onClick={() => {
+                    setIsAssignModalOpen(true);
+                    setEditingTeacher(null);
+                  }}
+                  className="px-5 py-3.5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-600/20 flex items-center gap-2 whitespace-nowrap"
+                >
+                  <Users className="h-4 w-4" />
+                  Assign Reviewers
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
@@ -488,6 +540,282 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
             )}
           </div>
         </div>
+        {/* Assign Reviewers Modal */}
+        {isAssignModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <Users className="h-6 w-6 text-blue-600" />
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">
+                    {editingTeacher ? `Edit Reviewer Assignments: ${editingTeacher.name}` : "Assign Lesson Plan Reviewers"}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    if (editingTeacher) {
+                      setEditingTeacher(null);
+                    } else {
+                      setIsAssignModalOpen(false);
+                    }
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              {!editingTeacher ? (
+                // Teacher List View
+                <>
+                  <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex items-center gap-4">
+                    <div className="relative flex-1 group">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                      <input
+                        type="text"
+                        placeholder="Search teachers by name or email..."
+                        value={teacherSearchTerm}
+                        onChange={(e) => setTeacherSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher</th>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Institute</th>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Specialization (Class-Subject Reviewer)</th>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTeachers.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="p-12 text-center text-slate-400 text-sm font-medium">
+                                No teachers found.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredTeachers.map(teacher => {
+                              const specs = teacher.specialization
+                                ? teacher.specialization.split(",").map((s: string) => s.trim()).filter(Boolean)
+                                : [];
+                              return (
+                                <tr key={teacher.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                                  <td className="px-6 py-4">
+                                    <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{teacher.name}</div>
+                                    <div className="text-xs text-slate-400 font-bold">{teacher.email || "No email"}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    {teacher.institute || "DPS"}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    {specs.length === 0 ? (
+                                      <span className="text-xs text-slate-400 italic">None assigned</span>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {specs.map((s: string) => (
+                                          <span key={s} className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
+                                            {s}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      onClick={() => {
+                                        setEditingTeacher(teacher);
+                                        setSpecList(specs);
+                                        setSpecClassId("");
+                                        setSpecSubjectId("");
+                                      }}
+                                      className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors active:scale-95 shadow-sm"
+                                    >
+                                      Edit Assignments
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
+                    <button
+                      onClick={() => setIsAssignModalOpen(false)}
+                      className="px-6 py-2.5 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors active:scale-95 shadow-sm"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // Teacher Edit View
+                <>
+                  <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                      <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">Assign new Class & Subject Pairing</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                            Select Class
+                          </label>
+                          <select
+                            value={specClassId}
+                            onChange={(e) => {
+                              setSpecClassId(e.target.value ? Number(e.target.value) : "");
+                              setSpecSubjectId("");
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                          >
+                            <option value="">Select Class</option>
+                            {allClasses.map(c => (
+                              <option key={c.id} value={c.id}>{c.name} ({c.institute || "DPS"})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                            Select Subject
+                          </label>
+                          <select
+                            value={specSubjectId}
+                            onChange={(e) => setSpecSubjectId(e.target.value)}
+                            disabled={!specClassId}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Select Subject</option>
+                            {specClassId && [
+                              ...Array.from(new Set(
+                                allSubjects
+                                  .filter(s => s.classId === specClassId)
+                                  .map(s => s.name)
+                              )).map((name, idx) => ({ id: `subj-${idx}`, name })),
+                              { id: "general", name: "General" },
+                              { id: "all", name: "All Subjects" }
+                            ].map(s => (
+                              <option key={s.id} value={s.name}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={!specClassId || !specSubjectId}
+                        onClick={() => {
+                          const cObj = allClasses.find(c => c.id === Number(specClassId));
+                          if (cObj && specSubjectId) {
+                            const specString = `${cObj.name} - ${specSubjectId}`;
+                            if (!specList.includes(specString)) {
+                              setSpecList(prev => [...prev, specString]);
+                            }
+                            setSpecSubjectId("");
+                          }
+                        }}
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        + Add Specialization Subject Assignment
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">
+                        Currently Assigned (Click "×" to remove):
+                      </span>
+                      {specList.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center border border-dashed border-slate-200">
+                          No specializations assigned yet. Use the fields above to add reviewer pairings.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 p-4 border border-slate-100 rounded-2xl bg-white shadow-sm">
+                          {specList.map(s => (
+                            <span
+                              key={s}
+                              onClick={() => setSpecList(prev => prev.filter(x => x !== s))}
+                              className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-red-100 hover:text-red-600 transition-all flex items-center gap-1 border border-blue-100 hover:border-red-200 animate-in zoom-in-95 duration-150"
+                              title="Click to remove"
+                            >
+                              {s} <span className="text-xs font-normal">×</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-8 py-6 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
+                    <button
+                      onClick={() => setEditingTeacher(null)}
+                      disabled={savingSpec}
+                      className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors uppercase tracking-widest"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setSavingSpec(true);
+                        try {
+                          const res = await updateTeacher(editingTeacher.id, {
+                            name: editingTeacher.name,
+                            email: editingTeacher.email,
+                            contactNumber: editingTeacher.contactNumber || undefined,
+                            classAssigned: editingTeacher.classAssigned || undefined,
+                            institute: editingTeacher.institute || undefined,
+                            responsibility: editingTeacher.responsibility || undefined,
+                            incharge: editingTeacher.incharge || undefined,
+                            specialization: specList.join(", "),
+                            assignedRole: editingTeacher.assignedRole || undefined,
+                            committees: editingTeacher.committees || undefined,
+                          });
+                          if (res.success) {
+                            setTeachers(prev =>
+                              prev.map(t =>
+                                t.id === editingTeacher.id
+                                  ? { ...t, specialization: specList.join(", ") }
+                                  : t
+                              )
+                            );
+                            alert("Specialization assignments updated successfully!");
+                            setEditingTeacher(null);
+                          } else {
+                            alert("Failed to update assignments: " + res.error);
+                          }
+                        } catch (e: any) {
+                          alert("Error: " + e.message);
+                        } finally {
+                          setSavingSpec(false);
+                        }
+                      }}
+                      disabled={savingSpec}
+                      className="px-8 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-md shadow-blue-600/10 disabled:opacity-50"
+                    >
+                      {savingSpec ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Assignments"
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

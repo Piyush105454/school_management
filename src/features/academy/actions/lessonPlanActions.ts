@@ -5,6 +5,20 @@ import { lessonPlans } from "@/db/schema";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+function matchesSpecialization(specialization: string | null | undefined, className: string | null | undefined, subjectName: string | null | undefined): boolean {
+  if (!specialization || !subjectName) return false;
+  const specs = specialization.split(',').map(s => s.trim().toLowerCase());
+  const subjectLower = subjectName.toLowerCase();
+  const classLower = className?.toLowerCase() || "";
+  return specs.some(ss => {
+    if (ss.includes(" - ")) {
+      const [cName, sName] = ss.split(" - ").map(x => x.trim());
+      return classLower === cName && subjectLower === sName;
+    }
+    return subjectLower.includes(ss);
+  });
+}
+
 export async function saveLessonPlan(data: {
   id?: string;
   teacherId?: string;
@@ -159,8 +173,8 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
       const specialist = allTeachers.find(t => 
-        t.specialization?.toLowerCase().trim() === p.subject?.name?.toLowerCase().trim() &&
-        t.institute === p.class?.institute
+        t.institute === p.class?.institute &&
+        matchesSpecialization(t.specialization, p.class?.name, p.subject?.name)
       );
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
@@ -184,12 +198,11 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
         if (!specialization) {
           return { success: true, data: [] }; // If teacher has no specialization, they review nothing
         }
-        const specializedSubjects = specialization.split(',').map(s => s.trim().toLowerCase());
         return { 
           success: true, 
           data: plansWithProfiles.filter(p => 
             p.subject?.name && 
-            specializedSubjects.some(ss => p.subject!.name.toLowerCase().includes(ss))
+            matchesSpecialization(specialization, p.class?.name, p.subject?.name)
           ) 
         };
       }
@@ -279,8 +292,8 @@ export async function getLessonPlanByDateAndSubject(
     if (existing) {
       const allTeachers = await db.query.teachers.findMany();
       const specialist = allTeachers.find(t => 
-        t.specialization?.toLowerCase().trim() === existing.subject?.name?.toLowerCase().trim() &&
-        t.institute === existing.class?.institute
+        t.institute === existing.class?.institute &&
+        matchesSpecialization(t.specialization, existing.class?.name, existing.subject?.name)
       );
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
@@ -311,8 +324,8 @@ export async function getLessonPlanById(id: string) {
     if (existing) {
       const allTeachers = await db.query.teachers.findMany();
       const specialist = allTeachers.find(t => 
-        t.specialization?.toLowerCase().trim() === existing.subject?.name?.toLowerCase().trim() &&
-        t.institute === existing.class?.institute
+        t.institute === existing.class?.institute &&
+        matchesSpecialization(t.specialization, existing.class?.name, existing.subject?.name)
       );
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
@@ -359,8 +372,8 @@ export async function getMyLessonPlans(teacherId: string) {
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
       const specialist = allTeachers.find(t => 
-        t.specialization?.toLowerCase().trim() === p.subject?.name?.toLowerCase().trim() &&
-        t.institute === p.class?.institute
+        t.institute === p.class?.institute &&
+        matchesSpecialization(t.specialization, p.class?.name, p.subject?.name)
       );
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
