@@ -243,7 +243,7 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
             medium: "English/Hindi"
           }).returning({ id: subjects.id });
           subjectId = newSubject.id;
-          allSubjectsForClass.push({ id: subjectId, classId, name: subjectName, medium: "English/Hindi", bookName: null, assignedTeacherId: null });
+          allSubjectsForClass.push({ id: subjectId, classId, name: subjectName, medium: "English/Hindi", bookName: null, assignedTeacherId: null, reviewerId1: null, reviewerId2: null });
         }
 
         // Run transaction PER SUBJECT

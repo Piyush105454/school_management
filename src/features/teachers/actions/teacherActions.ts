@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { teachers, subjects, timetable } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { teachers, subjects, timetable, classes } from "@/db/schema";
+import { eq, or, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import bcrypt from "bcryptjs";
@@ -13,6 +13,84 @@ export async function getTeachers() {
     const data = await db.select().from(teachers).orderBy(teachers.name);
     return { success: true, data };
   } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function syncTeacherSpecializationsToSubjects(teacherId: string, specializationString: string | null, institute: string) {
+  try {
+    if (!institute) return { success: true };
+    
+    // 1. Parse new specializations
+    const newSpecs = specializationString
+      ? specializationString.split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
+      : [];
+      
+    // 2. Fetch all subjects where this teacher is currently Reviewer 1 or Reviewer 2
+    const currentReviewedSubjects = await db.query.subjects.findMany({
+      where: or(
+        eq(subjects.reviewerId1, teacherId),
+        eq(subjects.reviewerId2, teacherId)
+      ),
+      with: {
+        class: true
+      }
+    });
+    
+    // 3. For each currently reviewed subject, if it's NOT in the new specializations list, clear their reviewer ID!
+    for (const subject of currentReviewedSubjects) {
+      if (!subject.class) continue;
+      const specKey = `${subject.class.name} - ${subject.name}`.toLowerCase();
+      if (!newSpecs.includes(specKey)) {
+        const updateObj: any = {};
+        if (subject.reviewerId1 === teacherId) updateObj.reviewerId1 = null;
+        if (subject.reviewerId2 === teacherId) updateObj.reviewerId2 = null;
+        
+        await db.update(subjects)
+          .set(updateObj)
+          .where(eq(subjects.id, subject.id));
+      }
+    }
+    
+    // 4. For each new specialization, ensure the teacher is assigned as reviewer if not already
+    for (const spec of newSpecs) {
+      if (!spec.includes(" - ")) continue;
+      const [className, subjectName] = spec.split(" - ").map(s => s.trim());
+      
+      // Find class in the same institute
+      const classRecord = await db.query.classes.findFirst({
+        where: and(
+          eq(classes.name, className),
+          eq(classes.institute, institute)
+        )
+      });
+      if (!classRecord) continue;
+      
+      // Find subject
+      const subjectRecord = await db.query.subjects.findFirst({
+        where: and(
+          eq(subjects.classId, classRecord.id),
+          eq(subjects.name, subjectName)
+        )
+      });
+      if (!subjectRecord) continue;
+      
+      // If the teacher is not Reviewer 1 and not Reviewer 2, assign them to one of the empty slots
+      if (subjectRecord.reviewerId1 !== teacherId && subjectRecord.reviewerId2 !== teacherId) {
+        if (!subjectRecord.reviewerId1) {
+          await db.update(subjects)
+            .set({ reviewerId1: teacherId })
+            .where(eq(subjects.id, subjectRecord.id));
+        } else if (!subjectRecord.reviewerId2) {
+          await db.update(subjects)
+            .set({ reviewerId2: teacherId })
+            .where(eq(subjects.id, subjectRecord.id));
+        }
+      }
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error syncing specializations to subjects:", error);
     return { success: false, error: error.message };
   }
 }
@@ -78,6 +156,10 @@ export async function createTeacher(data: {
     }).returning({ id: teachers.id });
 
     console.log("CREATE_TEACHER_PROFILE_CREATED:", teacher?.id);
+
+    if (teacher?.id && data.institute) {
+      await syncTeacherSpecializationsToSubjects(teacher.id, data.specialization || null, data.institute);
+    }
 
     revalidatePath("/office/school-management/teachers");
     return { success: true };
@@ -156,6 +238,10 @@ export async function updateTeacher(id: string, data: {
       committees: data.committees || null,
       updatedAt: new Date(),
     }).where(eq(teachers.id, id));
+
+    if (data.institute) {
+      await syncTeacherSpecializationsToSubjects(id, data.specialization || null, data.institute);
+    }
 
     console.log("UPDATE_TEACHER_SUCCESS");
     revalidatePath("/office/school-management/teachers");

@@ -375,6 +375,8 @@ export const subjects = pgTable("subjects", {
   bookName: text("book_name"),
   medium: text("medium").default("English/Hindi").notNull(),
   assignedTeacherId: uuid("assigned_teacher_id").references(() => teachers.id, { onDelete: 'set null' }),
+  reviewerId1: uuid("reviewer_id_1").references(() => teachers.id, { onDelete: 'set null' }),
+  reviewerId2: uuid("reviewer_id_2").references(() => teachers.id, { onDelete: 'set null' }),
 });
 
 export const units = pgTable("units", {
@@ -838,7 +840,9 @@ export const teachersRelations = relations(teachers, ({ one, many }) => ({
     fields: [teachers.userId],
     references: [users.id],
   }),
-  subjects: many(subjects),
+  subjects: many(subjects, { relationName: "assignedTeacher" }),
+  reviewer1Subjects: many(subjects, { relationName: "reviewer1" }),
+  reviewer2Subjects: many(subjects, { relationName: "reviewer2" }),
   timetable: many(timetable),
   incidents: many(incidents),
   resourceIssuances: many(resourceIssuances),
@@ -852,6 +856,17 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   assignedTeacher: one(teachers, {
     fields: [subjects.assignedTeacherId],
     references: [teachers.id],
+    relationName: "assignedTeacher",
+  }),
+  reviewer1: one(teachers, {
+    fields: [subjects.reviewerId1],
+    references: [teachers.id],
+    relationName: "reviewer1",
+  }),
+  reviewer2: one(teachers, {
+    fields: [subjects.reviewerId2],
+    references: [teachers.id],
+    relationName: "reviewer2",
   }),
   units: many(units),
   timetable: many(timetable),

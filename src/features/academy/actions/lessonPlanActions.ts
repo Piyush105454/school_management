@@ -161,7 +161,12 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
       },
       with: {
         class: true,
-        subject: true,
+        subject: {
+          with: {
+            reviewer1: true,
+            reviewer2: true,
+          }
+        },
         teacherProfile: true,
         teacherUser: true,
         reviewerProfile: true,
@@ -172,7 +177,7 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
 
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
-      const specialist = allTeachers.find(t => 
+      const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || allTeachers.find(t => 
         t.institute === p.class?.institute &&
         matchesSpecialization(t.specialization, p.class?.name, p.subject?.name)
       );
@@ -194,15 +199,15 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
         // If they are an academy approver, they can see EVERYTHING (like a Principal)
         return { success: true, data: plansWithProfiles };
       } else {
-        // Normal specialist teacher logic
-        if (!specialization) {
-          return { success: true, data: [] }; // If teacher has no specialization, they review nothing
-        }
+        // Normal specialist teacher or explicitly assigned reviewer logic
         return { 
           success: true, 
           data: plansWithProfiles.filter(p => 
-            p.subject?.name && 
-            matchesSpecialization(specialization, p.class?.name, p.subject?.name)
+            p.subject?.name && (
+              (specialization && matchesSpecialization(specialization, p.class?.name, p.subject?.name)) ||
+              p.subject?.reviewerId1 === teacherId ||
+              p.subject?.reviewerId2 === teacherId
+            )
           ) 
         };
       }

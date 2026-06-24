@@ -23,6 +23,10 @@ interface Subject {
   medium: string;
   assignedTeacherId?: string | null;
   assignedTeacher?: Teacher | null;
+  reviewerId1?: string | null;
+  reviewerId2?: string | null;
+  reviewer1?: Teacher | null;
+  reviewer2?: Teacher | null;
 }
 
 interface SubjectManagementProps {
@@ -44,6 +48,7 @@ export default function SubjectManagement({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAssignTeacherModalOpen, setIsAssignTeacherModalOpen] = useState(false);
+  const [assignRole, setAssignRole] = useState<"teacher" | "reviewer1" | "reviewer2">("teacher");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,8 +121,9 @@ export default function SubjectManagement({
     setIsEditModalOpen(true);
   };
 
-  const openAssignTeacherModal = (subject: Subject) => {
+  const openAssignTeacherModal = (subject: Subject, role: "teacher" | "reviewer1" | "reviewer2" = "teacher") => {
     setSelectedSubjectForTeacher(subject);
+    setAssignRole(role);
     setIsAssignTeacherModalOpen(true);
   };
 
@@ -171,7 +177,13 @@ export default function SubjectManagement({
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Subject Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Book Name</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Medium</th>
-                  {isAdmin && <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</th>}
+                  {isAdmin && (
+                    <>
+                      <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</th>
+                      <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Reviewer 1</th>
+                      <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Reviewer 2</th>
+                    </>
+                  )}
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Content Management</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
@@ -200,15 +212,35 @@ export default function SubjectManagement({
                       </span>
                     </td>
                     {isAdmin && (
-                      <td className="px-8 py-5">
-                        <button
-                          onClick={() => openAssignTeacherModal(subject)}
-                          className="inline-flex items-center gap-2.5 px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 hover:text-white transition-all group active:scale-95"
-                        >
-                          <User className="h-3.5 w-3.5" />
-                          {subject.assignedTeacher?.name || "Assign Teacher"}
-                        </button>
-                      </td>
+                      <>
+                        <td className="px-8 py-5">
+                          <button
+                            onClick={() => openAssignTeacherModal(subject, "teacher")}
+                            className="inline-flex items-center gap-2.5 px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 hover:text-white transition-all group active:scale-95"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                            {subject.assignedTeacher?.name || "Assign Teacher"}
+                          </button>
+                        </td>
+                        <td className="px-8 py-5">
+                          <button
+                            onClick={() => openAssignTeacherModal(subject, "reviewer1")}
+                            className="inline-flex items-center gap-2.5 px-4 py-2 bg-violet-50 text-violet-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-violet-600 hover:text-white transition-all group active:scale-95"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                            {subject.reviewer1?.name || "Assign Reviewer 1"}
+                          </button>
+                        </td>
+                        <td className="px-8 py-5">
+                          <button
+                            onClick={() => openAssignTeacherModal(subject, "reviewer2")}
+                            className="inline-flex items-center gap-2.5 px-4 py-2 bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-600 hover:text-white transition-all group active:scale-95"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                            {subject.reviewer2?.name || "Assign Reviewer 2"}
+                          </button>
+                        </td>
+                      </>
                     )}
                     <td className="px-8 py-5">
                       <Link 
@@ -408,6 +440,7 @@ export default function SubjectManagement({
         isOpen={isAssignTeacherModalOpen}
         onClose={() => setIsAssignTeacherModalOpen(false)}
         subject={selectedSubjectForTeacher}
+        role={assignRole}
       />
     </div>
   );

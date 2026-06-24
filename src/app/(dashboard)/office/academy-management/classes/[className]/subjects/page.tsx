@@ -66,11 +66,13 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
     );
   }
 
-  // Fetch subjects for this class with assigned teacher
+  // Fetch subjects for this class with assigned teacher and reviewers
   let classSubjects = await db.query.subjects.findMany({
     where: eq(subjects.classId, classRecord.id),
     with: {
       assignedTeacher: true,
+      reviewer1: true,
+      reviewer2: true,
     },
     orderBy: (subjects, { asc }) => [asc(subjects.name)],
   });
@@ -108,7 +110,11 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
 
         const allSubjects = await db.query.subjects.findMany({
           where: eq(subjects.classId, classRecord.id),
-          with: { assignedTeacher: true }
+          with: { 
+            assignedTeacher: true,
+            reviewer1: true,
+            reviewer2: true,
+          }
         });
         classSubjects = allSubjects.filter(s => timetableSubjectIds.has(s.id));
       }

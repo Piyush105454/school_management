@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { assignTeacherToSubject, getTeachers } from "@/features/academy/actions/assignTeacherActions";
+import { assignTeacherToSubject, assignReviewerToSubject, getTeachers } from "@/features/academy/actions/assignTeacherActions";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -16,15 +16,18 @@ interface Subject {
   id: number;
   name: string;
   assignedTeacherId?: string | null;
+  reviewerId1?: string | null;
+  reviewerId2?: string | null;
 }
 
 interface AssignTeacherModalProps {
   isOpen: boolean;
   onClose: () => void;
   subject: Subject | null;
+  role?: "teacher" | "reviewer1" | "reviewer2";
 }
 
-export default function AssignTeacherModal({ isOpen, onClose, subject }: AssignTeacherModalProps) {
+export default function AssignTeacherModal({ isOpen, onClose, subject, role = "teacher" }: AssignTeacherModalProps) {
   const router = useRouter();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
@@ -49,14 +52,16 @@ export default function AssignTeacherModal({ isOpen, onClose, subject }: AssignT
   useEffect(() => {
     if (isOpen) {
       loadTeachers();
-      if (subject?.assignedTeacherId) {
-        setSelectedTeacherId(subject.assignedTeacherId);
+      if (role === "reviewer1") {
+        setSelectedTeacherId(subject?.reviewerId1 || "");
+      } else if (role === "reviewer2") {
+        setSelectedTeacherId(subject?.reviewerId2 || "");
       } else {
-        setSelectedTeacherId("");
+        setSelectedTeacherId(subject?.assignedTeacherId || "");
       }
       setIsOpenDropdown(false);
     }
-  }, [isOpen, subject]);
+  }, [isOpen, subject, role]);
 
   const loadTeachers = async () => {
     setIsLoading(true);
@@ -76,7 +81,14 @@ export default function AssignTeacherModal({ isOpen, onClose, subject }: AssignT
     setIsLoading(true);
     setError(null);
 
-    const result = await assignTeacherToSubject(subject.id, selectedTeacherId || null);
+    let result;
+    if (role === "reviewer1") {
+      result = await assignReviewerToSubject(subject.id, selectedTeacherId || null, 1);
+    } else if (role === "reviewer2") {
+      result = await assignReviewerToSubject(subject.id, selectedTeacherId || null, 2);
+    } else {
+      result = await assignTeacherToSubject(subject.id, selectedTeacherId || null);
+    }
 
     setIsLoading(false);
 
@@ -84,7 +96,7 @@ export default function AssignTeacherModal({ isOpen, onClose, subject }: AssignT
       onClose();
       router.refresh();
     } else {
-      setError(result.error || "Failed to assign teacher");
+      setError(result.error || "Failed to assign");
     }
   };
 
@@ -101,7 +113,13 @@ export default function AssignTeacherModal({ isOpen, onClose, subject }: AssignT
           setError(null);
         }
       }}
-      title={`Assign Teacher - ${subject.name}`}
+      title={
+        role === "reviewer1"
+          ? `Assign Reviewer 1 - ${subject.name}`
+          : role === "reviewer2"
+          ? `Assign Reviewer 2 - ${subject.name}`
+          : `Assign Teacher - ${subject.name}`
+      }
     >
       <div className="space-y-5 p-1">
         {error && (
@@ -182,7 +200,7 @@ export default function AssignTeacherModal({ isOpen, onClose, subject }: AssignT
             className="flex-1 px-6 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-xs uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-70"
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
-            {isLoading ? "Assigning..." : "Assign Teacher"}
+            {isLoading ? "Assigning..." : role === "reviewer1" || role === "reviewer2" ? "Assign Reviewer" : "Assign Teacher"}
           </button>
         </div>
       </div>
