@@ -82,17 +82,17 @@ export default function UnitChapterManagementClient({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm animate-in fade-in duration-500">
-      <div>
-        <table className="w-full text-left border-collapse">
+    <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden animate-in fade-in duration-500">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[700px]">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-200">
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-20">Ch. No</th>
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Chapter Name</th>
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-32">Pages</th>
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-40">Divide Chapter</th>
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-40">View Chapter</th>
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-20">Actions</th>
+              <th className="px-4 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-16">Ch. No</th>
+              <th className="px-4 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-[40%]">Chapter Name</th>
+              <th className="px-4 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left w-28">Pages</th>
+              <th className="px-4 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left w-36">Divide Chapter</th>
+              <th className="px-4 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left w-36">View Chapter</th>
+              <th className="px-4 py-4.5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-16">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -107,14 +107,14 @@ export default function UnitChapterManagementClient({
               return (
                 <tr key={chapter.id} className="hover:bg-slate-50/50 transition-colors group">
                   {/* Chapter No */}
-                  <td className="px-6 py-5 text-center">
+                  <td className="px-4 py-3.5 text-center">
                     <span className="inline-flex items-center justify-center h-7 w-7 bg-slate-100 text-slate-500 text-[10px] font-black rounded-lg border border-slate-200">
                       {chapter.chapterNo}
                     </span>
                   </td>
 
                   {/* Chapter Name */}
-                  <td className="px-6 py-5">
+                  <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center border border-slate-100">
                         <FileText className="h-4 w-4" />
@@ -126,7 +126,7 @@ export default function UnitChapterManagementClient({
                   </td>
 
                   {/* Pages */}
-                  <td className="px-6 py-5 text-center">
+                  <td className="px-4 py-3.5 text-left">
                     {chapter.pageStart && chapter.pageEnd ? (
                       <span className="text-[10px] font-black text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm whitespace-nowrap">
                         {chapter.pageStart} — {chapter.pageEnd}
@@ -137,8 +137,8 @@ export default function UnitChapterManagementClient({
                   </td>
 
                   {/* Divide Chapter */}
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col items-center gap-2">
+                  <td className="px-4 py-3.5 text-left">
+                    <div className="flex flex-col items-start gap-2">
                       {chapter.pageStart && chapter.pageEnd ? (
                         <>
                           <button
@@ -157,7 +157,7 @@ export default function UnitChapterManagementClient({
                           
                           {/* Division Badges for Direct Redirect */}
                           {chapter.divisions && chapter.divisions.length > 0 && (
-                            <div className="flex flex-wrap justify-center gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-1">
                               {chapter.divisions.map((div) => (
                                 <button
                                   key={div.id}
@@ -188,8 +188,8 @@ export default function UnitChapterManagementClient({
                   </td>
 
                   {/* View Chapter */}
-                  <td className="px-6 py-5">
-                    <div className="flex justify-center">
+                  <td className="px-4 py-3.5 text-left">
+                    <div className="flex justify-start">
                       {resourceUrl ? (
                         <button
                           onClick={() => window.open(resourceUrl, '_blank')}
@@ -205,7 +205,7 @@ export default function UnitChapterManagementClient({
                   </td>
 
                   {/* Actions */}
-                  <td className="px-6 py-5 text-right">
+                  <td className="px-4 py-3.5 text-right">
                     <ActionDropdown 
                       actions={[
                         {
