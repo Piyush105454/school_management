@@ -379,16 +379,9 @@ export const subjects = pgTable("subjects", {
   reviewerId2: uuid("reviewer_id_2").references(() => teachers.id, { onDelete: 'set null' }),
 });
 
-export const units = pgTable("units", {
-  id: serial("id").primaryKey(),
-  subjectId: integer("subject_id").notNull().references(() => subjects.id, { onDelete: 'cascade' }),
-  name: text("name").notNull(),
-  orderNo: integer("order_no").notNull(),
-});
-
 export const chapters = pgTable("chapters", {
   id: serial("id").primaryKey(),
-  unitId: integer("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   chapterNo: integer("chapter_no").notNull(),
   pageStart: integer("page_start").notNull(),
@@ -868,23 +861,15 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
     references: [teachers.id],
     relationName: "reviewer2",
   }),
-  units: many(units),
+  chapters: many(chapters),
   timetable: many(timetable),
   examSchedules: many(examSchedules),
 }));
 
-export const unitsRelations = relations(units, ({ one, many }) => ({
-  subject: one(subjects, {
-    fields: [units.subjectId],
-    references: [subjects.id],
-  }),
-  chapters: many(chapters),
-}));
-
 export const chaptersRelations = relations(chapters, ({ one, many }) => ({
-  unit: one(units, {
-    fields: [chapters.unitId],
-    references: [units.id],
+  subject: one(subjects, {
+    fields: [chapters.subjectId],
+    references: [subjects.id],
   }),
   divisions: many(chapterDivisions),
   pdfs: many(chapterPdfs),

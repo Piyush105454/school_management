@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { units, chapters, chapterPdfs, classes, subjects } from "@/db/schema";
+import { chapters, chapterPdfs, classes, subjects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -28,20 +28,15 @@ function normalizeAcademicName(name: string) {
 }
 
 async function importSubjectData(tx: any, subjectId: number, rows: BulkImportRow[], clearExisting = false) {
-  // If clearExisting is true, we wipe units for this subject (cascades to chapters, pdfs)
   if (clearExisting) {
-    await tx.delete(units).where(eq(units.subjectId, subjectId));
+    await tx.delete(chapters).where(eq(chapters.subjectId, subjectId));
   }
 
-  // Pre-fetch everything for this subject in one heavy query
-  const existingUnits = clearExisting ? [] : await tx.query.units.findMany({
-    where: eq(units.subjectId, subjectId),
+  // Pre-fetch all chapters for this subject
+  const existingChapters = clearExisting ? [] : await tx.query.chapters.findMany({
+    where: eq(chapters.subjectId, subjectId),
     with: {
-      chapters: {
-        with: {
-          chapterPdfs: true
-        }
-      }
+      chapterPdfs: true
     }
   });
 
@@ -49,106 +44,76 @@ async function importSubjectData(tx: any, subjectId: number, rows: BulkImportRow
   let created = 0;
   let updated = 0;
 
-  // Group rows by unit
-  const unitGroups = new Map<string, BulkImportRow[]>();
-  rows.forEach(row => {
-    const key = row.unitName || "NA";
-    if (!unitGroups.has(key)) unitGroups.set(key, []);
-    unitGroups.get(key)!.push(row);
-  });
+  const chaptersToInsert: any[] = [];
+  const pdfsToInsert: any[] = [];
 
-  for (const [unitName, chapterRows] of unitGroups.entries()) {
-    let currentUnit = existingUnits.find((u: any) => normalizeAcademicName(u.name) === normalizeAcademicName(unitName));
-    let unitId: number;
-    const unitOrder = chapterRows[0].unitOrder || 0;
+  for (const row of rows) {
+    const existingChapter = existingChapters.find((c: any) => 
+      normalizeAcademicName(c.name) === normalizeAcademicName(row.chapterName) || 
+      c.chapterNo === row.chapterNo
+    );
+    
+    if (existingChapter) {
+      // Update check
+      const needsUpdate = 
+        existingChapter.name !== row.chapterName || 
+        existingChapter.pageStart !== (row.pageStart || 0) || 
+        existingChapter.pageEnd !== (row.pageEnd || 0);
 
-    if (currentUnit) {
-      unitId = currentUnit.id;
-      if (unitOrder && currentUnit.orderNo !== unitOrder) {
-        await tx.update(units).set({ orderNo: unitOrder }).where(eq(units.id, unitId));
-      }
-    } else {
-      const [newUnit] = await tx.insert(units).values({
-        subjectId,
-        name: unitName,
-        orderNo: unitOrder,
-      }).returning({ id: units.id });
-      unitId = newUnit.id;
-      currentUnit = { id: unitId, name: unitName, orderNo: unitOrder, subjectId, chapters: [] };
-    }
-
-    // Now, split chapterRows into "toInsert" and "toUpdate"
-    const chaptersToInsert: any[] = [];
-    const pdfsToInsert: any[] = [];
-
-    for (const row of chapterRows) {
-      const existingChapter = currentUnit?.chapters?.find((c: any) => 
-        normalizeAcademicName(c.name) === normalizeAcademicName(row.chapterName) || 
-        c.chapterNo === row.chapterNo
-      );
-      
-      if (existingChapter) {
-        // Update check
-        const needsUpdate = 
-          existingChapter.name !== row.chapterName || 
-          existingChapter.pageStart !== (row.pageStart || 0) || 
-          existingChapter.pageEnd !== (row.pageEnd || 0);
-
-        if (needsUpdate) {
-          await tx.update(chapters).set({
-            name: row.chapterName,
-            pageStart: row.pageStart || 0,
-            pageEnd: row.pageEnd || 0,
-            orderNo: row.chapterNo,
-          }).where(eq(chapters.id, existingChapter.id));
-          updated++;
-        }
-
-        const existingPdf = (existingChapter as any)?.chapterPdfs?.[0];
-        if (row.pdfUrl) {
-          if (existingPdf) {
-            if (existingPdf.fileUrl !== row.pdfUrl) {
-              await tx.update(chapterPdfs).set({ fileUrl: row.pdfUrl, uploadedBy: "Bulk Update" }).where(eq(chapterPdfs.id, existingPdf.id));
-            }
-          } else {
-            pdfsToInsert.push({ chapterId: existingChapter.id, fileUrl: row.pdfUrl, uploadedBy: "Bulk Import" });
-          }
-        }
-      } else {
-        chaptersToInsert.push({
-          unitId,
+      if (needsUpdate) {
+        await tx.update(chapters).set({
           name: row.chapterName,
-          chapterNo: row.chapterNo,
           pageStart: row.pageStart || 0,
           pageEnd: row.pageEnd || 0,
           orderNo: row.chapterNo,
-          _pdfUrl: row.pdfUrl 
-        });
+        }).where(eq(chapters.id, existingChapter.id));
+        updated++;
       }
-    }
 
-    if (chaptersToInsert.length > 0) {
-      const newChapters = await tx.insert(chapters).values(
-        chaptersToInsert.map(({ _pdfUrl, ...rest }) => rest)
-      ).returning({ id: chapters.id });
-      
-      created += newChapters.length;
-
-      newChapters.forEach((nc: any, idx: number) => {
-        const pdfUrl = chaptersToInsert[idx]._pdfUrl;
-        if (pdfUrl) {
-          pdfsToInsert.push({
-            chapterId: nc.id,
-            fileUrl: pdfUrl,
-            uploadedBy: "Bulk Import"
-          });
+      const existingPdf = (existingChapter as any)?.chapterPdfs?.[0];
+      if (row.pdfUrl) {
+        if (existingPdf) {
+          if (existingPdf.fileUrl !== row.pdfUrl) {
+            await tx.update(chapterPdfs).set({ fileUrl: row.pdfUrl, uploadedBy: "Bulk Update" }).where(eq(chapterPdfs.id, existingPdf.id));
+          }
+        } else {
+          pdfsToInsert.push({ chapterId: existingChapter.id, fileUrl: row.pdfUrl, uploadedBy: "Bulk Import" });
         }
+      }
+    } else {
+      chaptersToInsert.push({
+        subjectId,
+        name: row.chapterName,
+        chapterNo: row.chapterNo,
+        pageStart: row.pageStart || 0,
+        pageEnd: row.pageEnd || 0,
+        orderNo: row.chapterNo,
+        _pdfUrl: row.pdfUrl 
       });
     }
+  }
 
-    if (pdfsToInsert.length > 0) {
-      await tx.insert(chapterPdfs).values(pdfsToInsert);
-    }
+  if (chaptersToInsert.length > 0) {
+    const newChapters = await tx.insert(chapters).values(
+      chaptersToInsert.map(({ _pdfUrl, ...rest }) => rest)
+    ).returning({ id: chapters.id });
+    
+    created += newChapters.length;
+
+    newChapters.forEach((nc: any, idx: number) => {
+      const pdfUrl = chaptersToInsert[idx]._pdfUrl;
+      if (pdfUrl) {
+        pdfsToInsert.push({
+          chapterId: nc.id,
+          fileUrl: pdfUrl,
+          uploadedBy: "Bulk Import"
+        });
+      }
+    });
+  }
+
+  if (pdfsToInsert.length > 0) {
+    await tx.insert(chapterPdfs).values(pdfsToInsert);
   }
 
   return { created, updated };
@@ -193,9 +158,6 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
       subjectMap.get(subjectName)!.push(row);
     });
 
-    // Process each class and subject
-    // We do subjects one by one with their own transactions to avoid locking the whole DB
-    // and to handle large datasets more reliably.
     for (const [className, subjectsMap] of groupedData.entries()) {
       let classId: number;
       const matchedClass = allClasses.find(c => 
@@ -205,7 +167,6 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
       if (matchedClass) {
         classId = matchedClass.id;
       } else {
-        // Standardize class name for creation
         let finalClassName = className.trim();
         const norm = normalizeAcademicName(finalClassName);
         if (norm === "kg1") finalClassName = "KG1";
@@ -263,4 +224,3 @@ export async function globalBulkImportAcademyData(rows: GlobalBulkImportRow[], c
     return { success: false, error: error.message };
   }
 }
-

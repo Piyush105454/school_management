@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { chapterPdfs, units, chapters } from "@/db/schema";
+import { chapterPdfs, chapters } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3 } from "@/lib/s3-service";
@@ -74,23 +74,8 @@ export async function deleteChapterPdf(chapterId: number) {
   }
 }
 
-export async function createUnit(data: { subjectId: number; name: string; orderNo: number }) {
-  try {
-    await db.insert(units).values({
-      subjectId: data.subjectId,
-      name: data.name,
-      orderNo: data.orderNo,
-    });
-    revalidatePath("/office/academy-management/classes/[className]/subjects/[subjectId]", "page");
-    return { success: true };
-  } catch (error: any) {
-    console.error("createUnit error:", error);
-    return { success: false, error: error.message };
-  }
-}
-
 export async function createChapter(data: { 
-  unitId: number; 
+  subjectId: number; 
   name: string; 
   chapterNo: number; 
   pageStart: number; 
@@ -100,7 +85,7 @@ export async function createChapter(data: {
 }) {
   try {
     const [newChapter] = await db.insert(chapters).values({
-      unitId: data.unitId,
+      subjectId: data.subjectId,
       name: data.name,
       chapterNo: data.chapterNo,
       pageStart: data.pageStart,

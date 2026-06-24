@@ -2,13 +2,11 @@ import React from "react";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, Layers, GripVertical, FileText, Eye } from "lucide-react";
 import { db } from "@/db";
-import { subjects, classes, units, chapters, chapterPdfs } from "@/db/schema";
+import { subjects, classes, chapters, chapterPdfs } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import ChapterPdfUploader from "@/features/academy/components/ChapterPdfUploader";
-import AddUnitModal from "@/features/academy/components/AddUnitModal";
 import AddChapterModal from "@/features/academy/components/AddChapterModal";
 import ExcelImportModal from "@/features/academy/components/ExcelImportModal";
-import EditUnitModal from "@/features/academy/components/EditUnitModal";
 import EditChapterModal from "@/features/academy/components/EditChapterModal";
 
 interface SubjectDetailsPageProps {
@@ -44,35 +42,24 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
     );
   }
 
-  // Fetch units for this subject
-  const subjectUnits = await db.query.units.findMany({
-    where: eq(units.subjectId, subjectId),
-    orderBy: (units, { asc }) => [asc(units.orderNo)],
+  // Fetch chapters for this subject
+  const subjectChapters = await db.query.chapters.findMany({
+    where: eq(chapters.subjectId, subjectId),
+    orderBy: (chapters, { asc }) => [asc(chapters.chapterNo), asc(chapters.orderNo)],
+    with: {
+      divisions: {
+        orderBy: (divisions, { asc }) => [asc(divisions.orderNo)],
+      }
+    }
   });
 
-  const unitIds = subjectUnits.map(u => u.id);
-
-  // Fetch chapters for these units
-  let subjectChapters: any[] = [];
+  // Fetch PDFs for these chapters
   let pdfs: any[] = [];
-
-  if (unitIds.length > 0) {
-    subjectChapters = await db.query.chapters.findMany({
-      where: inArray(chapters.unitId, unitIds),
-      orderBy: (chapters, { asc }) => [asc(chapters.orderNo)],
-      with: {
-        divisions: {
-          orderBy: (divisions, { asc }) => [asc(divisions.orderNo)],
-        }
-      }
+  const chapterIds = subjectChapters.map(c => c.id);
+  if (chapterIds.length > 0) {
+    pdfs = await db.query.chapterPdfs.findMany({
+      where: inArray(chapterPdfs.chapterId, chapterIds),
     });
-
-    const chapterIds = subjectChapters.map(c => c.id);
-    if (chapterIds.length > 0) {
-      pdfs = await db.query.chapterPdfs.findMany({
-        where: inArray(chapterPdfs.chapterId, chapterIds),
-      });
-    }
   }
 
   return (
@@ -100,12 +87,19 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
         
         <div className="flex items-center gap-3">
           <ExcelImportModal subjectId={subjectId} />
-          <AddUnitModal subjectId={subjectId} nextOrderNo={subjectUnits.length + 1} />
+          <AddChapterModal 
+            subjectId={subjectId} 
+            nextOrderNo={
+              subjectChapters.length > 0
+                ? Math.max(...subjectChapters.map(c => c.chapterNo)) + 1
+                : 1
+            }
+            showTrigger={true}
+          />
         </div>
       </div>
       
       <UnitChapterManagementClient 
-        units={subjectUnits}
         chapters={subjectChapters}
         pdfs={pdfs}
         className={subjectRecord.class.name}

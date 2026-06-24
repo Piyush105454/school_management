@@ -1,33 +1,24 @@
 "use client";
-
 import React, { useState } from "react";
-import Link from "next/link";
 import { 
   FileText, 
   Eye, 
   Edit3, 
   BookOpen, 
-  PlusCircle, 
   PenTool, 
-  Trash2, 
   ExternalLink,
   ChevronRight,
   ClipboardList,
-  MoreVertical,
-  Edit2,
-  Table as TableIcon,
   Layers
 } from "lucide-react";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
-import EditUnitModal from "@/features/academy/components/EditUnitModal";
 import EditChapterModal from "@/features/academy/components/EditChapterModal";
 import DivideChapterModal from "@/features/academy/components/DivideChapterModal";
-import AddChapterModal from "@/features/academy/components/AddChapterModal";
 import { useRouter, useSearchParams } from "next/navigation";
 
 interface Chapter {
   id: number;
-  unitId: number;
+  subjectId: number;
   name: string;
   chapterNo: number;
   pageStart: number;
@@ -40,13 +31,6 @@ interface Chapter {
   }[];
 }
 
-interface Unit {
-  id: number;
-  name: string;
-  orderNo: number;
-  subjectId: number;
-}
-
 interface Pdf {
   id: string;
   chapterId: number;
@@ -56,7 +40,6 @@ interface Pdf {
 }
 
 interface UnitChapterManagementClientProps {
-  units: Unit[];
   chapters: Chapter[];
   pdfs: Pdf[];
   className: string;
@@ -65,7 +48,6 @@ interface UnitChapterManagementClientProps {
 }
 
 export default function UnitChapterManagementClient({
-  units,
   chapters,
   pdfs,
   className,
@@ -77,34 +59,27 @@ export default function UnitChapterManagementClient({
   const institute = searchParams.get("institute");
   
   // State for controlling modals
-  const [editingUnit, setEditingUnit] = useState<{ id: number; name: string } | null>(null);
   const [editingChapter, setEditingChapter] = useState<{ chapter: Chapter; pdfUrl?: string } | null>(null);
   const [dividingChapter, setDividingChapter] = useState<{ id: number; name: string; pageStart: number; pageEnd: number; unitName: string } | null>(null);
-  const [addingChapterToUnit, setAddingChapterToUnit] = useState<{unitId: number; nextOrderNo: number} | null>(null);
 
-  interface DisplayRow {
-    unit: Unit;
-    chapter: Chapter | null;
-    isEmptyUnit: boolean;
+  // Sort chapters by chapterNo ascending
+  const displayChapters = [...chapters].sort((a, b) => a.chapterNo - b.chapterNo);
+
+  if (displayChapters.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 border-dashed rounded-[2rem] p-16 flex flex-col items-center justify-center text-center gap-4 min-h-[300px] shadow-sm animate-in fade-in duration-500">
+        <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/5">
+          <BookOpen className="h-8 w-8" />
+        </div>
+        <div className="space-y-1 max-w-sm">
+          <h2 className="text-xl font-bold text-slate-800">No Chapters Found</h2>
+          <p className="text-sm text-slate-500">
+            There are no chapters defined for {subjectName} yet. Click "Add Chapter" above to create one.
+          </p>
+        </div>
+      </div>
+    );
   }
-
-  // Flatten the data for the table
-  // Each row represents a chapter. Units with no chapters will be handled separately if needed.
-  const displayRows = units.flatMap((unit): DisplayRow[] => {
-    const unitChapters = chapters.filter(c => c.unitId === unit.id);
-    if (unitChapters.length === 0) {
-      return [{
-        unit,
-        chapter: null,
-        isEmptyUnit: true
-      }];
-    }
-    return unitChapters.map(chapter => ({
-      unit,
-      chapter,
-      isEmptyUnit: false
-    }));
-  });
 
   return (
     <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm animate-in fade-in duration-500">
@@ -112,8 +87,6 @@ export default function UnitChapterManagementClient({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-200">
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-20">Unit No</th>
-              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Unit Name</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-20">Ch. No</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Chapter Name</th>
               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-32">Pages</th>
@@ -123,67 +96,38 @@ export default function UnitChapterManagementClient({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {displayRows.map((row, index) => {
-              const { unit, chapter, isEmptyUnit } = row;
-              const isNA = unit.name === "NA";
-              
-              const chapterPdf = chapter ? pdfs.find(p => p.chapterId === chapter.id) : null;
+            {displayChapters.map((chapter) => {
+              const chapterPdf = pdfs.find(p => p.chapterId === chapter.id);
               const resourceUrl = chapterPdf ? (
                 chapterPdf.fileUrl?.startsWith("data:") 
-                  ? `/api/academy/chapter-pdf/${chapter!.id}` 
+                  ? `/api/academy/chapter-pdf/${chapter.id}` 
                   : chapterPdf.fileUrl
               ) : undefined;
 
               return (
-                <tr key={`${unit.id}-${chapter?.id || 'empty'}-${index}`} className="hover:bg-slate-50/50 transition-colors group">
-                  {/* Unit No */}
-                  <td className="px-6 py-5 text-center">
-                    {!isNA ? (
-                      <span className="inline-flex items-center justify-center h-8 w-8 bg-blue-50 text-blue-600 text-[11px] font-black rounded-lg border border-blue-100 shadow-sm">
-                        U{unit.orderNo}
-                      </span>
-                    ) : (
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">Direct</span>
-                    )}
-                  </td>
-
-                  {/* Unit Name */}
-                  <td className="px-6 py-5">
-                    <span className={`text-sm font-bold ${isNA ? "text-slate-400 italic" : "text-slate-700"}`}>
-                      {isNA ? "Direct Chapters" : unit.name}
-                    </span>
-                  </td>
-
+                <tr key={chapter.id} className="hover:bg-slate-50/50 transition-colors group">
                   {/* Chapter No */}
                   <td className="px-6 py-5 text-center">
-                    {chapter ? (
-                      <span className="inline-flex items-center justify-center h-7 w-7 bg-slate-100 text-slate-500 text-[10px] font-black rounded-lg border border-slate-200">
-                        {chapter.chapterNo}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
+                    <span className="inline-flex items-center justify-center h-7 w-7 bg-slate-100 text-slate-500 text-[10px] font-black rounded-lg border border-slate-200">
+                      {chapter.chapterNo}
+                    </span>
                   </td>
 
                   {/* Chapter Name */}
                   <td className="px-6 py-5">
-                    {chapter ? (
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center border border-slate-100">
-                          <FileText className="h-4 w-4" />
-                        </div>
-                        <span className="text-sm font-bold text-slate-800 tracking-tight">
-                          {chapter.name}
-                        </span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center border border-slate-100">
+                        <FileText className="h-4 w-4" />
                       </div>
-                    ) : (
-                      <span className="text-[11px] font-bold text-slate-400 italic">No chapters in this unit</span>
-                    )}
+                      <span className="text-sm font-bold text-slate-800 tracking-tight">
+                        {chapter.name}
+                      </span>
+                    </div>
                   </td>
 
                   {/* Pages */}
                   <td className="px-6 py-5 text-center">
-                    {chapter && chapter.pageStart && chapter.pageEnd ? (
+                    {chapter.pageStart && chapter.pageEnd ? (
                       <span className="text-[10px] font-black text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm whitespace-nowrap">
                         {chapter.pageStart} — {chapter.pageEnd}
                       </span>
@@ -195,7 +139,7 @@ export default function UnitChapterManagementClient({
                   {/* Divide Chapter */}
                   <td className="px-6 py-5">
                     <div className="flex flex-col items-center gap-2">
-                      {chapter && chapter.pageStart && chapter.pageEnd ? (
+                      {chapter.pageStart && chapter.pageEnd ? (
                         <>
                           <button
                             onClick={() => setDividingChapter({
@@ -203,7 +147,7 @@ export default function UnitChapterManagementClient({
                               name: chapter.name,
                               pageStart: chapter.pageStart,
                               pageEnd: chapter.pageEnd,
-                              unitName: isNA ? "NA" : unit.name
+                              unitName: ""
                             })}
                             className="flex items-center gap-1.5 py-1.5 px-3 bg-white text-purple-600 hover:bg-purple-50 font-black rounded-xl transition-all text-[10px] uppercase tracking-wider border border-purple-100 shadow-sm group active:scale-95"
                           >
@@ -218,12 +162,11 @@ export default function UnitChapterManagementClient({
                                 <button
                                   key={div.id}
                                   onClick={() => {
-                                    const unitName = isNA ? "" : unit.name;
                                     const params = new URLSearchParams({
                                       class: className,
                                       subject: subjectName,
                                       chapterId: chapter.id.toString(),
-                                      unitChapter: `${unitName ? unitName + ', ' : ''}${chapter.name}`,
+                                      unitChapter: chapter.name,
                                       pages: `${div.pageStart}-${div.pageEnd}`,
                                       ...(institute ? { institute } : {})
                                     });
@@ -265,61 +208,41 @@ export default function UnitChapterManagementClient({
                   <td className="px-6 py-5 text-right">
                     <ActionDropdown 
                       actions={[
-                        ...(chapter ? [
-                          {
-                            label: "Edit Chapter",
-                            icon: <Edit3 className="h-4 w-4" />,
-                            onClick: () => setEditingChapter({ chapter: chapter!, pdfUrl: chapterPdf?.fileUrl || "" })
-                          },
-                          {
-                            label: "Add Lesson Plan",
-                            icon: <PenTool className="h-4 w-4" />,
-                            onClick: () => {
-                              const unitName = isNA ? "" : unit.name;
-                              const params = new URLSearchParams({
-                                class: className,
-                                subject: subjectName,
-                                chapterId: chapter!.id.toString(),
-                                unitChapter: `${unitName ? unitName + ', ' : ''}${chapter!.name}`,
-                                pages: chapter!.pageStart && chapter!.pageEnd ? `${chapter!.pageStart}-${chapter!.pageEnd}` : "",
-                                ...(institute ? { institute } : {})
-                              });
-                              router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
-                            }
-                          },
-                          {
-                            label: "Add Homework",
-                            icon: <ClipboardList className="h-4 w-4" />,
-                            onClick: () => {
-                              const unitName = isNA ? "" : unit.name;
-                              const params = new URLSearchParams({
-                                class: className,
-                                subject: subjectName,
-                                unitChapter: `${unitName ? unitName + ', ' : ''}${chapter!.name}`,
-                                pages: chapter!.pageStart && chapter!.pageEnd ? `${chapter!.pageStart}-${chapter!.pageEnd}` : "",
-                                type: "homework",
-                                ...(institute ? { institute } : {})
-                              });
-                              router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
-                            }
+                        {
+                          label: "Edit Chapter",
+                          icon: <Edit3 className="h-4 w-4" />,
+                          onClick: () => setEditingChapter({ chapter: chapter, pdfUrl: chapterPdf?.fileUrl || "" })
+                        },
+                        {
+                          label: "Add Lesson Plan",
+                          icon: <PenTool className="h-4 w-4" />,
+                          onClick: () => {
+                            const params = new URLSearchParams({
+                              class: className,
+                              subject: subjectName,
+                              chapterId: chapter.id.toString(),
+                              unitChapter: chapter.name,
+                              pages: chapter.pageStart && chapter.pageEnd ? `${chapter.pageStart}-${chapter.pageEnd}` : "",
+                              ...(institute ? { institute } : {})
+                            });
+                            router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
                           }
-                        ] : []),
-                        ...(!isNA ? [
-                          {
-                            label: "Add Chapter",
-                            icon: <PlusCircle className="h-4 w-4" />,
-                            onClick: () => {
-                              const unitChapters = chapters.filter(c => c.unitId === unit.id);
-                              const nextOrderNo = unitChapters.length > 0 ? Math.max(...unitChapters.map(c => c.orderNo)) + 1 : 1;
-                              setAddingChapterToUnit({ unitId: unit.id, nextOrderNo });
-                            }
-                          },
-                          {
-                            label: "Edit Unit",
-                            icon: <Edit2 className="h-4 w-4" />,
-                            onClick: () => setEditingUnit({ id: unit.id, name: unit.name })
+                        },
+                        {
+                          label: "Add Homework",
+                          icon: <ClipboardList className="h-4 w-4" />,
+                          onClick: () => {
+                            const params = new URLSearchParams({
+                              class: className,
+                              subject: subjectName,
+                              unitChapter: chapter.name,
+                              pages: chapter.pageStart && chapter.pageEnd ? `${chapter.pageStart}-${chapter.pageEnd}` : "",
+                              type: "homework",
+                              ...(institute ? { institute } : {})
+                            });
+                            router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
                           }
-                        ] : [])
+                        }
                       ]}
                     />
                   </td>
@@ -330,21 +253,9 @@ export default function UnitChapterManagementClient({
         </table>
       </div>
 
-      {/* Render Modals Controlled */}
-      {editingUnit && (
-        <EditUnitModal 
-          unitId={editingUnit.id} 
-          initialName={editingUnit.name} 
-          showTrigger={false}
-          isOpen={!!editingUnit}
-          onClose={() => setEditingUnit(null)}
-        />
-      )}
-
       {editingChapter && (
         <EditChapterModal 
           chapter={editingChapter.chapter} 
-          availableUnits={units} 
           initialPdfUrl={editingChapter.pdfUrl}
           showTrigger={false}
           isOpen={!!editingChapter}
@@ -363,16 +274,6 @@ export default function UnitChapterManagementClient({
           className={className}
           subjectName={subjectName}
           unitName={dividingChapter?.unitName || ""}
-        />
-      )}
-
-      {addingChapterToUnit && (
-        <AddChapterModal
-          unitId={addingChapterToUnit.unitId}
-          nextOrderNo={addingChapterToUnit.nextOrderNo}
-          showTrigger={false}
-          isOpen={!!addingChapterToUnit}
-          onClose={() => setAddingChapterToUnit(null)}
         />
       )}
     </div>

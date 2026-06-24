@@ -5,7 +5,7 @@ import { Plus, X, Loader2 } from "lucide-react";
 import { createChapter } from "@/features/academy/actions/chapterActions";
 
 interface AddChapterModalProps {
-  unitId: number;
+  subjectId: number;
   nextOrderNo: number;
   showTrigger?: boolean;
   isOpen?: boolean;
@@ -13,7 +13,7 @@ interface AddChapterModalProps {
 }
 
 export default function AddChapterModal({ 
-  unitId, 
+  subjectId, 
   nextOrderNo,
   showTrigger = true,
   isOpen: externalIsOpen,
@@ -53,7 +53,7 @@ export default function AddChapterModal({
     setError(null);
 
     const result = await createChapter({ 
-      unitId, 
+      subjectId, 
       name, 
       chapterNo,
       pageStart: parseInt(pageStart) || 0,

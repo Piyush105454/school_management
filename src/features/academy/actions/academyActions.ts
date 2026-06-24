@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { classes, subjects, units, chapters, students, studentAttendance, chapterPdfs, chapterDivisions } from "@/db/schema";
+import { classes, subjects, chapters, students, studentAttendance, chapterPdfs, chapterDivisions } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { uploadToS3 } from "@/lib/s3-service";
@@ -107,33 +107,6 @@ export async function cleanupAcademicData() {
 
 // ... [rest of the actions]
 
-// --- UNIT ACTIONS ---
-
-export async function updateUnit(unitId: number, data: { name: string }) {
-  try {
-    await db.update(units)
-      .set({ name: data.name })
-      .where(eq(units.id, unitId));
-    
-    revalidatePath("/office/academy-management/classes/[className]/subjects/[subjectId]", "page");
-    return { success: true };
-  } catch (error: any) {
-    console.error("updateUnit error:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function deleteUnit(unitId: number) {
-  try {
-    await db.delete(units).where(eq(units.id, unitId));
-    revalidatePath("/office/academy-management/classes/[className]/subjects/[subjectId]", "page");
-    return { success: true };
-  } catch (error: any) {
-    console.error("deleteUnit error:", error);
-    return { success: false, error: error.message };
-  }
-}
-
 // --- CHAPTER ACTIONS ---
 
 export async function updateChapter(chapterId: number, data: { 
@@ -187,20 +160,6 @@ export async function updateChapter(chapterId: number, data: {
     return { success: true };
   } catch (error: any) {
     console.error("updateChapter error:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function moveChapter(chapterId: number, newUnitId: number) {
-  try {
-    await db.update(chapters)
-      .set({ unitId: newUnitId })
-      .where(eq(chapters.id, chapterId));
-    
-    revalidatePath("/office/academy-management/classes/[className]/subjects/[subjectId]", "page");
-    return { success: true };
-  } catch (error: any) {
-    console.error("moveChapter error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -286,8 +245,8 @@ export async function cleanupSubjectDuplicates() {
         const targetId = map[classId][normalizedName];
         console.log(`Merging subject ${sub.id} ("${sub.name}") into ${targetId} for class ${classId}`);
         
-        // Update all related units to point to the target subject
-        await db.update(units).set({ subjectId: targetId }).where(eq(units.subjectId, sub.id));
+        // Update all related chapters to point to the target subject
+        await db.update(chapters).set({ subjectId: targetId }).where(eq(chapters.subjectId, sub.id));
         
         toDelete.push(sub.id);
         mergedCount++;
@@ -327,17 +286,21 @@ export async function getAllAcademicMetadata(institute?: string) {
 
 export async function getSubjectUnitsAndChapters(subjectId: number) {
   try {
-    const subjectUnits = await db.query.units.findMany({
-      where: eq(units.subjectId, subjectId),
-      orderBy: (units, { asc }) => [asc(units.orderNo)],
-      with: {
-        chapters: {
-          orderBy: (chapters, { asc }) => [asc(chapters.orderNo)],
-        }
-      }
+    const subjectChapters = await db.query.chapters.findMany({
+      where: eq(chapters.subjectId, subjectId),
+      orderBy: (chapters, { asc }) => [asc(chapters.chapterNo), asc(chapters.orderNo)],
     });
     
-    return { success: true, units: subjectUnits };
+    // Simulate a single unit "NA" containing all chapters
+    const mockUnit = {
+      id: 0,
+      name: "NA",
+      orderNo: 1,
+      subjectId: subjectId,
+      chapters: subjectChapters,
+    };
+    
+    return { success: true, units: [mockUnit] };
   } catch (error: any) {
     console.error("getSubjectUnitsAndChapters error:", error);
     return { success: false, error: error.message };
