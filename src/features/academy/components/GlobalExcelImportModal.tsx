@@ -212,7 +212,7 @@ export default function GlobalExcelImportModal() {
                   </p>
                   <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
                     Required Columns: <b>Class, Subject, Chapter Name</b>.<br />
-                    Optional: Unit, Chapter No, Page Start/End, PDF Link.
+                    Optional: Chapter No, Page Start/End, PDF Link.
                   </p>
                 </div>
               </div>

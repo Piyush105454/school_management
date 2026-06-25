@@ -6,8 +6,8 @@ import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export interface BulkImportRow {
-  unitName: string;
-  unitOrder: number;
+  unitName?: string;
+  unitOrder?: number;
   chapterName: string;
   chapterNo: number;
   pageStart?: number;

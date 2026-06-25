@@ -199,7 +199,7 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
                     {fileName || "Click to select Excel file"}
                   </p>
                   <p className="text-xs text-slate-400 max-w-xs">
-                    Expected columns: Unit Name, Unit No, Chapter Name, Chapter No, Page Start, Page End, PDF Link.
+                    Expected columns: Chapter Name, Chapter No, Page Start, Page End, PDF Link.
                   </p>
                 </div>
               </div>
