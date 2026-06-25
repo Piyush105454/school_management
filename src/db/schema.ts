@@ -408,7 +408,7 @@ export const chapterDivisions = pgTable("chapter_divisions", {
 });
 
 export const lessonPlans = pgTable("lesson_plans", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: text("id").primaryKey(),
   teacherId: uuid("teacher_id").references(() => users.id),
   classId: integer("class_id").references(() => classes.id),
   subjectId: integer("subject_id").references(() => subjects.id),
@@ -423,6 +423,7 @@ export const lessonPlans = pgTable("lesson_plans", {
   principalRemark: text("principal_remark"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  internalId: serial("internal_id").unique(),
 });
 
 export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
@@ -458,7 +459,7 @@ export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
 
 export const homeworkSubmissions = pgTable("homework_submissions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  lessonPlanId: uuid("lesson_plan_id").notNull().references(() => lessonPlans.id, { onDelete: 'cascade' }),
+  lessonPlanId: text("lesson_plan_id").notNull().references(() => lessonPlans.id, { onDelete: 'cascade' }),
   studentId: integer("student_id").notNull().references(() => students.id, { onDelete: 'cascade' }),
   description: text("description"),
   imagePath: text("image_path"),

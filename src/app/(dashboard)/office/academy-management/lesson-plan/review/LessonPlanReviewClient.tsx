@@ -686,8 +686,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
 
                     <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{step2.unitChapterPage || "-"}</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Chapter Name:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
+                        {step2.unitChapterPage ? step2.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '') : "-"}
+                      </div>
                       <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">
                         {step2.unitChapterPage ? (() => {
@@ -877,8 +879,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                     </div>
 
                     <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{step2.unitChapterPage || "-"}</div>
+                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Chapter Name:</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
+                        {step2.unitChapterPage ? step2.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '') : "-"}
+                      </div>
                       <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">
                         {step2.unitChapterPage ? (() => {

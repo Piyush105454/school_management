@@ -128,6 +128,15 @@ interface LessonPlanFormProps {
   chapterDivisionId?: number;
 }
 
+const getInitialDeliveryDateStr = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 1); // Tomorrow
+  if (date.getDay() === 0) { // If Sunday
+    date.setDate(date.getDate() + 1); // Move to Monday
+  }
+  return date.toISOString().split('T')[0];
+};
+
 export default function LessonPlanForm({ classes, subjects, teacherId }: LessonPlanFormProps) {
   const router = useRouter();
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
@@ -148,7 +157,6 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   const [drawingInitialData, setDrawingInitialData] = useState<any[] | undefined>(undefined);
   
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [draftRestorationChecked, setDraftRestorationChecked] = useState(false);
   const [initialFormData, setInitialFormData] = useState<any>(null);
   // selectedDivisionsByMode is now only used for tracking the shared plan ID (both modes share same record)
   const [selectedDivisionsByMode, setSelectedDivisionsByMode] = useState<{
@@ -174,8 +182,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     principalName: "",
     reviewedAt: "",
     createdAt: "",
-    deliveryDay: "Monday",
-    date: new Date().toISOString().split('T')[0],
+    deliveryDay: "",
+    date: "",
     lpNo: "",
     className: "",
     subject: "",
@@ -226,7 +234,6 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
   const isEditableRef = React.useRef(isEditable);
   const formDataRef = React.useRef(formData);
-  const promptedDraftKeys = React.useRef(new Set<string>());
 
   useEffect(() => {
     isEditableRef.current = isEditable;
@@ -335,7 +342,6 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
     // Immediately reset loading and baseline state to prevent mixing/leaking old data
     setIsDataLoaded(false);
-    setDraftRestorationChecked(false);
     setInitialFormData(null);
     setSelectedDivisionsByMode({});
 
@@ -350,8 +356,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     }
 
     let exactUnitChapterPage = "";
-    if (unitName && chapterName && pages) {
-      exactUnitChapterPage = unitName === "NA" || unitName === ""
+    if (chapterName && pages) {
+      exactUnitChapterPage = !unitName || unitName === "NA" || unitName === ""
         ? `${chapterName}, Pg ${pages}`
         : `${unitName}, ${chapterName}, Pg ${pages}`;
     } else if (unitChapter && pages) {
@@ -370,8 +376,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       principalName: "",
       reviewedAt: "",
       createdAt: "",
-      deliveryDay: "Monday",
-      date: searchParams.get("date") || new Date().toISOString().split('T')[0],
+      deliveryDay: "",
+      date: searchParams.get("date") || "",
       lpNo: "",
       className: className || "",
       subject: subject || "",
@@ -498,16 +504,38 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
             const initialMode = (searchParams.get("mode") as "EXPLANATION" | "QA" | "PREPRIMARY") || "EXPLANATION";
             const modeFields = initialMode === "QA" ? qaFields : explanationFields;
 
+            // Get sequence number from ID if it's in custom format
+            let lpNoVal = "";
+            if (res.data.id && res.data.id.startsWith("LP-")) {
+              const parts = res.data.id.split("-");
+              const lastPart = parts[parts.length - 1];
+              const parsedSeq = parseInt(lastPart, 10);
+              if (!isNaN(parsedSeq)) {
+                lpNoVal = String(parsedSeq);
+              }
+            }
+
+            // Calculate resolved delivery day synchronously
+            let resolvedDeliveryDay = "";
+            if (res.data.date) {
+              const dateObj = new Date(res.data.date);
+              if (!isNaN(dateObj.getTime())) {
+                resolvedDeliveryDay = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+              }
+            }
+
             const loaded = {
               ...defaultFields,
               ...step1,
               ...sharedFields,
               ...modeFields,
               id: res.data.id,
+              lpNo: lpNoVal || defaultFields.lpNo,
               className: res.data.class?.name || defaultFields.className,
               subject: res.data.subject?.name || defaultFields.subject,
               selectedInstitute: res.data.class?.institute || defaultFields.selectedInstitute,
               date: res.data.date || defaultFields.date,
+              deliveryDay: resolvedDeliveryDay || defaultFields.deliveryDay,
               teacherObservation: sharedFields.teacherObservation || "",
               studentPerformanceGood: sharedFields.studentPerformanceGood || "",
               studentPerformanceBad: sharedFields.studentPerformanceBad || "",
@@ -544,74 +572,12 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
     }
   }, [searchParams]);
 
-  // Handle Draft Restoration & Auto-save
-  const editId = searchParams.get("edit");
-  const divisionId = searchParams.get("divisionId");
-  const chapterId = searchParams.get("chapterId");
-  const pagesParam = searchParams.get("pages");
-  const instituteParam = searchParams.get("institute");
-
-  // Build a highly specific key for new lesson plans to prevent mixing drafts of different divisions/pages/institutes/types
-  const draftKey = editId 
-    ? `lessonPlanDraft_edit_${editId}` 
-    : (formData.className && formData.subject 
-        ? `lessonPlanDraft_new_${formData.className}_${formData.subject}_${formData.selectedInstitute || instituteParam || "DPS"}_${formData.unitChapterPage || pagesParam || ""}_${lessonPlanMode}_${divisionId || ""}_${chapterId || ""}`.replace(/[^a-zA-Z0-9_]/g, "_")
-        : null);
-
-  // Reset draft restoration check when draftKey changes
-  useEffect(() => {
-    setDraftRestorationChecked(false);
-  }, [draftKey]);
-
   // Set initialFormData to formData on first load if it hasn't been set yet
   useEffect(() => {
     if (isDataLoaded && !initialFormData) {
       setInitialFormData(formData);
     }
   }, [isDataLoaded, formData, initialFormData]);
-
-  useEffect(() => {
-    if (!isDataLoaded || !draftKey || draftRestorationChecked) return;
-
-    // Skip if we already prompted for this draftKey in this page view session
-    if (promptedDraftKeys.current.has(draftKey)) {
-      setDraftRestorationChecked(true);
-      return;
-    }
-
-    const savedDraftVal = localStorage.getItem(draftKey);
-    if (savedDraftVal) {
-      promptedDraftKeys.current.add(draftKey);
-      const message = editId 
-        ? "We found an unsaved draft for this lesson plan. Do you want to restore it?"
-        : "We found an unsaved draft for this new lesson plan. Do you want to restore it?";
-      if (confirm(message)) {
-        try {
-          const parsed = JSON.parse(savedDraftVal);
-          setFormData(parsed);
-          setInitialFormData(parsed);
-        } catch (e) {
-          console.error("Failed to parse draft", e);
-        }
-      } else {
-        localStorage.removeItem(draftKey);
-      }
-    }
-    setDraftRestorationChecked(true);
-  }, [isDataLoaded, draftKey, draftRestorationChecked, editId]);
-
-  useEffect(() => {
-    if (!isDataLoaded || !draftRestorationChecked || !draftKey || !initialFormData) return;
-
-    // Only save draft if formData has actually changed (dirty check)
-    const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
-    if (!isDirty) return;
-
-    const timer = setTimeout(() => {
-      localStorage.setItem(draftKey, JSON.stringify(formData));
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [formData, draftKey, isDataLoaded, draftRestorationChecked, initialFormData]);
 
   // Enable browser native spellcheck and autocorrect on all textareas, inputs, and rich text editors dynamically
   useEffect(() => {
@@ -647,6 +613,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           deliveryDay: dayName
         }));
       }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        deliveryDay: ""
+      }));
     }
   }, [formData.date]);
 
@@ -741,6 +712,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   // Automatically calculate LP No based on Class and Subject
   useEffect(() => {
     async function fetchCount() {
+      if (formData.id) return; // If existing plan, do not overwrite lpNo
       if (!formData.className || !formData.subject) return;
       const classObj = uniqueClasses.find(c => c.name === formData.className && (c.institute || "Dhanpuri Public School") === (formData.selectedInstitute || "Dhanpuri Public School"));
       if (!classObj) return;
@@ -754,7 +726,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       }
     }
     fetchCount();
-  }, [formData.className, formData.subject, formData.selectedInstitute, uniqueClasses, subjects]);
+  }, [formData.id, formData.className, formData.subject, formData.selectedInstitute, uniqueClasses, subjects]);
 
   // Automatically fetch existing lesson plan if it exists for the given Date, Class, and Subject
   useEffect(() => {
@@ -844,13 +816,35 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           // Apply current mode's fields
           const modeFields = lessonPlanMode === "QA" ? qaFields : explanationFields;
 
+          // Get sequence number from ID if it's in custom format
+          let lpNoVal = "";
+          if (res.data.id && res.data.id.startsWith("LP-")) {
+            const parts = res.data.id.split("-");
+            const lastPart = parts[parts.length - 1];
+            const parsedSeq = parseInt(lastPart, 10);
+            if (!isNaN(parsedSeq)) {
+              lpNoVal = String(parsedSeq);
+            }
+          }
+
+          // Calculate resolved delivery day synchronously
+          let resolvedDeliveryDay = "";
+          if (res.data.date) {
+            const dateObj = new Date(res.data.date);
+            if (!isNaN(dateObj.getTime())) {
+              resolvedDeliveryDay = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            }
+          }
+
           setFormData(prev => {
             const next = {
               ...prev,
               id: res.data.id,
+              lpNo: lpNoVal || prev.lpNo,
               ...step1,
               ...sharedFields,
               ...modeFields,
+              deliveryDay: resolvedDeliveryDay || prev.deliveryDay,
               teacherObservation: sharedFields.teacherObservation || "",
               studentPerformanceGood: sharedFields.studentPerformanceGood || "",
               studentPerformanceBad: sharedFields.studentPerformanceBad || "",
@@ -1183,11 +1177,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    // Check if user selected Sunday for the Date
+    // Check if user selected Sunday for the Date and enforce limits
     if (name === "date" && value) {
       const selectedDate = new Date(value);
       if (selectedDate.getDay() === 0) {
         alert("Sundays are holidays. Please select another day.");
+        return;
+      }
+      if (value < minDateStr || value > maxDateStr) {
+        alert(`Please select a date between tomorrow (${minDateStr}) and 6 working days from today (${maxDateStr}).`);
         return;
       }
     }
@@ -1205,6 +1203,10 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       alert("Please select Class and Subject first.");
       return;
     }
+    if (!formData.date) {
+      alert("Please select a Delivery Date first.");
+      return;
+    }
     
     if (submitForValidation) {
       const missingFields = [];
@@ -1216,7 +1218,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       if (!stripHtml(formData.homework)) missingFields.push("Today's Homework (1B)");
 
       // Step 2 check
-      if (!formData.unitChapterPage) missingFields.push("Unit/Chapter/Pages");
+      if (!formData.unitChapterPage) missingFields.push("Chapter Name/Pages");
       if (chapterDivisions.length > 0 && !formData.chapterDivisionId) {
         missingFields.push("Page Range (Divided Pages)");
       }
@@ -1318,8 +1320,6 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       });
 
       if (res.success) {
-        if (draftKey) localStorage.removeItem(draftKey);
-        
         router.refresh();
         
         if (forceStatus === "COMPLETED") {
@@ -1366,6 +1366,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       const missingFields: string[] = [];
       const stripHtml = (html: string) => html?.replace(/<[^>]*>/g, "").trim();
       if (!formData.className || !formData.subject) missingFields.push("Class & Subject");
+      if (!formData.date) missingFields.push("Delivery Date");
       if (!stripHtml(formData.teacherNote)) missingFields.push("Teacher's Note (1A)");
       if (!stripHtml(formData.homework)) missingFields.push("Today's Homework (1B)");
       if (missingFields.length > 0) {
@@ -1489,8 +1490,9 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
       {/* 2. EXCEL-STYLE HEADER */}
       <div className="bg-white border border-slate-300 shadow-sm overflow-hidden">
-        <div className="border-b border-slate-300 h-16">
-          <div className="flex items-center px-4 gap-4 overflow-x-auto h-full">
+        <div className="flex flex-col w-full divide-y divide-slate-200 border-b border-slate-300">
+          {/* Row 1: Common metadata */}
+          <div className="flex items-center px-4 py-1.5 gap-4 justify-between w-full flex-wrap">
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">Class & Subject:</span>
               <select
@@ -1515,7 +1517,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                   const inst = cObj.institute || "Dhanpuri Public School";
                   return (
                     <option key={s.id} value={`${cObj.name}|${s.name}|${inst}`}>
-                      {cObj.name} - {s.name} ({inst})
+                      {cObj.name} - {s.name}
                     </option>
                   );
                 })}
@@ -1533,68 +1535,72 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               </span>
             </div>
             <div className="flex items-center gap-2 min-w-max">
-              <span className="text-[10px] font-black uppercase text-slate-400">Day:</span>
-              <span className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
-                {formData.deliveryDay || "..."}
+              <span className="text-[10px] font-black uppercase text-slate-400">LP No:</span>
+              <span className="w-12 bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
+                {formData.lpNo || "..."}
               </span>
             </div>
+          </div>
+          {/* Row 2: Delivery-specific details */}
+          <div className="flex items-center px-4 py-1.5 gap-4 justify-between w-full flex-wrap bg-slate-50/50">
             <div className="flex items-center gap-2 min-w-max">
               <span className="text-[10px] font-black uppercase text-slate-400">Date:</span>
               <input
                 type="date"
                 name="date"
-                value={formData.date}
                 min={minDateStr}
                 max={maxDateStr}
+                value={formData.date}
                 onChange={handleChange}
                 disabled={!isEditable}
                 className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <div className="flex items-center gap-2 min-w-max">
-              <span className="text-[10px] font-black uppercase text-slate-400">LP No:</span>
-              <span className="w-12 bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
-                {formData.lpNo || "..."}
+              <span className="text-[10px] font-black uppercase text-slate-400">Day:</span>
+              <span className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
+                {formData.deliveryDay || "..."}
               </span>
             </div>
-
-            {/* Division Selector in Header */}
-            {chapterDivisions.length > 0 && (
-              <div className="flex items-center gap-2 min-w-max ml-4 px-3 py-1 bg-blue-50 border border-blue-100 rounded-lg">
-                <span className="text-[10px] font-black uppercase text-blue-400">Range:</span>
-                <select
-                  value={formData.chapterDivisionId || ""}
-                  onChange={(e) => {
-                    const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
-                    if (division) {
-                      const newPageValue = `${formData.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})`;
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        chapterDivisionId: division.id,
-                        unitChapterPage: newPageValue 
-                      }));
-                      setSelectedDivisionsByMode(prev => ({
-                        ...prev,
-                        [lessonPlanMode]: {
+            <div className="flex items-center gap-2 min-w-max">
+              {/* Division Selector in Header */}
+              {chapterDivisions.length > 0 && (
+                <div className="flex items-center gap-2 min-w-max px-3 py-1 bg-blue-50 border border-blue-100 rounded-lg">
+                  <span className="text-[10px] font-black uppercase text-blue-400">Range:</span>
+                  <select
+                    value={formData.chapterDivisionId || ""}
+                    onChange={(e) => {
+                      const division = chapterDivisions.find(d => d.id === parseInt(e.target.value));
+                      if (division) {
+                        const newPageValue = `${formData.unitChapterPage.split(', Pg')[0]}, Pg ${division.pageStart}-${division.pageEnd} (Div ${division.divisionNo})`;
+                        setFormData(prev => ({ 
+                          ...prev, 
                           chapterDivisionId: division.id,
-                          unitChapterPage: newPageValue,
-                          id: formData.id || ""
-                        }
-                      }));
-                    }
-                  }}
-                  className="bg-transparent outline-none font-bold text-[11px] text-blue-600"
-                  disabled={!isEditable || !!formData.id}
-                >
-                  <option value="">Select Range</option>
-                  {chapterDivisions.map((division) => (
-                    <option key={division.id} value={division.id}>
-                      Pg {division.pageStart}—{division.pageEnd}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                          unitChapterPage: newPageValue 
+                        }));
+                        setSelectedDivisionsByMode(prev => ({
+                          ...prev,
+                          [lessonPlanMode]: {
+                            chapterDivisionId: division.id,
+                            unitChapterPage: newPageValue,
+                            id: formData.id || ""
+                          }
+                        }));
+                      }
+                    }}
+                    className="bg-transparent outline-none font-bold text-[11px] text-blue-600"
+                    disabled={!isEditable || !!formData.id || !!searchParams.get("divisionId")}
+                  >
+                    <option value="">Select Range</option>
+                    {chapterDivisions.map((division) => (
+                      <option key={division.id} value={division.id}>
+                        Pg {division.pageStart}—{division.pageEnd}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1784,7 +1790,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 <div className="grid grid-cols-12 border-b border-slate-300 min-h-14">
-                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Chapter Name:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
                     {!!formData.chapterDivisionId ? (
                       <input 
@@ -1848,7 +1854,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                           }
                         }}
                       >
-                        <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
+                        <option value="">{isLoadingCurriculum ? "Loading..." : "Select Chapter Name"}</option>
                         {unitsWithChapters.map(unit => (
                           <optgroup key={unit.id} label={unit.name === "NA" ? "Direct Chapters" : unit.name}>
                             {unit.chapters?.map((chapter: any) => {
@@ -2231,7 +2237,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 </div>
 
                 <div className="grid grid-cols-12 border-b border-slate-300 min-h-14 text-slate-900">
-                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Unit/Chapter:</div>
+                  <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Chapter Name:</div>
                   <div className="col-span-4 p-3 flex items-center border-r border-slate-300 overflow-hidden">
                     {!!formData.chapterDivisionId ? (
                       <input 
@@ -2295,7 +2301,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                           }
                         }}
                       >
-                        <option value="">{isLoadingCurriculum ? "Loading..." : "Select Unit/Chapter"}</option>
+                        <option value="">{isLoadingCurriculum ? "Loading..." : "Select Chapter Name"}</option>
                         {unitsWithChapters.map(unit => (
                           <optgroup key={unit.id} label={unit.name === "NA" ? "Direct Chapters" : unit.name}>
                             {unit.chapters?.map((chapter: any) => {
