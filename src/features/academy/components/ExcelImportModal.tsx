@@ -77,7 +77,17 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
 
             if (!chapterNo) chapterNo = index + 1;
 
-            let pdfUrl = getVal(["PDF Link", "pdf_link", "Google Drive Link", "URL"]);
+            let pdfUrl = getVal([
+              "PDF Link", 
+              "pdf_link", 
+              "Google Drive Link", 
+              "Google Drive", 
+              "Drive Link", 
+              "Resource Link", 
+              "Resource", 
+              "Link", 
+              "URL"
+            ]);
             
             if (!pdfUrl) {
               const chapterKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("chapter"));
@@ -86,9 +96,23 @@ export default function ExcelImportModal({ subjectId }: ExcelImportModalProps) {
                 const colIndex = headers.findIndex(h => h && String(h).trim() === chapterKey);
                 if (colIndex !== -1) {
                   const cellRef = XLSX.utils.encode_cell({ r: index + 1, c: colIndex });
-                  pdfUrl = ws[cellRef]?.l?.Target;
+                  const cell = ws[cellRef];
+                  if (cell) {
+                    if (cell.l?.Target) {
+                      pdfUrl = cell.l.Target;
+                    } else if (cell.f) {
+                      const formulaMatch = cell.f.match(/HYPERLINK\s*\(\s*["']([^"']+)["']/i);
+                      if (formulaMatch) {
+                        pdfUrl = formulaMatch[1];
+                      }
+                    }
+                  }
                 }
               }
+            }
+
+            if (pdfUrl && !/^https?:\/\//i.test(pdfUrl) && !pdfUrl.startsWith("data:") && !pdfUrl.startsWith("/")) {
+              pdfUrl = `https://${pdfUrl}`;
             }
 
             const res: BulkImportRow = {

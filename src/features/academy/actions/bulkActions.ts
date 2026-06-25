@@ -36,7 +36,7 @@ async function importSubjectData(tx: any, subjectId: number, rows: BulkImportRow
   const existingChapters = clearExisting ? [] : await tx.query.chapters.findMany({
     where: eq(chapters.subjectId, subjectId),
     with: {
-      chapterPdfs: true
+      pdfs: true
     }
   });
 
@@ -70,7 +70,7 @@ async function importSubjectData(tx: any, subjectId: number, rows: BulkImportRow
         updated++;
       }
 
-      const existingPdf = (existingChapter as any)?.chapterPdfs?.[0];
+      const existingPdf = (existingChapter as any)?.pdfs?.[0];
       if (row.pdfUrl) {
         if (existingPdf) {
           if (existingPdf.fileUrl !== row.pdfUrl) {

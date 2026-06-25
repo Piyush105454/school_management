@@ -192,7 +192,13 @@ export default function UnitChapterManagementClient({
                     <div className="flex justify-start">
                       {resourceUrl ? (
                         <button
-                          onClick={() => window.open(resourceUrl, '_blank')}
+                          onClick={() => {
+                            let targetUrl = resourceUrl;
+                            if (targetUrl && !/^https?:\/\//i.test(targetUrl) && !targetUrl.startsWith("/")) {
+                              targetUrl = `https://${targetUrl}`;
+                            }
+                            window.open(targetUrl, '_blank');
+                          }}
                           className="flex items-center gap-1.5 py-1.5 px-3 bg-white text-emerald-600 hover:bg-emerald-50 font-black rounded-xl transition-all text-[10px] uppercase tracking-wider border border-emerald-100 shadow-sm group active:scale-95"
                         >
                           <Eye className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />

@@ -22,6 +22,17 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
   const resolvedParams = await params;
   const decodedClassName = decodeURIComponent(resolvedParams.className);
   const subjectId = parseInt(resolvedParams.subjectId, 10);
+  
+  if (isNaN(subjectId)) {
+    return (
+      <div className="p-6 md:p-10 space-y-6">
+        <h1 className="text-2xl font-bold text-red-500">Invalid Subject ID</h1>
+        <Link href={`/office/academy-management/classes/${decodedClassName}/subjects`} className="text-blue-600 underline">
+          Go Back
+        </Link>
+      </div>
+    );
+  }
 
   // Fetch subject details
   const subjectRecord = await db.query.subjects.findFirst({
