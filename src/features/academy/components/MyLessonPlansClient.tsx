@@ -278,13 +278,15 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                         >
                           {plan.status === "DRAFT" || plan.status === "REJECTED" ? <Edit className="h-4 w-4" /> : "View Your Lesson Plan"}
                         </Link>
-                        <button
-                          onClick={() => handleDelete(plan.id)}
-                          className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                          title="Delete Lesson Plan"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {(plan.status === "DRAFT" || plan.status === "REJECTED") && (
+                          <button
+                            onClick={() => handleDelete(plan.id)}
+                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            title="Delete Lesson Plan"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

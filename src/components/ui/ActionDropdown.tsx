@@ -18,20 +18,50 @@ interface ActionDropdownProps {
 export function ActionDropdown({ actions, align = "right" }: ActionDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, right: 0 });
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
+    
+    function handleScroll() {
+      if (isOpen) setIsOpen(false);
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    // Capture phase scroll to catch scrolling on any inner container
+    document.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 8, // 8px margin
+        left: rect.left,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [isOpen]);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
       >
@@ -40,9 +70,13 @@ export function ActionDropdown({ actions, align = "right" }: ActionDropdownProps
 
       {isOpen && (
         <div 
-          className={`absolute z-50 mt-2 w-48 rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-100 ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            ...(align === 'right' ? { right: coords.right } : { left: coords.left })
+          }}
+          className="z-[9999] w-48 rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-100"
         >
           {actions.map((action, index) => (
             <button
@@ -63,6 +97,6 @@ export function ActionDropdown({ actions, align = "right" }: ActionDropdownProps
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
