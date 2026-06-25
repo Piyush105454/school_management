@@ -204,9 +204,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // Academy Management Category
     { type: "section", name: "Academy Management" },
+    { href: "/office/academy-management/my-lesson-plans", icon: BookOpen, roleNames: { TEACHER: "My Lesson Plans" } },
     { href: "/office/academy-management/attendance", icon: CalendarCheck, roleNames: { OFFICE: "Attendance Management", PRINCIPAL: "Attendance Management", TEACHER: "Attendance" } },
     { href: "/office/academy-management/classes", icon: School, roleNames: { OFFICE: "Class Management", PRINCIPAL: "Class Management", TEACHER: "My Classes" } },
-    { href: "/office/academy-management/my-lesson-plans", icon: BookOpen, roleNames: { TEACHER: "My Lesson Plans" } },
     { href: "/office/academy-management/lesson-plan", icon: FileText, roleNames: { OFFICE: "Lesson Plan Management", PRINCIPAL: "Lesson Plan Management" } },
     { href: "/office/academy-management/lesson-plan/review", icon: ClipboardList, roleNames: { OFFICE: "Lesson Plan Review", PRINCIPAL: "Lesson Plan Review", TEACHER: "Review Lesson Plans" } },
     { href: "/office/academy-management/homework", icon: ClipboardCheck, roleNames: { OFFICE: "Homework Management", PRINCIPAL: "Homework Management", TEACHER: "My Homework Review" } },
@@ -215,6 +215,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/student/homework", icon: ClipboardList, roleNames: { STUDENT_PARENT: "My Homework" } },
     { href: "/student/attendance", icon: CalendarCheck, roleNames: { STUDENT_PARENT: "My Attendance" } },
     { href: "/student/exams", icon: ScrollText, roleNames: { STUDENT_PARENT: "My Exam Schedule" } },
+
 
     // Time Table Management Category
     { type: "section", name: "Time Table Management" },
@@ -430,6 +431,28 @@ export function Sidebar({ role, onClose }: SidebarProps) {
             href: item.href,
             icon: item.icon
           });
+        }
+      }
+    }
+
+    if (role === "TEACHER") {
+      const academyIdx = results.findIndex(r => r.type === "section" && r.name === "Academy Management");
+      if (academyIdx !== -1) {
+        let academyEndIdx = academyIdx + 1;
+        while (academyEndIdx < results.length && results[academyEndIdx].type !== "section") {
+          academyEndIdx++;
+        }
+        const academyItems = results.splice(academyIdx, academyEndIdx - academyIdx);
+        
+        const admissionIdx = results.findIndex(r => r.type === "section" && r.name === "Admissions");
+        if (admissionIdx !== -1) {
+          results.splice(admissionIdx, 0, ...academyItems);
+        } else {
+          // Fallback if Admissions doesn't exist
+          const firstSection = results.findIndex((r, i) => i > 0 && r.type === "section");
+          if (firstSection !== -1) {
+            results.splice(firstSection, 0, ...academyItems);
+          }
         }
       }
     }

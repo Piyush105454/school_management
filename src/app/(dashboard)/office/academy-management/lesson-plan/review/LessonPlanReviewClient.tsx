@@ -342,6 +342,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">LP ID</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class & Subject</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Teacher</th>
@@ -354,7 +355,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               <tbody>
                 {paginatedPlans.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-20 text-center">
+                    <td colSpan={8} className="p-20 text-center">
                       <div className="space-y-3">
                         <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">
                           {activeTab === 'PENDING' && "No pending reviews found"}
@@ -377,11 +378,16 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                   paginatedPlans.map(plan => (
                     <tr key={plan.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
+                          {plan.id}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="space-y-1">
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
                             {plan.class?.name}
                           </span>
-                          <p className="font-black text-slate-900 group-hover:text-blue-600 transition-colors capitalize">{plan.subject?.name}</p>
+                          <p className="font-black text-slate-900 group-hover:text-blue-600 transition-colors capitalize text-xs">{plan.subject?.name}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">

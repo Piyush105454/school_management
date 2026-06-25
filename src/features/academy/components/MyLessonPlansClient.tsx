@@ -171,6 +171,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">LP ID</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class & Subject</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
@@ -182,7 +183,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
             <tbody>
               {filteredPlans.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-20 text-center">
+                  <td colSpan={7} className="p-20 text-center">
                     <div className="space-y-3">
                       <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">No lesson plans found</p>
                       <p className="text-slate-400 text-xs italic">Create your first lesson plan by clicking the button above.</p>
@@ -192,6 +193,11 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
               ) : (
                 filteredPlans.map(plan => (
                   <tr key={plan.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
+                        {plan.id}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="space-y-1">
                         <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
