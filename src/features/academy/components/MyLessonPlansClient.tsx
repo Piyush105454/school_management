@@ -8,7 +8,7 @@ import { deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 export default function MyLessonPlansClient({ initialPlans }: { initialPlans: any[] }) {
   const [plans, setPlans] = useState(initialPlans);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'SUBMITTED' | 'REVIEWED' | 'APPROVED' | 'SIGNOFF' | 'REJECTED'>('ALL');
 
   React.useEffect(() => {
     setPlans(initialPlans);
@@ -24,15 +24,19 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
     }
     
     if (activeTab === "DRAFT") return p.status === "DRAFT";
-    if (activeTab === "SUBMITTED") return p.status === "SUBMITTED" || p.status === "REVIEWED";
+    if (activeTab === "SUBMITTED") return p.status === "SUBMITTED";
+    if (activeTab === "REVIEWED") return p.status === "REVIEWED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
+    if (activeTab === "SIGNOFF") return p.status === "COMPLETED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
     return true; // ALL
   });
 
   const draftCount = plans.filter(p => p.status === "DRAFT").length;
-  const submittedCount = plans.filter(p => p.status === "SUBMITTED" || p.status === "REVIEWED").length;
+  const submittedCount = plans.filter(p => p.status === "SUBMITTED").length;
+  const reviewedCount = plans.filter(p => p.status === "REVIEWED").length;
   const approvedCount = plans.filter(p => p.status === "APPROVED").length;
+  const completedCount = plans.filter(p => p.status === "COMPLETED").length;
   const rejectedCount = plans.filter(p => p.status === "REJECTED").length;
 
   const handleDelete = async (planId: string) => {
@@ -86,22 +90,6 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
 
         <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
           <button 
-            onClick={() => setActiveTab('ALL')}
-            className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
-              activeTab === 'ALL' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            All Plans 
-            <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
-              activeTab === 'ALL' ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-500'
-            }`}>
-              {plans.length}
-            </span>
-            {activeTab === 'ALL' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-full" />
-            )}
-          </button>
-          <button 
             onClick={() => setActiveTab('DRAFT')}
             className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
               activeTab === 'DRAFT' ? 'text-slate-600' : 'text-slate-400 hover:text-slate-600'
@@ -134,6 +122,22 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
             )}
           </button>
           <button 
+            onClick={() => setActiveTab('REVIEWED')}
+            className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+              activeTab === 'REVIEWED' ? 'text-amber-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            Reviewed
+            <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+              activeTab === 'REVIEWED' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {reviewedCount}
+            </span>
+            {activeTab === 'REVIEWED' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-600 rounded-full" />
+            )}
+          </button>
+          <button 
             onClick={() => setActiveTab('APPROVED')}
             className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
               activeTab === 'APPROVED' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
@@ -147,6 +151,22 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
             </span>
             {activeTab === 'APPROVED' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
+            )}
+          </button>
+          <button 
+            onClick={() => setActiveTab('SIGNOFF')}
+            className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+              activeTab === 'SIGNOFF' ? 'text-purple-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            Signoff 
+            <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+              activeTab === 'SIGNOFF' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {completedCount}
+            </span>
+            {activeTab === 'SIGNOFF' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 rounded-full" />
             )}
           </button>
           <button 
@@ -165,6 +185,22 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600 rounded-full" />
             )}
           </button>
+          <button 
+            onClick={() => setActiveTab('ALL')}
+            className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+              activeTab === 'ALL' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            All Plans 
+            <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+              activeTab === 'ALL' ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {plans.length}
+            </span>
+            {activeTab === 'ALL' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-full" />
+            )}
+          </button>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
@@ -176,14 +212,15 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Validation By</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reviewed By</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPlans.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-20 text-center">
+                  <td colSpan={8} className="p-20 text-center">
                     <div className="space-y-3">
                       <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">No lesson plans found</p>
                       <p className="text-slate-400 text-xs italic">Create your first lesson plan by clicking the button above.</p>
@@ -220,7 +257,7 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                       )}
                       {plan.status === "REVIEWED" && (
                         <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-wider">
-                          Validated
+                          Reviewed
                         </span>
                       )}
                       {plan.status === "APPROVED" && (
@@ -229,8 +266,8 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                         </span>
                       )}
                       {plan.status === "COMPLETED" && (
-                        <span className="px-3 py-1 bg-teal-50 text-teal-600 border border-teal-100 rounded-full text-[10px] font-black uppercase tracking-wider">
-                          Completed
+                        <span className="px-3 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                          Signoff
                         </span>
                       )}
                       {plan.status === "REJECTED" && (
@@ -244,25 +281,37 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                     <td className="px-6 py-4">
                       {plan.status === "DRAFT" ? (
                         <span className="text-slate-300 italic text-xs">Not submitted</span>
-                      ) : (plan.status !== "SUBMITTED" && plan.status !== "REVIEWED" && (plan.reviewerProfile?.name || plan.reviewerUser)) ? (
-                        <div className="space-y-1">
+                      ) : (
+                        <div className="space-y-0.5">
                           <p className="text-xs font-bold text-slate-700">
-                            {plan.reviewerProfile?.name || plan.reviewerUser?.email?.split('@')[0] || (plan.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : plan.reviewerUser?.role === 'ADMIN' ? 'Admin' : "Reviewer")}
+                            {[plan.subject?.reviewer1?.name, plan.subject?.reviewer2?.name].filter(Boolean).join(" | ") || plan.specialistProfile?.name || "Reviewer"}
                           </p>
-                          <p className="text-[9px] text-slate-400 uppercase tracking-wider">
-                            {(plan.status === "APPROVED" || plan.status === "COMPLETED") ? "Approved" : "Rejected"}
+                          {plan.status !== "SUBMITTED" ? (
+                            <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">Reviewed</span>
+                          ) : (
+                            <span className="text-[9px] text-blue-500 font-black uppercase tracking-wider">Pending Review</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {plan.status === "APPROVED" || plan.status === "COMPLETED" ? (
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-slate-700">
+                            {plan.principalProfile?.name || plan.reviewerProfile?.name || "Principal"}
                           </p>
+                          <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">Approved</span>
+                        </div>
+                      ) : plan.status === "REVIEWED" ? (
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-medium text-slate-400 italic">Pending Approval</p>
+                          <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider font-bold">Principal</p>
                         </div>
                       ) : (
-                        <div className="space-y-1">
-                          <p className="text-xs italic text-slate-500 font-medium">Pending with:</p>
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
-                            {plan.status === "REVIEWED" ? "Principal" : (plan.specialistProfile?.name ? `${plan.specialistProfile.name} ➔ Principal` : "Reviewer")}
-                          </p>
-                        </div>
+                        <span className="text-slate-300 italic text-xs">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">

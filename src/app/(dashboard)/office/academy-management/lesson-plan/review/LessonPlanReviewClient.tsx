@@ -40,7 +40,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
   const [remark, setRemark] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'ALL'>('PENDING');
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'REVIEWED' | 'APPROVED' | 'SIGNOFF' | 'REJECTED' | 'DRAFT' | 'ALL'>('PENDING');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
@@ -52,8 +52,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     setCurrentPage(1);
   }, [activeTab, searchTerm, filterClass, filterSubject, filterDateRange, customDate]);
 
-  const pendingPlans = plans.filter(p => p.status === "SUBMITTED" || p.status === "REVIEWED");
+  const pendingPlans = plans.filter(p => p.status === "SUBMITTED");
+  const reviewedPlans = plans.filter(p => p.status === "REVIEWED");
   const approvedPlans = plans.filter(p => p.status === "APPROVED");
+  const completedPlans = plans.filter(p => p.status === "COMPLETED");
   const rejectedPlans = plans.filter(p => p.status === "REJECTED");
   const draftPlans = plans.filter(p => p.status === "DRAFT");
 
@@ -122,8 +124,10 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       }
     }
 
-    if (activeTab === "PENDING") return p.status === "SUBMITTED" || p.status === "REVIEWED";
+    if (activeTab === "PENDING") return p.status === "SUBMITTED";
+    if (activeTab === "REVIEWED") return p.status === "REVIEWED";
     if (activeTab === "APPROVED") return p.status === "APPROVED";
+    if (activeTab === "SIGNOFF") return p.status === "COMPLETED";
     if (activeTab === "REJECTED") return p.status === "REJECTED";
     if (activeTab === "DRAFT") return p.status === "DRAFT";
     if (activeTab === "ALL") return isTeacher ? p.status !== "DRAFT" : true;
@@ -172,8 +176,48 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     }
   };
 
-  const getStep1Data = () => JSON.parse(selectedPlan?.step1Data || "{}");
-  const getStep2Data = () => JSON.parse(selectedPlan?.step2Data || "{}");
+  const getStep1Data = () => {
+    if (!selectedPlan?.step1Data) return {};
+    try {
+      return typeof selectedPlan.step1Data === 'string'
+        ? JSON.parse(selectedPlan.step1Data)
+        : selectedPlan.step1Data;
+    } catch (e) {
+      console.error(e);
+      return {};
+    }
+  };
+
+  const getStep2Data = () => {
+    if (!selectedPlan?.step2Data) return {};
+    try {
+      const rawStep2 = typeof selectedPlan.step2Data === 'string'
+        ? JSON.parse(selectedPlan.step2Data)
+        : selectedPlan.step2Data;
+      
+      const isNewFormat = rawStep2.explanationData !== undefined || rawStep2.qaData !== undefined || rawStep2.sharedData !== undefined;
+      if (isNewFormat) {
+        const modeData = selectedPlan?.type === "QA" ? (rawStep2.qaData || {}) : (rawStep2.explanationData || {});
+        return {
+          ...(rawStep2.sharedData || {}),
+          ...modeData,
+        };
+      }
+      return rawStep2;
+    } catch (e) {
+      console.error(e);
+      return {};
+    }
+  };
+
+  const getDeliveryDay = () => {
+    if (!selectedPlan?.date) return "-";
+    const dateObj = new Date(selectedPlan.date);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+    return "-";
+  };
 
   const totalPages = Math.ceil(filteredPlans.length / ITEMS_PER_PAGE);
   const paginatedPlans = filteredPlans.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -222,6 +266,22 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               )}
             </button>
             <button 
+              onClick={() => setActiveTab('REVIEWED')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+                activeTab === 'REVIEWED' ? 'text-amber-600' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Reviewed 
+              <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                activeTab === 'REVIEWED' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {reviewedPlans.length}
+              </span>
+              {activeTab === 'REVIEWED' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-600 rounded-full" />
+              )}
+            </button>
+            <button 
               onClick={() => setActiveTab('APPROVED')}
               className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
                 activeTab === 'APPROVED' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'
@@ -235,6 +295,22 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               </span>
               {activeTab === 'APPROVED' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full" />
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab('SIGNOFF')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
+                activeTab === 'SIGNOFF' ? 'text-purple-600' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Signoff 
+              <span className={`ml-2 px-2.5 py-0.5 text-[10px] rounded-full font-black ${
+                activeTab === 'SIGNOFF' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {completedPlans.length}
+              </span>
+              {activeTab === 'SIGNOFF' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 rounded-full" />
               )}
             </button>
             <button 
@@ -349,13 +425,14 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reviewed By</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Approved By</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedPlans.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-20 text-center">
+                    <td colSpan={9} className="p-20 text-center">
                       <div className="space-y-3">
                         <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">
                           {activeTab === 'PENDING' && "No pending reviews found"}
@@ -402,7 +479,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       <td className="px-6 py-4">
                         {plan.status === "SUBMITTED" && (
                           <span className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-wider">
-                            Pending
+                            Pending Review
                           </span>
                         )}
                         {plan.status === "APPROVED" && (
@@ -411,8 +488,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                           </span>
                         )}
                         {plan.status === "COMPLETED" && (
-                          <span className="px-3 py-1 bg-teal-50 text-teal-600 border border-teal-100 rounded-full text-[10px] font-black uppercase tracking-wider">
-                            Completed
+                          <span className="px-3 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Signoff
                           </span>
                         )}
                         {plan.status === "REVIEWED" && (
@@ -432,12 +509,36 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {plan.status === "SUBMITTED" || plan.status === "DRAFT" ? (
-                          <span className="text-slate-300 text-xs italic">-</span>
+                        {plan.status === "DRAFT" ? (
+                          <span className="text-slate-300 italic text-xs">Not submitted</span>
                         ) : (
-                          <span className="text-sm font-bold text-slate-700">
-                            {plan.reviewerProfile?.name || plan.reviewerUser?.email?.split('@')[0] || (plan.reviewerUser?.role === 'PRINCIPAL' ? 'Principal' : plan.reviewerUser?.role === 'ADMIN' ? 'Admin' : "Reviewer")}
-                          </span>
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-slate-700">
+                              {[plan.subject?.reviewer1?.name, plan.subject?.reviewer2?.name].filter(Boolean).join(" | ") || plan.specialistProfile?.name || "Reviewer"}
+                            </p>
+                            {plan.status !== "SUBMITTED" ? (
+                              <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">Reviewed</span>
+                            ) : (
+                              <span className="text-[9px] text-blue-500 font-black uppercase tracking-wider">Pending Review</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {plan.status === "APPROVED" || plan.status === "COMPLETED" ? (
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-slate-700">
+                              {plan.principalProfile?.name || plan.reviewerProfile?.name || "Principal"}
+                            </p>
+                            <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">Approved</span>
+                          </div>
+                        ) : plan.status === "REVIEWED" ? (
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-medium text-slate-400 italic">Pending Approval</p>
+                            <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider font-bold">Principal</p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 italic text-xs">-</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -589,9 +690,9 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                   <div className="grid grid-cols-12 border-b border-black divide-x divide-black h-12">
                     <div className="col-span-6 flex items-center justify-center font-black text-2xl tracking-tight uppercase text-slate-900">1A. Teacher's Note</div>
                     <div className="col-span-6 grid grid-cols-3 divide-x divide-black h-full text-slate-900">
-                      <div className="flex items-center px-2 text-[10px] font-bold">LP Delivery Day <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{selectedPlan.deliveryDay || step2.deliveryDay || "Monday"}</span></div>
+                      <div className="flex items-center px-2 text-[10px] font-bold">LP Delivery Day <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{getDeliveryDay()}</span></div>
                       <div className="flex items-center px-2 text-[10px] font-bold">Date: <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{selectedPlan.date}</span></div>
-                      <div className="flex items-center px-2 text-[10px] font-bold whitespace-nowrap">Your LP No. <span className="ml-1 border-b border-black flex-1 min-w-[30px]">{step2.lpNo || "No."}</span></div>
+                      <div className="flex items-center px-2 text-[10px] font-bold whitespace-nowrap">Your LP ID <span className="ml-1 border-b border-black flex-1 min-w-[30px]">{selectedPlan.id || step2.lpNo || "No."}</span></div>
                     </div>
                   </div>
 
@@ -715,7 +816,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
                     <div className="grid grid-cols-12 border-b border-slate-300 h-14">
                       <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{selectedPlan.deliveryDay || "-"}</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{getDeliveryDay()}</div>
                       <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
                     </div>
@@ -870,8 +971,8 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                           Lesson Plan <span className="text-emerald-500">(Q & A)</span>
                         </p>
                         <div className="flex items-center gap-2 justify-center">
-                          <span className="text-[10px] font-black uppercase text-slate-400">Your LP No.</span>
-                          <span className="text-sm font-black text-slate-800 border-b border-slate-200 min-w-[40px] text-center">{step2.lpNo || "____"}</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400">Your LP ID</span>
+                          <span className="text-sm font-black text-slate-800 border-b border-slate-200 min-w-[40px] text-center">{selectedPlan.id || step2.lpNo || "____"}</span>
                         </div>
                       </div>
                     </div>
@@ -908,7 +1009,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
                     <div className="grid grid-cols-12 border-b border-slate-300 h-14">
                       <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{selectedPlan.deliveryDay || "-"}</div>
+                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{getDeliveryDay()}</div>
                       <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
                       <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
                     </div>
@@ -1205,9 +1306,26 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 </div>
               )}
 
-              <label className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
-                <PenTool className="h-4 w-4" /> {isApprover ? "Final Validation & Approval Feedback" : "Reviewing Feedback & Review"}
-              </label>
+              {(() => {
+                const principalName = selectedPlan.principalProfile?.name || "Principal";
+                const reviewerNames = [selectedPlan.subject?.reviewer1?.name, selectedPlan.subject?.reviewer2?.name].filter(Boolean).join(" | ") || selectedPlan.specialistProfile?.name || "Reviewer";
+
+                const displayPrincipal = principalName && principalName !== "Shared Principal Account" && principalName !== "Principal"
+                  ? ` — ${principalName}` 
+                  : "";
+
+                const displayReviewer = reviewerNames && reviewerNames !== "Reviewer"
+                  ? ` — ${reviewerNames}`
+                  : "";
+
+                return (
+                  <label className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
+                    <PenTool className="h-4 w-4" /> {isApprover 
+                      ? `Final Approval Feedback${displayPrincipal}` 
+                      : `Reviewer Feedback${displayReviewer}`}
+                  </label>
+                );
+              })()}
               {isApprover && selectedPlan.status === "SUBMITTED" && (
                 <div className="flex items-center gap-2 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] mb-4 mt-2">
                   <Clock className="h-4 w-4" />
@@ -1220,7 +1338,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                   <textarea 
                     value={remark}
                     onChange={(e) => setRemark(e.target.value)}
-                    placeholder={canTakeAction ? "Enter feedback for the teacher (Required for rejection)..." : "No further feedback can be added at this stage."}
+                    placeholder={canTakeAction ? "Enter feedback for the teacher (Required for rejection)..." : ""}
                     readOnly={!canTakeAction}
                     ref={adjustHeight}
                     onInput={(e) => adjustHeight(e.currentTarget)}

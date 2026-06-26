@@ -1472,17 +1472,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
           2. LESSON PLAN
         </button>
         <button
-          onClick={() => {
-            if (formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "COMPLETED") {
-              alert("The Sign Off section will only unlock after your lesson plan has been reviewed.");
-              return;
-            }
-            setActiveStep(3);
-          }}
+          onClick={() => setActiveStep(3)}
           className={`px-6 py-2 rounded-lg font-bold text-xs transition-all ${activeStep === 3
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-700"
-            } ${formData.status !== "APPROVED" && formData.status !== "REVIEWED" && formData.status !== "COMPLETED" ? "opacity-50 cursor-not-allowed" : ""}`}
+            }`}
         >
           3. LESSON delivery & Sign off
         </button>
@@ -1535,16 +1529,16 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               </span>
             </div>
             <div className="flex items-center gap-2 min-w-max">
-              <span className="text-[10px] font-black uppercase text-slate-400">LP No:</span>
-              <span className="w-12 bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1">
-                {formData.lpNo || "..."}
+              <span className="text-[10px] font-black uppercase text-slate-400">LP ID:</span>
+              <span className="bg-transparent border-b border-slate-200 outline-none font-bold text-xs py-1 px-1 min-w-[50px]">
+                {formData.id || formData.lpNo || "..."}
               </span>
             </div>
           </div>
           {/* Row 2: Delivery-specific details */}
           <div className="flex items-center px-4 py-1.5 gap-4 justify-between w-full flex-wrap bg-slate-50/50">
             <div className="flex items-center gap-2 min-w-max">
-              <span className="text-[10px] font-black uppercase text-slate-400">Date:</span>
+              <span className="text-[10px] font-black uppercase text-slate-400">Delivery Date:</span>
               <input
                 type="date"
                 name="date"
@@ -1615,7 +1609,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                 <div className="col-span-6 grid grid-cols-3 divide-x divide-black h-full">
                   <div className="flex items-center px-2 text-[10px] font-bold">LP Delivery Day <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{formData.deliveryDay}</span></div>
                   <div className="flex items-center px-2 text-[10px] font-bold">Date: <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{formData.date}</span></div>
-                  <div className="flex items-center px-2 text-[10px] font-bold whitespace-nowrap">Your LP No. <span className="ml-1 border-b border-black flex-1 min-w-[30px]">{formData.lpNo}</span></div>
+                  <div className="flex items-center px-2 text-[10px] font-bold whitespace-nowrap">Your LP ID <span className="ml-1 border-b border-black flex-1 min-w-[30px]">{formData.id || formData.lpNo}</span></div>
                 </div>
               </div>
 
@@ -2222,8 +2216,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
                        Lesson Plan <span className="text-emerald-500">(Q & A)</span>
                     </p>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase text-slate-400">Your LP No.</span>
-                      <span className="text-sm font-black text-slate-800 border-b border-slate-200 min-w-[40px] text-center">{formData.lpNo || "____"}</span>
+                      <span className="text-[10px] font-black uppercase text-slate-400">Your LP ID</span>
+                      <span className="text-sm font-black text-slate-800 border-b border-slate-200 min-w-[40px] text-center">{formData.id || formData.lpNo || "____"}</span>
                     </div>
                   </div>
                 </div>
@@ -2856,43 +2850,33 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
               onClick={() => {
                 if (isEditable) {
                   handleSave(true);
-                } else if (formData.status !== "SUBMITTED") {
+                } else {
                   setActiveStep(3);
                 }
               }}
-              disabled={isSaving || formData.status === "SUBMITTED"}
+              disabled={isSaving}
               className={`px-6 py-3 text-white rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-md flex items-center gap-2 ${
                 isEditable 
                   ? "bg-blue-600 hover:bg-blue-700" 
-                  : formData.status === "SUBMITTED"
-                    ? "bg-slate-400 cursor-not-allowed"
-                    : "bg-slate-600 hover:bg-slate-700"
+                  : "bg-slate-600 hover:bg-slate-700"
               }`}
             >
               {isSaving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : isEditable ? (
                 <Save className="h-3 w-3" />
-              ) : formData.status === "SUBMITTED" ? (
-                <Save className="h-3 w-3" />
               ) : (
                 <ChevronRight className="h-3 w-3" />
               )}
               {isEditable 
                 ? "Submit for Reviewer" 
-                : formData.status === "SUBMITTED"
-                  ? "Submitted to Reviewer"
-                  : "Continue to Step 3"}
+                : "Continue to Step 3"}
             </button>
           )}
 
-          {activeStep === 3 && formData.status === "APPROVED" && (
+          {activeStep === 3 && formData.status === "APPROVED" && formData.teacherObservation && formData.studentPerformanceGood && formData.studentPerformanceBad && (
             <button
               onClick={() => {
-                if (!formData.teacherObservation || !formData.studentPerformanceGood || !formData.studentPerformanceBad) {
-                  alert("Please fill out Teacher Observation and Student Performance (Good & Bad) before signing off.");
-                  return;
-                }
                 handleSave(false, "COMPLETED");
               }}
               disabled={isSaving}

@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export interface LessonPlanData {
+  id?: string;
   deliveryDay: string;
   date: string;
   lpNo: string;
@@ -44,7 +45,7 @@ export async function generateLessonPlanPdf(data: LessonPlanData) {
   page1.drawRectangle({ x: margin, y: cursorY - 30, width: width - 2 * margin, height: 30, borderWidth: 1, borderColor: rgb(0, 0, 0) });
   page1.drawLine({ start: { x: margin + (width - 2 * margin) / 2, y: cursorY }, end: { x: margin + (width - 2 * margin) / 2, y: cursorY - 30 }, thickness: 1, color: rgb(0, 0, 0) });
   page1.drawText("Teacher's Note", { x: margin + 30, y: cursorY - 20, size: 14, font: boldFont });
-  page1.drawText(`LP Day: ${data.deliveryDay}  Date: ${data.date}  LP No: ${data.lpNo}`, { x: margin + (width - 2 * margin) / 2 + 10, y: cursorY - 18, size: 9, font: font });
+  page1.drawText(`LP Day: ${data.deliveryDay}  Date: ${data.date}  LP ID: ${data.id || data.lpNo}`, { x: margin + (width - 2 * margin) / 2 + 10, y: cursorY - 18, size: 9, font: font });
 
   cursorY -= 30;
 

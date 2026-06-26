@@ -344,10 +344,7 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
 
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
-      const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || allTeachers.find(t => 
-        t.institute === p.class?.institute &&
-        matchesSpecialization(t.specialization, p.class?.name, p.subject?.name)
-      );
+      const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === p.class?.institute
@@ -371,7 +368,6 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
           success: true, 
           data: plansWithProfiles.filter(p => 
             p.subject?.name && (
-              (specialization && matchesSpecialization(specialization, p.class?.name, p.subject?.name)) ||
               p.subject?.reviewerId1 === teacherId ||
               p.subject?.reviewerId2 === teacherId
             )
@@ -492,10 +488,9 @@ export async function getLessonPlanByDateAndSubject(
       }
 
       const allTeachers = await db.query.teachers.findMany();
-      const specialist = allTeachers.find(t => 
-        t.institute === existing.class?.institute &&
-        matchesSpecialization(t.specialization, existing.class?.name, existing.subject?.name)
-      );
+      const specialist = existing.subject?.reviewerId1 || existing.subject?.reviewerId2
+        ? allTeachers.find(t => t.id === existing.subject?.reviewerId1 || t.id === existing.subject?.reviewerId2)
+        : null;
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === existing.class?.institute
@@ -552,10 +547,9 @@ export async function getLessonPlanById(id: string) {
       }
 
       const allTeachers = await db.query.teachers.findMany();
-      const specialist = allTeachers.find(t => 
-        t.institute === existing.class?.institute &&
-        matchesSpecialization(t.specialization, existing.class?.name, existing.subject?.name)
-      );
+      const specialist = existing.subject?.reviewerId1 || existing.subject?.reviewerId2
+        ? allTeachers.find(t => t.id === existing.subject?.reviewerId1 || t.id === existing.subject?.reviewerId2)
+        : null;
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === existing.class?.institute
@@ -589,7 +583,12 @@ export async function getMyLessonPlans(teacherId: string) {
       },
       with: {
         class: true,
-        subject: true,
+        subject: {
+          with: {
+            reviewer1: true,
+            reviewer2: true,
+          }
+        },
         teacherProfile: true,
         teacherUser: true,
         reviewerProfile: true,
@@ -600,10 +599,7 @@ export async function getMyLessonPlans(teacherId: string) {
 
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
-      const specialist = allTeachers.find(t => 
-        t.institute === p.class?.institute &&
-        matchesSpecialization(t.specialization, p.class?.name, p.subject?.name)
-      );
+      const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
       const principal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === p.class?.institute

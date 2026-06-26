@@ -16,28 +16,8 @@ export async function getTeachers() {
 }
 
 export async function addSpecializationToTeacher(teacherId: string, className: string, subjectName: string) {
-  try {
-    const teacher = await db.query.teachers.findFirst({
-      where: eq(teachers.id, teacherId)
-    });
-    if (!teacher) return { success: false, error: "Teacher not found" };
-    
-    const specString = `${className} - ${subjectName}`;
-    let specs = teacher.specialization
-      ? teacher.specialization.split(",").map(s => s.trim()).filter(Boolean)
-      : [];
-      
-    if (!specs.includes(specString)) {
-      specs.push(specString);
-      await db.update(teachers)
-        .set({ specialization: specs.join(", ") })
-        .where(eq(teachers.id, teacherId));
-    }
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error adding specialization to teacher:", error);
-    return { success: false, error: error.message };
-  }
+  // Disconnected specialization synchronization: specialization is profile metadata only
+  return { success: true };
 }
 
 export async function assignTeacherToSubject(subjectId: number, teacherId: string | null) {
@@ -49,15 +29,7 @@ export async function assignTeacherToSubject(subjectId: number, teacherId: strin
       })
       .where(eq(subjects.id, subjectId));
 
-    if (teacherId) {
-      const subjectRecord = await db.query.subjects.findFirst({
-        where: eq(subjects.id, subjectId),
-        with: { class: true }
-      });
-      if (subjectRecord && subjectRecord.class) {
-        await addSpecializationToTeacher(teacherId, subjectRecord.class.name, subjectRecord.name);
-      }
-    }
+    // Disconnected specialization synchronization: specialization is profile metadata only
 
     revalidatePath("/office/academy-management/classes/");
     return { success: true };
@@ -78,15 +50,7 @@ export async function assignReviewerToSubject(subjectId: number, reviewerId: str
       .set(updateObj)
       .where(eq(subjects.id, subjectId));
 
-    if (reviewerId) {
-      const subjectRecord = await db.query.subjects.findFirst({
-        where: eq(subjects.id, subjectId),
-        with: { class: true }
-      });
-      if (subjectRecord && subjectRecord.class) {
-        await addSpecializationToTeacher(reviewerId, subjectRecord.class.name, subjectRecord.name);
-      }
-    }
+    // Disconnected specialization synchronization: specialization is profile metadata only
 
     revalidatePath("/office/academy-management/classes/");
     return { success: true };

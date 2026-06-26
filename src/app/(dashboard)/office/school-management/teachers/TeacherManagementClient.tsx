@@ -251,9 +251,10 @@ export function TeacherManagementClient({
 
   const filteredTeachers = initialTeachers.filter(teacher => {
     if (userInstitute && teacher.institute !== userInstitute) return false;
-    const matchesSearch = teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          teacher.assignedRole?.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = (teacher.name || "").toLowerCase().includes(searchLower) || 
+                          (teacher.email || "").toLowerCase().includes(searchLower) ||
+                          (teacher.assignedRole || "").toLowerCase().includes(searchLower);
     
     if (committeeFilter === "ALL") return matchesSearch;
     return matchesSearch && teacher.committees?.includes(committeeFilter);
@@ -275,7 +276,7 @@ export function TeacherManagementClient({
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
-        <div className="relative flex-1 w-full">
+        <form onSubmit={(e) => e.preventDefault()} className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
           <input 
             type="text" 
@@ -284,7 +285,7 @@ export function TeacherManagementClient({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
           />
-        </div>
+        </form>
         <div className="flex items-center gap-2 w-full md:w-auto">
           <Filter className="text-slate-400 h-4 w-4 shrink-0" />
           <select 

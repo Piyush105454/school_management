@@ -203,7 +203,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
 
     // Academy Management Category
-    { type: "section", name: "Academy Management" },
+    { type: "section", name: "Academic Management" },
     { href: "/office/academy-management/my-lesson-plans", icon: BookOpen, roleNames: { TEACHER: "My Lesson Plans" } },
     { href: "/office/academy-management/attendance", icon: CalendarCheck, roleNames: { OFFICE: "Attendance Management", PRINCIPAL: "Attendance Management", TEACHER: "Attendance" } },
     { href: "/office/academy-management/classes", icon: School, roleNames: { OFFICE: "Class Management", PRINCIPAL: "Class Management", TEACHER: "My Classes" } },
