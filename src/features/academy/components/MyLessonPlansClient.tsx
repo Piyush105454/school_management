@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Search, Plus, Trash2, Edit } from "lucide-react";
+import { BookOpen, Search, Plus, Trash2, Edit, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 
@@ -87,6 +87,13 @@ export default function MyLessonPlansClient({ initialPlans }: { initialPlans: an
             </Link>
           </div>
         </div>
+
+        {plans.some(p => p.status === "REJECTED") && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 flex items-center gap-3 text-xs font-bold shadow-sm">
+            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 animate-pulse" />
+            <span>Rejected Lesson Plan: {plans.filter(p => p.status === "REJECTED").map(p => p.id).join(", ")}</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
           <button 

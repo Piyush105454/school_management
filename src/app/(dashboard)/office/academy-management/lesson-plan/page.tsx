@@ -21,12 +21,15 @@ export default async function LessonPlanPage({
 
   const session = await getServerSession(authOptions);
 
+  let teacherName: string | undefined = undefined;
+
   if (session?.user?.role === "TEACHER") {
     const teacherProfile = await db.query.teachers.findFirst({
       where: eq(teachers.userId, session.user.id),
     });
 
     if (teacherProfile) {
+      teacherName = teacherProfile.name;
       const teacherInstitute = teacherProfile.institute;
 
       // 1. Fetch timetable entries for this teacher to include classes/subjects they teach
@@ -109,6 +112,7 @@ export default async function LessonPlanPage({
               classes={classes} 
               subjects={subjects} 
               teacherId={teacherId}
+              teacherName={teacherName}
             />
           </div>
         </div>

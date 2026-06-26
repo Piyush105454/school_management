@@ -117,6 +117,7 @@ interface LessonPlanFormProps {
   classes: AcademicClass[];
   subjects: AcademicSubject[];
   teacherId?: string;
+  teacherName?: string;
   studentPerformanceBad?: string;
   reviewerRemark?: string;
   principalRemark?: string;
@@ -137,7 +138,7 @@ const getInitialDeliveryDateStr = () => {
   return date.toISOString().split('T')[0];
 };
 
-export default function LessonPlanForm({ classes, subjects, teacherId }: LessonPlanFormProps) {
+export default function LessonPlanForm({ classes, subjects, teacherId, teacherName }: LessonPlanFormProps) {
   const router = useRouter();
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
     if (el) {
@@ -382,7 +383,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
       className: className || "",
       subject: subject || "",
       selectedInstitute: resolvedInstitute || "Dhanpuri Public School",
-      teacherName: "",
+      teacherName: teacherName || "",
       teacherNote: "",
       homework: "",
       prepDay: "Monday",
@@ -1451,6 +1452,13 @@ export default function LessonPlanForm({ classes, subjects, teacherId }: LessonP
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-24 text-slate-900">
+      {formData.status === "REJECTED" && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 flex items-center gap-3 text-xs font-bold shadow-sm">
+          <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+          <span>Rejected Lesson Plan: {formData.id || formData.lpNo || "..."}</span>
+        </div>
+      )}
+
       {/* 1. MINIMAL STEP SELECTOR */}
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
         <button
