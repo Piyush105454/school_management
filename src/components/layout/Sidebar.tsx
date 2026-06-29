@@ -218,7 +218,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/student/exams", icon: ScrollText, roleNames: { STUDENT_PARENT: "My Exam Schedule" } },
 
 
-    // Time Table Management Category
+    // Time Table Management Category try
     { type: "section", name: "Time Table Management" },
     { href: "/office/timetable", icon: Calendar, roleNames: { OFFICE: "Manage Timetable", PRINCIPAL: "Manage Timetable" } },
     { href: "/teacher/timetable", icon: Calendar, roleNames: { TEACHER: "Timetable" } },
