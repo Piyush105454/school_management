@@ -17,8 +17,15 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
   attendance: { totalDays: number; presentDays: number };
   homework: { totalGiven: number; totalDone: number };
   guardian: { rating: number; comments?: string | null };
-  ptm: { attended: boolean; parentImages?: string | null };
+  ptm: { 
+    attended: boolean; 
+    parentImages?: string | null;
+    attendee?: string | null;
+    guardianName?: string | null;
+    guardianRelation?: string | null;
+  };
   adjustment?: { amount: number; type: string; note: string };
+  locked?: boolean;
 }) {
   try {
     // 1. Get Criteria Settings (Try student override first, then global)
@@ -53,8 +60,25 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     // 2. Homework: Proportional to percentage (Max amount if 100%)
     const homeworkAmount = Math.round(homeworkPct * (criteria.homeworkAmount / 100));
 
-    // 3. Guardian Rating: Each point (tick) adds criteria.guardianAmount / 5 (Usually 150)
-    const guardianAmount = Math.round(data.guardian.rating * (criteria.guardianAmount / 5));
+    // 3. Guardian Rating: Dropdown average calculation
+    // Calculate average rating from comments JSON if available
+    let guardianRating = data.guardian.rating;
+    if (data.guardian.comments) {
+      try {
+        const parsed = JSON.parse(data.guardian.comments);
+        const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
+        if (vals.length > 0) {
+          guardianRating = vals.reduce((a, b) => a + b, 0) / vals.length;
+        }
+      } catch (e) {
+        console.error("Failed to parse guardian comments in saveKpiData:", e);
+      }
+    }
+
+    // If rating is 4 and above (means 4 to 5), then full money. Otherwise, average percentage.
+    const guardianAmount = guardianRating >= 4
+      ? criteria.guardianAmount
+      : Math.round((guardianRating / 5) * criteria.guardianAmount);
 
     // 4. PTM: All or nothing
     const ptmAmount = data.ptm.attended ? criteria.ptmAmount : 0;
@@ -102,7 +126,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const existingGuardian = await db.query.scholarshipGuardian.findFirst({
       where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)),
     });
-    const guardianUpdateData: any = { rating: data.guardian.rating };
+    const guardianUpdateData: any = { rating: Math.round(guardianRating) };
     if (data.guardian.comments !== undefined) {
       guardianUpdateData.comments = data.guardian.comments;
     }
@@ -120,6 +144,15 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     if (data.ptm.parentImages !== undefined) {
       ptmUpdateData.parentImages = data.ptm.parentImages;
     }
+    if ((data.ptm as any).attendee !== undefined) {
+      ptmUpdateData.attendee = (data.ptm as any).attendee;
+    }
+    if ((data.ptm as any).guardianName !== undefined) {
+      ptmUpdateData.guardianName = (data.ptm as any).guardianName;
+    }
+    if ((data.ptm as any).guardianRelation !== undefined) {
+      ptmUpdateData.guardianRelation = (data.ptm as any).guardianRelation;
+    }
     if (existingPtm) {
       await db.update(scholarshipPtm).set(ptmUpdateData).where(eq(scholarshipPtm.id, existingPtm.id));
     } else {
@@ -131,7 +164,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)),
     });
 
-    const recordData = {
+    const recordData: any = {
       attendanceAmount,
       homeworkAmount,
       guardianAmount,
@@ -139,8 +172,12 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       totalAmount,
       adjustmentAmount,
       adjustmentNote,
-      status: "PENDING" as "PENDING", // Wait, status enum PENDING
+      status: "PENDING" as "PENDING",
     };
+
+    if (data.locked !== undefined) {
+      recordData.locked = data.locked;
+    }
 
     if (existingRecord) {
       await db.update(scholarshipRecords).set(recordData).where(eq(scholarshipRecords.id, existingRecord.id));

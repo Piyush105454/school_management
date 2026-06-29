@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { 
   GraduationCap, 
   Loader2, 
-  Save, 
+  Lock, 
   Zap, 
   AlertCircle, 
   Image as ImageIcon, 
@@ -13,14 +13,13 @@ import {
   ExternalLink,
   ChevronDown,
   User,
-  ShieldAlert,
-  ClipboardList,
-  Star
+  ClipboardList
 } from "lucide-react";
 import { 
   getStudentsWithCriteria, 
   saveStudentCriteria, 
-  calculateStudentScholarship 
+  calculateStudentScholarship,
+  getAssignedClassesForTeacher
 } from "@/features/scholarship/actions/teacherScholarshipActions";
 import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
 import { ensureCompressed } from "@/lib/compression";
@@ -32,21 +31,8 @@ const MONTHS = [
 
 const YEARS = ["2025", "2026", "2027"];
 
-const GUARDIAN_CATEGORIES = [
-  "Smooth communication with parent and teacher",
-  "Supporting child with homework",
-  "Supporting child health and wellness",
-  "Supporting in-school development in class",
-  "Other"
-];
-
-interface CategoryState {
-  checked: boolean;
-  comment: string;
-}
-
-export default function ScholarshipCriteriaPage() {
-  const [classes, setClasses] = useState<any[]>([]);
+export default function PtmCriteriaPage() {
+  const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
@@ -62,12 +48,13 @@ export default function ScholarshipCriteriaPage() {
   // States for the active student form
   const [ptmAttended, setPtmAttended] = useState<boolean>(false);
   const [ptmImages, setPtmImages] = useState<string[]>([]);
-  const [guardianComments, setGuardianComments] = useState<Record<string, CategoryState>>({});
+  const [attendee, setAttendee] = useState<string>("");
+  const [guardianName, setGuardianName] = useState<string>("");
+  const [guardianRelation, setGuardianRelation] = useState<string>("");
   const [uploading, setUploading] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [isCalculating, setIsCalculating] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Initialize defaults
+  // Initialize defaults and load classes from teacher profile
   useEffect(() => {
     const curDate = new Date();
     const curMonthIndex = curDate.getMonth();
@@ -86,12 +73,15 @@ export default function ScholarshipCriteriaPage() {
       setSelectedYear("2026");
     }
 
-    fetch("/api/classes")
-      .then(res => res.json())
-      .then(data => {
-        setClasses(data || []);
-        if (data && data.length > 0) {
-          setSelectedClass(data[0].name);
+    getAssignedClassesForTeacher()
+      .then(res => {
+        if (res.success && res.data) {
+          setClasses(res.data);
+          if (res.data.length > 0) {
+            setSelectedClass(res.data[0]);
+          }
+        } else {
+          setError(res.error || "Failed to load assigned classes.");
         }
         setClassesLoading(false);
       })
@@ -131,141 +121,118 @@ export default function ScholarshipCriteriaPage() {
 
   // Find active student data
   const activeStudent = students.find(s => s.admissionId === selectedStudentId) || null;
+  const isLocked = activeStudent?.record?.locked || false;
 
   // Initialize form state when selected student changes
   useEffect(() => {
     if (activeStudent) {
       setPtmAttended(activeStudent.ptm.attended);
       setPtmImages(activeStudent.ptm.parentImages || []);
-      
-      const initialComments: Record<string, CategoryState> = {};
-      GUARDIAN_CATEGORIES.forEach((_, idx) => {
-        const key = `cat_${idx}`;
-        const existingVal = activeStudent.guardian.comments?.[key];
-        initialComments[key] = {
-          checked: existingVal?.checked ?? false,
-          comment: existingVal?.comment ?? ""
-        };
-      });
-      setGuardianComments(initialComments);
+      setAttendee(activeStudent.ptm.attendee || "");
+      setGuardianName(activeStudent.ptm.guardianName || "");
+      setGuardianRelation(activeStudent.ptm.guardianRelation || "");
       setError(null);
       setSuccessMsg(null);
     } else {
       setPtmAttended(false);
       setPtmImages([]);
-      setGuardianComments({});
+      setAttendee("");
+      setGuardianName("");
+      setGuardianRelation("");
     }
   }, [selectedStudentId, students]);
 
-  // Calculate rating based on checked sub-criteria
-  const calculatedRating = Object.values(guardianComments).filter(c => c.checked).length;
-
-  // Toggle Category Checkbox
-  const handleToggleCategory = (key: string) => {
-    setGuardianComments(prev => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        checked: !prev[key].checked
+  // Validate form entries before saving/calculating
+  const validateForm = () => {
+    if (ptmAttended) {
+      if (!attendee) {
+        setError("Please select who attended the meeting.");
+        return false;
       }
-    }));
-  };
-
-  // Change Category Comment
-  const handleCommentChange = (key: string, val: string) => {
-    setGuardianComments(prev => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        comment: val
-      }
-    }));
-  };
-
-  // Handle save ratings & PTM
-  const handleSave = async () => {
-    if (!activeStudent) return;
-    setIsSaving(true);
-    setError(null);
-    setSuccessMsg(null);
-    try {
-      const res = await saveStudentCriteria(
-        activeStudent.admissionId,
-        selectedMonth,
-        selectedYear,
-        {
-          attended: ptmAttended,
-          parentImages: ptmImages,
-          rating: calculatedRating,
-          comments: guardianComments
+      if (attendee === "Guardian") {
+        if (!guardianName.trim()) {
+          setError("Please specify the Guardian's Name.");
+          return false;
         }
-      );
-      if (res.success) {
-        setSuccessMsg("Ratings and PTM saved successfully!");
-        // Refresh local student record state
-        setStudents(prev => prev.map(s => {
-          if (s.admissionId === activeStudent.admissionId) {
-            return {
-              ...s,
-              ptm: { attended: ptmAttended, parentImages: ptmImages },
-              guardian: { rating: calculatedRating, comments: guardianComments }
-            };
-          }
-          return s;
-        }));
-      } else {
-        setError(res.error || "Failed to save record.");
+        if (!guardianRelation.trim()) {
+          setError("Please specify the Guardian's Relation to the student.");
+          return false;
+        }
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to save.");
-    } finally {
-      setIsSaving(false);
     }
+    return true;
   };
 
-  // Handle Calculate & Fill Scholarship Score
-  const handleCalculate = async () => {
+  // Handle Save, Calculate, and Lock (Combined into One Single Button)
+  const handleSubmitAndLock = async () => {
     if (!activeStudent) return;
-    setIsCalculating(true);
     setError(null);
     setSuccessMsg(null);
+    if (!validateForm()) return;
+
+    // Double Confirmation Popup
+    const confirm1 = confirm(`Are you sure you want to submit and lock PTM attendance for ${activeStudent.studentName} for ${selectedMonth}?`);
+    if (!confirm1) return;
+
+    const confirm2 = confirm(`Confirm Lock?\n\nOnce locked, you will NOT be able to modify these details. Only Admin/Office users will be able to update them.`);
+    if (!confirm2) return;
+
+    setIsSubmitting(true);
     try {
-      // 1. Save state first
-      await saveStudentCriteria(
+      const finalAttendee = ptmAttended ? attendee : null;
+      const finalGuardianName = ptmAttended && attendee === "Guardian" ? guardianName.trim() : null;
+      const finalGuardianRelation = ptmAttended && attendee === "Guardian" ? guardianRelation.trim() : null;
+
+      // 1. Save criteria state first
+      const saveRes = await saveStudentCriteria(
         activeStudent.admissionId,
         selectedMonth,
         selectedYear,
         {
           attended: ptmAttended,
           parentImages: ptmImages,
-          rating: calculatedRating,
-          comments: guardianComments
+          rating: activeStudent.guardian.rating,
+          comments: activeStudent.guardian.comments,
+          attendee: finalAttendee,
+          guardianName: finalGuardianName,
+          guardianRelation: finalGuardianRelation
         }
       );
 
-      // 2. Compute final scholarship score
-      const res = await calculateStudentScholarship(
+      if (!saveRes.success) {
+        throw new Error(saveRes.error || "Failed to save criteria.");
+      }
+
+      // 2. Compute final scholarship score and LOCK the record
+      const calcRes = await calculateStudentScholarship(
         activeStudent.admissionId,
         selectedMonth,
         selectedYear,
         {
           attended: ptmAttended,
-          rating: calculatedRating
+          rating: activeStudent.guardian.rating,
+          locked: true // Force lock database column!
         }
       );
 
-      if (res.success) {
-        setSuccessMsg(`Scholarship Score Filled Successfully! Total amount calculated: ₹${res.totalAmount}`);
-        // Refresh local student record state
+      if (calcRes.success) {
+        setSuccessMsg(`PTM Attendance Submitted & Locked successfully! Total amount calculated: ₹${calcRes.totalAmount}`);
         setStudents(prev => prev.map(s => {
           if (s.admissionId === activeStudent.admissionId) {
             return {
               ...s,
-              ptm: { attended: ptmAttended, parentImages: ptmImages },
-              guardian: { rating: calculatedRating, comments: guardianComments },
+              ptm: { 
+                ...s.ptm,
+                attended: ptmAttended, 
+                parentImages: ptmImages,
+                attendee: finalAttendee,
+                guardianName: finalGuardianName,
+                guardianRelation: finalGuardianRelation
+              },
               record: {
-                totalAmount: res.totalAmount!,
+                totalAmount: calcRes.totalAmount!,
                 status: "PENDING",
+                locked: true,
                 updatedAt: new Date()
               }
             };
@@ -273,19 +240,19 @@ export default function ScholarshipCriteriaPage() {
           return s;
         }));
       } else {
-        setError(res.error || "Failed to calculate scores.");
+        setError(calcRes.error || "Failed to submit and lock score.");
       }
     } catch (err: any) {
-      setError(err.message || "Calculation failed.");
+      setError(err.message || "Submission failed.");
     } finally {
-      setIsCalculating(false);
+      setIsSubmitting(false);
     }
   };
 
   // Handle parent image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !activeStudent) return;
+    if (!files || files.length === 0 || !activeStudent || isLocked) return;
     
     setUploading(true);
     setError(null);
@@ -312,7 +279,7 @@ export default function ScholarshipCriteriaPage() {
       }
       
       setPtmImages(currentImages);
-      setSuccessMsg("Parent image(s) uploaded successfully! Click save to persist.");
+      setSuccessMsg("Parent image(s) uploaded successfully! Click Submit & Lock to persist.");
     } catch (err: any) {
       setError(err.message || "Upload failed.");
     } finally {
@@ -322,6 +289,7 @@ export default function ScholarshipCriteriaPage() {
 
   // Delete local uploaded parent image
   const handleDeleteImage = (imgIdx: number) => {
+    if (isLocked) return;
     if (!confirm("Are you sure you want to remove this image?")) return;
     setPtmImages(prev => prev.filter((_, i) => i !== imgIdx));
   };
@@ -357,15 +325,15 @@ export default function ScholarshipCriteriaPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-white/10 rounded-2xl flex items-center justify-center">
-                <GraduationCap className="text-blue-400" size={22} />
+                <ClipboardList className="text-blue-400" size={22} />
               </div>
               <span className="text-[11px] font-black tracking-[0.2em] text-blue-400 uppercase">Scholarship Management</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black font-outfit uppercase tracking-tight">
-              Scholarship Ratings & PTM
+              PTM Attendance
             </h1>
             <p className="text-slate-400 text-xs md:text-sm font-medium">
-              Manage parent ratings and PTM attendance, and automatically fetch/fill student scholarship scores.
+              Manage parent-teacher meeting status and upload verification images.
             </p>
           </div>
         </div>
@@ -381,9 +349,9 @@ export default function ScholarshipCriteriaPage() {
               onChange={(e) => setSelectedClass(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white appearance-none cursor-pointer"
             >
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.name}>
-                  {cls.name}
+              {classes.map((clsName) => (
+                <option key={clsName} value={clsName}>
+                  {clsName}
                 </option>
               ))}
             </select>
@@ -473,67 +441,142 @@ export default function ScholarshipCriteriaPage() {
         </div>
       )}
 
-      {/* Split Form View */}
+      {/* Form View */}
       {activeStudent ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start animate-in slide-in-from-bottom-6 duration-300">
+        <div className="max-w-2xl mx-auto bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 animate-in slide-in-from-bottom-6 duration-300">
           
-          {/* LEFT SIDE: PTM Attendance & Uploads */}
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-              <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                <ClipboardList size={18} />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">PTM Attendance Form</h3>
-                <p className="text-[10px] text-slate-400 font-bold mt-0.5">Parent-Teacher Meeting Status</p>
-              </div>
+          {/* Lock State Warning Banner */}
+          {isLocked && (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-xs font-black font-outfit shadow-sm">
+              <Lock className="shrink-0 text-amber-600" size={18} />
+              This record is submitted & locked. Only Admin/Office users can modify it.
             </div>
+          )}
 
-            {/* PTM Toggle */}
-            <div className="flex items-center justify-between bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
-              <div>
-                <span className="text-xs font-black text-slate-800 uppercase tracking-wide">Meeting Attendance</span>
-                <p className="text-[10px] text-slate-400 font-bold mt-0.5">Did the parent/guardian attend the meeting?</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPtmAttended(!ptmAttended)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  ptmAttended ? "bg-blue-600" : "bg-slate-200"
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+              <ClipboardList size={18} />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">PTM Attendance Form</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Parent-Teacher Meeting Status</p>
+            </div>
+          </div>
+
+          {/* PTM Toggle */}
+          <div className="flex items-center justify-between bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
+            <div>
+              <span className="text-xs font-black text-slate-800 uppercase tracking-wide">Meeting Attendance</span>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Did the parent/guardian attend the meeting?</p>
+            </div>
+            <button
+              type="button"
+              disabled={isLocked}
+              onClick={() => {
+                const nextVal = !ptmAttended;
+                setPtmAttended(nextVal);
+                if (!nextVal) {
+                  setAttendee("");
+                  setGuardianName("");
+                  setGuardianRelation("");
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                ptmAttended ? "bg-blue-600" : "bg-slate-200"
+              } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  ptmAttended ? "translate-x-5" : "translate-x-0"
                 }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    ptmAttended ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
+              />
+            </button>
+          </div>
 
-            {/* PTM Image Uploads */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Parent Images (Meeting Proof)</label>
-              
-              {/* Image previews */}
-              {ptmImages.length > 0 ? (
-                <div className="grid grid-cols-3 gap-3">
-                  {ptmImages.map((imgUrl, imgIdx) => (
-                    <div key={imgIdx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-sm group">
-                      <img 
-                        src={imgUrl} 
-                        alt="Parent meeting attachment" 
-                        className="h-full w-full object-cover" 
-                      />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2.5 transition-all">
-                        <a
-                          href={`/api/view-doc?id=${activeStudent.admissionId}&field=${imgIdx}&type=ptm&month=${selectedMonth}&year=${selectedYear}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
-                          title="View Full Image"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
+          {/* PTM Attendee Details */}
+          {ptmAttended && (
+            <div className="space-y-4 bg-slate-50/50 p-4 border border-slate-100 rounded-2xl animate-in fade-in-50 slide-in-from-top-2 duration-300">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Who Attended the Meeting?</label>
+                <div className="flex flex-wrap gap-2.5">
+                  {["Mother", "Father", "Both", "Guardian"].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => {
+                        setAttendee(opt);
+                        if (opt !== "Guardian") {
+                          setGuardianName("");
+                          setGuardianRelation("");
+                        }
+                      }}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border-2 transition-all ${
+                        attendee === opt
+                          ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10"
+                          : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                      } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {attendee === "Guardian" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Guardian Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={guardianName}
+                      disabled={isLocked}
+                      onChange={(e) => setGuardianName(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors disabled:bg-slate-55 disabled:opacity-75 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Relation to Student</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Uncle, Aunt, Grandfather"
+                      value={guardianRelation}
+                      disabled={isLocked}
+                      onChange={(e) => setGuardianRelation(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors disabled:bg-slate-55 disabled:opacity-75 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PTM Image Uploads */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Parent Images (Meeting Proof)</label>
+            
+            {/* Image previews */}
+            {ptmImages.length > 0 ? (
+              <div className="grid grid-cols-3 gap-3">
+                {ptmImages.map((imgUrl, imgIdx) => (
+                  <div key={imgIdx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-sm group">
+                    <img 
+                      src={imgUrl} 
+                      alt="Parent meeting attachment" 
+                      className="h-full w-full object-cover" 
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2.5 transition-all">
+                      <a
+                        href={`/api/view-doc?id=${activeStudent.admissionId}&field=${imgIdx}&type=ptm&month=${selectedMonth}&year=${selectedYear}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                        title="View Full Image"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                      {!isLocked && (
                         <button
                           type="button"
                           onClick={() => handleDeleteImage(imgIdx)}
@@ -542,17 +585,19 @@ export default function ScholarshipCriteriaPage() {
                         >
                           <Trash2 size={14} />
                         </button>
-                      </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-slate-100 rounded-2xl p-6 text-center text-slate-400 text-xs font-bold">
-                  No images uploaded yet.
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-slate-100 rounded-2xl p-6 text-center text-slate-400 text-xs font-bold">
+                No images uploaded yet.
+              </div>
+            )}
 
-              {/* Upload Input */}
+            {/* Upload Input */}
+            {!isLocked && (
               <label className={`relative flex items-center justify-center gap-2 cursor-pointer border border-slate-200 hover:border-blue-400 hover:bg-blue-50/20 p-4 rounded-2xl transition-all ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
                 <input 
                   type="file" 
@@ -560,7 +605,7 @@ export default function ScholarshipCriteriaPage() {
                   multiple 
                   accept="image/*"
                   onChange={handleImageUpload}
-                  disabled={uploading}
+                  disabled={uploading || isLocked}
                 />
                 {uploading ? (
                   <>
@@ -574,114 +619,51 @@ export default function ScholarshipCriteriaPage() {
                   </>
                 )}
               </label>
-            </div>
-          </div>
-
-          {/* RIGHT SIDE: Guardian Ratings & Comments */}
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4 justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center">
-                  <Star size={18} className="fill-amber-400" />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">Guardian Rating Form</h3>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">5-Point Criteria Evaluation</p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="text-lg font-black text-slate-800 font-outfit">{calculatedRating} / 5</span>
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Calculated Rating</span>
-              </div>
-            </div>
-
-            {/* Criteria Checklist */}
-            <div className="space-y-4">
-              {GUARDIAN_CATEGORIES.map((category, idx) => {
-                const key = `cat_${idx}`;
-                const state = guardianComments[key] || { checked: false, comment: "" };
-
-                return (
-                  <div key={key} className={`border border-slate-100 rounded-2xl p-4 transition-all duration-300 ${state.checked ? "bg-amber-50/10 border-amber-200/50 shadow-sm" : "bg-white"}`}>
-                    <div className="flex items-start gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleCategory(key)}
-                        className={`mt-0.5 h-5 w-5 rounded-md border flex items-center justify-center transition-all ${
-                          state.checked 
-                            ? "bg-amber-400 border-amber-400 text-white" 
-                            : "border-slate-300 hover:border-amber-400 bg-white"
-                        }`}
-                      >
-                        {state.checked && <Check size={14} className="stroke-[3]" />}
-                      </button>
-                      
-                      <div className="flex-1 space-y-2">
-                        <span className={`text-xs font-bold transition-colors ${state.checked ? "text-slate-800" : "text-slate-500"}`}>
-                          {category}
-                        </span>
-
-                        {/* Comment input field */}
-                        <div className="transition-all animate-in fade-in-50 slide-in-from-top-1">
-                          <input 
-                            type="text" 
-                            placeholder="Add a small comment (optional)..."
-                            value={state.comment}
-                            onChange={(e) => handleCommentChange(key, e.target.value)}
-                            className="w-full bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] font-semibold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 transition-colors"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Calculation Status Box */}
-            {activeStudent.record && (
-              <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scholarship Score</span>
-                  <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.totalAmount} (Calculated)</div>
-                </div>
-                <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
-                  activeStudent.record.status === "APPROVED" 
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                    : activeStudent.record.status === "PAID"
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-amber-50 text-amber-700 border-amber-200"
-                }`}>
-                  {activeStudent.record.status}
-                </div>
-              </div>
             )}
-
-            {/* Actions for active student */}
-            <div className="flex gap-4 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving || isCalculating || uploading}
-                className="flex-1 flex items-center justify-center gap-2 border-2 border-slate-200 text-slate-700 hover:border-slate-900 hover:bg-slate-50 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
-              >
-                {isSaving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save size={14} />}
-                Save Rating & PTM
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCalculate}
-                disabled={isSaving || isCalculating || uploading}
-                className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-slate-950/10"
-              >
-                {isCalculating ? <Loader2 className="animate-spin w-4 h-4" /> : <Zap size={14} />}
-                Fill Score
-              </button>
-            </div>
-
           </div>
 
+          {/* Calculation Status Box */}
+          {activeStudent.record && (
+            <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scholarship Score</span>
+                <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.totalAmount}</div>
+              </div>
+              <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
+                activeStudent.record.status === "APPROVED" 
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                  : activeStudent.record.status === "PAID"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}>
+                {activeStudent.record.status}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-4 pt-4 border-t border-slate-100">
+            {isLocked ? (
+              <button
+                type="button"
+                disabled
+                className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-400 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest cursor-not-allowed"
+              >
+                <Lock size={14} />
+                Submitted & Locked
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmitAndLock}
+                disabled={isSubmitting || uploading}
+                className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-slate-950/10"
+              >
+                {isSubmitting ? <Loader2 className="animate-spin w-4 h-4" /> : <Lock size={14} />}
+                Submit & Lock PTM Attendance
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         /* Empty placeholder card when no student is selected */
@@ -691,11 +673,10 @@ export default function ScholarshipCriteriaPage() {
           </div>
           <h3 className="text-slate-800 font-black font-outfit text-base uppercase tracking-tight">Select a Student</h3>
           <p className="text-slate-400 text-xs leading-relaxed max-w-md mx-auto">
-            Choose a confirmed student from class "{selectedClass}" in the dropdown list above to view and update their PTM attendance, parent pictures, and Guardian sub-criteria ratings.
+            Choose a confirmed student from class "{selectedClass}" in the dropdown list above to view and update their PTM attendance.
           </p>
         </div>
       )}
-
     </div>
   );
 }

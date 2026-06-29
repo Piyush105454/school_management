@@ -11,11 +11,14 @@ import {
   scholarshipRecords,
   studentAttendance,
   lessonPlans,
-  homeworkSubmissions
+  homeworkSubmissions,
+  teachers
 } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { saveKpiData } from "./kpiActions";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function getStudentsWithCriteria(className: string, month: string, year: string) {
   try {
@@ -106,6 +109,9 @@ export async function getStudentsWithCriteria(className: string, month: string, 
         ptm: {
           attended: ptmRecord ? ptmRecord.attended : false,
           parentImages: parentImagesArray,
+          attendee: ptmRecord ? ptmRecord.attendee : null,
+          guardianName: ptmRecord ? ptmRecord.guardianName : null,
+          guardianRelation: ptmRecord ? ptmRecord.guardianRelation : null,
         },
         guardian: {
           rating: guardianRecord ? guardianRecord.rating : 0,
@@ -114,6 +120,7 @@ export async function getStudentsWithCriteria(className: string, month: string, 
         record: scholarshipRecord ? {
           totalAmount: scholarshipRecord.totalAmount,
           status: scholarshipRecord.status,
+          locked: scholarshipRecord.locked,
           updatedAt: scholarshipRecord.updatedAt,
         } : null
       });
@@ -130,9 +137,34 @@ export async function saveStudentCriteria(
   admissionId: string, 
   month: string, 
   year: string, 
-  data: { attended: boolean; parentImages: string[]; rating: number; comments?: any }
+  data: { 
+    attended: boolean; 
+    parentImages: string[]; 
+    rating: number; 
+    comments?: any;
+    attendee?: string | null;
+    guardianName?: string | null;
+    guardianRelation?: string | null;
+  }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const existingRecord = await db.query.scholarshipRecords.findFirst({
+      where: and(
+        eq(scholarshipRecords.admissionId, admissionId),
+        eq(scholarshipRecords.month, month),
+        eq(scholarshipRecords.year, year)
+      ),
+    });
+
+    if (existingRecord?.locked && session.user.role === "TEACHER") {
+      return { success: false, error: "This monthly record is locked and cannot be edited by teachers." };
+    }
+
     // 1. Save/Update PTM Record
     const existingPtm = await db.query.scholarshipPtm.findFirst({
       where: and(
@@ -144,18 +176,25 @@ export async function saveStudentCriteria(
 
     const parentImagesStr = JSON.stringify(data.parentImages);
 
+    const ptmValues = {
+      attended: data.attended,
+      parentImages: parentImagesStr,
+      attendee: data.attendee || null,
+      guardianName: data.guardianName || null,
+      guardianRelation: data.guardianRelation || null,
+    };
+
     if (existingPtm) {
       await db
         .update(scholarshipPtm)
-        .set({ attended: data.attended, parentImages: parentImagesStr })
+        .set(ptmValues)
         .where(eq(scholarshipPtm.id, existingPtm.id));
     } else {
       await db.insert(scholarshipPtm).values({
         admissionId,
         month,
         year,
-        attended: data.attended,
-        parentImages: parentImagesStr
+        ...ptmValues
       });
     }
 
@@ -173,14 +212,14 @@ export async function saveStudentCriteria(
     if (existingGuardian) {
       await db
         .update(scholarshipGuardian)
-        .set({ rating: data.rating, comments: commentsStr })
+        .set({ rating: Math.round(data.rating), comments: commentsStr })
         .where(eq(scholarshipGuardian.id, existingGuardian.id));
     } else {
       await db.insert(scholarshipGuardian).values({
         admissionId,
         month,
         year,
-        rating: data.rating,
+        rating: Math.round(data.rating),
         comments: commentsStr
       });
     }
@@ -196,9 +235,25 @@ export async function calculateStudentScholarship(
   admissionId: string, 
   month: string, 
   year: string, 
-  data: { attended: boolean; rating: number }
+  data: { attended: boolean; rating: number; locked?: boolean }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const existingRecord = await db.query.scholarshipRecords.findFirst({
+      where: and(
+        eq(scholarshipRecords.admissionId, admissionId),
+        eq(scholarshipRecords.month, month),
+        eq(scholarshipRecords.year, year)
+      ),
+    });
+
+    if (existingRecord?.locked && session.user.role === "TEACHER") {
+      return { success: false, error: "This monthly record is locked and cannot be edited by teachers." };
+    }
     const meta = await db.query.admissionMeta.findFirst({
       where: eq(admissionMeta.id, admissionId),
       columns: { entryNumber: true }
@@ -272,12 +327,27 @@ export async function calculateStudentScholarship(
       }
     }
 
+    // Load existing PTM data to preserve attendee info
+    const existingPtm = await db.query.scholarshipPtm.findFirst({
+      where: and(
+        eq(scholarshipPtm.admissionId, admissionId),
+        eq(scholarshipPtm.month, month),
+        eq(scholarshipPtm.year, year)
+      ),
+    });
+
     // Call existing saveKpiData from kpiActions to calculate amounts and write/update everything
     const kpiResult = await saveKpiData(admissionId, month, year, {
       attendance: realAttendance,
       homework: realHomework,
       guardian: { rating: data.rating },
-      ptm: { attended: data.attended }
+      ptm: { 
+        attended: data.attended,
+        attendee: existingPtm ? existingPtm.attendee : null,
+        guardianName: existingPtm ? existingPtm.guardianName : null,
+        guardianRelation: existingPtm ? existingPtm.guardianRelation : null
+      },
+      locked: data.locked
     });
 
     if (!kpiResult.success) {
@@ -292,6 +362,34 @@ export async function calculateStudentScholarship(
     };
   } catch (error: any) {
     console.error("calculateStudentScholarship error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getAssignedClassesForTeacher() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "TEACHER") {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const teacherProfile = await db.query.teachers.findFirst({
+      where: eq(teachers.userId, session.user.id)
+    });
+
+    if (!teacherProfile || !teacherProfile.classAssigned) {
+      return { success: true, data: [] };
+    }
+
+    // Parse comma-separated classes
+    const classNames = teacherProfile.classAssigned
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    return { success: true, data: classNames };
+  } catch (error: any) {
+    console.error("getAssignedClassesForTeacher error:", error);
     return { success: false, error: error.message };
   }
 }

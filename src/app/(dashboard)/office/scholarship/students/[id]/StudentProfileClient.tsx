@@ -10,7 +10,7 @@ import { ensureCompressed } from "@/lib/compression";
 import { useSession } from "next-auth/react";
 
 interface CategoryState {
-  checked: boolean;
+  rating: number;
   comment: string;
 }
 
@@ -27,8 +27,12 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
   const [ptmAttended, setPtmAttended] = useState<boolean>(false);
   const [ptmImages, setPtmImages] = useState<string[]>([]);
+  const [attendee, setAttendee] = useState<string>("");
+  const [guardianName, setGuardianName] = useState<string>("");
+  const [guardianRelation, setGuardianRelation] = useState<string>("");
   const [guardianComments, setGuardianComments] = useState<Record<string, CategoryState>>({});
   const [uploading, setUploading] = useState<boolean>(false);
+  const [isHwEditing, setIsHwEditing] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<any>({
     defaultValues: {
@@ -43,17 +47,21 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   const adjType = watch("adjustment.type") || "NONE";
   const adjAmtInput = Number(watch("adjustment.amount") || 0);
 
-  const calculatedGuardianRating = Object.values(guardianComments).filter(c => c.checked).length;
+  const calculatedGuardianRating = (() => {
+    const vals = Object.values(guardianComments).map(c => c.rating || 0).filter(v => v > 0);
+    if (vals.length === 0) return 0;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  })();
 
-  // Toggle Category Checkbox
-  const handleToggleCategory = (key: string) => {
+  // Change Category Rating
+  const handleRatingChange = (key: string, val: number) => {
     setGuardianComments(prev => {
-      const current = prev[key] || { checked: false, comment: "" };
+      const current = prev[key] || { rating: 5, comment: "" };
       return {
         ...prev,
         [key]: {
           ...current,
-          checked: !current.checked
+          rating: val
         }
       };
     });
@@ -160,6 +168,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       }
 
       setPtmAttended(kpiRes.data.ptm?.attended || false);
+      setAttendee(kpiRes.data.ptm?.attendee || "");
+      setGuardianName(kpiRes.data.ptm?.guardianName || "");
+      setGuardianRelation(kpiRes.data.ptm?.guardianRelation || "");
       
       let parsedComments: Record<string, CategoryState> = {};
       const commentsJson = kpiRes.data.guardian?.comments;
@@ -173,7 +184,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       guardianCategories.forEach((_, idx) => {
         const key = `cat_${idx}`;
         if (!parsedComments[key]) {
-          parsedComments[key] = { checked: false, comment: "" };
+          parsedComments[key] = { rating: 5, comment: "" };
+        } else if ((parsedComments[key] as any).checked !== undefined && parsedComments[key].rating === undefined) {
+          parsedComments[key].rating = (parsedComments[key] as any).checked ? 5 : 1;
         }
       });
       setGuardianComments(parsedComments);
@@ -220,6 +233,23 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   };
 
   const onSubmit = async (formData: any) => {
+    if (ptmAttended) {
+      if (!attendee) {
+        alert("Please select who attended the PTM.");
+        return;
+      }
+      if (attendee === "Guardian") {
+        if (!guardianName.trim()) {
+          alert("Please fill in the Guardian's Name.");
+          return;
+        }
+        if (!guardianRelation.trim()) {
+          alert("Please fill in the Guardian's Relation.");
+          return;
+        }
+      }
+    }
+
     setLoading(true);
     setMessage("");
     const res = await saveKpiData(id, selectedMonth, year, {
@@ -231,7 +261,10 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       },
       ptm: { 
         attended: ptmAttended,
-        parentImages: JSON.stringify(ptmImages)
+        parentImages: JSON.stringify(ptmImages),
+        attendee: ptmAttended ? attendee : null,
+        guardianName: ptmAttended && attendee === "Guardian" ? guardianName.trim() : null,
+        guardianRelation: ptmAttended && attendee === "Guardian" ? guardianRelation.trim() : null
       },
       adjustment: isTeacher ? {
         amount: data?.record?.adjustmentAmount ? Math.abs(data.record.adjustmentAmount) : 0,
@@ -323,10 +356,36 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       <td className="px-6 py-4 font-medium text-slate-900">{item.month}</td>
                       <td className="px-6 py-4">{item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A"}</td>
                       <td className="px-6 py-4">{item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A"}</td>
-                      <td className="px-6 py-4">{item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A"}</td>
                       <td className="px-6 py-4">
+                        {(() => {
+                          if (!item.guardian || !item.guardian.comments) return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
+                          try {
+                            const parsed = JSON.parse(item.guardian.comments);
+                            const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
+                            if (vals.length > 0) {
+                              const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                              return `${avg.toFixed(1)}/5`;
+                            }
+                          } catch {}
+                          return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
+                        })()}
+                      </td>
+                      <td className="px-6 py-4 animate-in fade-in-50">
                         {item.ptm ? (
-                          item.ptm.attended ? <span className="text-green-600 font-bold flex items-center gap-1">Yes</span> : <span className="text-red-500 flex items-center gap-1">No</span>
+                          item.ptm.attended ? (
+                            <div className="flex flex-col">
+                              <span className="text-green-600 font-bold">Yes</span>
+                              {item.ptm.attendee && (
+                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                                  {item.ptm.attendee === "Guardian" 
+                                    ? `${item.ptm.guardianRelation || "Guardian"}: ${item.ptm.guardianName || "N/A"}`
+                                    : item.ptm.attendee}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-red-500 font-bold">No</span>
+                          )
                         ) : "N/A"}
                       </td>
                       <td className="px-6 py-4">
@@ -384,13 +443,18 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const calcAttendancePct = data?.attendance?.percentage ?? data?.calculatedAttendance?.percentage ?? 0;
             const attendanceReward = Math.round(calcAttendancePct * ((criteria?.attendanceAmount || 750) / 100));
 
-            const calcHomeworkPct = data?.homework?.percentage ?? data?.calculatedHomework?.percentage ?? 0;
-            const calcHomeworkGiven = data?.homework?.totalGiven ?? data?.calculatedHomework?.totalGiven ?? 0;
-            const calcHomeworkDone = data?.homework?.totalDone ?? data?.calculatedHomework?.totalDone ?? 0;
+            const watchHwGiven = watch("homework.totalGiven");
+            const watchHwDone = watch("homework.totalDone");
+            const calcHomeworkGiven = watchHwGiven !== undefined ? Number(watchHwGiven) : (data?.homework?.totalGiven ?? data?.calculatedHomework?.totalGiven ?? 0);
+            const calcHomeworkDone = watchHwDone !== undefined ? Number(watchHwDone) : (data?.homework?.totalDone ?? data?.calculatedHomework?.totalDone ?? 0);
+            const calcHomeworkPct = calcHomeworkGiven > 0 ? (calcHomeworkDone / calcHomeworkGiven) * 100 : 0;
             const homeworkReward = Math.round(calcHomeworkPct * ((criteria?.homeworkAmount || 750) / 100));
 
+            const maxGuardian = criteria?.guardianAmount ?? 750;
             const guardianScore = calculatedGuardianRating;
-            const guardianReward = Math.round(guardianScore * ((criteria?.guardianAmount || 750) / 5));
+            const guardianReward = guardianScore >= 4 
+              ? maxGuardian 
+              : Math.round((guardianScore / 5) * maxGuardian);
 
             const isPtmSuccess = ptmAttended;
             const ptmReward = isPtmSuccess ? (criteria?.ptmAmount || 750) : 0;
@@ -399,7 +463,6 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
             const maxAttendance = criteria?.attendanceAmount ?? 750;
             const maxHomework = criteria?.homeworkAmount ?? 750;
-            const maxGuardian = criteria?.guardianAmount ?? 750;
             const maxPtm = criteria?.ptmAmount ?? 750;
             const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
             const pendingToPay = maxTotal - totalEarned;
@@ -441,58 +504,86 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                     success={calcHomeworkPct >= (criteria?.homeworkThreshold || 90)}
                     requiredThreshold={criteria?.homeworkThreshold}
                     maxAmount={criteria?.homeworkAmount}
+                    action={!isTeacher && (
+                      <button
+                        type="button"
+                        onClick={() => setIsHwEditing(!isHwEditing)}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-black uppercase tracking-wider flex items-center gap-1 border border-blue-200 rounded px-1.5 py-0.5 bg-blue-50/50 transition-colors"
+                      >
+                        {isHwEditing ? "Done" : "Edit"}
+                      </button>
+                    )}
                   >
                     <div className="grid grid-cols-2 gap-4 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <div className="text-center">
-                        <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
-                        <p className="text-lg font-black text-slate-700">{calcHomeworkGiven}</p>
-                        <input type="hidden" {...register("homework.totalGiven")} value={calcHomeworkGiven} />
-                      </div>
-                      <div className="text-center border-l border-slate-200">
-                        <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
-                        <p className="text-lg font-black text-emerald-600">{calcHomeworkDone}</p>
-                        <input type="hidden" {...register("homework.totalDone")} value={calcHomeworkDone} />
-                      </div>
+                      {isTeacher || !isHwEditing ? (
+                        <>
+                          <div className="text-center">
+                            <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
+                            <p className="text-lg font-black text-slate-700">{calcHomeworkGiven}</p>
+                            <input type="hidden" {...register("homework.totalGiven")} value={calcHomeworkGiven} />
+                          </div>
+                          <div className="text-center border-l border-slate-200">
+                            <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
+                            <p className="text-lg font-black text-emerald-600">{calcHomeworkDone}</p>
+                            <input type="hidden" {...register("homework.totalDone")} value={calcHomeworkDone} />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-center">
+                            <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
+                            <input 
+                              type="number" 
+                              min="0"
+                              {...register("homework.totalGiven", { valueAsNumber: true })} 
+                              className="w-full text-center bg-transparent font-black text-lg text-slate-700 outline-none border-b border-slate-300 focus:border-blue-500 mt-1" 
+                            />
+                          </div>
+                          <div className="text-center border-l border-slate-200 pl-4">
+                            <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
+                            <input 
+                              type="number" 
+                              min="0"
+                              {...register("homework.totalDone", { valueAsNumber: true })} 
+                              className="w-full text-center bg-transparent font-black text-lg text-emerald-600 outline-none border-b border-slate-300 focus:border-emerald-500 mt-1" 
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </KpiCard>
 
                   <KpiCard 
                     title="Guardian Rating"
                     amount={guardianReward}
-                    success={calculatedGuardianRating > 0}
-                    requiredThreshold={5}
+                    success={calculatedGuardianRating >= 4}
+                    requiredThreshold={4}
                     maxAmount={criteria?.guardianAmount}
-                    scoreDisplay={`${calculatedGuardianRating}/5`}
+                    scoreDisplay={`${calculatedGuardianRating.toFixed(1)}/5`}
                   >
                     <div className="space-y-2.5 mt-3">
                       {guardianCategories.map((category, idx) => {
                         const key = `cat_${idx}`;
-                        const state = guardianComments[key] || { checked: false, comment: "" };
+                        const state = guardianComments[key] || { rating: 5, comment: "" };
 
                         return (
                           <div 
                             key={key} 
-                            className={`border border-slate-100 rounded-xl p-3 transition-all duration-300 ${
-                              state.checked ? "bg-amber-50/10 border-amber-200/50 shadow-sm" : "bg-white"
-                            }`}
+                            className="border border-slate-100 bg-white rounded-xl p-3 transition-all duration-300 shadow-sm"
                           >
-                            <div className="flex items-start gap-2.5">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleCategory(key)}
-                                className={`mt-0.5 h-4.5 w-4.5 shrink-0 rounded flex items-center justify-center border transition-all ${
-                                  state.checked 
-                                    ? "bg-amber-400 border-amber-400 text-white" 
-                                    : "border-slate-300 hover:border-amber-400 bg-white"
-                                }`}
+                            <div className="flex items-center gap-2.5">
+                              <select
+                                value={state.rating ?? 5}
+                                onChange={(e) => handleRatingChange(key, Number(e.target.value))}
+                                className="bg-white border border-slate-200 rounded-lg p-1 text-xs font-black text-slate-700 outline-none focus:border-amber-400 shrink-0"
                               >
-                                {state.checked && <Check size={11} className="stroke-[3]" />}
-                              </button>
+                                {[1, 2, 3, 4, 5].map((num) => (
+                                  <option key={num} value={num}>{num}</option>
+                                ))}
+                              </select>
                               
                               <div className="flex-1 space-y-2">
-                                <span className={`text-[10px] leading-tight font-bold transition-colors block ${
-                                  state.checked ? "text-slate-800" : "text-slate-500"
-                                }`}>
+                                <span className="text-[10px] leading-tight font-black text-slate-800 block">
                                   {category}
                                 </span>
 
@@ -529,7 +620,15 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                         </div>
                         <button
                           type="button"
-                          onClick={() => setPtmAttended(!ptmAttended)}
+                          onClick={() => {
+                            const nextVal = !ptmAttended;
+                            setPtmAttended(nextVal);
+                            if (!nextVal) {
+                              setAttendee("");
+                              setGuardianName("");
+                              setGuardianRelation("");
+                            }
+                          }}
                           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                             ptmAttended ? "bg-blue-600" : "bg-slate-200"
                           }`}
@@ -541,6 +640,62 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                           />
                         </button>
                       </div>
+
+                      {/* PTM Attendee Details */}
+                      {ptmAttended && (
+                        <div className="space-y-3 bg-slate-50/50 p-3 border border-slate-100 rounded-xl animate-in fade-in-50 slide-in-from-top-2 duration-300">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Who Attended the Meeting?</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {["Mother", "Father", "Both", "Guardian"].map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => {
+                                    setAttendee(opt);
+                                    if (opt !== "Guardian") {
+                                      setGuardianName("");
+                                      setGuardianRelation("");
+                                    }
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+                                    attendee === opt
+                                      ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/10"
+                                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                                  }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {attendee === "Guardian" && (
+                            <div className="grid grid-cols-1 gap-2.5 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400">Guardian Name</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. John Doe"
+                                  value={guardianName}
+                                  onChange={(e) => setGuardianName(e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400">Relation</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Uncle"
+                                  value={guardianRelation}
+                                  onChange={(e) => setGuardianRelation(e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* PTM Image Uploads */}
                       <div className="space-y-2.5">
@@ -724,13 +879,16 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   );
 }
 
-function KpiCard({ title, percentage, amount, success, requiredThreshold, maxAmount, scoreDisplay, children }: { title: string, percentage?: number, amount: number, success: boolean, requiredThreshold?: number, maxAmount?: number, scoreDisplay?: string, children: React.ReactNode }) {
+function KpiCard({ title, percentage, amount, success, requiredThreshold, maxAmount, scoreDisplay, action, children }: { title: string, percentage?: number, amount: number, success: boolean, requiredThreshold?: number, maxAmount?: number, scoreDisplay?: string, action?: React.ReactNode, children: React.ReactNode }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
       <div className="flex justify-between items-start">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+            {action}
+          </div>
           {percentage !== undefined && <p className="text-xs text-slate-400 font-medium">{percentage?.toFixed(1) ?? "0.0"}%</p>}
           {scoreDisplay && <p className="text-xs text-blue-600 font-black">{scoreDisplay}</p>}
           {(requiredThreshold !== undefined || maxAmount !== undefined) && (

@@ -293,6 +293,9 @@ export const scholarshipPtm = pgTable("scholarship_ptm", {
   month: text("month").notNull(),
   year: text("year").notNull(),
   attended: boolean("attended").default(false).notNull(),
+  attendee: text("attendee"),
+  guardianName: text("guardian_name"),
+  guardianRelation: text("guardian_relation"),
   parentImages: text("parent_images"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -313,6 +316,7 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   adjustmentNote: text("adjustment_note"),
 
   status: scholarshipStatusEnum("status").default("PENDING").notNull(),
+  locked: boolean("locked").default(false).notNull(),
   approvedBy: text("approved_by"),
   approvedAt: timestamp("approved_at"),
 

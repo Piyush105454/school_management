@@ -195,7 +195,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/scholarship/students", icon: GraduationCap, roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships" } },
     { href: "/office/scholarship/settings", icon: Settings, roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
     { href: "/student/scholarship", icon: GraduationCap, roleNames: { STUDENT_PARENT: "My Scholarship", TEACHER: "Student Scholarship View" } },
-    { href: "/teacher/scholarship-criteria", icon: ClipboardList, roleNames: { TEACHER: "PTM & Guardian Ratings" } },
+    { href: "/teacher/scholarship-criteria/ptm", icon: ClipboardCheck, roleNames: { TEACHER: "PTM Attendance" } },
+    { href: "/teacher/scholarship-criteria/guardian", icon: Heart, roleNames: { TEACHER: "Guardian Ratings" } },
 
     // Reports Category
     { type: "section", name: "Reports" },
@@ -345,7 +346,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/document-verification",
         "/office/entrance-tests",
         "/office/home-visits",
-        "/teacher/scholarship-criteria",
+        "/teacher/scholarship-criteria/ptm",
+        "/teacher/scholarship-criteria/guardian",
         "/office/scholarship/reports",
         "/office/scholarship/reports/students",
         "/teacher/timetable"
