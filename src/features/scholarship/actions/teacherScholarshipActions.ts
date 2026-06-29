@@ -119,6 +119,8 @@ export async function getStudentsWithCriteria(className: string, month: string, 
         },
         record: scholarshipRecord ? {
           totalAmount: scholarshipRecord.totalAmount,
+          ptmAmount: scholarshipRecord.ptmAmount,
+          guardianAmount: scholarshipRecord.guardianAmount,
           status: scholarshipRecord.status,
           locked: scholarshipRecord.locked,
           updatedAt: scholarshipRecord.updatedAt,
@@ -357,6 +359,8 @@ export async function calculateStudentScholarship(
     return { 
       success: true, 
       totalAmount: kpiResult.totalAmount,
+      ptmAmount: (kpiResult as any).ptmAmount,
+      guardianAmount: (kpiResult as any).guardianAmount,
       attendance: realAttendance,
       homework: realHomework
     };

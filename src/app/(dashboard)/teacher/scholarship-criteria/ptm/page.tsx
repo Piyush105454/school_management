@@ -216,7 +216,8 @@ export default function PtmCriteriaPage() {
       );
 
       if (calcRes.success) {
-        setSuccessMsg(`PTM Attendance Submitted & Locked successfully! Total amount calculated: ₹${calcRes.totalAmount}`);
+        const calculatedPtmAmount = (calcRes as any).ptmAmount ?? 0;
+        setSuccessMsg(`PTM Attendance Submitted & Locked successfully! PTM Award: ₹${calculatedPtmAmount}`);
         setStudents(prev => prev.map(s => {
           if (s.admissionId === activeStudent.admissionId) {
             return {
@@ -231,6 +232,8 @@ export default function PtmCriteriaPage() {
               },
               record: {
                 totalAmount: calcRes.totalAmount!,
+                ptmAmount: calculatedPtmAmount,
+                guardianAmount: (calcRes as any).guardianAmount ?? 0,
                 status: "PENDING",
                 locked: true,
                 updatedAt: new Date()
@@ -622,12 +625,11 @@ export default function PtmCriteriaPage() {
             )}
           </div>
 
-          {/* Calculation Status Box */}
           {activeStudent.record && (
             <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
               <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scholarship Score</span>
-                <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.totalAmount}</div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PTM Award</span>
+                <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.ptmAmount ?? 0}</div>
               </div>
               <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
                 activeStudent.record.status === "APPROVED" 

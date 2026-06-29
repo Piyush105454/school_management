@@ -222,7 +222,8 @@ export default function GuardianCriteriaPage() {
       );
 
       if (calcRes.success) {
-        setSuccessMsg(`Guardian Ratings Submitted & Locked successfully! Total amount calculated: ₹${calcRes.totalAmount}`);
+        const calculatedGuardianAmount = (calcRes as any).guardianAmount ?? 0;
+        setSuccessMsg(`Guardian Ratings Submitted & Locked successfully! Guardian Award: ₹${calculatedGuardianAmount}`);
         setStudents(prev => prev.map(s => {
           if (s.admissionId === activeStudent.admissionId) {
             return {
@@ -230,6 +231,8 @@ export default function GuardianCriteriaPage() {
               guardian: { rating: calculatedRating, comments: guardianComments },
               record: {
                 totalAmount: calcRes.totalAmount!,
+                ptmAmount: (calcRes as any).ptmAmount ?? 0,
+                guardianAmount: calculatedGuardianAmount,
                 status: "PENDING",
                 locked: true,
                 updatedAt: new Date()
@@ -466,12 +469,11 @@ export default function GuardianCriteriaPage() {
             })}
           </div>
 
-          {/* Calculation Status Box */}
           {activeStudent.record && (
             <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
               <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scholarship Score</span>
-                <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.totalAmount}</div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Guardian Rating Award</span>
+                <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.guardianAmount ?? 0}</div>
               </div>
               <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
                 activeStudent.record.status === "APPROVED" 

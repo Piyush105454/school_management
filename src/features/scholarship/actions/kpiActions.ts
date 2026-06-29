@@ -186,7 +186,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     }
 
     revalidatePath("/office/scholarship/students", "page");
-    return { success: true, totalAmount };
+    return { success: true, totalAmount, ptmAmount, guardianAmount };
   } catch (error: any) {
     console.error("saveKpiData error:", error);
     return { success: false, error: error.message };
