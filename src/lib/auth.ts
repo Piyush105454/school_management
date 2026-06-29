@@ -55,6 +55,11 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         console.log("PASSWORD_VALID:", isValid);
 
+        if (!isValid) {
+          console.log("LOGIN_FAILED: Incorrect password for", identifier);
+          return null;
+        }
+
         let institute = undefined;
         if (user.role === "TEACHER" || user.role === "PRINCIPAL") {
           const teacherRecord = await db.query.teachers.findFirst({
