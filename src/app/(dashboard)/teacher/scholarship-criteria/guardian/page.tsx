@@ -124,7 +124,7 @@ export default function GuardianCriteriaPage() {
 
   // Find active student data
   const activeStudent = students.find(s => s.admissionId === selectedStudentId) || null;
-  const isLocked = activeStudent?.record?.locked || false;
+  const isLocked = activeStudent?.guardian?.locked || false;
 
   // Initialize form state when selected student changes
   useEffect(() => {
@@ -198,10 +198,9 @@ export default function GuardianCriteriaPage() {
         selectedMonth,
         selectedYear,
         {
-          attended: activeStudent.ptm.attended, // Keep existing PTM status
-          parentImages: activeStudent.ptm.parentImages, // Keep existing parent images
           rating: calculatedRating,
-          comments: guardianComments
+          comments: guardianComments,
+          guardianLocked: true
         }
       );
 
@@ -209,15 +208,14 @@ export default function GuardianCriteriaPage() {
         throw new Error(saveRes.error || "Failed to save criteria.");
       }
 
-      // 2. Compute final scholarship score and LOCK the record
+      // 2. Compute final scholarship score and LOCK Guardian ratings
       const calcRes = await calculateStudentScholarship(
         activeStudent.admissionId,
         selectedMonth,
         selectedYear,
         {
-          attended: activeStudent.ptm.attended,
           rating: calculatedRating,
-          locked: true // Force lock database column!
+          guardianLocked: true
         }
       );
 
@@ -228,13 +226,17 @@ export default function GuardianCriteriaPage() {
           if (s.admissionId === activeStudent.admissionId) {
             return {
               ...s,
-              guardian: { rating: calculatedRating, comments: guardianComments },
+              guardian: { 
+                rating: calculatedRating, 
+                comments: guardianComments,
+                locked: true
+              },
               record: {
                 totalAmount: calcRes.totalAmount!,
                 ptmAmount: (calcRes as any).ptmAmount ?? 0,
                 guardianAmount: calculatedGuardianAmount,
                 status: "PENDING",
-                locked: true,
+                locked: (calcRes as any).locked || false,
                 updatedAt: new Date()
               }
             };

@@ -52,6 +52,17 @@ export async function GET(request: Request) {
           if (t.className) assignedClassNames.add(normalizeName(t.className));
         }
 
+        // Source 3: Profile classAssigned
+        if (teacherProfile.classAssigned) {
+          const profileClasses = teacherProfile.classAssigned
+            .split(",")
+            .map(s => normalizeName(s))
+            .filter(Boolean);
+          for (const pc of profileClasses) {
+            assignedClassNames.add(pc);
+          }
+        }
+
         const teacherInstitute = teacherProfile.institute;
 
         filtered = dbClasses.filter(c => {

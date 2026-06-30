@@ -357,36 +357,44 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       <td className="px-6 py-4">{item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A"}</td>
                       <td className="px-6 py-4">{item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A"}</td>
                       <td className="px-6 py-4">
-                        {(() => {
-                          if (!item.guardian || !item.guardian.comments) return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
-                          try {
-                            const parsed = JSON.parse(item.guardian.comments);
-                            const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
-                            if (vals.length > 0) {
-                              const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-                              return `${avg.toFixed(1)}/5`;
-                            }
-                          } catch {}
-                          return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
-                        })()}
+                        <div className="flex items-center gap-1.5">
+                          {item.guardian?.locked && <span title="Locked" className="text-slate-400 text-xs">🔒</span>}
+                          <span>
+                            {(() => {
+                              if (!item.guardian || !item.guardian.comments) return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
+                              try {
+                                const parsed = JSON.parse(item.guardian.comments);
+                                const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
+                                if (vals.length > 0) {
+                                  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                                  return `${avg.toFixed(1)}/5`;
+                                }
+                              } catch {}
+                              return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
+                            })()}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 animate-in fade-in-50">
-                        {item.ptm ? (
-                          item.ptm.attended ? (
-                            <div className="flex flex-col">
-                              <span className="text-green-600 font-bold">Yes</span>
-                              {item.ptm.attendee && (
-                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                                  {item.ptm.attendee === "Guardian" 
-                                    ? `${item.ptm.guardianRelation || "Guardian"}: ${item.ptm.guardianName || "N/A"}`
-                                    : item.ptm.attendee}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-red-500 font-bold">No</span>
-                          )
-                        ) : "N/A"}
+                        <div className="flex items-center gap-1.5">
+                          {item.ptm?.locked && <span title="Locked" className="text-slate-400 text-xs">🔒</span>}
+                          {item.ptm ? (
+                            item.ptm.attended ? (
+                              <div className="flex flex-col">
+                                <span className="text-green-600 font-bold">Yes</span>
+                                {item.ptm.attendee && (
+                                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                                    {item.ptm.attendee === "Guardian" 
+                                      ? `${item.ptm.guardianRelation || "Guardian"}: ${item.ptm.guardianName || "N/A"}`
+                                      : item.ptm.attendee}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-red-500 font-bold">No</span>
+                            )
+                          ) : "N/A"}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">

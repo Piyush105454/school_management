@@ -121,7 +121,7 @@ export default function PtmCriteriaPage() {
 
   // Find active student data
   const activeStudent = students.find(s => s.admissionId === selectedStudentId) || null;
-  const isLocked = activeStudent?.record?.locked || false;
+  const isLocked = activeStudent?.ptm?.locked || false;
 
   // Initialize form state when selected student changes
   useEffect(() => {
@@ -191,11 +191,10 @@ export default function PtmCriteriaPage() {
         {
           attended: ptmAttended,
           parentImages: ptmImages,
-          rating: activeStudent.guardian.rating,
-          comments: activeStudent.guardian.comments,
           attendee: finalAttendee,
           guardianName: finalGuardianName,
-          guardianRelation: finalGuardianRelation
+          guardianRelation: finalGuardianRelation,
+          ptmLocked: true
         }
       );
 
@@ -203,15 +202,14 @@ export default function PtmCriteriaPage() {
         throw new Error(saveRes.error || "Failed to save criteria.");
       }
 
-      // 2. Compute final scholarship score and LOCK the record
+      // 2. Compute final scholarship score and LOCK PTM
       const calcRes = await calculateStudentScholarship(
         activeStudent.admissionId,
         selectedMonth,
         selectedYear,
         {
           attended: ptmAttended,
-          rating: activeStudent.guardian.rating,
-          locked: true // Force lock database column!
+          ptmLocked: true
         }
       );
 
@@ -228,14 +226,15 @@ export default function PtmCriteriaPage() {
                 parentImages: ptmImages,
                 attendee: finalAttendee,
                 guardianName: finalGuardianName,
-                guardianRelation: finalGuardianRelation
+                guardianRelation: finalGuardianRelation,
+                locked: true
               },
               record: {
                 totalAmount: calcRes.totalAmount!,
                 ptmAmount: calculatedPtmAmount,
                 guardianAmount: (calcRes as any).guardianAmount ?? 0,
                 status: "PENDING",
-                locked: true,
+                locked: (calcRes as any).locked || false,
                 updatedAt: new Date()
               }
             };

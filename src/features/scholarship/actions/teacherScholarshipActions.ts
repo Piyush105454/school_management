@@ -112,10 +112,12 @@ export async function getStudentsWithCriteria(className: string, month: string, 
           attendee: ptmRecord ? ptmRecord.attendee : null,
           guardianName: ptmRecord ? ptmRecord.guardianName : null,
           guardianRelation: ptmRecord ? ptmRecord.guardianRelation : null,
+          locked: ptmRecord ? ptmRecord.locked : false,
         },
         guardian: {
           rating: guardianRecord ? guardianRecord.rating : 0,
-          comments: guardianComments || {}
+          comments: guardianComments || {},
+          locked: guardianRecord ? guardianRecord.locked : false,
         },
         record: scholarshipRecord ? {
           totalAmount: scholarshipRecord.totalAmount,
@@ -140,13 +142,15 @@ export async function saveStudentCriteria(
   month: string, 
   year: string, 
   data: { 
-    attended: boolean; 
-    parentImages: string[]; 
-    rating: number; 
+    attended?: boolean; 
+    parentImages?: string[]; 
+    rating?: number; 
     comments?: any;
     attendee?: string | null;
     guardianName?: string | null;
     guardianRelation?: string | null;
+    ptmLocked?: boolean;
+    guardianLocked?: boolean;
   }
 ) {
   try {
@@ -155,19 +159,6 @@ export async function saveStudentCriteria(
       return { success: false, error: "Unauthorized" };
     }
 
-    const existingRecord = await db.query.scholarshipRecords.findFirst({
-      where: and(
-        eq(scholarshipRecords.admissionId, admissionId),
-        eq(scholarshipRecords.month, month),
-        eq(scholarshipRecords.year, year)
-      ),
-    });
-
-    if (existingRecord?.locked && session.user.role === "TEACHER") {
-      return { success: false, error: "This monthly record is locked and cannot be edited by teachers." };
-    }
-
-    // 1. Save/Update PTM Record
     const existingPtm = await db.query.scholarshipPtm.findFirst({
       where: and(
         eq(scholarshipPtm.admissionId, admissionId),
@@ -176,31 +167,6 @@ export async function saveStudentCriteria(
       ),
     });
 
-    const parentImagesStr = JSON.stringify(data.parentImages);
-
-    const ptmValues = {
-      attended: data.attended,
-      parentImages: parentImagesStr,
-      attendee: data.attendee || null,
-      guardianName: data.guardianName || null,
-      guardianRelation: data.guardianRelation || null,
-    };
-
-    if (existingPtm) {
-      await db
-        .update(scholarshipPtm)
-        .set(ptmValues)
-        .where(eq(scholarshipPtm.id, existingPtm.id));
-    } else {
-      await db.insert(scholarshipPtm).values({
-        admissionId,
-        month,
-        year,
-        ...ptmValues
-      });
-    }
-
-    // 2. Save/Update Guardian Record
     const existingGuardian = await db.query.scholarshipGuardian.findFirst({
       where: and(
         eq(scholarshipGuardian.admissionId, admissionId),
@@ -209,21 +175,46 @@ export async function saveStudentCriteria(
       ),
     });
 
-    const commentsStr = data.comments ? JSON.stringify(data.comments) : null;
+    if (session.user.role === "TEACHER") {
+      if (existingPtm?.locked && (data.attended !== undefined || data.ptmLocked !== undefined)) {
+        return { success: false, error: "PTM record is locked and cannot be edited by teachers." };
+      }
+      if (existingGuardian?.locked && (data.rating !== undefined || data.guardianLocked !== undefined)) {
+        return { success: false, error: "Guardian Ratings are locked and cannot be edited by teachers." };
+      }
+    }
 
-    if (existingGuardian) {
-      await db
-        .update(scholarshipGuardian)
-        .set({ rating: Math.round(data.rating), comments: commentsStr })
-        .where(eq(scholarshipGuardian.id, existingGuardian.id));
-    } else {
-      await db.insert(scholarshipGuardian).values({
-        admissionId,
-        month,
-        year,
-        rating: Math.round(data.rating),
-        comments: commentsStr
-      });
+    // 1. Save/Update PTM Record
+    if (data.attended !== undefined || data.ptmLocked !== undefined) {
+      const parentImagesStr = data.parentImages ? JSON.stringify(data.parentImages) : undefined;
+      const ptmValues: any = {};
+      if (data.attended !== undefined) ptmValues.attended = data.attended;
+      if (parentImagesStr !== undefined) ptmValues.parentImages = parentImagesStr;
+      if (data.attendee !== undefined) ptmValues.attendee = data.attendee;
+      if (data.guardianName !== undefined) ptmValues.guardianName = data.guardianName;
+      if (data.guardianRelation !== undefined) ptmValues.guardianRelation = data.guardianRelation;
+      if (data.ptmLocked !== undefined) ptmValues.locked = data.ptmLocked;
+
+      if (existingPtm) {
+        await db.update(scholarshipPtm).set(ptmValues).where(eq(scholarshipPtm.id, existingPtm.id));
+      } else {
+        await db.insert(scholarshipPtm).values({ admissionId, month, year, ...ptmValues });
+      }
+    }
+
+    // 2. Save/Update Guardian Record
+    if (data.rating !== undefined || data.guardianLocked !== undefined) {
+      const commentsStr = data.comments ? JSON.stringify(data.comments) : undefined;
+      const guardianValues: any = {};
+      if (data.rating !== undefined) guardianValues.rating = Math.round(data.rating);
+      if (commentsStr !== undefined) guardianValues.comments = commentsStr;
+      if (data.guardianLocked !== undefined) guardianValues.locked = data.guardianLocked;
+
+      if (existingGuardian) {
+        await db.update(scholarshipGuardian).set(guardianValues).where(eq(scholarshipGuardian.id, existingGuardian.id));
+      } else {
+        await db.insert(scholarshipGuardian).values({ admissionId, month, year, ...guardianValues });
+      }
     }
 
     return { success: true };
@@ -237,7 +228,12 @@ export async function calculateStudentScholarship(
   admissionId: string, 
   month: string, 
   year: string, 
-  data: { attended: boolean; rating: number; locked?: boolean }
+  data: { 
+    attended?: boolean; 
+    rating?: number; 
+    ptmLocked?: boolean; 
+    guardianLocked?: boolean; 
+  }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -245,16 +241,29 @@ export async function calculateStudentScholarship(
       return { success: false, error: "Unauthorized" };
     }
 
-    const existingRecord = await db.query.scholarshipRecords.findFirst({
+    const existingPtm = await db.query.scholarshipPtm.findFirst({
       where: and(
-        eq(scholarshipRecords.admissionId, admissionId),
-        eq(scholarshipRecords.month, month),
-        eq(scholarshipRecords.year, year)
+        eq(scholarshipPtm.admissionId, admissionId),
+        eq(scholarshipPtm.month, month),
+        eq(scholarshipPtm.year, year)
       ),
     });
 
-    if (existingRecord?.locked && session.user.role === "TEACHER") {
-      return { success: false, error: "This monthly record is locked and cannot be edited by teachers." };
+    const existingGuardian = await db.query.scholarshipGuardian.findFirst({
+      where: and(
+        eq(scholarshipGuardian.admissionId, admissionId),
+        eq(scholarshipGuardian.month, month),
+        eq(scholarshipGuardian.year, year)
+      ),
+    });
+
+    if (session.user.role === "TEACHER") {
+      if (existingPtm?.locked && (data.attended !== undefined || data.ptmLocked !== undefined)) {
+        return { success: false, error: "PTM record is locked and cannot be edited by teachers." };
+      }
+      if (existingGuardian?.locked && (data.rating !== undefined || data.guardianLocked !== undefined)) {
+        return { success: false, error: "Guardian Ratings are locked and cannot be edited by teachers." };
+      }
     }
     const meta = await db.query.admissionMeta.findFirst({
       where: eq(admissionMeta.id, admissionId),
@@ -329,27 +338,21 @@ export async function calculateStudentScholarship(
       }
     }
 
-    // Load existing PTM data to preserve attendee info
-    const existingPtm = await db.query.scholarshipPtm.findFirst({
-      where: and(
-        eq(scholarshipPtm.admissionId, admissionId),
-        eq(scholarshipPtm.month, month),
-        eq(scholarshipPtm.year, year)
-      ),
-    });
+
 
     // Call existing saveKpiData from kpiActions to calculate amounts and write/update everything
     const kpiResult = await saveKpiData(admissionId, month, year, {
       attendance: realAttendance,
       homework: realHomework,
-      guardian: { rating: data.rating },
+      guardian: { rating: data.rating !== undefined ? data.rating : (existingGuardian ? existingGuardian.rating : 0) },
       ptm: { 
-        attended: data.attended,
+        attended: data.attended !== undefined ? data.attended : (existingPtm ? existingPtm.attended : false),
         attendee: existingPtm ? existingPtm.attendee : null,
         guardianName: existingPtm ? existingPtm.guardianName : null,
         guardianRelation: existingPtm ? existingPtm.guardianRelation : null
       },
-      locked: data.locked
+      ptmLocked: data.ptmLocked,
+      guardianLocked: data.guardianLocked
     });
 
     if (!kpiResult.success) {

@@ -5,10 +5,12 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, Filter, Search, User, Download, Calendar } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 
 export default function ClassAttendanceGrid() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
   
   const [month, setMonth] = useState(searchParams.get("month") || "April");
   const [year, setYear] = useState(Number(searchParams.get("year")) || 2026);
@@ -44,7 +46,7 @@ export default function ClassAttendanceGrid() {
       }
     };
     fetchClasses();
-  }, [searchParams.get("institute")]);
+  }, [searchParams.get("institute"), session]);
 
   useEffect(() => {
     if (!classId) return;

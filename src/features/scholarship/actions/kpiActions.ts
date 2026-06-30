@@ -26,6 +26,8 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
   };
   adjustment?: { amount: number; type: string; note: string };
   locked?: boolean;
+  ptmLocked?: boolean;
+  guardianLocked?: boolean;
 }) {
   try {
     // 1. Get Criteria Settings (Try student override first, then global)
@@ -130,6 +132,9 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     if (data.guardian.comments !== undefined) {
       guardianUpdateData.comments = data.guardian.comments;
     }
+    if (data.guardianLocked !== undefined) {
+      guardianUpdateData.locked = data.guardianLocked;
+    }
     if (existingGuardian) {
       await db.update(scholarshipGuardian).set(guardianUpdateData).where(eq(scholarshipGuardian.id, existingGuardian.id));
     } else {
@@ -153,6 +158,9 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     if ((data.ptm as any).guardianRelation !== undefined) {
       ptmUpdateData.guardianRelation = (data.ptm as any).guardianRelation;
     }
+    if (data.ptmLocked !== undefined) {
+      ptmUpdateData.locked = data.ptmLocked;
+    }
     if (existingPtm) {
       await db.update(scholarshipPtm).set(ptmUpdateData).where(eq(scholarshipPtm.id, existingPtm.id));
     } else {
@@ -175,8 +183,13 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       status: "PENDING" as "PENDING",
     };
 
+    const isPtmLocked = data.ptmLocked !== undefined ? data.ptmLocked : (existingPtm ? existingPtm.locked : false);
+    const isGuardianLocked = data.guardianLocked !== undefined ? data.guardianLocked : (existingGuardian ? existingGuardian.locked : false);
+
     if (data.locked !== undefined) {
       recordData.locked = data.locked;
+    } else {
+      recordData.locked = isPtmLocked && isGuardianLocked;
     }
 
     if (existingRecord) {

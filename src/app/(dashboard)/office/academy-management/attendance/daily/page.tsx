@@ -18,48 +18,46 @@ export default async function DailyAttendancePage({
 
   const params = await searchParams;
   let targetClassId = params.class_id ? parseInt(params.class_id) : null;
-  let assignedClassName = "";
 
   // 1. Try to find if this user is a teacher with an assigned class
   const teacherProfile = await db.query.teachers.findFirst({
     where: eq(teachers.userId, session.user.id)
   });
 
-  // 2. If it's a teacher and NO class_id is in URL, use their assigned class
-  if (teacherProfile?.classAssigned && !targetClassId) {
-    assignedClassName = teacherProfile.classAssigned.split(",")[0].trim();
-    const teacherInstitute = teacherProfile.institute;
+  // 2. Fetch classes that match the teacher's profile assignments
+  let teacherClasses: any[] = [];
+  if (session.user.role === "TEACHER" && teacherProfile?.classAssigned) {
+    const assignedClassesList = teacherProfile.classAssigned
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
     
-    const academyClass = await db.query.classes.findFirst({
-      where: (c: any, { and, or, eq }: any) => and(
-        or(
-          eq(c.name, assignedClassName),
-          eq(c.name, `CLASS ${assignedClassName}`),
-          eq(c.name, `Class ${assignedClassName}`)
-        ),
-        teacherInstitute ? eq(c.institute, teacherInstitute) : undefined
-      )
-    });
+    const teacherInstitute = teacherProfile.institute;
+    const dbClasses = await db.select().from(classes).orderBy(classes.grade);
+    teacherClasses = dbClasses.filter(c => 
+      assignedClassesList.includes(c.name.toLowerCase()) &&
+      (!teacherInstitute || c.institute === teacherInstitute)
+    );
 
-    if (academyClass) {
-      targetClassId = academyClass.id;
+    // If no class is explicitly requested, and they have exactly 1 assigned class, auto-select it
+    if (!targetClassId && teacherClasses.length === 1) {
+      targetClassId = teacherClasses[0].id;
     }
   }
 
-  // 3. If we STILL don't have a targetClassId, show the Class Picker (Admin/Staff View)
+  // 3. If we STILL don't have a targetClassId, show the Class Picker (Admin/Staff/Teacher View)
   if (!targetClassId) {
-    const selectedInstitute = params.institute;
-    const teacherInstitute = teacherProfile?.institute;
-    let allClasses = await db.select().from(classes).orderBy(classes.grade);
-
-    // Apply global institute filter
-    if (selectedInstitute && selectedInstitute !== "ALL") {
-      allClasses = allClasses.filter(c => c.institute === selectedInstitute);
-    }
-
-    // If teacher, also filter picker by their institute (if not already filtered)
-    if (session?.user?.role === "TEACHER" && teacherInstitute) {
-      allClasses = allClasses.filter(c => c.institute === teacherInstitute);
+    let allClasses: any[] = [];
+    if (session.user.role === "TEACHER") {
+      allClasses = teacherClasses;
+    } else {
+      const selectedInstitute = params.institute;
+      allClasses = await db.select().from(classes).orderBy(classes.grade);
+      
+      // Apply global institute filter
+      if (selectedInstitute && selectedInstitute !== "ALL") {
+        allClasses = allClasses.filter(c => c.institute === selectedInstitute);
+      }
     }
     return (
       <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-500">

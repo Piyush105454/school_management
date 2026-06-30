@@ -284,6 +284,7 @@ export const scholarshipGuardian = pgTable("scholarship_guardian", {
   year: text("year").notNull(),
   rating: integer("rating").notNull(),
   comments: text("comments"),
+  locked: boolean("locked").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -297,6 +298,7 @@ export const scholarshipPtm = pgTable("scholarship_ptm", {
   guardianName: text("guardian_name"),
   guardianRelation: text("guardian_relation"),
   parentImages: text("parent_images"),
+  locked: boolean("locked").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
