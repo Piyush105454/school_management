@@ -23,9 +23,9 @@ export default withAuth(
 
     // Define role-based route access
     const roleRoutes: Record<string, string[]> = {
-      OFFICE: ["/office", "/dashboard"],
-      PRINCIPAL: ["/office", "/dashboard"],
-      ADMIN: ["/office", "/dashboard"],
+      OFFICE: ["/office", "/dashboard", "/teacher"],
+      PRINCIPAL: ["/office", "/dashboard", "/teacher"],
+      ADMIN: ["/office", "/dashboard", "/teacher"],
       STUDENT_PARENT: ["/student", "/dashboard"],
       TEACHER: [
         "/teacher", 

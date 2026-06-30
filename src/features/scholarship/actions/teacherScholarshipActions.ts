@@ -12,7 +12,8 @@ import {
   studentAttendance,
   lessonPlans,
   homeworkSubmissions,
-  teachers
+  teachers,
+  classes
 } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { saveKpiData } from "./kpiActions";
@@ -176,10 +177,10 @@ export async function saveStudentCriteria(
     });
 
     if (session.user.role === "TEACHER") {
-      if (existingPtm?.locked && (data.attended !== undefined || data.ptmLocked !== undefined)) {
+      if (existingPtm?.locked && data.ptmLocked !== true && (data.attended !== undefined || data.ptmLocked !== undefined)) {
         return { success: false, error: "PTM record is locked and cannot be edited by teachers." };
       }
-      if (existingGuardian?.locked && (data.rating !== undefined || data.guardianLocked !== undefined)) {
+      if (existingGuardian?.locked && data.guardianLocked !== true && (data.rating !== undefined || data.guardianLocked !== undefined)) {
         return { success: false, error: "Guardian Ratings are locked and cannot be edited by teachers." };
       }
     }
@@ -258,10 +259,10 @@ export async function calculateStudentScholarship(
     });
 
     if (session.user.role === "TEACHER") {
-      if (existingPtm?.locked && (data.attended !== undefined || data.ptmLocked !== undefined)) {
+      if (existingPtm?.locked && data.ptmLocked !== true && (data.attended !== undefined || data.ptmLocked !== undefined)) {
         return { success: false, error: "PTM record is locked and cannot be edited by teachers." };
       }
-      if (existingGuardian?.locked && (data.rating !== undefined || data.guardianLocked !== undefined)) {
+      if (existingGuardian?.locked && data.guardianLocked !== true && (data.rating !== undefined || data.guardianLocked !== undefined)) {
         return { success: false, error: "Guardian Ratings are locked and cannot be edited by teachers." };
       }
     }
@@ -376,8 +377,15 @@ export async function calculateStudentScholarship(
 export async function getAssignedClassesForTeacher() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "TEACHER") {
+    if (!session) {
       return { success: false, error: "Unauthorized" };
+    }
+
+    if (session.user.role !== "TEACHER") {
+      // For Admin/Office/Principal, load all classes from the database
+      const dbClasses = await db.select().from(classes).orderBy(classes.grade);
+      const classNames = dbClasses.map(c => c.name);
+      return { success: true, data: classNames };
     }
 
     const teacherProfile = await db.query.teachers.findFirst({

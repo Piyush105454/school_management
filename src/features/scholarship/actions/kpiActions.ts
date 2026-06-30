@@ -24,7 +24,13 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     guardianName?: string | null;
     guardianRelation?: string | null;
   };
-  adjustment?: { amount: number; type: string; note: string };
+  adjustment?: { 
+    amount?: number; 
+    type?: string; 
+    discountAmount?: number; 
+    additionalChargeAmount?: number; 
+    note: string 
+  };
   locked?: boolean;
   ptmLocked?: boolean;
   guardianLocked?: boolean;
@@ -89,13 +95,25 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
 
     // Calculate signed adjustment amount for record-keeping
     let adjustmentAmount = 0;
+    let discountAmount = 0;
+    let additionalChargeAmount = 0;
     let adjustmentNote = "";
     if (data.adjustment) {
+      discountAmount = data.adjustment.discountAmount || 0;
+      additionalChargeAmount = data.adjustment.additionalChargeAmount || 0;
+      adjustmentAmount = additionalChargeAmount - discountAmount;
+
       const { amount, type, note } = data.adjustment;
-      if (type === "DISCOUNT") {
-        adjustmentAmount = -Math.abs(amount);
-      } else if (type === "CHARGE") {
-        adjustmentAmount = Math.abs(amount);
+      if (type && amount !== undefined) {
+        if (type === "DISCOUNT") {
+          discountAmount = Math.abs(amount);
+          additionalChargeAmount = 0;
+          adjustmentAmount = -discountAmount;
+        } else if (type === "CHARGE") {
+          additionalChargeAmount = Math.abs(amount);
+          discountAmount = 0;
+          adjustmentAmount = additionalChargeAmount;
+        }
       }
       adjustmentNote = note || "";
     }
@@ -179,6 +197,8 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       ptmAmount,
       totalAmount,
       adjustmentAmount,
+      discountAmount,
+      additionalChargeAmount,
       adjustmentNote,
       status: "PENDING" as "PENDING",
     };

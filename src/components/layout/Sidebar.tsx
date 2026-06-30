@@ -195,8 +195,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/scholarship/students", icon: GraduationCap, roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships" } },
     { href: "/office/scholarship/settings", icon: Settings, roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings" } },
     { href: "/student/scholarship", icon: GraduationCap, roleNames: { STUDENT_PARENT: "My Scholarship", TEACHER: "Student Scholarship View" } },
-    { href: "/teacher/scholarship-criteria/ptm", icon: ClipboardCheck, roleNames: { TEACHER: "PTM Attendance" } },
-    { href: "/teacher/scholarship-criteria/guardian", icon: Heart, roleNames: { TEACHER: "Guardian Ratings" } },
+    { href: "/teacher/scholarship-criteria/ptm", icon: ClipboardCheck, roleNames: { TEACHER: "PTM Attendance", ADMIN: "PTM Attendance", OFFICE: "PTM Attendance", PRINCIPAL: "PTM Attendance" } },
+    { href: "/teacher/scholarship-criteria/guardian", icon: Heart, roleNames: { TEACHER: "Guardian Ratings", ADMIN: "Guardian Ratings", OFFICE: "Guardian Ratings", PRINCIPAL: "Guardian Ratings" } },
 
     // Reports Category
     { type: "section", name: "Reports" },
@@ -327,7 +327,9 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/school-management/teachers",
         "/office/school-management/principal",
         "/office/access-management",
-        "/office/committees"
+        "/office/committees",
+        "/teacher/scholarship-criteria/ptm",
+        "/teacher/scholarship-criteria/guardian"
       ].includes(href);
     }
     if (r === "TEACHER") {

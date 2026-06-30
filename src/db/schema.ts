@@ -315,6 +315,8 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   totalAmount: integer("total_amount").notNull(),
 
   adjustmentAmount: integer("adjustment_amount").default(0).notNull(),
+  discountAmount: integer("discount_amount").default(0).notNull(),
+  additionalChargeAmount: integer("additional_charge_amount").default(0).notNull(),
   adjustmentNote: text("adjustment_note"),
 
   status: scholarshipStatusEnum("status").default("PENDING").notNull(),
@@ -958,4 +960,15 @@ export const committeeMemberRelations = relations(committeeMembers, ({ one }) =>
     references: [committeeRoles.id],
   }),
 }));
+
+
+export const scholarshipPtmSchedule = pgTable("scholarship_ptm_schedule", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  academicYear: text("academic_year").notNull().default("2025-26"),
+  month: text("month").notNull(),
+  year: text("year").notNull(),
+  ptmDate: text("ptm_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 

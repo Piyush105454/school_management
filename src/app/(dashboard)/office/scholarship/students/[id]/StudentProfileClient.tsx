@@ -40,12 +40,13 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       homework: { totalGiven: 0, totalDone: 0 },
       guardian: { rating: 0 },
       ptm: { attended: false },
-      adjustment: { type: "NONE", amount: "", note: "" }
+      adjustment: { type: "NONE", discountAmount: "", additionalChargeAmount: "", note: "" }
     }
   });
   const guardianRating = watch("guardian.rating") || 0;
   const adjType = watch("adjustment.type") || "NONE";
-  const adjAmtInput = Number(watch("adjustment.amount") || 0);
+  const discountAmtInput = Number(watch("adjustment.discountAmount") || 0);
+  const additionalChargeAmtInput = Number(watch("adjustment.additionalChargeAmount") || 0);
 
   const calculatedGuardianRating = (() => {
     const vals = Object.values(guardianComments).map(c => c.rating || 0).filter(v => v > 0);
@@ -159,12 +160,27 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
     if (kpiRes.success && kpiRes.data) {
       setData(kpiRes.data);
+      const discountAmt = kpiRes.data.record?.discountAmount || 0;
+      const additionalChargeAmt = kpiRes.data.record?.additionalChargeAmount || 0;
       const adjAmt = kpiRes.data.record?.adjustmentAmount || 0;
-      let adjType = "NONE";
-      if (adjAmt < 0) {
-        adjType = "DISCOUNT";
-      } else if (adjAmt > 0) {
-        adjType = "CHARGE";
+      
+      let initialDiscount = discountAmt;
+      let initialAdditional = additionalChargeAmt;
+      if (discountAmt === 0 && additionalChargeAmt === 0 && adjAmt !== 0) {
+        if (adjAmt < 0) {
+          initialDiscount = Math.abs(adjAmt);
+        } else {
+          initialAdditional = adjAmt;
+        }
+      }
+
+      let loadedType = "NONE";
+      if (initialDiscount > 0 && initialAdditional > 0) {
+        loadedType = "BOTH";
+      } else if (initialDiscount > 0) {
+        loadedType = "DISCOUNT";
+      } else if (initialAdditional > 0) {
+        loadedType = "CHARGE";
       }
 
       setPtmAttended(kpiRes.data.ptm?.attended || false);
@@ -218,8 +234,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
           attended: kpiRes.data.ptm?.attended || false,
         },
         adjustment: {
-          type: adjType,
-          amount: adjAmt !== 0 ? Math.abs(adjAmt) : "",
+          type: loadedType,
+          discountAmount: initialDiscount !== 0 ? initialDiscount : "",
+          additionalChargeAmount: initialAdditional !== 0 ? initialAdditional : "",
           note: kpiRes.data.record?.adjustmentNote || ""
         }
       });
@@ -267,29 +284,41 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         guardianRelation: ptmAttended && attendee === "Guardian" ? guardianRelation.trim() : null
       },
       adjustment: isTeacher ? {
-        amount: data?.record?.adjustmentAmount ? Math.abs(data.record.adjustmentAmount) : 0,
-        type: data?.record?.adjustmentAmount === 0 || !data?.record?.adjustmentAmount ? "NONE" : (data?.record?.adjustmentAmount < 0 ? "DISCOUNT" : "CHARGE"),
+        discountAmount: data?.record?.discountAmount || 0,
+        additionalChargeAmount: data?.record?.additionalChargeAmount || 0,
         note: data?.record?.adjustmentNote || ""
       } : {
-        amount: Number(formData.adjustment?.amount || 0),
-        type: formData.adjustment?.type || "NONE",
+        discountAmount: (formData.adjustment?.type === "DISCOUNT" || formData.adjustment?.type === "BOTH") 
+          ? Number(formData.adjustment?.discountAmount || 0) 
+          : 0,
+        additionalChargeAmount: (formData.adjustment?.type === "CHARGE" || formData.adjustment?.type === "BOTH") 
+          ? Number(formData.adjustment?.additionalChargeAmount || 0) 
+          : 0,
         note: formData.adjustment?.note || ""
       }
     });
     setLoading(false);
     if (res.success) {
-      let signedAdj = 0;
-      const type = formData.adjustment?.type || "NONE";
-      const amount = Number(formData.adjustment?.amount || 0);
-      if (type === "DISCOUNT") {
-        signedAdj = -Math.abs(amount);
-      } else if (type === "CHARGE") {
-        signedAdj = Math.abs(amount);
-      }
+      const discount = isTeacher 
+        ? (data?.record?.discountAmount || 0) 
+        : ((formData.adjustment?.type === "DISCOUNT" || formData.adjustment?.type === "BOTH") ? Number(formData.adjustment?.discountAmount || 0) : 0);
+      const additional = isTeacher 
+        ? (data?.record?.additionalChargeAmount || 0) 
+        : ((formData.adjustment?.type === "CHARGE" || formData.adjustment?.type === "BOTH") ? Number(formData.adjustment?.additionalChargeAmount || 0) : 0);
+      const signedAdj = additional - discount;
       const baseTotal = res.totalAmount || 0;
       const totalCredit = baseTotal - signedAdj;
-      if (signedAdj !== 0) {
-        const adjText = type === "DISCOUNT" ? `-₹${Math.abs(signedAdj)} discount` : `+₹${Math.abs(signedAdj)} charge`;
+      
+      let adjText = "";
+      if (discount > 0 && additional > 0) {
+        adjText = `-₹${discount} discount, +₹${additional} charge`;
+      } else if (discount > 0) {
+        adjText = `-₹${discount} discount`;
+      } else if (additional > 0) {
+        adjText = `+₹${additional} charge`;
+      }
+      
+      if (adjText) {
         setMessage(`Saved Successfully! Scholarship: ₹${baseTotal} (${adjText}) | Net Credited: ₹${totalCredit}`);
       } else {
         setMessage(`Saved Successfully! Total Amount: ₹${baseTotal}`);
@@ -790,21 +819,37 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                           <option value="NONE">No Adjustment (Use Calculated)</option>
                           <option value="DISCOUNT">Discount / Waiver (Reduce Pending)</option>
                           <option value="CHARGE">Additional Charge (Increase Pending)</option>
+                          <option value="BOTH">Both (Discount & Additional Charge)</option>
                         </select>
                       </div>
 
-                      <div className={adjType === "NONE" ? "hidden" : "space-y-3"}>
+                      {(adjType === "DISCOUNT" || adjType === "BOTH") && (
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Amount (₹)</label>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Discount / Waiver (Reduce Pending) (₹)</label>
                           <input 
                             type="number" 
                             min="0"
-                            {...register("adjustment.amount")} 
-                            placeholder="Enter amount in ₹"
+                            {...register("adjustment.discountAmount")} 
+                            placeholder="Enter discount in ₹"
                             className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
                           />
                         </div>
+                      )}
 
+                      {(adjType === "CHARGE" || adjType === "BOTH") && (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Additional Charge (Increase Pending) (₹)</label>
+                          <input 
+                            type="number" 
+                            min="0"
+                            {...register("adjustment.additionalChargeAmount")} 
+                            placeholder="Enter charge in ₹"
+                            className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {adjType !== "NONE" && (
                         <div>
                           <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Reason / Note (Internal)</label>
                           <textarea 
@@ -814,7 +859,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                             className="border p-2.5 rounded-xl text-xs bg-white border-slate-300 w-full font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                           />
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -834,21 +879,24 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       
                       {(() => {
                         const isRecordPaid = record?.status === "PAID";
-                        let signedAdj = 0;
-                        if (adjType === "DISCOUNT") {
-                          signedAdj = -Math.abs(adjAmtInput);
-                        } else if (adjType === "CHARGE") {
-                          signedAdj = Math.abs(adjAmtInput);
-                        }
+                        const discount = (adjType === "DISCOUNT" || adjType === "BOTH") ? discountAmtInput : 0;
+                        const additional = (adjType === "CHARGE" || adjType === "BOTH") ? additionalChargeAmtInput : 0;
+                        const signedAdj = additional - discount;
                         const originalPending = pendingToPay + signedAdj;
                         const finalPending = isRecordPaid ? 0 : originalPending;
                         
                         return (
                           <>
-                            {signedAdj !== 0 && (
-                              <div className={`flex justify-between items-center text-sm font-bold ${signedAdj < 0 ? "text-blue-600" : "text-amber-600"}`}>
-                                <span>Adjustment ({adjType === "DISCOUNT" ? "Discount" : "Charge"})</span>
-                                <span>{signedAdj < 0 ? "-" : "+"} ₹{Math.abs(signedAdj)}</span>
+                            {discount > 0 && (
+                              <div className="flex justify-between items-center text-sm font-bold text-blue-600">
+                                <span>Adjustment (Discount)</span>
+                                <span>- ₹{discount}</span>
+                              </div>
+                            )}
+                            {additional > 0 && (
+                              <div className="flex justify-between items-center text-sm font-bold text-amber-600">
+                                <span>Adjustment (Charge)</span>
+                                <span>+ ₹{additional}</span>
                               </div>
                             )}
                             {isRecordPaid && (
@@ -865,7 +913,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                         );
                       })()}
                     </div>
-                    {adjType !== "NONE" && adjAmtInput > 0 && (
+                    {adjType !== "NONE" && (discountAmtInput > 0 || additionalChargeAmtInput > 0) && (
                       <p className="text-[11px] text-slate-400 font-semibold italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
                         * Note: This adjustment is stored internally for teacher/admin records and is **not** visible to the student.
                       </p>

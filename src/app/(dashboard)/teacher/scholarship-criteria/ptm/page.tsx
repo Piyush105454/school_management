@@ -5,6 +5,7 @@ import {
   GraduationCap, 
   Loader2, 
   Lock, 
+  Unlock,
   Zap, 
   AlertCircle, 
   Image as ImageIcon, 
@@ -13,7 +14,8 @@ import {
   ExternalLink,
   ChevronDown,
   User,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from "lucide-react";
 import { 
   getStudentsWithCriteria, 
@@ -21,8 +23,10 @@ import {
   calculateStudentScholarship,
   getAssignedClassesForTeacher
 } from "@/features/scholarship/actions/teacherScholarshipActions";
+import { getPtmSchedule, savePtmSchedule } from "@/features/scholarship/actions/ptmScheduleActions";
 import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
 import { ensureCompressed } from "@/lib/compression";
+import { useSession } from "next-auth/react";
 
 const MONTHS = [
   "April", "May", "June", "July", "August", "September", "October", "November", "December", 
@@ -32,6 +36,9 @@ const MONTHS = [
 const YEARS = ["2025", "2026", "2027"];
 
 export default function PtmCriteriaPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role !== "TEACHER";
+
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -54,7 +61,21 @@ export default function PtmCriteriaPage() {
   const [uploading, setUploading] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Initialize defaults and load classes from teacher profile
+  // PTM Scheduling states
+  const [scheduledPtmDate, setScheduledPtmDate] = useState<string | null>(null);
+  const [tempPtmDate, setTempPtmDate] = useState<string>("");
+  const [scheduleSaving, setScheduleSaving] = useState<boolean>(false);
+
+  // Get today's local date in YYYY-MM-DD
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+
+  // Determine if PTM edit access is open
+  const isPtmOpen = isAdmin || (scheduledPtmDate !== null && todayStr === scheduledPtmDate);
+
+  // Initialize defaults and load classes
   useEffect(() => {
     const curDate = new Date();
     const curMonthIndex = curDate.getMonth();
@@ -90,7 +111,27 @@ export default function PtmCriteriaPage() {
         setError("Failed to load assigned classes.");
         setClassesLoading(false);
       });
-  }, []);
+  }, [session]);
+
+  // Fetch PTM scheduled date when filters change
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      if (!selectedMonth || !selectedYear) return;
+      try {
+        const res = await getPtmSchedule(selectedMonth, selectedYear);
+        if (res.success && res.ptmDate) {
+          setScheduledPtmDate(res.ptmDate);
+          setTempPtmDate(res.ptmDate);
+        } else {
+          setScheduledPtmDate(null);
+          setTempPtmDate("");
+        }
+      } catch (e) {
+        console.error("Failed to load PTM schedule:", e);
+      }
+    };
+    fetchSchedule();
+  }, [selectedMonth, selectedYear]);
 
   // Fetch students when filters change
   const fetchStudents = async () => {
@@ -121,7 +162,8 @@ export default function PtmCriteriaPage() {
 
   // Find active student data
   const activeStudent = students.find(s => s.admissionId === selectedStudentId) || null;
-  const isLocked = activeStudent?.ptm?.locked || false;
+  const isSpecificRecordLocked = activeStudent?.ptm?.locked || false;
+  const isLocked = isSpecificRecordLocked || !isPtmOpen;
 
   // Initialize form state when selected student changes
   useEffect(() => {
@@ -141,6 +183,27 @@ export default function PtmCriteriaPage() {
       setGuardianRelation("");
     }
   }, [selectedStudentId, students]);
+
+  // Handle PTM Date Scheduling by Admin
+  const handleSaveSchedule = async () => {
+    if (!tempPtmDate) return;
+    setScheduleSaving(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await savePtmSchedule(selectedMonth, selectedYear, tempPtmDate);
+      if (res.success) {
+        setScheduledPtmDate(tempPtmDate);
+        setSuccessMsg(`PTM Date successfully scheduled for ${selectedMonth} ${selectedYear}: ${tempPtmDate}`);
+      } else {
+        setError(res.error || "Failed to save schedule.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to save schedule.");
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
 
   // Validate form entries before saving/calculating
   const validateForm = () => {
@@ -174,7 +237,7 @@ export default function PtmCriteriaPage() {
     const confirm1 = confirm(`Are you sure you want to submit and lock PTM attendance for ${activeStudent.studentName} for ${selectedMonth}?`);
     if (!confirm1) return;
 
-    const confirm2 = confirm(`Confirm Lock?\n\nOnce locked, you will NOT be able to modify these details. Only Admin/Office users will be able to update them.`);
+    const confirm2 = confirm(`Confirm Lock?\n\nOnce locked, teachers will NOT be able to modify these details. Only Admin/Office users will be able to update them.`);
     if (!confirm2) return;
 
     setIsSubmitting(true);
@@ -310,8 +373,8 @@ export default function PtmCriteriaPage() {
         <div className="bg-red-50 text-red-500 rounded-full p-4 w-16 h-16 flex items-center justify-center mx-auto mb-6">
           <AlertCircle size={32} />
         </div>
-        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight font-outfit">No Assigned Classes Found</h2>
-        <p className="text-slate-400 text-sm mt-3">You do not have any assigned classes linked to your teacher profile. Please contact the administration to register your class assignments.</p>
+        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight font-outfit">No Classes Available</h2>
+        <p className="text-slate-400 text-sm mt-3">No classes were loaded. Please check your admin configuration or teacher profile class assignments.</p>
       </div>
     );
   }
@@ -338,8 +401,48 @@ export default function PtmCriteriaPage() {
               Manage parent-teacher meeting status and upload verification images.
             </p>
           </div>
+
+          {/* Scheduled Date Display Badge */}
+          <div className="bg-white/10 border border-white/10 p-4 rounded-2xl flex items-center gap-3">
+            <Calendar className="text-blue-400" size={20} />
+            <div>
+              <p className="text-[9px] uppercase tracking-wider text-slate-400 font-black">PTM Scheduled Date</p>
+              <p className="text-xs font-black text-white mt-0.5">
+                {scheduledPtmDate ? new Date(scheduledPtmDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "Not Scheduled"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Admin Scheduler Card */}
+      {isAdmin && (
+        <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-5 md:p-6 shadow-sm space-y-4 animate-in fade-in-50">
+          <div className="flex items-center gap-3">
+            <Calendar className="text-slate-700" size={18} />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 font-outfit">Admin Panel: Schedule PTM Date</h2>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Choose Date</label>
+              <input
+                type="date"
+                value={tempPtmDate}
+                onChange={(e) => setTempPtmDate(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveSchedule}
+              disabled={scheduleSaving || !tempPtmDate}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+            >
+              {scheduleSaving ? <Loader2 className="animate-spin w-4 h-4" /> : "Save Schedule Date"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Selectors and Filters */}
       <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -447,13 +550,21 @@ export default function PtmCriteriaPage() {
       {activeStudent ? (
         <div className="max-w-2xl mx-auto bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 animate-in slide-in-from-bottom-6 duration-300">
           
-          {/* Lock State Warning Banner */}
-          {isLocked && (
+          {/* Lock State Warning Banners */}
+          {isSpecificRecordLocked ? (
             <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-xs font-black font-outfit shadow-sm">
               <Lock className="shrink-0 text-amber-600" size={18} />
               This record is submitted & locked. Only Admin/Office users can modify it.
             </div>
-          )}
+          ) : !isPtmOpen ? (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-xs font-black font-outfit shadow-sm">
+              <Lock className="shrink-0 text-amber-600" size={18} />
+              {scheduledPtmDate 
+                ? `PTM Attendance UI is closed. It is only open on the scheduled date: ${new Date(scheduledPtmDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}. (Today is ${new Date(todayStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}).` 
+                : `PTM Attendance UI is closed. No PTM date has been scheduled yet for ${selectedMonth} ${selectedYear}.`
+              }
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
@@ -624,6 +735,7 @@ export default function PtmCriteriaPage() {
             )}
           </div>
 
+          {/* Calculation Status Box */}
           {activeStudent.record && (
             <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
               <div>
