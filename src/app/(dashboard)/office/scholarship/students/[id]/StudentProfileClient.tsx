@@ -8,6 +8,7 @@ import { ArrowLeft, CheckCircle2, XCircle, Upload, Trash2, Image as ImageIcon, E
 import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
 import { ensureCompressed } from "@/lib/compression";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface CategoryState {
   rating: number;
@@ -16,6 +17,7 @@ interface CategoryState {
 
 export default function StudentProfileClient({ id, student }: { id: string, student: any }) {
   const { data: session } = useSession();
+  const router = useRouter();
   const isTeacher = session?.user?.role === "TEACHER";
   const [selectedMonth, setSelectedMonth] = useState("");
   const [year, setYear] = useState("2026");
@@ -336,9 +338,19 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/office/scholarship/students" className="p-2 border rounded-full hover:bg-slate-50">
+          <button 
+            type="button"
+            onClick={() => {
+              if (selectedMonth) {
+                setSelectedMonth("");
+              } else {
+                router.back();
+              }
+            }}
+            className="p-2 border rounded-full hover:bg-slate-50 transition-colors"
+          >
             <ArrowLeft className="h-4 w-4 text-slate-600" />
-          </Link>
+          </button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{student?.studentName || "Student Details"}</h1>
             <p className="text-slate-500 text-sm">Scholar #: {student?.scholarNumber || "N/A"} | Admission #: {student?.admissionNumber || "N/A"}</p>
@@ -552,41 +564,34 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                     )}
                   >
                     <div className="grid grid-cols-2 gap-4 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      {isTeacher || !isHwEditing ? (
-                        <>
-                          <div className="text-center">
-                            <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
-                            <p className="text-lg font-black text-slate-700">{calcHomeworkGiven}</p>
-                            <input type="hidden" {...register("homework.totalGiven")} value={calcHomeworkGiven} />
-                          </div>
-                          <div className="text-center border-l border-slate-200">
-                            <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
-                            <p className="text-lg font-black text-emerald-600">{calcHomeworkDone}</p>
-                            <input type="hidden" {...register("homework.totalDone")} value={calcHomeworkDone} />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-center">
-                            <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
-                            <input 
-                              type="number" 
-                              min="0"
-                              {...register("homework.totalGiven", { valueAsNumber: true })} 
-                              className="w-full text-center bg-transparent font-black text-lg text-slate-700 outline-none border-b border-slate-300 focus:border-blue-500 mt-1" 
-                            />
-                          </div>
-                          <div className="text-center border-l border-slate-200 pl-4">
-                            <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
-                            <input 
-                              type="number" 
-                              min="0"
-                              {...register("homework.totalDone", { valueAsNumber: true })} 
-                              className="w-full text-center bg-transparent font-black text-lg text-emerald-600 outline-none border-b border-slate-300 focus:border-emerald-500 mt-1" 
-                            />
-                          </div>
-                        </>
-                      )}
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase font-black text-slate-400">Given</p>
+                        <input 
+                          type="number" 
+                          min="0"
+                          readOnly={isTeacher || !isHwEditing}
+                          {...register("homework.totalGiven", { valueAsNumber: true })} 
+                          className={`w-full text-center bg-transparent font-black text-lg outline-none mt-1 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                            (isTeacher || !isHwEditing) 
+                              ? "border-none cursor-default text-slate-700 select-none" 
+                              : "border-b border-slate-300 focus:border-blue-500"
+                          }`} 
+                        />
+                      </div>
+                      <div className="text-center border-l border-slate-200 pl-4">
+                        <p className="text-[10px] uppercase font-black text-slate-400">Done</p>
+                        <input 
+                          type="number" 
+                          min="0"
+                          readOnly={isTeacher || !isHwEditing}
+                          {...register("homework.totalDone", { valueAsNumber: true })} 
+                          className={`w-full text-center bg-transparent font-black text-lg outline-none mt-1 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                            (isTeacher || !isHwEditing) 
+                              ? "border-none cursor-default text-emerald-600 select-none" 
+                              : "border-b border-slate-300 focus:border-emerald-500"
+                          }`} 
+                        />
+                      </div>
                     </div>
                   </KpiCard>
 

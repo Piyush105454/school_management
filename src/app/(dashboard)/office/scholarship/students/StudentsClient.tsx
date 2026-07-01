@@ -4,15 +4,32 @@ import { useState, useEffect } from "react";
 import { getStudentsByClass, getStudentCountsByClass } from "@/features/scholarship/actions/studentActions";
 import Link from "next/link";
 import { useInstitute } from "@/providers/InstituteProvider";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export default function StudentsClient({ classesList }: { classesList: string[] }) {
   const { selectedInstitute } = useInstitute();
-  const [selectedClass, setSelectedClass] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const classParam = searchParams.get("class") || "";
+
+  const [selectedClass, setSelectedClass] = useState(classParam);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [classCounts, setClassCounts] = useState<{ appliedClass: string; studentCount: number | "Loading..." }[]>(
     classesList.map(c => ({ appliedClass: c, studentCount: "Loading..." }))
   );
+
+  useEffect(() => {
+    setSelectedClass(classParam);
+  }, [classParam]);
+
+  const handleSelectClass = (className: string) => {
+    if (className) {
+      router.push(`/office/scholarship/students?class=${encodeURIComponent(className)}`);
+    } else {
+      router.push(`/office/scholarship/students`);
+    }
+  };
 
   useEffect(() => {
     loadClassCounts();
@@ -52,7 +69,7 @@ export default function StudentsClient({ classesList }: { classesList: string[] 
         </div>
         {selectedClass && (
           <button 
-            onClick={() => setSelectedClass("")}
+            onClick={() => handleSelectClass("")}
             className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2"
           >
             ← Back to Classes
@@ -84,7 +101,7 @@ export default function StudentsClient({ classesList }: { classesList: string[] 
                   </td>
                   <td className="px-6 py-4">
                     <button 
-                      onClick={() => setSelectedClass(count.appliedClass)}
+                      onClick={() => handleSelectClass(count.appliedClass)}
                       className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700"
                     >
                       View Students
