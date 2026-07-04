@@ -3,8 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 export default withAuth(
   function proxy(req: NextRequest & { nextauth: any }) {
-    const token = req.nextauth.token;
+    const host = req.headers.get("host") || "";
+    const isVercel = host.includes("vercel.app") || host.includes("school-management-six-iota");
     const pathname = req.nextUrl.pathname;
+
+    // 1. If on Vercel, force redirect to /moved-notice page (except for static/api/moved-notice requests)
+    if (isVercel) {
+      if (pathname === "/moved-notice") {
+        return NextResponse.next();
+      }
+      return NextResponse.redirect(new URL("/moved-notice", req.url));
+    }
+
+    // 2. If on production/localhost, don't allow accessing the moved notice page directly (redirect to home)
+    if (pathname === "/moved-notice") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
+    const token = req.nextauth.token;
 
     // If no token, let next-auth handle it
     if (!token) {
@@ -65,7 +81,15 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Bypass next-auth authorization check on Vercel or for the moved notice page
+        const host = req.headers.get("host") || "";
+        const isVercel = host.includes("vercel.app") || host.includes("school-management-six-iota");
+        if (isVercel || req.nextUrl.pathname === "/moved-notice") {
+          return true;
+        }
+        return !!token;
+      },
     },
     pages: {
       signIn: "/",
@@ -75,9 +99,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/office/:path*",
-    "/student/:path*",
-    "/teacher/:path*",
-    "/dashboard/:path*",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
