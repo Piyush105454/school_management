@@ -345,11 +345,17 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
       const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
-      const principal = allTeachers.find(t =>
+      const defaultPrincipal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === p.class?.institute
       );
-      return { ...p, specialistProfile: specialist || null, principalProfile: principal || null };
+      const isReviewerIdPrincipal = p.reviewerProfile?.assignedRole === 'PRINCIPAL';
+      return { 
+        ...p, 
+        reviewerProfile: isReviewerIdPrincipal ? null : p.reviewerProfile,
+        specialistProfile: specialist || null, 
+        principalProfile: isReviewerIdPrincipal ? p.reviewerProfile : (defaultPrincipal || null) 
+      };
     });
 
     if (isTeacher) {
@@ -388,8 +394,7 @@ export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'R
     await db.update(lessonPlans)
       .set({
         status,
-        ...(isPrincipal ? { principalRemark: remark } : { reviewerRemark: remark }),
-        reviewerId,
+        ...(isPrincipal ? { principalRemark: remark } : { reviewerRemark: remark, reviewerId }),
         updatedAt: new Date()
       })
       .where(eq(lessonPlans.id, id));
@@ -488,14 +493,25 @@ export async function getLessonPlanByDateAndSubject(
       }
 
       const allTeachers = await db.query.teachers.findMany();
-      const specialist = existing.subject?.reviewerId1 || existing.subject?.reviewerId2
-        ? allTeachers.find(t => t.id === existing.subject?.reviewerId1 || t.id === existing.subject?.reviewerId2)
+      const specialist = existing.subject?.reviewerId1
+        ? allTeachers.find(t => t.id === existing.subject?.reviewerId1)
+        : existing.subject?.reviewerId2
+        ? allTeachers.find(t => t.id === existing.subject?.reviewerId2)
         : null;
-      const principal = allTeachers.find(t =>
+      const defaultPrincipal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === existing.class?.institute
       );
-      return { success: true, data: { ...existing, specialistProfile: specialist || null, principalProfile: principal || null } };
+      const isReviewerIdPrincipal = existing.reviewerProfile?.assignedRole === 'PRINCIPAL';
+      return { 
+        success: true, 
+        data: { 
+          ...existing, 
+          reviewerProfile: isReviewerIdPrincipal ? null : existing.reviewerProfile,
+          specialistProfile: specialist || null, 
+          principalProfile: isReviewerIdPrincipal ? existing.reviewerProfile : (defaultPrincipal || null)
+        } 
+      };
     }
     return { success: false };
   } catch (error: any) {
@@ -547,14 +563,25 @@ export async function getLessonPlanById(id: string) {
       }
 
       const allTeachers = await db.query.teachers.findMany();
-      const specialist = existing.subject?.reviewerId1 || existing.subject?.reviewerId2
-        ? allTeachers.find(t => t.id === existing.subject?.reviewerId1 || t.id === existing.subject?.reviewerId2)
+      const specialist = existing.subject?.reviewerId1
+        ? allTeachers.find(t => t.id === existing.subject?.reviewerId1)
+        : existing.subject?.reviewerId2
+        ? allTeachers.find(t => t.id === existing.subject?.reviewerId2)
         : null;
-      const principal = allTeachers.find(t =>
+      const defaultPrincipal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === existing.class?.institute
       );
-      return { success: true, data: { ...existing, specialistProfile: specialist || null, principalProfile: principal || null } };
+      const isReviewerIdPrincipal = existing.reviewerProfile?.assignedRole === 'PRINCIPAL';
+      return { 
+        success: true, 
+        data: { 
+          ...existing, 
+          reviewerProfile: isReviewerIdPrincipal ? null : existing.reviewerProfile,
+          specialistProfile: specialist || null, 
+          principalProfile: isReviewerIdPrincipal ? existing.reviewerProfile : (defaultPrincipal || null)
+        } 
+      };
     }
     return { success: false };
   } catch (error: any) {
@@ -600,11 +627,17 @@ export async function getMyLessonPlans(teacherId: string) {
     const allTeachers = await db.query.teachers.findMany();
     const plansWithProfiles = plans.map(p => {
       const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
-      const principal = allTeachers.find(t =>
+      const defaultPrincipal = allTeachers.find(t =>
         t.assignedRole === 'PRINCIPAL' &&
         t.institute === p.class?.institute
       );
-      return { ...p, specialistProfile: specialist || null, principalProfile: principal || null };
+      const isReviewerIdPrincipal = p.reviewerProfile?.assignedRole === 'PRINCIPAL';
+      return { 
+        ...p, 
+        reviewerProfile: isReviewerIdPrincipal ? null : p.reviewerProfile,
+        specialistProfile: specialist || null, 
+        principalProfile: isReviewerIdPrincipal ? p.reviewerProfile : (defaultPrincipal || null) 
+      };
     });
 
     return { success: true, data: plansWithProfiles };

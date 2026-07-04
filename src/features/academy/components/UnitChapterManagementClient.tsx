@@ -220,21 +220,6 @@ export default function UnitChapterManagementClient({
                           onClick: () => setEditingChapter({ chapter: chapter, pdfUrl: chapterPdf?.fileUrl || "" })
                         },
                         {
-                          label: "Add Lesson Plan",
-                          icon: <PenTool className="h-4 w-4" />,
-                          onClick: () => {
-                            const params = new URLSearchParams({
-                              class: className,
-                              subject: subjectName,
-                              chapterId: chapter.id.toString(),
-                              unitChapter: chapter.name,
-                              pages: chapter.pageStart && chapter.pageEnd ? `${chapter.pageStart}-${chapter.pageEnd}` : "",
-                              ...(institute ? { institute } : {})
-                            });
-                            router.push(`/office/academy-management/lesson-plan?${params.toString()}`);
-                          }
-                        },
-                        {
                           label: "Add Homework",
                           icon: <ClipboardList className="h-4 w-4" />,
                           onClick: () => {

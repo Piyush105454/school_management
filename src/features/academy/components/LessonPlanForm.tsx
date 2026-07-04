@@ -231,7 +231,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
   });
 
   const isEditable = formData.status === "DRAFT" || formData.status === "REJECTED";
-  const isStep3Editable = formData.status === "APPROVED";
+  const isStep3Editable = formData.status === "APPROVED" || formData.status === "REVIEWED";
 
   const isEditableRef = React.useRef(isEditable);
   const formDataRef = React.useRef(formData);
@@ -2659,11 +2659,11 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Observations & Feedback</p>
                     {(formData.status === 'APPROVED' || formData.status === 'REJECTED') && formData.reviewerName ? (
                       <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">
-                        Validated By: {formData.reviewerName}
+                        Approved By: {formData.reviewerName}
                       </p>
                     ) : (formData.status === 'SUBMITTED' || formData.status === 'DRAFT') ? (
                       <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">
-                        To be validated by: {formData.specialistName ? `${formData.specialistName} & Principal` : "Principal"}
+                        To be approved by: {formData.specialistName ? `${formData.specialistName} & Principal` : "Principal"}
                       </p>
                     ) : null}
                   </div>
@@ -2787,21 +2787,25 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   <div className="space-y-1 text-center">
                     <div className="mb-2 h-8 flex flex-col justify-end items-center">
                       <p className="text-xs font-black text-slate-800">
-                        {formData.status === "REVIEWED" || formData.status === "APPROVED" || formData.status === "COMPLETED" ? (formData.specialistName || "Reviewer") : ""}
+                        {formData.status === "REVIEWED" || formData.status === "APPROVED" || formData.status === "COMPLETED" 
+                          ? (formData.reviewerName && formData.reviewerName !== formData.principalName 
+                              ? formData.reviewerName 
+                              : formData.specialistName || "Reviewer") 
+                          : ""}
                       </p>
                       {(formData.status === "REVIEWED" || formData.status === "APPROVED" || formData.status === "COMPLETED") && (
                         <p className="text-[9px] font-bold text-blue-500">
-                          Validated
+                          Reviewed
                         </p>
                       )}
                     </div>
                     <div className="w-48 border-b border-black mx-auto"></div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer Signoff</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer</p>
                   </div>
                   <div className="space-y-1 text-right">
                     <div className="mb-2 h-8 flex flex-col justify-end items-end">
                       <p className="text-xs font-black text-slate-800">
-                        {formData.status === "APPROVED" || formData.status === "COMPLETED" ? (formData.principalName || formData.reviewerName || "Principal") : ""}
+                        {formData.status === "APPROVED" || formData.status === "COMPLETED" ? (formData.principalName || "Principal") : ""}
                       </p>
                       {(formData.status === "APPROVED" || formData.status === "COMPLETED") && (
                         <p className="text-[9px] font-bold text-emerald-500">
@@ -2833,14 +2837,14 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
       {/* 3. SIMPLIFIED FOOTER */}
       <div className="border border-slate-300 bg-white p-8">
         <div className="flex items-center justify-end gap-3">
-          {isEditable && (
+          {(isEditable || (activeStep === 3 && formData.status === "REVIEWED")) && (
             <button
               onClick={() => handleSave(false)}
               disabled={isSaving}
               className="px-6 py-3 border border-slate-200 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
             >
               {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-              Save Draft
+              {formData.status === "REVIEWED" ? "Save Observations" : "Save Draft"}
             </button>
           )}
           

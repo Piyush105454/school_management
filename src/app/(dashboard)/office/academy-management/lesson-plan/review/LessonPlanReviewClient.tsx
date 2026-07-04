@@ -1260,23 +1260,27 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       <div className="space-y-1 text-center">
                         <div className="mb-2 h-8 flex flex-col justify-end items-center">
                            <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" ? (selectedPlan.specialistProfile?.name || "Reviewer") : ""}
+                              {selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED" 
+                                ? (selectedPlan.reviewerProfile?.name && selectedPlan.reviewerProfile?.name !== selectedPlan.principalProfile?.name
+                                    ? selectedPlan.reviewerProfile.name
+                                    : selectedPlan.specialistProfile?.name || "Reviewer") 
+                                : ""}
                            </p>
-                           {selectedPlan.status === "REVIEWED" && (
+                           {(selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED") && (
                               <p className="text-[9px] font-bold text-blue-500">
-                                Validated
+                                Reviewed
                               </p>
                            )}
                         </div>
                         <div className="w-48 border-b border-black mx-auto"></div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer Signoff</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer</p>
                       </div>
                       <div className="space-y-1 text-right">
                         <div className="mb-2 h-8 flex flex-col justify-end items-end">
                            <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.status === "APPROVED" ? ((selectedPlan as any).principalProfile?.name || selectedPlan.reviewerProfile?.name || selectedPlan.reviewerUser?.email?.split('@')[0] || "Principal") : ""}
+                              {selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED" ? ((selectedPlan as any).principalProfile?.name || "Principal") : ""}
                            </p>
-                           {selectedPlan.status === "APPROVED" && (
+                           {(selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED") && (
                               <p className="text-[9px] font-bold text-emerald-500">
                                 Approved
                               </p>
