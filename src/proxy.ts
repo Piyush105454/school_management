@@ -1,25 +1,10 @@
 import { withAuth } from "next-auth/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
-export default withAuth(
+// 1. Define Next-Auth middleware for protected routes
+const authMiddleware = withAuth(
   function proxy(req: NextRequest & { nextauth: any }) {
-    const host = req.headers.get("host") || "";
-    const isVercel = host.includes("vercel.app") || host.includes("school-management-six-iota");
     const pathname = req.nextUrl.pathname;
-
-    // 1. If on Vercel, force redirect to /moved-notice page (except for static/api/moved-notice requests)
-    if (isVercel) {
-      if (pathname === "/moved-notice") {
-        return NextResponse.next();
-      }
-      return NextResponse.redirect(new URL("/moved-notice", req.url));
-    }
-
-    // 2. If on production/localhost, don't allow accessing the moved notice page directly (redirect to home)
-    if (pathname === "/moved-notice") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-
     const token = req.nextauth.token;
 
     // If no token, let next-auth handle it
@@ -81,15 +66,7 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
-        // Bypass next-auth authorization check on Vercel or for the moved notice page
-        const host = req.headers.get("host") || "";
-        const isVercel = host.includes("vercel.app") || host.includes("school-management-six-iota");
-        if (isVercel || req.nextUrl.pathname === "/moved-notice") {
-          return true;
-        }
-        return !!token;
-      },
+      authorized: ({ token }) => !!token,
     },
     pages: {
       signIn: "/",
@@ -97,15 +74,52 @@ export default withAuth(
   }
 );
 
+// 2. Export standard middleware entry point
+export default async function middleware(req: NextRequest, event: any) {
+  const host = req.headers.get("host") || "";
+  const isVercel = host.includes("vercel.app") || host.includes("school-management-six-iota");
+  const pathname = req.nextUrl.pathname;
+
+  // Static files, API routes, and assets should always pass through
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/static") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  // A. Vercel restriction check: redirect all requests (except /moved-notice) to /moved-notice
+  if (isVercel) {
+    if (pathname === "/moved-notice") {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/moved-notice", req.url));
+  }
+
+  // B. Production/localhost check: prevent accessing /moved-notice
+  if (pathname === "/moved-notice") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // C. Run authorization guards for protected application paths
+  const isProtectedPath = 
+    pathname.startsWith("/office") ||
+    pathname.startsWith("/student") ||
+    pathname.startsWith("/teacher") ||
+    pathname.startsWith("/dashboard") ||
+    pathname === "/face-scanner";
+
+  if (isProtectedPath) {
+    return (authMiddleware as any)(req, event);
+  }
+
+  return NextResponse.next();
+}
+
 export const config = {
   matcher: [
-    "/",
-    "/login",
-    "/moved-notice",
-    "/face-scanner/:path*",
-    "/office/:path*",
-    "/student/:path*",
-    "/teacher/:path*",
-    "/dashboard/:path*",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
