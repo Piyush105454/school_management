@@ -99,6 +99,13 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/",
+    "/login",
+    "/moved-notice",
+    "/face-scanner/:path*",
+    "/office/:path*",
+    "/student/:path*",
+    "/teacher/:path*",
+    "/dashboard/:path*",
   ],
 };
