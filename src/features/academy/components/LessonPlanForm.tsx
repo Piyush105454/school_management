@@ -2020,7 +2020,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                 <div className="grid grid-cols-12 border-b border-slate-300">
                   <div className="col-span-2 p-4 flex items-center justify-center font-black text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30 row-span-2 min-h-[120px]">Opening time (5 min)</div>
                   <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300 border-b">2 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b font-medium text-[11px] text-slate-600">Lead students to perform an energizer/fun activity</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b font-medium text-xs text-slate-700">Lead students to perform an energizer/fun activity</div>
                   <div className="col-span-6 p-4 border-b">
                     <textarea 
                       name="openingTimeEnergizer" 
@@ -2028,7 +2028,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Describe the activity..." 
                       readOnly={!isEditable}
                     />
@@ -2037,7 +2037,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   <div className="contents">
                     <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300">3 min</div>
                     <div className="col-span-3 p-4 flex flex-col justify-center border-r border-slate-300">
-                      <p className="font-bold text-[11px] text-slate-600 mb-2">Roadmap of the day & Learning Indicators</p>
+                      <p className="font-bold text-xs text-slate-700 mb-2">Roadmap of the day & Learning Indicators</p>
                     </div>
                     <div className="col-span-6 p-4 grid grid-cols-2 gap-4">
                       <textarea 
@@ -2070,7 +2070,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   
                   {/* Row 1 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Lesson Intro & Objective</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700">Lesson Intro & Objective</div>
                   <div className="col-span-6 p-3 border-b border-slate-200">
                     <textarea 
                       name="lessonIntroObjective" 
@@ -2078,7 +2078,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
                       readOnly={!isEditable}
                     />
@@ -2086,7 +2086,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
 
                   {/* Row 2 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">8 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight">New topic Introduction & Explanation</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700 leading-tight">New topic Introduction & Explanation</div>
                   <div className="col-span-6 p-3 border-b border-slate-200 flex flex-col gap-2">
                     <div className="relative w-full" data-field="newTopicIntro">
                       <ReactQuill
@@ -2117,7 +2117,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
 
                   {/* Row 3 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">5 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Knowledge Building / Discussion</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700">Knowledge Building / Discussion</div>
                   <div className="col-span-6 p-3 border-b border-slate-200">
                     <textarea 
                       name="knowledgeBuilding" 
@@ -2133,7 +2133,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
 
                   {/* Row 4 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">15 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600">Lesson Activity & Outcome Feedback</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-xs text-slate-700">Lesson Activity & Outcome Feedback</div>
                   <div className="col-span-6 grid grid-rows-2 divide-y divide-slate-200 p-3">
                     <div className="pb-2">
                       <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Activity:</span>
@@ -2170,7 +2170,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   
                   {/* Row 1 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Closure, Reward & Recognition</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700">Closure, Reward & Recognition</div>
                   <div className="col-span-6 p-3 border-b border-slate-200">
                     <textarea 
                       name="closure" 
@@ -2178,7 +2178,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
                       readOnly={!isEditable}
                     />
@@ -2186,12 +2186,12 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
 
                   {/* Row 2 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Homework for the day</div>
-                  <div className="col-span-6 p-3 border-b border-slate-200 font-bold text-slate-400 italic text-[10px] flex items-center">Synced from Step 1 Homework Space</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700">Homework for the day</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200 font-bold text-slate-400 text-xs flex items-center">Synced from Step 1 Homework Space</div>
 
                   {/* Row 3 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">Submission of Previous day work check</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-xs text-slate-700 leading-tight">Submission of Previous day work check</div>
                   <div className="col-span-6 p-3">
                     <textarea 
                       name="prevDayCheck" 
@@ -2199,7 +2199,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="..." 
                       readOnly={!isEditable}
                     />
@@ -2476,7 +2476,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   
                   {/* Row 1 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 minutes</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight">Lead the students to perform an energizer/fun activity</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700 leading-tight">Lead the students to perform an energizer/fun activity</div>
                   <div className="col-span-6 p-4 border-b border-slate-200">
                     <textarea 
                       name="openingTimeEnergizer" 
@@ -2484,7 +2484,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Describe the activity..." 
                       readOnly={!isEditable}
                     />
@@ -2493,7 +2493,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   {/* Row 2 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">3 minutes</div>
                   <div className="col-span-3 p-4 flex flex-col justify-center border-r border-slate-300">
-                    <p className="font-bold text-[11px] text-slate-600">Roadmap of the day & Learning Indicators</p>
+                    <p className="font-bold text-xs text-slate-700">Roadmap of the day & Learning Indicators</p>
                   </div>
                   <div className="col-span-6 grid grid-cols-2 divide-x divide-slate-300">
                     <div className="p-3">
@@ -2533,8 +2533,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   </div>
                   
                   {/* Row 1 */}
-                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic">2 Minutes</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 Minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700 leading-tight">Chapter Summary And Quick Revision</div>
                   <div className="col-span-6 p-3 border-b border-slate-200">
                     <textarea 
                       name="chapterSummaryRevision" 
@@ -2549,8 +2549,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   </div>
 
                   {/* Row 2 */}
-                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic text-blue-600">25 Minutes</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-snug italic">Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students</div>
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">25 Minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700 leading-snug">Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students</div>
                   <div className="col-span-6 p-3 border-b border-slate-200">
                     <textarea 
                       name="chapterBasedQA" 
@@ -2565,8 +2565,8 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   </div>
 
                   {/* Row 3 */}
-                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">3 Minutes</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-xs text-slate-700 leading-tight">Inspection By Teacher</div>
                   <div className="col-span-6 p-3">
                     <textarea 
                       name="inspectionByTeacher" 
@@ -2591,7 +2591,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                   
                   {/* Row 1 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 Minute</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Lesson Closure with appreciation, Reward and recognition</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700 leading-tight">Lesson Closure with appreciation, Reward and recognition</div>
                   <div className="col-span-6 p-3 border-b border-slate-200">
                     <textarea 
                       name="closure" 
@@ -2599,7 +2599,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Appreciate students..." 
                       readOnly={!isEditable}
                     />
@@ -2607,15 +2607,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
 
                   {/* Row 2 */}
                   <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 Minute</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Homework for the day</div>
-                  <div className="col-span-6 p-3 border-b border-slate-200 font-bold text-slate-400 italic text-[10px] flex items-center">
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-xs text-slate-700 leading-tight">Homework for the day</div>
+                  <div className="col-span-6 p-3 border-b border-slate-200 font-bold text-slate-400 text-xs flex items-center">
                     <ClipboardList className="h-3 w-3 mr-2" />
                     Synced from Step 1 Homework Space
                   </div>
 
                   {/* Row 3 */}
-                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
-                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Submission of Previous day work check</div>
+                  <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 Minute</div>
+                  <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-xs text-slate-700 leading-tight">Submission of Previous day work check</div>
                   <div className="col-span-6 p-3">
                     <textarea 
                       name="prevDayCheck" 
@@ -2623,7 +2623,7 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
                       onChange={handleChange} 
                       ref={adjustHeight}
                       onInput={(e) => adjustHeight(e.currentTarget)}
-                      className={`w-full bg-transparent border-none outline-none font-bold text-sm resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
+                      className={`w-full bg-transparent border-none outline-none font-bold text-xs resize-none overflow-hidden ${!isEditable ? "text-slate-500 cursor-not-allowed" : ""}`} 
                       placeholder="Check student work..." 
                       readOnly={!isEditable}
                     />
