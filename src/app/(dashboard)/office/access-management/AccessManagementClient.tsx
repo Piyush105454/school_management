@@ -231,9 +231,25 @@ export default function AccessManagementClient() {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
+
+  // Close the custom student dropdown if user clicks outside of it
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".custom-multiselect-container")) {
+        setIsStudentDropdownOpen(false);
+      }
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, []);
+
   // Load classes or direct user list on active role change
   useEffect(() => {
     setSelectedUserId("");
+    setSelectedClassId(""); // Reset class selection when role changes
     setUsersList([]);
     setPermissions({ sections: {}, items: {} });
     setFeedback(null);
@@ -265,7 +281,21 @@ export default function AccessManagementClient() {
 
   // Load students on class change
   useEffect(() => {
-    if (activeRole === "STUDENT_PARENT" && selectedClassId) {
+    if (activeRole === "STUDENT_PARENT") {
+      if (selectedClassId === "ALL") {
+        setSelectedUserId("ALL_STUDENTS");
+        setUsersList([]);
+        setPermissions({ sections: {}, items: {} });
+        return;
+      }
+      
+      if (!selectedClassId) {
+        setSelectedUserId("");
+        setUsersList([]);
+        setPermissions({ sections: {}, items: {} });
+        return;
+      }
+
       setIsLoading(true);
       setSelectedUserId("");
       setUsersList([]);
@@ -288,7 +318,7 @@ export default function AccessManagementClient() {
     if (selectedUserId) {
       setIsLoading(true);
       setFeedback(null);
-      fetch(`/api/sidebar-permissions?userId=${selectedUserId}`)
+      fetch(`/api/sidebar-permissions?userId=${selectedUserId}`, { cache: "no-store" })
         .then((res) => res.json())
         .then((data) => {
           if (data.permissions) {
@@ -459,6 +489,7 @@ export default function AccessManagementClient() {
               className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-slate-400 transition-colors"
             >
               <option value="">-- Choose Class --</option>
+              <option value="ALL">-- All Classes --</option>
               {classesList.map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name}
@@ -470,35 +501,167 @@ export default function AccessManagementClient() {
  
         <div>
           <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
-            {activeRole === "STUDENT_PARENT" ? "Step 2B: Select Student" : "Step 2: Select Specific User"}
+            {activeRole === "STUDENT_PARENT" ? "Step 2B: Select Student(s)" : "Step 2: Select Specific User"}
           </label>
-          <select
-            value={selectedUserId}
-            disabled={activeRole === "STUDENT_PARENT" && !selectedClassId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-            className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-slate-400 transition-colors disabled:opacity-50"
-          >
-            <option value="">
-              {activeRole === "STUDENT_PARENT" && !selectedClassId
-                ? "-- Select Class First --"
-                : `-- Select ${
-                    activeRole === "TEACHER" 
-                      ? "Teacher" 
-                      : activeRole === "PRINCIPAL" 
-                      ? "Principal" 
-                      : activeRole === "OFFICE" 
-                      ? "Office Staff" 
-                      : activeRole === "ADMIN" 
-                      ? "Administrator" 
-                      : "Student"
-                  } --`}
-            </option>
-            {usersList.map((user, idx) => (
-              <option key={user.userId || idx} value={user.userId || ""}>
-                {user.name} {user.studentId ? `(${user.studentId})` : ""}
-              </option>
-            ))}
-          </select>
+          {activeRole === "STUDENT_PARENT" && selectedClassId && selectedClassId !== "ALL" ? (
+            <div className="relative custom-multiselect-container">
+              <div 
+                onClick={() => setIsStudentDropdownOpen(!isStudentDropdownOpen)}
+                className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-slate-400 transition-colors cursor-pointer flex justify-between items-center min-h-[42px]"
+              >
+                <div className="flex flex-wrap gap-1 items-center max-w-[90%]">
+                  {selectedUserId ? (
+                    selectedUserId === `ALL_CLASS_${selectedClassId}` ? (
+                      <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px] font-extrabold">
+                        -- All Students in this Class --
+                      </span>
+                    ) : (
+                      selectedUserId.split(",").map(uid => {
+                        const user = usersList.find(u => u.userId === uid);
+                        return (
+                          <span key={uid} className="bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex items-center gap-1">
+                            {user ? user.name : uid}
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const newIds = selectedUserId.split(",").filter(id => id !== uid);
+                                setSelectedUserId(newIds.join(","));
+                              }}
+                              className="hover:text-blue-800 font-bold ml-0.5 cursor-pointer text-[12px]"
+                            >
+                              &times;
+                            </span>
+                          </span>
+                        );
+                      })
+                    )
+                  ) : (
+                    <span className="text-slate-400 font-medium">-- Select Student(s) --</span>
+                  )}
+                </div>
+                <span className="text-slate-400 text-[10px]">▼</span>
+              </div>
+
+              {isStudentDropdownOpen && (
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2 max-h-60 overflow-y-auto">
+                  <input 
+                    type="text"
+                    placeholder="Search student by name or ID..."
+                    value={studentSearchQuery}
+                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg outline-none focus:border-slate-400 font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  <div className="space-y-1">
+                    <div 
+                      onClick={() => {
+                        setSelectedUserId(`ALL_CLASS_${selectedClassId}`);
+                        setIsStudentDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-bold ${
+                        selectedUserId === `ALL_CLASS_${selectedClassId}` ? "text-blue-600 bg-blue-50/50" : "text-slate-700"
+                      }`}
+                    >
+                      <input 
+                        type="checkbox"
+                        checked={selectedUserId === `ALL_CLASS_${selectedClassId}`}
+                        readOnly
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>-- All Students in this Class --</span>
+                    </div>
+
+                    {usersList
+                      .filter(user => {
+                        const query = studentSearchQuery.toLowerCase();
+                        return (
+                          (user.name || "").toLowerCase().includes(query) ||
+                          (user.studentId || "").toLowerCase().includes(query)
+                        );
+                      })
+                      .map((user, idx) => {
+                        const isSelected = selectedUserId.split(",").includes(user.userId);
+                        return (
+                          <div 
+                            key={user.userId || idx}
+                            onClick={() => {
+                              let currentIds = selectedUserId.startsWith("ALL_CLASS_") || selectedUserId === "ALL_STUDENTS"
+                                ? []
+                                : selectedUserId ? selectedUserId.split(",") : [];
+
+                              if (currentIds.includes(user.userId)) {
+                                currentIds = currentIds.filter(id => id !== user.userId);
+                              } else {
+                                currentIds.push(user.userId);
+                              }
+                              setSelectedUserId(currentIds.join(","));
+                            }}
+                            className={`flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-semibold ${
+                              isSelected ? "text-blue-600 bg-blue-50/50 font-bold" : "text-slate-700"
+                            }`}
+                          >
+                            <input 
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>{user.name} {user.studentId ? `(${user.studentId})` : ""}</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <select
+              value={selectedUserId}
+              disabled={activeRole === "STUDENT_PARENT" && !selectedClassId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="w-full text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 outline-none focus:border-slate-400 transition-colors disabled:opacity-50"
+            >
+              {activeRole === "STUDENT_PARENT" && selectedClassId === "ALL" ? (
+                <option value="ALL_STUDENTS">-- All Students in All Classes --</option>
+              ) : (
+                <>
+                  <option value="">
+                    {activeRole === "STUDENT_PARENT" && !selectedClassId
+                      ? "-- Select Class First --"
+                      : `-- Select ${
+                          activeRole === "TEACHER" 
+                            ? "Teacher" 
+                            : activeRole === "PRINCIPAL" 
+                            ? "Principal" 
+                            : activeRole === "OFFICE" 
+                            ? "Office Staff" 
+                            : activeRole === "ADMIN" 
+                            ? "Administrator" 
+                            : "Student"
+                        } --`}
+                  </option>
+                  {activeRole === "TEACHER" && (
+                    <option value="ALL_TEACHERS">-- All Teachers --</option>
+                  )}
+                  {activeRole === "PRINCIPAL" && (
+                    <option value="ALL_PRINCIPALS">-- All Principals --</option>
+                  )}
+                  {activeRole === "OFFICE" && (
+                    <option value="ALL_OFFICE">-- All Office Staff --</option>
+                  )}
+                  {activeRole === "ADMIN" && (
+                    <option value="ALL_ADMINS">-- All Administrators --</option>
+                  )}
+                  {usersList.map((user, idx) => (
+                    <option key={user.userId || idx} value={user.userId || ""}>
+                      {user.name} {user.studentId ? `(${user.studentId})` : ""}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          )}
         </div>
       </div>
 

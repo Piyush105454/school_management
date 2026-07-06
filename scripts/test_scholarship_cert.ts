@@ -5,7 +5,7 @@ import * as path from "path";
 async function test() {
   const name = "Test Student Name";
   console.log(`Generating certificate for: ${name}`);
-  const pdfBytes = await generateScholarshipCertificate(name);
+  const pdfBytes = await generateScholarshipCertificate(name, 36000, "February", "2026");
   const outputPath = path.join(process.cwd(), "public", "test_scholarship_cert.pdf");
   
   if (!fs.existsSync(path.join(process.cwd(), "public"))) {

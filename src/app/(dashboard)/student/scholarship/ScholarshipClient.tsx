@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getStudentKpiData } from "@/features/scholarship/actions/kpiActions";
+import { getStudentKpiData, getStudentMonthlyOverview } from "@/features/scholarship/actions/kpiActions";
 import { X, FileText } from "lucide-react";
 
 export default function ScholarshipClient({ 
@@ -11,10 +11,28 @@ export default function ScholarshipClient({
   admissionId: string; 
   isScholarshipAwarded: boolean; 
 }) {
-  const [month, setMonth] = useState("April");
-  const [year, setYear] = useState("2026");
+  // Dynamically calculate the previous month and year for default selection
+  const getDefaultMonthAndYear = () => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    const months = [
+      "January", "February", "March", "April", "May", "June", 
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const prevYear = String(date.getFullYear());
+    const supportedYears = ["2025", "2026", "2027"];
+    return {
+      month: months[date.getMonth()],
+      year: supportedYears.includes(prevYear) ? prevYear : "2026"
+    };
+  };
+
+  const defaults = getDefaultMonthAndYear();
+  const [month, setMonth] = useState(defaults.month);
+  const [year, setYear] = useState(defaults.year);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [totalDue, setTotalDue] = useState<number>(0);
 
   useEffect(() => {
     loadData();
@@ -23,8 +41,29 @@ export default function ScholarshipClient({
   const loadData = async () => {
     setLoading(true);
     const res = await getStudentKpiData(admissionId, month, year);
+    let activeCriteria = null;
     if (res.success) {
       setData(res.data);
+      activeCriteria = res.data?.criteria;
+    }
+
+    // Load monthly overview to calculate overall total due for the year
+    const overviewRes = await getStudentMonthlyOverview(admissionId, year);
+    if (overviewRes.success && overviewRes.data) {
+      let sumDue = 0;
+      overviewRes.data.forEach((m: any) => {
+        if (m.record && m.record.status !== "PAID") {
+          const maxAttendance = activeCriteria?.attendanceAmount ?? 750;
+          const maxHomework = activeCriteria?.homeworkAmount ?? 750;
+          const maxGuardian = activeCriteria?.guardianAmount ?? 750;
+          const maxPtm = activeCriteria?.ptmAmount ?? 750;
+          const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
+          
+          const originalPending = maxTotal - (m.record.totalAmount ?? 0) + (m.record.adjustmentAmount ?? 0);
+          sumDue += Math.max(0, originalPending);
+        }
+      });
+      setTotalDue(sumDue);
     }
     setLoading(false);
   };
@@ -145,7 +184,7 @@ export default function ScholarshipClient({
             Your scholarship award is active. Download your official certificate to keep for your records.
           </p>
           <a 
-            href="/api/scholarship/certificate" 
+            href={`/api/scholarship/certificate?month=${month}&year=${year}`} 
             download 
             className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95 animate-in fade-in duration-300"
           >
@@ -249,6 +288,23 @@ export default function ScholarshipClient({
           No records found for {month} {year}.
         </div>
       )}
+
+      {/* Sleek Total Due Card representing sum of all outstanding months */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-lg flex items-center justify-between mt-6">
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Total Outstanding Due</h3>
+          <p className="text-[11px] text-slate-400 mt-1 font-medium">Sum of all pending months in {year}</p>
+        </div>
+        <div className="text-right">
+          {totalDue > 0 ? (
+            <span className="text-2xl font-black text-rose-400">₹{totalDue}</span>
+          ) : (
+            <span className="text-xs font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-400 px-3.5 py-1.5 rounded-full border border-emerald-500/30">
+              No Due
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

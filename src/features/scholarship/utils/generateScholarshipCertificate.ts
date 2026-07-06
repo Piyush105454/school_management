@@ -2,7 +2,12 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import * as fs from "fs";
 import * as path from "path";
 
-export async function generateScholarshipCertificate(studentName: string): Promise<Uint8Array> {
+export async function generateScholarshipCertificate(
+  studentName: string,
+  amount: number,
+  month: string,
+  year: string
+): Promise<Uint8Array> {
   const filePath = path.join(process.cwd(), "DPS Cert - FEB - 2026.pdf");
   const existingPdfBytes = fs.readFileSync(filePath);
 
@@ -31,7 +36,6 @@ export async function generateScholarshipCertificate(studentName: string): Promi
   });
 
   // 2. White out the rank text section: "FOR OUTSTANDING PERFORMANCE AND SECURING THE..."
-  // Expanded to ensure full removal
   targetPage.drawRectangle({
     x: 50,
     y: 170,
@@ -53,10 +57,19 @@ export async function generateScholarshipCertificate(studentName: string): Promi
     color: rgb(0.1, 0.3, 0.6), // Rich blue
   });
 
-  // 4. Draw the new scholarship text where the old rank text was
-  const scholarshipText = "FOR SECURING THE REWARD SCHOLARSHIP OF Rs. 36,000";
-  const subfontSize = 20;
-  const subTextWidth = font.widthOfTextAtSize(scholarshipText, subfontSize);
+  // 4. Draw the dynamic monthly scholarship reward text
+  const scholarshipText = `Congratulations on securing scholarship reward of amount Rs. ${amount.toLocaleString()} for the month of ${month} ${year}.`;
+  
+  let subfontSize = 18;
+  let subTextWidth = font.widthOfTextAtSize(scholarshipText, subfontSize);
+  const maxWidth = width - 120; // 60 pt margin on each side
+  
+  // Auto-fit font size to guarantee text fits exactly on one centered line
+  while (subTextWidth > maxWidth && subfontSize > 10) {
+    subfontSize -= 0.5;
+    subTextWidth = font.widthOfTextAtSize(scholarshipText, subfontSize);
+  }
+
   const xSub = (width - subTextWidth) / 2;
   const ySub = 235;
 

@@ -160,7 +160,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   }, [role]);
 
   React.useEffect(() => {
-    fetch("/api/sidebar-permissions")
+    fetch("/api/sidebar-permissions", { cache: "no-store" })
       .then(res => res.json())
       .then(data => {
         if (data && data.permissions) {
@@ -410,7 +410,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // 3. Filter and resolve names
     const results: any[] = [];
-    let isCurrentSectionVisible = false;
+    let isCurrentSectionVisible = true;
 
     for (const item of visibleItems) {
       if (item.type === "section") {
@@ -440,7 +440,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     }
 
     if (role === "TEACHER") {
-      const academyIdx = results.findIndex(r => r.type === "section" && r.name === "Academy Management");
+      const academyIdx = results.findIndex(r => r.type === "section" && r.name === "Academic Management");
       if (academyIdx !== -1) {
         let academyEndIdx = academyIdx + 1;
         while (academyEndIdx < results.length && results[academyEndIdx].type !== "section") {
@@ -448,16 +448,54 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         }
         const academyItems = results.splice(academyIdx, academyEndIdx - academyIdx);
         
-        const admissionIdx = results.findIndex(r => r.type === "section" && r.name === "Admissions");
-        if (admissionIdx !== -1) {
-          results.splice(admissionIdx, 0, ...academyItems);
+        // Find the index of the first section in the sidebar (which is Admissions or others)
+        const firstSectionIdx = results.findIndex(r => r.type === "section");
+        if (firstSectionIdx !== -1) {
+          results.splice(firstSectionIdx, 0, ...academyItems);
         } else {
-          // Fallback if Admissions doesn't exist
-          const firstSection = results.findIndex((r, i) => i > 0 && r.type === "section");
-          if (firstSection !== -1) {
-            results.splice(firstSection, 0, ...academyItems);
-          }
+          results.splice(1, 0, ...academyItems);
         }
+      }
+    }
+
+    if (role === "STUDENT_PARENT") {
+      // Ordering: 1. Academic Management, 2. Leave Management, 3. Scholarship
+      const academicIdx = results.findIndex(r => r.type === "section" && r.name === "Academic Management");
+      let academicItems: any[] = [];
+      if (academicIdx !== -1) {
+        let academicEndIdx = academicIdx + 1;
+        while (academicEndIdx < results.length && results[academicEndIdx].type !== "section") {
+          academicEndIdx++;
+        }
+        academicItems = results.splice(academicIdx, academicEndIdx - academicIdx);
+      }
+
+      const leaveIdx = results.findIndex(r => r.type === "section" && r.name === "Leave Management");
+      let leaveItems: any[] = [];
+      if (leaveIdx !== -1) {
+        let leaveEndIdx = leaveIdx + 1;
+        while (leaveEndIdx < results.length && results[leaveEndIdx].type !== "section") {
+          leaveEndIdx++;
+        }
+        leaveItems = results.splice(leaveIdx, leaveEndIdx - leaveIdx);
+      }
+
+      const scholarshipIdx = results.findIndex(r => r.type === "section" && r.name === "Scholarship");
+      let scholarshipItems: any[] = [];
+      if (scholarshipIdx !== -1) {
+        let scholarshipEndIdx = scholarshipIdx + 1;
+        while (scholarshipEndIdx < results.length && scholarshipEndIdx < results.length && results[scholarshipEndIdx].type !== "section") {
+          scholarshipEndIdx++;
+        }
+        scholarshipItems = results.splice(scholarshipIdx, scholarshipEndIdx - scholarshipIdx);
+      }
+
+      // Splice them back in the desired order at the first section position
+      const firstSectionIdx = results.findIndex(r => r.type === "section");
+      if (firstSectionIdx !== -1) {
+        results.splice(firstSectionIdx, 0, ...academicItems, ...leaveItems, ...scholarshipItems);
+      } else {
+        results.splice(1, 0, ...academicItems, ...leaveItems, ...scholarshipItems);
       }
     }
 

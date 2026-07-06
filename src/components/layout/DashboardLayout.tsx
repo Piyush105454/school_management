@@ -42,7 +42,7 @@ export default function DashboardLayout({
 
   React.useEffect(() => {
     if (session) {
-      fetch("/api/sidebar-permissions")
+      fetch("/api/sidebar-permissions", { cache: "no-store" })
         .then(res => res.json())
         .then(data => {
           if (data && data.permissions) {

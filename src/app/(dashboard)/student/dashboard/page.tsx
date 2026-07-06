@@ -434,7 +434,7 @@ export default async function StudentDashboard() {
               )}
             </div>
 
-            {/* Compact Scholarship Certificate Download */}
+            {/* Compact Scholarship Section Link */}
             {isScholarshipAwarded && (
               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-3">
@@ -447,16 +447,15 @@ export default async function StudentDashboard() {
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-600 leading-normal font-semibold">
-                  You are awarded a full-year scholarship. Download the official certificate here.
+                  You are awarded a full-year scholarship. Track your monthly attendance, homework, guardian metrics, and view your monthly scholarship certificate.
                 </p>
-                <a 
-                  href="/api/scholarship/certificate" 
-                  download 
-                  className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-emerald-100 active:scale-95"
+                <Link 
+                  href="/student/scholarship" 
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-emerald-100 active:scale-95 text-center"
                 >
                   <FileText size={12} />
-                  Download Certificate
-                </a>
+                  Check Your Scholarship For The Month
+                </Link>
               </div>
             )}
 
