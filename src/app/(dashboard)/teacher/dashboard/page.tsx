@@ -14,12 +14,16 @@ import {
 } from "lucide-react";
 import { protectRoute } from "@/lib/roleGuard";
 import { db } from "@/db";
-import { teachers, timetable, holidays } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { teachers, timetable, holidays, classes, studentAttendance } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
 
-export default async function TeacherDashboardPage() {
+export default async function TeacherDashboardPage(props: {
+    searchParams: Promise<{ date?: string }>;
+}) {
     // Protect this route - only TEACHER role can access
     await protectRoute(["TEACHER"]);
+    const searchParams = await props.searchParams;
 
     const session = await getServerSession(authOptions);
     if (!session) redirect("/");
@@ -33,22 +37,50 @@ export default async function TeacherDashboardPage() {
         return `${year}-${month}-${dateVal}`;
     })();
 
+    const targetDateStr = searchParams.date || todayDateStr;
+
     // Fetch the teacher profile and today's holiday status in parallel
     const [teacherProfile, todayHolidayList] = await Promise.all([
         db.query.teachers.findFirst({
             where: eq(teachers.userId, session.user.id)
         }),
-        db.select().from(holidays).where(eq(holidays.date, todayDateStr)).limit(1)
+        db.select().from(holidays).where(eq(holidays.date, targetDateStr)).limit(1)
     ]);
 
     const todayHoliday = todayHolidayList?.[0] || null;
 
     let teacherSchedule: any[] = [];
+    let dbClasses: any[] = [];
+    let dbAttendance: any[] = [];
+
     if (teacherProfile) {
-        teacherSchedule = await db.query.timetable.findMany({
-            where: eq(timetable.teacherId, teacherProfile.id),
-            with: { subject: true }
-        });
+        const teacherInstitute = teacherProfile.institute;
+        const instituteFilter = teacherInstitute ? eq(classes.institute, teacherInstitute) : undefined;
+        const targetDate = new Date(targetDateStr);
+
+        const [scheduleRes, classesRes, attendanceRes] = await Promise.all([
+            db.query.timetable.findMany({
+                where: eq(timetable.teacherId, teacherProfile.id),
+                with: { subject: true }
+            }),
+            db.select().from(classes).where(instituteFilter).orderBy(classes.grade),
+            db.select({
+                classId: studentAttendance.classId,
+                status: studentAttendance.status
+            })
+            .from(studentAttendance)
+            .innerJoin(classes, eq(studentAttendance.classId, classes.id))
+            .where(
+                and(
+                    sql`DATE(${studentAttendance.date}) = ${targetDateStr}`,
+                    instituteFilter
+                )
+            )
+        ]);
+
+        teacherSchedule = scheduleRes;
+        dbClasses = classesRes;
+        dbAttendance = attendanceRes;
     }
 
     // Determine current day of week (and show Monday's schedule if it's Sunday)
@@ -132,28 +164,45 @@ export default async function TeacherDashboardPage() {
                     </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-                    <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                        <ClipboardCheck className="text-purple-600" size={20} />
-                        Quick Actions
-                    </h2>
-                    <div className="grid grid-cols-2 gap-4">
-                        <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all group gap-2">
-                            <CalendarCheck size={24} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-center">Mark Attendance</span>
-                        </button>
-                        <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-purple-50 text-purple-700 border border-purple-100 hover:bg-purple-600 hover:text-white transition-all group gap-2">
-                            <BookOpen size={24} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-center">Update Lesson Plan</span>
-                        </button>
-                        <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-600 hover:text-white transition-all group gap-2">
-                            <LayoutDashboard size={24} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-center">Class Overview</span>
-                        </button>
-                        <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-green-50 text-green-700 border border-green-100 hover:bg-green-600 hover:text-white transition-all group gap-2">
-                            <Users size={24} />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-center">My Students</span>
-                        </button>
+                <div className="space-y-8 flex flex-col justify-start">
+                    {/* Attendance Grid Card */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-start space-y-6">
+                        <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                            <CalendarCheck className="text-green-600" size={20} />
+                            Daily Attendance Summary
+                        </h2>
+                        <AttendanceGridCard 
+                            classesList={dbClasses}
+                            attendanceRecords={dbAttendance}
+                            schoolName={teacherProfile?.institute || "Dhanpuri Public School"}
+                            dateStr={targetDateStr}
+                        />
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                        <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                            <ClipboardCheck className="text-purple-600" size={20} />
+                            Quick Actions
+                        </h2>
+                        <div className="grid grid-cols-2 gap-4">
+                            <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all group gap-2">
+                                <CalendarCheck size={24} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-center">Mark Attendance</span>
+                            </button>
+                            <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-purple-50 text-purple-700 border border-purple-100 hover:bg-purple-600 hover:text-white transition-all group gap-2">
+                                <BookOpen size={24} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-center">Update Lesson Plan</span>
+                            </button>
+                            <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-600 hover:text-white transition-all group gap-2">
+                                <LayoutDashboard size={24} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-center">Class Overview</span>
+                            </button>
+                            <button className="flex flex-col items-center justify-center p-6 rounded-3xl bg-green-50 text-green-700 border border-green-100 hover:bg-green-600 hover:text-white transition-all group gap-2">
+                                <Users size={24} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-center">My Students</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

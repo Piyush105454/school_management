@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, pgEnum, uuid } from "drizzle-orm/pg-core";
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import postgres from "postgres";
+import { drizzle } from 'drizzle-orm/postgres-js';
 import * as dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 
@@ -20,8 +20,8 @@ const users = pgTable("users", {
 
 async function seed() {
   console.log("🌱 Seeding database via mjs...");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const db = drizzle(pool);
+  const client = postgres(process.env.DATABASE_URL, { ssl: 'require' });
+  const db = drizzle(client);
 
   const adminEmail = "admin@schoolflow.com";
   const hashedPassword = await bcrypt.hash("admin123", 10);
@@ -39,7 +39,7 @@ async function seed() {
   } catch (err) {
     console.error("❌ Seed failed:", err);
   } finally {
-    await pool.end();
+    await client.end();
   }
 }
 

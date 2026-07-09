@@ -1,15 +1,15 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import * as dotenv from "dotenv";
 
 dotenv.config();
 
 async function cleanup() {
   console.log("🧹 Cleaning up old database tables...");
-  const sql = neon(process.env.DATABASE_URL);
+  const sql = postgres(process.env.DATABASE_URL, { ssl: 'require' });
 
   try {
     // Drop all tables in the public schema
-    await sql(`
+    await sql`
       DO $$ DECLARE
           r RECORD;
       BEGIN
@@ -17,10 +17,10 @@ async function cleanup() {
               EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
           END LOOP;
       END $$;
-    `);
+    `;
     
     // Drop all enums in the public schema
-    await sql(`
+    await sql`
       DO $$ DECLARE
           r RECORD;
       BEGIN
@@ -28,11 +28,13 @@ async function cleanup() {
               EXECUTE 'DROP TYPE IF EXISTS ' || quote_ident(r.typname) || ' CASCADE';
           END LOOP;
       END $$;
-    `);
+    `;
 
     console.log("✅ Database cleared successfully!");
   } catch (err) {
     console.error("❌ Cleanup failed:", err);
+  } finally {
+    await sql.end();
   }
 }
 

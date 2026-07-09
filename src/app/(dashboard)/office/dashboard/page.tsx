@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { inquiries, studentProfiles, admissionMeta, studentAttendance, classes } from "@/db/schema";
 import { count, eq, and, sql, inArray } from "drizzle-orm";
 import { protectRoute } from "@/lib/roleGuard";
+import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
 
 export default async function OfficeDashboard(props: {
   searchParams: Promise<{ institute?: string }>;
@@ -25,56 +26,60 @@ export default async function OfficeDashboard(props: {
     { name: "Final Admissions", value: "0", icon: Users, color: "text-purple-600", bg: "bg-purple-100" },
   ];
 
-  let dbError = false;
-  let attendanceData: { className: string, presentCount: number }[] = [];
-  let totalPresent = 0;
+  let dbError: string | false = false;
+  let dbClasses: any[] = [];
+  let dbAttendance: any[] = [];
+
+  const todayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const todayDateStr = todayFormatter.format(new Date()); // YYYY-MM-DD
+  const targetDateStr = searchParams.date || todayDateStr;
+  const targetDate = new Date(targetDateStr);
 
   try {
     const instituteFilter = selectedInstitute && selectedInstitute !== "ALL" 
       ? eq(sql`lower(${inquiries.school})`, selectedInstitute.toLowerCase()) 
       : undefined;
 
-    const [totalInquiriesResult, shortlistedResult, finalAdmissionsResult] = await Promise.all([
-      db.select({ count: count() }).from(inquiries).where(instituteFilter),
-      db.select({ count: count() }).from(inquiries).where(
-        instituteFilter ? and(eq(inquiries.status, "SHORTLISTED"), instituteFilter) : eq(inquiries.status, "SHORTLISTED")
-      ),
-      db.select({ count: count() })
-        .from(studentProfiles)
-        .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
-        .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-        .where(and(eq(studentProfiles.isFullyAdmitted, true), instituteFilter || sql`1=1`))
-    ]);
+    const classInstituteFilter = selectedInstitute && selectedInstitute !== "ALL"
+      ? eq(classes.institute, selectedInstitute)
+      : undefined;
 
-    const todayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
-    const todayDateStr = todayFormatter.format(new Date()); // YYYY-MM-DD
-    const targetDate = new Date(todayDateStr);
+    const totalInquiriesResult = await db.select({ count: count() }).from(inquiries).where(instituteFilter);
+    const shortlistedResult = await db.select({ count: count() }).from(inquiries).where(
+      instituteFilter ? and(eq(inquiries.status, "SHORTLISTED"), instituteFilter) : eq(inquiries.status, "SHORTLISTED")
+    );
+    const finalAdmissionsResult = await db.select({ count: count() })
+      .from(studentProfiles)
+      .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
+      .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+      .where(and(eq(studentProfiles.isFullyAdmitted, true), instituteFilter || sql`1=1`));
 
-    attendanceData = await db.select({
-      className: classes.name,
-      presentCount: count()
+    dbClasses = await db.select()
+      .from(classes)
+      .where(classInstituteFilter)
+      .orderBy(classes.grade);
+
+    dbAttendance = await db.select({
+      classId: studentAttendance.classId,
+      status: studentAttendance.status
     })
     .from(studentAttendance)
     .innerJoin(classes, eq(studentAttendance.classId, classes.id))
     .where(
       and(
-        eq(studentAttendance.date, targetDate),
-        inArray(studentAttendance.status, ['P', 'L', 'ML', 'HD']),
-        selectedInstitute && selectedInstitute !== "ALL" ? eq(classes.institute, selectedInstitute) : undefined
+        sql`DATE(${studentAttendance.date}) = ${targetDateStr}`,
+        classInstituteFilter
       )
-    )
-    .groupBy(classes.name);
-
-    attendanceData.forEach(row => totalPresent += row.presentCount);
+    );
 
     stats = [
       { name: "Total Inquiries", value: totalInquiriesResult[0].count.toString(), icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },
       { name: "Shortlisted", value: shortlistedResult[0].count.toString(), icon: UserPlus, color: "text-green-600", bg: "bg-green-100" },
       { name: "Final Admissions", value: finalAdmissionsResult[0].count.toString(), icon: Users, color: "text-purple-600", bg: "bg-purple-100" },
     ];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Database query failed:", error);
-    dbError = true;
+    dbError = error.message + " | " + (error.cause ? String(error.cause) : "") + " | " + (error.code ? `Code: ${error.code}` : "");
   }
   return (
     <div className="space-y-8">
@@ -85,8 +90,8 @@ export default async function OfficeDashboard(props: {
 
       {dbError && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-          <p className="text-red-700 font-bold">Database Quota Exceeded</p>
-          <p className="text-red-600 text-sm">Your database provider (Neon) has limited access to your data. Please upgrade your plan to restore full functionality.</p>
+          <p className="text-red-700 font-bold">Database Query Error</p>
+          <p className="text-red-600 text-sm">{typeof dbError === 'string' ? dbError : "Unknown error occurred"}</p>
         </div>
       )}
 
@@ -106,52 +111,14 @@ export default async function OfficeDashboard(props: {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        {/* Daily Attendance Summary Card */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              Daily Attendance
-            </h2>
-            <span className="text-xs font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest">
-              {new Date().toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
-            </span>
-          </div>
-          
-          <div className="mb-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Institute</p>
-            <p className="text-sm font-bold text-slate-700">{selectedInstitute && selectedInstitute !== "ALL" ? selectedInstitute : "All Institutes"}</p>
-          </div>
-
-          <div className="flex-1 space-y-3 overflow-y-auto pr-2 max-h-[300px]">
-            {attendanceData && attendanceData.length > 0 ? (
-              attendanceData
-                .sort((a, b) => {
-                  const numA = parseInt(a.className.replace(/\D/g, '')) || 0;
-                  const numB = parseInt(b.className.replace(/\D/g, '')) || 0;
-                  return numA - numB;
-                })
-                .map((row) => (
-                <div key={row.className} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <span className="text-sm font-medium text-slate-600 italic">*{row.className}:*</span>
-                  <span className="text-sm font-black text-slate-900 bg-slate-100 px-3 py-0.5 rounded-md">{String(row.presentCount).padStart(2, '0')}</span>
-                </div>
-              ))
-            ) : (
-              <div className="py-8 text-center">
-                <p className="text-sm text-slate-400 italic">No attendance marked for today yet.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-4 mt-4 border-t border-slate-200">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-black text-slate-900 uppercase tracking-widest">Total:</span>
-              <span className="text-lg font-black text-blue-600 bg-blue-50 px-4 py-1 rounded-xl shadow-sm">
-                {totalPresent}
-              </span>
-            </div>
-          </div>
+        {/* Daily Attendance Spreadsheet Summary Card */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-start">
+          <AttendanceGridCard 
+            classesList={dbClasses}
+            attendanceRecords={dbAttendance}
+            schoolName={selectedInstitute && selectedInstitute !== "ALL" ? selectedInstitute : "Dhanpuri Public School"}
+            dateStr={targetDateStr}
+          />
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-6">

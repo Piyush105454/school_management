@@ -16,7 +16,7 @@ const globalForDb = globalThis as unknown as {
 export const db = globalForDb.db ?? drizzle(
   postgres(connectionString, { 
     prepare: false,
-    max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 1,
+    max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 10,
     idle_timeout: 30,
     connect_timeout: 30
   }), 

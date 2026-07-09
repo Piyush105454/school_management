@@ -1,17 +1,11 @@
 import { db } from './src/db';
-import { lessonPlans } from './src/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { classes } from './src/db/schema';
 
 async function run() {
   try {
-    const plans = await db.select().from(lessonPlans).where(
-      and(
-        eq(lessonPlans.classId, 41),
-        eq(lessonPlans.subjectId, 886)
-      )
-    );
-    console.log('MATCHING LESSON PLANS IN DB:');
-    console.log(JSON.stringify(plans, null, 2));
+    const list = await db.select().from(classes).orderBy(classes.grade);
+    console.log('ALL CLASSES IN DB:');
+    console.log(JSON.stringify(list, null, 2));
   } catch (e) {
     console.error('Failed to query db:', e);
   }
@@ -19,3 +13,4 @@ async function run() {
 }
 
 run();
+

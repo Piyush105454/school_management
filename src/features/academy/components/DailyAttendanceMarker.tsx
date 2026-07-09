@@ -29,7 +29,7 @@ export default function DailyAttendanceMarker({
   const [date, setDate] = useState(initialDate);
   const [attendance, setAttendance] = useState<Record<number, string>>(() => {
     const initial: Record<number, string> = {};
-    return students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial);
+    return students.reduce((acc, s) => ({ ...acc, [s.id]: "" }), initial);
   });
   const [autoHolidayInfo, setAutoHolidayInfo] = useState<{ isHoliday: boolean, type?: string, title?: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +41,12 @@ export default function DailyAttendanceMarker({
       ...prev,
       [studentId]: status
     }));
+  };
+
+  const handleMarkAll = (status: string) => {
+    const initial: Record<number, string> = {};
+    const updated = students.reduce((acc, s) => ({ ...acc, [s.id]: status }), initial);
+    setAttendance(updated);
   };
 
   // Fetch existing attendance when date changes
@@ -59,7 +65,7 @@ export default function DailyAttendanceMarker({
           
           if (records.length > 0) {
             // Already have saved attendance
-            const newAttendance: Record<number, string> = { ...students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial) };
+            const newAttendance: Record<number, string> = { ...students.reduce((acc, s) => ({ ...acc, [s.id]: "" }), initial) };
             records.forEach((r: any) => {
               if (r.studentId) newAttendance[Number(r.studentId)] = r.status;
             });
@@ -69,8 +75,8 @@ export default function DailyAttendanceMarker({
             const autoStatus = holidayInfo.type === "HALF_DAY" ? "HD" : "H";
             setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: autoStatus }), initial));
           } else {
-            // Default to all present if no record found
-            setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: "P" }), initial));
+            // Default to empty if no record found (user must explicitly mark)
+            setAttendance(students.reduce((acc, s) => ({ ...acc, [s.id]: "" }), initial));
           }
         }
       } catch (err) {
@@ -165,6 +171,34 @@ export default function DailyAttendanceMarker({
           {message.text}
         </div>
       )}
+
+      {/* Bulk Actions */}
+      <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-4">
+        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Bulk Actions</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleMarkAll("P")}
+            className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95"
+          >
+            Mark All P
+          </button>
+          <button
+            type="button"
+            onClick={() => handleMarkAll("A")}
+            className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95"
+          >
+            Mark All A
+          </button>
+          <button
+            type="button"
+            onClick={() => handleMarkAll("NA")}
+            className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-500 text-slate-600 hover:text-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95"
+          >
+            Mark All NA
+          </button>
+        </div>
+      </div>
 
       <div className="relative min-h-[400px]">
         {isLoading && (
