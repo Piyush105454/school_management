@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     let dynamicWheres: any[] = [];
 
-    if (gender && gender !== "ALL") {
+    if (gender && gender !== "ALL" && gender !== "COMPARE") {
       const dbGender = gender === "Male" ? "M" : gender === "Female" ? "F" : "O";
       dynamicWheres.push(eq(studentBio.gender, dbGender));
     }

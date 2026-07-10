@@ -93,7 +93,7 @@ export default function AttendanceAnalyticsChart({ data, months, year, genderFil
     );
   };
 
-  const isStacked = !isStudentView && genderFilter === "ALL";
+  const isCompare = !isStudentView && genderFilter === "COMPARE";
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -101,7 +101,7 @@ export default function AttendanceAnalyticsChart({ data, months, year, genderFil
       return (
         <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-xl text-sm">
           <p className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{displayLabel}</p>
-          {isStacked ? (
+          {isCompare ? (
             <div className="space-y-1">
               <p className="flex justify-between gap-4 font-medium"><span className="text-blue-600">Male:</span> <span>{payload.find((p:any) => p.dataKey === 'malePct')?.value || 0}%</span></p>
               <p className="flex justify-between gap-4 font-medium"><span className="text-pink-500">Female:</span> <span>{payload.find((p:any) => p.dataKey === 'femalePct')?.value || 0}%</span></p>
@@ -149,15 +149,15 @@ export default function AttendanceAnalyticsChart({ data, months, year, genderFil
                   domain={[0, 100]}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9' }} />
-                {isStacked && <Legend verticalAlign="top" align="center" height={40} iconType="square" wrapperStyle={{ paddingBottom: '20px' }} />}
+                {isCompare && <Legend verticalAlign="top" align="center" height={40} iconType="square" wrapperStyle={{ paddingBottom: '20px' }} />}
                 
-                {isStacked ? (
+                {isCompare ? (
                   <>
-                    <Bar dataKey="malePct" name="Male" stackId="a" fill="#3b82f6" maxBarSize={isStudentView ? 30 : 40}>
-                       {/* LabelList left out for cleaner look */}
+                    <Bar dataKey="malePct" name="Male" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={isStudentView ? 15 : 20}>
+                       <LabelList dataKey="malePct" position="top" fill="#475569" fontSize="9" fontWeight="bold" formatter={(val: number) => val > 0 ? `${val}%` : ''} />
                     </Bar>
-                    <Bar dataKey="femalePct" name="Female" stackId="a" fill="#ec4899" radius={[4, 4, 0, 0]} maxBarSize={isStudentView ? 30 : 40}>
-                      <LabelList dataKey="pct" position="top" fill="#475569" fontSize="10" fontWeight="bold" formatter={(val: number) => `${val}%`} />
+                    <Bar dataKey="femalePct" name="Female" fill="#ec4899" radius={[4, 4, 0, 0]} maxBarSize={isStudentView ? 15 : 20}>
+                      <LabelList dataKey="femalePct" position="top" fill="#475569" fontSize="9" fontWeight="bold" formatter={(val: number) => val > 0 ? `${val}%` : ''} />
                     </Bar>
                   </>
                 ) : (

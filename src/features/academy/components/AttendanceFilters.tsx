@@ -161,6 +161,7 @@ export default function AttendanceFilters({ filters, setFilters, classesList }: 
             <option value="ALL">All Genders</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
+            <option value="COMPARE">Compare Male vs Female</option>
           </select>
         </div>
 
