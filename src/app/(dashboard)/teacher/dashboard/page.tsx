@@ -15,7 +15,7 @@ import {
 import { protectRoute } from "@/lib/roleGuard";
 import { db } from "@/db";
 import { teachers, timetable, holidays, classes, studentAttendance } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
 
 export default async function TeacherDashboardPage(props: {

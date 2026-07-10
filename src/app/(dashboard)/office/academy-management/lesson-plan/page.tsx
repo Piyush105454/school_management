@@ -85,13 +85,17 @@ export default async function LessonPlanPage({
     );
   }
 
+  const backHref = session?.user?.role === "TEACHER" 
+    ? "/office/academy-management/my-lesson-plans" 
+    : "/office/academy-management/classes";
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link 
-              href="/office/academy-management/classes"
+              href={backHref}
               className="h-10 w-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all shadow-sm"
             >
               <ArrowLeft className="h-5 w-5" />
