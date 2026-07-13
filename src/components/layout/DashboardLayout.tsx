@@ -9,10 +9,10 @@ import { getDashboardUrl } from "@/lib/roleUtils";
 
 // Role-based route access control
 const ROLE_ROUTES: Record<string, string[]> = {
-  OFFICE: ["/office", "/dashboard", "/teacher"],
-  PRINCIPAL: ["/office", "/dashboard", "/teacher"],
-  ADMIN: ["/office", "/dashboard", "/teacher"],
-  STUDENT_PARENT: ["/student", "/dashboard"],
+  OFFICE: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks"],
+  PRINCIPAL: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks"],
+  ADMIN: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks"],
+  STUDENT_PARENT: ["/student", "/dashboard", "/profile", "/reset-password"],
   TEACHER: [
     "/teacher", 
     "/office/inquiries", 
@@ -24,7 +24,10 @@ const ROLE_ROUTES: Record<string, string[]> = {
     "/office/final-admissions", // Added just in case
     "/office/academy-management",
     "/office/timetable",
-    "/teacher/timetable"
+    "/teacher/timetable",
+    "/profile",
+    "/reset-password",
+    "/tasks"
   ],
 };
 
@@ -56,18 +59,7 @@ export default function DashboardLayout({
     }
   }, [session]);
 
-  if (status === "loading" || (session && loadingPerms)) {
-    return <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-      <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-    </div>;
-  }
-
-  if (!session) {
-    router.push("/");
-    return null;
-  }
-
-  const userRole = (session.user?.role as string || "").toUpperCase();
+  const userRole = (session?.user?.role as string || "").toUpperCase();
   const allowedRoutes = ROLE_ROUTES[userRole] || [];
   
   // Static check first
@@ -95,13 +87,30 @@ export default function DashboardLayout({
     }
   }
 
-  // Redirect if no access
-  if (!hasAccess) {
-    const dashboardUrl = getDashboardUrl(userRole as any);
-    if (pathname !== dashboardUrl) {
-      router.push(dashboardUrl);
-      return null;
+  // Redirect if no access (Fix for React state update during render)
+  React.useEffect(() => {
+    if (session && !loadingPerms && !hasAccess) {
+      const dashboardUrl = getDashboardUrl(userRole as any);
+      if (pathname !== dashboardUrl) {
+        router.push(dashboardUrl);
+      }
     }
+  }, [hasAccess, session, loadingPerms, pathname, router, userRole]);
+
+  React.useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/");
+    }
+  }, [status, router]);
+
+  if (status === "loading" || (session && loadingPerms)) {
+    return <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+      <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>;
+  }
+
+  if (!session || !hasAccess) {
+    return null;
   }
 
   return (

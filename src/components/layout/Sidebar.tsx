@@ -203,6 +203,14 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/office/scholarship/reports/students", icon: FileText, roleNames: { OFFICE: "Student Reports", PRINCIPAL: "Student Reports", TEACHER: "Student Reports" } },
     { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
 
+    // Task Management Category
+    { type: "section", name: "Task Management" },
+    { href: "/tasks", icon: LayoutDashboard, roleNames: { OFFICE: "Task Dashboard", PRINCIPAL: "Task Dashboard", ADMIN: "Task Dashboard", TEACHER: "Task Dashboard" } },
+    { href: "/tasks/projects", icon: FolderOpen, roleNames: { OFFICE: "Projects", PRINCIPAL: "Projects", ADMIN: "Projects", TEACHER: "Projects" } },
+    { href: "/tasks/my-tasks", icon: ClipboardCheck, roleNames: { OFFICE: "My Tasks", PRINCIPAL: "My Tasks", ADMIN: "My Tasks", TEACHER: "My Tasks" } },
+    { href: "/tasks/team-tasks", icon: Users, roleNames: { OFFICE: "Team Tasks", PRINCIPAL: "Team Tasks", ADMIN: "Team Tasks" } },
+    { href: "/tasks/board", icon: LayoutDashboard, roleNames: { OFFICE: "Board View", PRINCIPAL: "Board View", ADMIN: "Board View", TEACHER: "Board View" } },
+
     // Academy Management Category
     { type: "section", name: "Academic Management" },
     { href: "/office/academy-management/my-lesson-plans", icon: BookOpen, roleNames: { TEACHER: "My Lesson Plans" } },
@@ -276,11 +284,11 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "Admissions", "Scholarship", "Academy Management", "Leave Management",
         "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
         "Transport Management", "People Management", "Access Module Management",
-        "Committee Management", "Reports"
+        "Committee Management", "Reports", "Task Management"
       ].includes(name);
     }
     if (r === "TEACHER") {
-      return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports", "Time Table Management"].includes(name);
+      return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports", "Time Table Management", "Task Management"].includes(name);
     }
     if (r === "STUDENT_PARENT") {
       return ["Admissions", "Scholarship", "Academy Management", "Leave Management", "Incident Management", "Transport Management"].includes(name);
@@ -328,6 +336,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/school-management/principal",
         "/office/access-management",
         "/office/committees",
+        "/tasks", "/tasks/projects", "/tasks/my-tasks", "/tasks/team-tasks", "/tasks/board",
         "/teacher/scholarship-criteria/ptm",
         "/teacher/scholarship-criteria/guardian"
       ].includes(href);
@@ -352,7 +361,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/teacher/scholarship-criteria/guardian",
         "/office/scholarship/reports",
         "/office/scholarship/reports/students",
-        "/teacher/timetable"
+        "/teacher/timetable",
+        "/tasks", "/tasks/projects", "/tasks/my-tasks", "/tasks/board"
       ].includes(href);
     }
     if (r === "STUDENT_PARENT") {
@@ -596,6 +606,14 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-slate-50">
+        <Link
+          href="/reset-password"
+          onClick={onClose}
+          className="flex w-full items-center px-3 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-all select-none mb-1"
+        >
+          <Key className="mr-3 h-4 w-4" />
+          Reset Password
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
           className="flex w-full items-center px-3 py-2.5 text-xs font-bold text-slate-500 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all select-none"

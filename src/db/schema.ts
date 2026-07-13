@@ -16,7 +16,20 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: roleEnum("role").default("OFFICE").notNull(),
+  profileId: text("profile_id").unique(), // E.g. ADM-2026-0001, TCH-2026-0001, STU-2026-0001
   phone: text("phone"),
+  bio: text("bio"),
+  location: text("location"),
+  profilePictureUrl: text("profile_picture_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const adminProfiles = pgTable("admin_profiles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  name: text("name").notNull(),
+  department: text("department"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -813,7 +826,10 @@ export const holidays = pgTable("holidays", {
 export const usersRelations = relations(users, ({ one, many }) => ({
   studentProfile: one(studentProfiles),
   teacherProfile: one(teachers),
+  adminProfile: one(adminProfiles),
   examSchedulesCreated: many(examSchedules),
+  assignedTasks: many(tasks, { relationName: "assignedToTasks" }),
+  createdTasks: many(tasks, { relationName: "assignedByTasks" }),
 }));
 
 export const classesRelations = relations(classes, ({ many }) => ({
@@ -972,3 +988,89 @@ export const scholarshipPtmSchedule = pgTable("scholarship_ptm_schedule", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ── Task & Project Management ────────────────────────────────────────────────
+export const taskPriorityEnum = pgEnum("task_priority", ["LOW", "MEDIUM", "HIGH", "URGENT"]);
+export const taskStatusEnum = pgEnum("task_status", ["TO_DO", "IN_PROGRESS", "UNDER_REVIEW", "COMPLETED", "CANCELLED"]);
+export const projectStatusEnum = pgEnum("project_status", ["ACTIVE", "COMPLETED", "CANCELLED"]);
+
+export const projects = pgTable("projects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  managerId: uuid("manager_id").references(() => users.id, { onDelete: 'set null' }),
+  startDate: timestamp("start_date"),
+  dueDate: timestamp("due_date"),
+  status: projectStatusEnum("status").default("ACTIVE").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const projectMembers = pgTable("project_members", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: 'cascade' }),
+});
+
+export const tasks = pgTable("tasks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  assignedById: uuid("assigned_by_id").references(() => users.id, { onDelete: 'set null' }),
+  assignedToId: uuid("assigned_to_id").references(() => users.id, { onDelete: 'set null' }),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'set null' }),
+  institute: text("institute"), // Optional school
+  classId: integer("class_id").references(() => classes.id, { onDelete: 'set null' }), // Optional class
+  studentId: integer("student_id").references(() => students.id, { onDelete: 'set null' }), // Optional student
+  priority: taskPriorityEnum("priority").default("MEDIUM").notNull(),
+  status: taskStatusEnum("status").default("TO_DO").notNull(),
+  startDate: timestamp("start_date"),
+  dueDate: timestamp("due_date"),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  manager: one(users, {
+    fields: [projects.managerId],
+    references: [users.id],
+  }),
+  members: many(projectMembers),
+  tasks: many(tasks),
+}));
+
+export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectMembers.projectId],
+    references: [projects.id],
+  }),
+  user: one(users, {
+    fields: [projectMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  assignedBy: one(users, {
+    fields: [tasks.assignedById],
+    references: [users.id],
+    relationName: "assignedByTasks"
+  }),
+  assignedTo: one(users, {
+    fields: [tasks.assignedToId],
+    references: [users.id],
+    relationName: "assignedToTasks"
+  }),
+  project: one(projects, {
+    fields: [tasks.projectId],
+    references: [projects.id],
+  }),
+  class: one(classes, {
+    fields: [tasks.classId],
+    references: [classes.id],
+  }),
+  student: one(students, {
+    fields: [tasks.studentId],
+    references: [students.id],
+  }),
+}));
