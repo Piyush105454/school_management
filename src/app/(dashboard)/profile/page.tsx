@@ -20,6 +20,7 @@ export default function ProfilePage() {
   });
 
   const userEmail = session?.user?.email || "demo-fellow@gmail.com";
+  const isStudent = session?.user?.role === "STUDENT";
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -83,12 +84,12 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Update your profile information</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{isStudent ? "Profile View" : "Update your profile information"}</h1>
         </div>
 
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200">
           <h2 className="text-lg font-bold text-slate-800 mb-1">Profile Information</h2>
-          <p className="text-sm text-slate-500 mb-6">Update your personal details and profile picture</p>
+          <p className="text-sm text-slate-500 mb-6">{isStudent ? "View your personal details" : "Update your personal details and profile picture"}</p>
 
           <div className="space-y-6">
             <div>
@@ -98,10 +99,12 @@ export default function ProfilePage() {
                   <Camera className="h-6 w-6" />
                 </div>
                 <div>
-                  <button className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors font-bold text-sm rounded-xl">
-                    Choose File
-                  </button>
-                  <p className="text-[10px] text-slate-400 mt-1">JPG, PNG or GIF (max 5MB)</p>
+                  {!isStudent && (
+                    <button className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors font-bold text-sm rounded-xl">
+                      Choose File
+                    </button>
+                  )}
+                  {!isStudent && <p className="text-[10px] text-slate-400 mt-1">JPG, PNG or GIF (max 5MB)</p>}
                 </div>
               </div>
             </div>
@@ -129,7 +132,8 @@ export default function ProfilePage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl text-sm font-medium text-slate-700 outline-none transition-all"
+                  disabled={isStudent}
+                  className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium ${isStudent ? 'text-slate-500 cursor-not-allowed bg-slate-100' : 'text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all'}`}
                 />
               </div>
 
@@ -142,8 +146,9 @@ export default function ProfilePage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  disabled={isStudent}
                   placeholder="Enter your phone number"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl text-sm font-medium text-slate-700 outline-none transition-all"
+                  className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium ${isStudent ? 'text-slate-500 cursor-not-allowed bg-slate-100' : 'text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all'}`}
                 />
               </div>
 
@@ -156,8 +161,9 @@ export default function ProfilePage() {
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
+                  disabled={isStudent}
                   placeholder="Enter your location"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl text-sm font-medium text-slate-700 outline-none transition-all"
+                  className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium ${isStudent ? 'text-slate-500 cursor-not-allowed bg-slate-100' : 'text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all'}`}
                 />
               </div>
             </div>
@@ -170,27 +176,30 @@ export default function ProfilePage() {
                 name="bio"
                 value={formData.bio}
                 onChange={handleChange}
+                disabled={isStudent}
                 rows={4}
                 placeholder="Write a short bio about yourself..."
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl text-sm font-medium text-slate-700 outline-none transition-all resize-none"
+                className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium resize-none ${isStudent ? 'text-slate-500 cursor-not-allowed bg-slate-100' : 'text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all'}`}
               ></textarea>
             </div>
             
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button 
-                id="save-btn"
-                onClick={handleSave}
-                disabled={saving || saveSuccess}
-                className={`flex items-center gap-2 px-6 py-2.5 ${
-                  saveSuccess 
-                    ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-600 shadow-green-500/20' 
-                    : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 shadow-blue-500/20'
-                } text-white font-bold text-sm rounded-xl transition-all shadow-sm active:scale-95`}
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Changes"}
-              </button>
-            </div>
+            {!isStudent && (
+              <div className="flex justify-end pt-4 border-t border-slate-100">
+                <button 
+                  id="save-btn"
+                  onClick={handleSave}
+                  disabled={saving || saveSuccess}
+                  className={`flex items-center gap-2 px-6 py-2.5 ${
+                    saveSuccess 
+                      ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-600 shadow-green-500/20' 
+                      : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 shadow-blue-500/20'
+                  } text-white font-bold text-sm rounded-xl transition-all shadow-sm active:scale-95`}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Changes"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

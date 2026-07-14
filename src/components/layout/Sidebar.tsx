@@ -206,9 +206,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     // Task Management Category
     { type: "section", name: "Task Management" },
     { href: "/tasks", icon: LayoutDashboard, roleNames: { OFFICE: "Task Dashboard", PRINCIPAL: "Task Dashboard", ADMIN: "Task Dashboard", TEACHER: "Task Dashboard" } },
-    { href: "/tasks/projects", icon: FolderOpen, roleNames: { OFFICE: "Projects", PRINCIPAL: "Projects", ADMIN: "Projects", TEACHER: "Projects" } },
-    { href: "/tasks/my-tasks", icon: ClipboardCheck, roleNames: { OFFICE: "My Tasks", PRINCIPAL: "My Tasks", ADMIN: "My Tasks", TEACHER: "My Tasks" } },
-    { href: "/tasks/team-tasks", icon: Users, roleNames: { OFFICE: "Team Tasks", PRINCIPAL: "Team Tasks", ADMIN: "Team Tasks" } },
     { href: "/tasks/board", icon: LayoutDashboard, roleNames: { OFFICE: "Board View", PRINCIPAL: "Board View", ADMIN: "Board View", TEACHER: "Board View" } },
 
     // Academy Management Category

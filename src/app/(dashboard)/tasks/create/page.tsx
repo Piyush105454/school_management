@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Select from "react-select";
+import CreatableSelect from "react-select/creatable";
 
 export default function CreateTaskPage() {
   const router = useRouter();
@@ -197,60 +198,30 @@ export default function CreateTaskPage() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Project (Optional)</label>
-              <Select 
+              <CreatableSelect 
                 options={[{ value: "", label: "None" }, ...options.projects.map(p => ({ value: p.id, label: p.name }))]}
-                value={formData.projectId ? { value: formData.projectId, label: options.projects.find(p => p.id === formData.projectId)?.name } : { value: "", label: "None" }}
+                value={formData.projectId ? { value: formData.projectId, label: options.projects.find(p => p.id === formData.projectId)?.name || formData.projectId } : { value: "", label: "None" }}
                 onChange={(opt: any) => handleSelectChange("projectId", opt?.value || "")}
                 styles={selectStyles}
                 menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                 className="text-sm"
                 isClearable
-                placeholder="Search project..."
+                placeholder="Search or create project..."
+                formatCreateLabel={(inputValue) => `Create project "${inputValue}"`}
               />
             </div>
 
-            {/* Dependent Dropdowns */}
-            <div className="md:col-span-2 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">School (Optional)</label>
-                <Select 
-                  options={[{ value: "", label: "Select School" }, ...options.institutes.map(inst => ({ value: inst, label: inst }))]}
-                  value={formData.institute ? { value: formData.institute, label: formData.institute } : { value: "", label: "Select School" }}
-                  onChange={(opt: any) => handleSelectChange("institute", opt?.value || "")}
-                  styles={selectStyles}
-                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                  className="text-sm"
-                  isClearable
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Class (Optional)</label>
-                <Select 
-                  isDisabled={!formData.institute}
-                  options={[{ value: "", label: "Select Class" }, ...options.classes.map(c => ({ value: c.id, label: c.name }))]}
-                  value={formData.classId ? { value: formData.classId, label: options.classes.find(c => c.id === formData.classId)?.name } : { value: "", label: "Select Class" }}
-                  onChange={(opt: any) => handleSelectChange("classId", opt?.value || "")}
-                  styles={selectStyles}
-                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                  className="text-sm"
-                  isClearable
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Student (Optional)</label>
-                <Select 
-                  isDisabled={!formData.classId}
-                  options={[{ value: "", label: "Select Student" }, ...options.students.map(s => ({ value: s.id, label: s.name || s.studentId }))]}
-                  value={formData.studentId ? { value: formData.studentId, label: options.students.find(s => s.id === formData.studentId)?.name || options.students.find(s => s.id === formData.studentId)?.studentId } : { value: "", label: "Select Student" }}
-                  onChange={(opt: any) => handleSelectChange("studentId", opt?.value || "")}
-                  styles={selectStyles}
-                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                  className="text-sm"
-                  isClearable
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">School (Optional)</label>
+              <Select 
+                options={[{ value: "", label: "Select School" }, ...options.institutes.map(inst => ({ value: inst, label: inst }))]}
+                value={formData.institute ? { value: formData.institute, label: formData.institute } : { value: "", label: "Select School" }}
+                onChange={(opt: any) => handleSelectChange("institute", opt?.value || "")}
+                styles={selectStyles}
+                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                className="text-sm"
+                isClearable
+              />
             </div>
 
           </div>

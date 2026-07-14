@@ -19,7 +19,10 @@ import { revalidatePath } from "next/cache";
 export async function bulkImportStudentsAction(formData: FormData) {
   try {
     const file = formData.get("file") as File;
+    const targetInstitute = formData.get("institute") as string;
+    
     if (!file) throw new Error("No file uploaded");
+    if (!targetInstitute) throw new Error("No school selected for import");
 
     const bytes = await file.arrayBuffer();
     const workbook = xlsx.read(bytes, { type: "array" });
@@ -45,7 +48,7 @@ export async function bulkImportStudentsAction(formData: FormData) {
     const academicYear = "2026-27";
     const defaultPassword = "123456";
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-    const defaultInstitute = "Dhanpuri Public School";
+    const defaultInstitute = targetInstitute;
 
     let successCount = 0;
     let skipCount = 0;

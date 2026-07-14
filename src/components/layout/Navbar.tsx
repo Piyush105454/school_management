@@ -99,8 +99,17 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                   onClick={() => setIsProfileOpen(false)}
                   className="flex items-center px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                 >
-                  <Edit className="h-4 w-4 mr-3 text-slate-400" />
-                  Edit Profile
+                  {session?.user?.role === "STUDENT" ? (
+                    <>
+                      <User className="h-4 w-4 mr-3 text-slate-400" />
+                      Profile View
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="h-4 w-4 mr-3 text-slate-400" />
+                      Edit Profile
+                    </>
+                  )}
                 </Link>
               </div>
               <div className="border-t border-slate-100 py-2 pb-0">
