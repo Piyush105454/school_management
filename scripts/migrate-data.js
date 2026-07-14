@@ -2,8 +2,8 @@ require("dotenv").config();
 const postgres = require("postgres");
 
 async function migrate() {
-  const neonUrl = 'postgresql://neondb_owner:npg_JZIK5brM2cfS@ep-cool-truth-ama8k89o-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require';
-  const supabaseUrl = 'postgresql://postgres.siuuoouydrbrbfncvzov:IvWrfbrUQjXdbOHV@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres';
+const neonUrl = process.env.SOURCE_DB_URL;
+const supabaseUrl = process.env.DEST_DB_URL;
 
   console.log("Connecting to databases...");
   const sqlNeon = postgres(neonUrl, { prepare: false });

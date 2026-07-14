@@ -1,7 +1,7 @@
 import "dotenv/config";
 import postgres from "postgres";
 
-const OLD_DB_URL = "postgresql://neondb_owner:npg_GMHq6e9zEanu@ep-steep-truth-adyyasdg-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const OLD_DB_URL = process.env.OLD_DB_URL!;
 const NEW_DB_URL = process.env.DATABASE_URL!;
 
 const oldSql = postgres(OLD_DB_URL, { ssl: "require" });

@@ -3,7 +3,7 @@ import postgres from "postgres";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 // SOURCE DATABASE URL (from user request)
-const SOURCE_DB_URL = "postgresql://neondb_owner:npg_GMHq6e9zEanu@ep-steep-truth-adyyasdg-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const SOURCE_DB_URL = process.env.SOURCE_DB_URL!;
 
 // S3 CONFIG
 const s3Client = new S3Client({
