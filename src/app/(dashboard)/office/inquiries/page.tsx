@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { inquiries } from "@/db/schema";
+import { inquiries, classes } from "@/db/schema";
 import { desc, sql } from "drizzle-orm";
 import { InquiryManager } from "@/features/admissions/components/InquiryManager";
 
@@ -36,9 +36,12 @@ export default async function OfficeInquiriesPage({
     orderBy: [desc(inquiries.createdAt)],
   });
 
+  const allClasses = await db.query.classes.findMany();
+
   return (
     <InquiryManager 
       allInquiries={allInquiries} 
+      allClasses={allClasses}
       role={role as any}
     />
   );

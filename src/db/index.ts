@@ -13,7 +13,7 @@ const globalForDb = globalThis as unknown as {
   db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 };
 
-export const db = globalForDb.db ?? drizzle(
+export const db = drizzle(
   postgres(connectionString, { 
     prepare: false,
     max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 10,

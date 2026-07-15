@@ -9,9 +9,11 @@ import { BulkImportButton } from "./BulkImportButton";
 
 export function InquiryManager({ 
   allInquiries,
+  allClasses,
   role
 }: { 
   allInquiries: any[],
+  allClasses?: any[],
   role?: string
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,6 +42,7 @@ export function InquiryManager({
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         <InquiriesList 
           initialInquiries={allInquiries} 
+          allClasses={allClasses}
           role={role}
         />
       </div>
@@ -49,7 +52,7 @@ export function InquiryManager({
         onClose={() => setIsModalOpen(false)} 
         title="Add Manual Inquiry"
       >
-        <InquiryForm onSuccess={() => setIsModalOpen(false)} />
+        <InquiryForm onSuccess={() => setIsModalOpen(false)} allClasses={allClasses} />
       </Modal>
     </div>
   );

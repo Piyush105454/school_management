@@ -6,7 +6,7 @@ import { createInquiry } from "../actions/inquiryActions";
 import { Loader2, Send, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
+export function InquiryForm({ onSuccess, allClasses = [] }: { onSuccess?: () => void, allClasses?: any[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -30,10 +30,17 @@ export function InquiryForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const getClassesBySchool = (school: string) => {
+    if (!school) return [];
+    if (allClasses.length > 0) {
+      return allClasses
+        .filter(c => (c.institute === school) || (school === "Dhanpuri Public School" && !c.institute))
+        .map(c => c.name);
+    }
+    // Fallback if allClasses isn't provided
     if (school === "Dhanpuri Public School") {
       return ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7"];
     } else if (school === "WES Academy") {
-      return ["5", "6", "7", "8", "9", "10"];
+      return ["5", "6", "7", "8", "9", "10", "CCC", "Fellow"];
     }
     return [];
   };

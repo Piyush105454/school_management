@@ -1074,3 +1074,10 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
     references: [students.id],
   }),
 }));
+
+export const adminProfilesRelations = relations(adminProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [adminProfiles.userId],
+    references: [users.id],
+  }),
+}));

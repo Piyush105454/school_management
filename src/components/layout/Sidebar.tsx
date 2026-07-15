@@ -144,6 +144,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentStep = searchParams.get("step");
+  const currentInstitute = searchParams.get("institute");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [teacherProfile, setTeacherProfile] = useState<any>(null);
   const [permissions, setPermissions] = useState<any>(null);
@@ -579,10 +580,17 @@ export function Sidebar({ role, onClose }: SidebarProps) {
               isActive = pathname === regularItem.href;
             }
 
+            // Preserve the institute filter during navigation
+            const getHrefWithInstitute = (baseHref: string) => {
+              if (!currentInstitute || !baseHref.startsWith("/")) return baseHref;
+              const hasQuery = baseHref.includes("?");
+              return `${baseHref}${hasQuery ? "&" : "?"}institute=${encodeURIComponent(currentInstitute)}`;
+            };
+
             return (
               <Link
                 key={regularItem.href}
-                href={regularItem.href}
+                href={getHrefWithInstitute(regularItem.href)}
                 onClick={onClose}
                 className={cn(
                   "group flex items-center px-4 py-3 md:py-2.5 text-xs md:text-[13px] font-bold rounded-xl transition-all duration-150 tracking-wide select-none",

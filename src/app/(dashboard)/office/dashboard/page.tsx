@@ -116,7 +116,7 @@ export default async function OfficeDashboard(props: {
           <AttendanceGridCard 
             classesList={dbClasses}
             attendanceRecords={dbAttendance}
-            schoolName={selectedInstitute && selectedInstitute !== "ALL" ? selectedInstitute : "Dhanpuri Public School"}
+            schoolName={selectedInstitute && selectedInstitute !== "ALL" ? selectedInstitute : "All Institutes"}
             dateStr={targetDateStr}
           />
         </div>

@@ -23,10 +23,11 @@ import { Modal } from "@/components/ui/Modal";
 
 interface InquiriesListProps {
   initialInquiries: any[];
+  allClasses?: any[];
   role?: string;
 }
 
-export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
+export function InquiriesList({ initialInquiries, allClasses = [], role }: InquiriesListProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [inquiries, setInquiries] = useState(initialInquiries);
@@ -41,6 +42,7 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
   
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingInquiry, setEditingInquiry] = useState<any | null>(null);
+  const [editSchool, setEditSchool] = useState<string>("");
   const [updating, setUpdating] = useState(false);
 
   // Sync state with props when server data changes (via router.refresh)
@@ -202,6 +204,7 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
                       <button 
                         onClick={() => {
                           setEditingInquiry(inq);
+                          setEditSchool(inq.school || "");
                           setShowEditModal(true);
                         }}
                         className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
@@ -376,30 +379,17 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
                 <label className="text-xs font-bold text-slate-500 uppercase">Aadhaar</label>
                 <input name="aadhaarNumber" defaultValue={editingInquiry.aadhaarNumber} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase">Applied Class</label>
-                <select name="appliedClass" defaultValue={editingInquiry.appliedClass} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                  <option value="">Select Class</option>
-                  <option value="Nursery">Nursery</option>
-                  <option value="LKG">LKG</option>
-                  <option value="UKG">UKG</option>
-                  <option value="1">Class 1</option>
-                  <option value="2">Class 2</option>
-                  <option value="3">Class 3</option>
-                  <option value="4">Class 4</option>
-                  <option value="5">Class 5</option>
-                  <option value="6">Class 6</option>
-                  <option value="7">Class 7</option>
-                  <option value="8">Class 8</option>
-                  <option value="9">Class 9</option>
-                  <option value="10">Class 10</option>
-                </select>
-              </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">School / Institute</label>
-              <select name="school" defaultValue={editingInquiry.school} disabled={!!session?.user?.institute} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+              <select 
+                name="school" 
+                value={editSchool} 
+                onChange={(e) => setEditSchool(e.target.value)}
+                disabled={!!session?.user?.institute} 
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              >
                  {(!session?.user?.institute || session?.user?.institute === "Dhanpuri Public School") && (
                    <option value="Dhanpuri Public School">Dhanpuri Public School</option>
                  )}
@@ -410,6 +400,44 @@ export function InquiriesList({ initialInquiries, role }: InquiriesListProps) {
                    <option value="Jaitpur Public School">Jaitpur Public School</option>
                  )}
               </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">Applied Class</label>
+                <select name="appliedClass" defaultValue={editingInquiry.appliedClass} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                  <option value="">Select Class</option>
+                  {allClasses
+                    .filter(c => (c.institute === editSchool) || (editSchool === "Dhanpuri Public School" && !c.institute))
+                    .map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                  {/* Fallbacks in case allClasses is empty */}
+                  {allClasses.length === 0 && editSchool === "Dhanpuri Public School" && (
+                    <>
+                      <option value="LKG">LKG</option>
+                      <option value="UKG">UKG</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                    </>
+                  )}
+                  {allClasses.length === 0 && editSchool === "WES Academy" && (
+                    <>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                    </>
+                  )}
+                </select>
+              </div>
             </div>
 
             <div className="flex gap-3 pt-4">
