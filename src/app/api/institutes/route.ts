@@ -3,9 +3,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { classes, teachers, inquiries } from "@/db/schema";
 import { sql } from "drizzle-orm";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.role === "PRINCIPAL" && session.user.institute) {
+      return NextResponse.json([session.user.institute]);
+    }
+
     const allClasses = await db.select({ institute: classes.institute }).from(classes);
     const allTeachers = await db.select({ institute: teachers.institute }).from(teachers);
     const allInquiries = await db.select({ institute: inquiries.school }).from(inquiries);

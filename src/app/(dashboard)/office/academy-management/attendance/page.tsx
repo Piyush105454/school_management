@@ -8,10 +8,14 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import AttendanceFilters, { AttendanceFiltersState } from "@/features/academy/components/AttendanceFilters";
 import AttendanceAnalyticsChart from "@/features/academy/components/AttendanceAnalyticsChart";
+import { useSearchParams } from "next/navigation";
 
 export default function AttendancePage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role !== "TEACHER";
+  
+  const searchParams = useSearchParams();
+  const institute = searchParams.get("institute") || "";
   
   const months = [
     "January", "February", "March", "April", "May", "June", 
@@ -65,6 +69,7 @@ export default function AttendancePage() {
       if (filters.gender !== "ALL") queryParams.append("gender", filters.gender);
       if (filters.religion !== "ALL") queryParams.append("religion", filters.religion);
       if (filters.occupation !== "ALL") queryParams.append("occupation", filters.occupation);
+      if (institute) queryParams.append("institute", institute);
 
       const res = await fetch(`/api/attendance/analytics?${queryParams.toString()}`);
       if (res.ok) {
@@ -80,7 +85,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     fetchAnalytics();
-  }, [filters]);
+  }, [filters, institute]);
 
   return (
     <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">

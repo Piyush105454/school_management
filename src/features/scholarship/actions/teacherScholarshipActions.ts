@@ -61,7 +61,7 @@ export async function getStudentsWithCriteria(className: string, month: string, 
     // 2. Fetch PTM and Guardian entries for each student for the selected month/year
     for (const student of studentsList) {
       const ptmRecord = await db.query.scholarshipPtm.findFirst({
-        where: and(
+        where: (scholarshipPtm, { eq, and }) => and(
           eq(scholarshipPtm.admissionId, student.admissionId),
           eq(scholarshipPtm.month, month),
           eq(scholarshipPtm.year, year)
@@ -69,7 +69,7 @@ export async function getStudentsWithCriteria(className: string, month: string, 
       });
 
       const guardianRecord = await db.query.scholarshipGuardian.findFirst({
-        where: and(
+        where: (scholarshipGuardian, { eq, and }) => and(
           eq(scholarshipGuardian.admissionId, student.admissionId),
           eq(scholarshipGuardian.month, month),
           eq(scholarshipGuardian.year, year)
@@ -77,7 +77,7 @@ export async function getStudentsWithCriteria(className: string, month: string, 
       });
 
       const scholarshipRecord = await db.query.scholarshipRecords.findFirst({
-        where: and(
+        where: (scholarshipRecords, { eq, and }) => and(
           eq(scholarshipRecords.admissionId, student.admissionId),
           eq(scholarshipRecords.month, month),
           eq(scholarshipRecords.year, year)
@@ -161,7 +161,7 @@ export async function saveStudentCriteria(
     }
 
     const existingPtm = await db.query.scholarshipPtm.findFirst({
-      where: and(
+      where: (scholarshipPtm, { eq, and }) => and(
         eq(scholarshipPtm.admissionId, admissionId),
         eq(scholarshipPtm.month, month),
         eq(scholarshipPtm.year, year)
@@ -169,7 +169,7 @@ export async function saveStudentCriteria(
     });
 
     const existingGuardian = await db.query.scholarshipGuardian.findFirst({
-      where: and(
+      where: (scholarshipGuardian, { eq, and }) => and(
         eq(scholarshipGuardian.admissionId, admissionId),
         eq(scholarshipGuardian.month, month),
         eq(scholarshipGuardian.year, year)
@@ -243,15 +243,15 @@ export async function calculateStudentScholarship(
     }
 
     const existingPtm = await db.query.scholarshipPtm.findFirst({
-      where: and(
+      where: (scholarshipPtm, { eq, and }) => and(
         eq(scholarshipPtm.admissionId, admissionId),
         eq(scholarshipPtm.month, month),
         eq(scholarshipPtm.year, year)
-      ),
+      )
     });
 
     const existingGuardian = await db.query.scholarshipGuardian.findFirst({
-      where: and(
+      where: (scholarshipGuardian, { eq, and }) => and(
         eq(scholarshipGuardian.admissionId, admissionId),
         eq(scholarshipGuardian.month, month),
         eq(scholarshipGuardian.year, year)

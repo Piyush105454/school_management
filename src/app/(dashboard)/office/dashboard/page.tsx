@@ -16,9 +16,14 @@ export default async function OfficeDashboard(props: {
   searchParams: Promise<{ institute?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  const selectedInstitute = searchParams.institute;
-  // Protect this route - only OFFICE role can access
-  await protectRoute(["OFFICE"]);
+  const session = await protectRoute(["OFFICE"]);
+
+  let selectedInstitute = searchParams.institute;
+  if (session?.user?.role === "PRINCIPAL" && session.user.institute) {
+    selectedInstitute = session.user.institute; // Force override for principals
+  } else if (!selectedInstitute && session?.user?.institute) {
+    selectedInstitute = session.user.institute;
+  }
 
   let stats = [
     { name: "Total Inquiries", value: "0", icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },

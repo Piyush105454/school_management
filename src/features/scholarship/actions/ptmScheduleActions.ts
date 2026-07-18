@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 export async function getPtmSchedule(month: string, year: string) {
   try {
     const record = await db.query.scholarshipPtmSchedule.findFirst({
-      where: and(
+      where: (scholarshipPtmSchedule, { eq, and }) => and(
         eq(scholarshipPtmSchedule.month, month),
         eq(scholarshipPtmSchedule.year, year)
       ),
@@ -30,7 +30,7 @@ export async function savePtmSchedule(month: string, year: string, ptmDate: stri
     }
 
     const existing = await db.query.scholarshipPtmSchedule.findFirst({
-      where: and(
+      where: (scholarshipPtmSchedule, { eq, and }) => and(
         eq(scholarshipPtmSchedule.month, month),
         eq(scholarshipPtmSchedule.year, year)
       ),

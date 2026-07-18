@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { studentAttendance, students, classes, studentBio, parentGuardianDetails, admissionMeta } from "@/db/schema";
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
     const gender = searchParams.get("gender");
     const religion = searchParams.get("religion");
     const occupation = searchParams.get("occupation");
+    const institute = searchParams.get("institute");
 
     if (!monthsParam || !year) {
       return NextResponse.json({ error: "Missing months or year" }, { status: 400 });
@@ -60,6 +62,10 @@ export async function GET(req: NextRequest) {
     .innerJoin(studentBio, eq(admissionMeta.id, studentBio.admissionId));
 
     let dynamicWheres: any[] = [];
+
+    if (institute && institute !== "ALL") {
+      dynamicWheres.push(eq(classes.institute, institute));
+    }
 
     if (gender && gender !== "ALL" && gender !== "COMPARE") {
       const dbGender = gender === "Male" ? "M" : gender === "Female" ? "F" : "O";
