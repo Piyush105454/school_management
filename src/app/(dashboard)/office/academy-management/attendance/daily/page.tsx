@@ -51,7 +51,13 @@ export default async function DailyAttendancePage({
     if (session.user.role === "TEACHER") {
       allClasses = teacherClasses;
     } else {
-      const selectedInstitute = params.institute;
+      let selectedInstitute = params.institute;
+      if ((session.user.role === "TEACHER" || session.user.role === "PRINCIPAL") && session.user.institute) {
+        selectedInstitute = session.user.institute;
+      } else if (!selectedInstitute && session.user.institute) {
+        selectedInstitute = session.user.institute;
+      }
+      
       allClasses = await db.select().from(classes).orderBy(classes.grade);
       
       // Apply global institute filter

@@ -15,7 +15,14 @@ export default function AttendancePage() {
   const isAdmin = session?.user?.role !== "TEACHER";
   
   const searchParams = useSearchParams();
-  const institute = searchParams.get("institute") || "";
+  let institute = searchParams.get("institute") || "";
+  
+  // Force institute override for restricted roles (Teacher/Principal)
+  if ((session?.user?.role === "TEACHER" || session?.user?.role === "PRINCIPAL") && (session?.user as any)?.institute) {
+    institute = (session?.user as any).institute;
+  } else if (!institute && (session?.user as any)?.institute) {
+    institute = (session?.user as any).institute;
+  }
   
   const months = [
     "January", "February", "March", "April", "May", "June", 

@@ -25,7 +25,15 @@ export default function ClassAttendanceGrid() {
   useEffect(() => {
     // Fetch classes for dropdown
     const fetchClasses = async () => {
-      const currentInstitute = searchParams.get("institute");
+      let currentInstitute = searchParams.get("institute");
+      
+      // Force institute override for restricted roles (Teacher/Principal)
+      if ((session?.user?.role === "TEACHER" || session?.user?.role === "PRINCIPAL") && (session?.user as any)?.institute) {
+        currentInstitute = (session?.user as any).institute;
+      } else if (!currentInstitute && (session?.user as any)?.institute) {
+        currentInstitute = (session?.user as any).institute;
+      }
+
       const url = currentInstitute && currentInstitute !== "ALL" 
         ? `/api/classes?institute=${encodeURIComponent(currentInstitute)}`
         : "/api/classes";

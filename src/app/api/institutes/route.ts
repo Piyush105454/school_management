@@ -9,7 +9,7 @@ import { authOptions } from "@/lib/auth";
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.role === "PRINCIPAL" && session.user.institute) {
+    if ((session?.user?.role === "PRINCIPAL" || session?.user?.role === "TEACHER") && session.user.institute) {
       return NextResponse.json([session.user.institute]);
     }
 
