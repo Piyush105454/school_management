@@ -38,7 +38,7 @@ export function InquiryForm({ onSuccess, allClasses = [] }: { onSuccess?: () => 
     }
     // Fallback if allClasses isn't provided
     if (school === "Dhanpuri Public School") {
-      return ["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7"];
+      return ["KG1", "KG2", "1", "2", "3", "4", "5", "6", "7"];
     } else if (school === "WES Academy") {
       return ["5", "6", "7", "8", "9", "10", "CCC", "Fellow"];
     }

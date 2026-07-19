@@ -695,7 +695,7 @@ function SiblingsStep() {
                   <label className={labelStyles}>Class</label>
                   <select {...register(`siblings.${index}.classCurrent`)} className={inputStyles}>
                     <option value="">Select Class</option>
-                    {["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+                    {["KG1", "KG2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -776,7 +776,7 @@ function AcademicStep() {
           <label className={labelStyles}>Class Attended</label>
           <select {...register("previousAcademic.classLastAttended")} className={inputStyles}>
             <option value="">Select Class</option>
-            {["LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
+            {["KG1", "KG2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

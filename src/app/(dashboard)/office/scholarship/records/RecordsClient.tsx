@@ -185,16 +185,27 @@ export default function RecordsClient() {
   };
 
   const filteredRecords = useMemo(() => {
-    if (!searchQuery) return records;
-    const q = searchQuery.toLowerCase();
-    return records.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.rollNo.toLowerCase().includes(q) ||
-        r.scholarNo.toLowerCase().includes(q) ||
-        r.className.toLowerCase().includes(q)
-    );
-  }, [records, searchQuery]);
+    let result = records;
+
+    // Apply dropdown filters client-side (matches what user sees on screen)
+    if (filters.month) result = result.filter(r => r.month === filters.month);
+    if (filters.class) result = result.filter(r => r.className === filters.class);
+    if (filters.status) result = result.filter(r => r.status === filters.status);
+
+    // Apply search query
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.rollNo.toLowerCase().includes(q) ||
+          r.scholarNo.toLowerCase().includes(q) ||
+          r.className.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [records, searchQuery, filters]);
 
   const subtotals = useMemo(
     () =>
@@ -210,6 +221,73 @@ export default function RecordsClient() {
       ),
     [filteredRecords]
   );
+
+  const handleExportPDF = async () => {
+    const jsPDF = (await import("jspdf")).default;
+    const autoTable = (await import("jspdf-autotable")).default;
+
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(18);
+    doc.text("Scholarship Records", 14, 22);
+
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    const filterText = `Filters: Month: ${filters.month || "All"}, Class: ${filters.class || "All Classes"}, Status: ${filters.status || "All Statuses"}`;
+    doc.text(filterText, 14, 30);
+
+    const tableColumn = ["S.No.", "Name", "Class", "Roll No.", "Scholar No.", "Month", "Sch. Earned", "Pending Due", "Waiver", "Addl. Charge", "Final Due", "Status"];
+    const tableRows: any[] = [];
+
+    filteredRecords.forEach((record, idx) => {
+      tableRows.push([
+        idx + 1,
+        record.name,
+        record.className,
+        record.rollNo || "-",
+        record.scholarNo || "-",
+        record.month,
+        `Rs ${record.scholarshipEarned}`,
+        `Rs ${record.pendingDue}`,
+        `Rs ${record.waiverGiven}`,
+        `Rs ${record.additionalCharge}`,
+        `Rs ${record.finalDue}`,
+        record.status
+      ]);
+    });
+
+    // Subtotals Row
+    tableRows.push([
+      "",
+      "TOTALS",
+      "",
+      "",
+      "",
+      "",
+      `Rs ${subtotals.scholarshipEarned}`,
+      `Rs ${subtotals.pendingDue}`,
+      `Rs ${subtotals.waiverGiven}`,
+      `Rs ${subtotals.additionalCharge}`,
+      `Rs ${subtotals.finalDue}`,
+      ""
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 40,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] },
+      willDrawCell: (data) => {
+        if (data.row.index === tableRows.length - 1) {
+          doc.setFont("helvetica", "bold");
+          doc.setFillColor(240, 240, 240);
+        }
+      }
+    });
+
+    doc.save(`scholarship_records_${(filters.month || "all").toLowerCase()}.pdf`);
+  };
 
   return (
     <div className="p-6 md:p-10 space-y-6 animate-in fade-in duration-300">
@@ -228,7 +306,10 @@ export default function RecordsClient() {
             Monthly dues and scholarship ledger. Click any row to view details.
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+        <button 
+          onClick={handleExportPDF}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+        >
           <Download className="h-4 w-4" />
           <span className="hidden sm:inline">Export</span>
         </button>

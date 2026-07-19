@@ -38,7 +38,7 @@ export default async function SubjectPage({ params, searchParams }: SubjectPageP
   // If exact match not found, resolve fallback name ("1" -> "Class 1", "Nursery" -> "Nursery")
   if (!classRecord) {
     const fallbackClassName =
-      ["Nursery", "LKG", "UKG", "KG1", "KG2"].includes(decodedClassNameParam) || decodedClassNameParam.startsWith("Class ")
+      ["Nursery", "KG1", "KG2"].includes(decodedClassNameParam) || decodedClassNameParam.startsWith("Class ")
         ? decodedClassNameParam
         : `Class ${decodedClassNameParam}`;
 

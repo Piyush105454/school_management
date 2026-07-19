@@ -12,9 +12,7 @@ export async function deleteClass(className: string) {
   try {
     // We expect the class name to match exactly as it is in the classes table
     const normalized = className.trim().toUpperCase();
-    const dbClassName = normalized === "LKG" ? "KG1" 
-                      : normalized === "UKG" ? "KG2" 
-                      : ["KG1", "KG2"].includes(normalized) ? normalized
+    const dbClassName = ["KG1", "KG2"].includes(normalized) ? normalized
                       : className.startsWith("Class ") ? className : `Class ${className}`;
 
     const classRecord = await db.query.classes.findFirst({
@@ -56,9 +54,7 @@ export async function cleanupAcademicData() {
         continue;
       }
 
-      // Standardize LKG/UKG to KG1/KG2
-      if (normalized.toUpperCase() === "LKG") normalized = "KG1";
-      if (normalized.toUpperCase() === "UKG") normalized = "KG2";
+      // Remove LKG/UKG translations since UI sends KG1/KG2 directly now
 
       // Aggressive Format (Standardize to "Class X", "KG1", "KG2")
       if (!["KG1", "KG2"].includes(normalized.toUpperCase())) {

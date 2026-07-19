@@ -366,10 +366,108 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         )}
       </div>
 
-      <div className="flex gap-4 max-w-sm">
-        <select value={year} onChange={(e) => setYear(e.target.value)} className="border p-2 rounded-md text-sm bg-white border-slate-300 w-full font-semibold">
-          {["2025", "2026", "2027"].map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+      <div className="flex justify-between items-center max-w-full">
+        <div className="flex gap-4 max-w-sm">
+          <select value={year} onChange={(e) => setYear(e.target.value)} className="border p-2 rounded-md text-sm bg-white border-slate-300 w-full font-semibold">
+            {["2025", "2026", "2027"].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        {!selectedMonth && monthlyOverview.length > 0 && (
+          <button
+            onClick={async () => {
+              const jsPDF = (await import("jspdf")).default;
+              const autoTable = (await import("jspdf-autotable")).default;
+              const doc = new jsPDF("landscape");
+              
+              doc.setFontSize(18);
+              doc.text(`Scholarship Ledger: ${student?.studentName || "Student"}`, 14, 22);
+              doc.setFontSize(11);
+              doc.setTextColor(100);
+              doc.text(`Year: ${year} | Scholar #: ${student?.scholarNumber || "N/A"}`, 14, 30);
+              
+              const tableColumn = ["Month", "Attendance %", "Homework %", "Guardian", "PTM", "Total Sch. Earned", "Waiver Given", "Addl. Charge", "Final Due"];
+              const tableRows: any[] = [];
+              let grandEarned = 0;
+              let grandWaiver = 0;
+              let grandAdditional = 0;
+              let grandFinalDue = 0;
+              
+              monthlyOverview.forEach(item => {
+                const att = item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A";
+                const hw = item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A";
+                
+                let guard = "N/A";
+                if (item.guardian) {
+                  if (item.guardian.comments) {
+                    try {
+                      const parsed = JSON.parse(item.guardian.comments);
+                      const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
+                      if (vals.length > 0) {
+                        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                        guard = `${avg.toFixed(1)}/5`;
+                      }
+                    } catch {}
+                  } else if (item.guardian.rating !== null && item.guardian.rating !== undefined) {
+                    guard = `${item.guardian.rating}/5`;
+                  }
+                }
+                
+                let ptm = "N/A";
+                if (item.ptm) {
+                  ptm = item.ptm.attended ? "Yes" : "No";
+                  if (item.ptm.attended && item.ptm.attendee) {
+                    ptm += ` (${item.ptm.attendee})`;
+                  }
+                }
+
+                if (!item.financials) {
+                  tableRows.push([item.month, att, hw, guard, ptm, "—", "—", "—", "—"]);
+                  return;
+                }
+
+                const earned = item.financials.scholarshipEarned;
+                const waiver = item.financials.waiverGiven;
+                const additional = item.financials.additionalCharge;
+                const finalDue = item.financials.finalDue ?? 0;
+
+                grandEarned += earned;
+                grandWaiver += waiver;
+                grandAdditional += additional;
+                grandFinalDue += finalDue;
+                
+                tableRows.push([
+                  item.month, att, hw, guard, ptm,
+                  `Rs ${earned}`,
+                  waiver > 0 ? `Rs ${waiver}` : "—",
+                  additional > 0 ? `Rs ${additional}` : "—",
+                  `Rs ${finalDue}`
+                ]);
+              });
+              
+              tableRows.push(["TOTALS", "", "", "", "", `Rs ${grandEarned}`, `Rs ${grandWaiver}`, `Rs ${grandAdditional}`, `Rs ${grandFinalDue}`]);
+              
+              autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 40,
+                theme: "grid",
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [41, 128, 185] },
+                willDrawCell: (data) => {
+                  if (data.row.index === tableRows.length - 1) {
+                    doc.setFont("helvetica", "bold");
+                    doc.setFillColor(240, 240, 240);
+                  }
+                }
+              });
+              
+              doc.save(`scholarship_ledger_${student?.studentName?.replace(/[^a-zA-Z0-9]/g, "_") || "student"}_${year}.pdf`);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+          >
+            Export PDF
+          </button>
+        )}
       </div>
 
       {!selectedMonth ? (

@@ -21,23 +21,44 @@ export default async function ClassManagementPage({
   // Fetch all classes from DB
   const dbClasses = await db.query.classes.findMany();
   
-  // Fetch student counts grouped by class ID
-  const studentCounts = await db
+  // Fetch all fully admitted students to accurately count them according to the same logic as the class list
+  const allAdmittedStudents = await db
     .select({
-      classId: students.classId,
-      count: count(),
+      assignedClassId: classes.id,
+      assignedClassName: classes.name,
+      appliedClass: inquiries.appliedClass,
+      institute: inquiries.school,
     })
-    .from(students)
-    .groupBy(students.classId);
+    .from(studentProfiles)
+    .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
+    .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+    .leftJoin(students, eq(admissionMeta.entryNumber, students.studentId))
+    .leftJoin(classes, eq(students.classId, classes.id))
+    .where(eq(studentProfiles.isFullyAdmitted, true));
 
   // Map to classData
   let classData = dbClasses.map((cls) => {
-    const match = studentCounts.find((sc) => sc.classId === cls.id);
+    // Tally up students for this specific class using identical logic to [className]/page.tsx
+    const count = allAdmittedStudents.filter((s) => {
+      // 1. Must match the institute (if the class is bound to an institute)
+      const instituteMatch = !s.institute || s.institute === (cls.institute || "Dhanpuri Public School");
+      if (!instituteMatch) return false;
+
+      // 2. Primary check: if officially assigned, strictly match the class ID
+      const hasAssignedClass = s.assignedClassId !== null;
+      if (hasAssignedClass) {
+        return s.assignedClassId === cls.id;
+      } 
+      // 3. Fallback check: if NOT assigned yet, match the applied inquiry class
+      else {
+        return s.appliedClass === cls.name || s.appliedClass === cls.name.replace("Class ", "");
+      }
+    }).length;
     return {
       id: cls.id,
       name: cls.name,
       institute: cls.institute || "Dhanpuri Public School",
-      count: match ? match.count : 0,
+      count: count,
     };
   });
 

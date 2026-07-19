@@ -359,6 +359,23 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
     const ptm = await db.query.scholarshipPtm.findMany({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.year, year)) });
     const records = await db.query.scholarshipRecords.findMany({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.year, year)) });
 
+    // Fetch criteria to compute financial columns
+    const currentYear = new Date().getFullYear();
+    const academicYear = `${currentYear}-${String(currentYear + 1).slice(-2)}`;
+    let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+      where: and(eq(scholarshipCriteriaSettings.admissionId, admissionId), eq(scholarshipCriteriaSettings.academicYear, academicYear))
+    });
+    if (!criteria) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(isNull(scholarshipCriteriaSettings.admissionId), eq(scholarshipCriteriaSettings.academicYear, academicYear))
+      });
+    }
+    const maxAttendance = criteria?.attendanceAmount ?? 750;
+    const maxHomework = criteria?.homeworkAmount ?? 750;
+    const maxGuardian = criteria?.guardianAmount ?? 750;
+    const maxPtm = criteria?.ptmAmount ?? 750;
+    const totalSchoolFee = maxAttendance + maxHomework + maxGuardian + maxPtm;
+
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const overview = months.map(month => {
       const att = attendance.find(a => a.month === month);
@@ -367,6 +384,12 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
       const pt = ptm.find(p => p.month === month);
       const rec = records.find(r => r.month === month);
 
+      const scholarshipEarned = rec?.totalAmount ?? 0;
+      const waiverGiven = rec?.discountAmount ?? 0;
+      const additionalCharge = rec?.additionalChargeAmount ?? 0;
+      const pendingDue = rec ? Math.max(0, totalSchoolFee - scholarshipEarned) : null;
+      const finalDue = rec ? Math.max(0, (pendingDue ?? 0) - waiverGiven + additionalCharge) : null;
+
       return {
         month,
         attendance: att || null,
@@ -374,6 +397,14 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
         guardian: gd || null,
         ptm: pt || null,
         record: rec || null,
+        financials: rec ? {
+          totalSchoolFee,
+          scholarshipEarned,
+          waiverGiven,
+          additionalCharge,
+          pendingDue,
+          finalDue,
+        } : null,
       };
     });
 

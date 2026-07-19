@@ -405,7 +405,7 @@ export function InquiriesList({ initialInquiries, allClasses = [], role }: Inqui
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 uppercase">Applied Class</label>
-                <select name="appliedClass" defaultValue={editingInquiry.appliedClass} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                <select name="appliedClass" defaultValue={allClasses.find(c => c.name === editingInquiry?.appliedClass || c.name.replace("Class ", "") === editingInquiry?.appliedClass)?.name || editingInquiry?.appliedClass} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
                   <option value="">Select Class</option>
                   {allClasses
                     .filter(c => (c.institute === editSchool) || (editSchool === "Dhanpuri Public School" && !c.institute))
@@ -415,8 +415,8 @@ export function InquiriesList({ initialInquiries, allClasses = [], role }: Inqui
                   {/* Fallbacks in case allClasses is empty */}
                   {allClasses.length === 0 && editSchool === "Dhanpuri Public School" && (
                     <>
-                      <option value="LKG">LKG</option>
-                      <option value="UKG">UKG</option>
+                      <option value="KG1">KG1</option>
+                      <option value="KG2">KG2</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
                       <option value="3">3</option>

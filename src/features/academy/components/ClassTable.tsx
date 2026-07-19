@@ -29,7 +29,7 @@ interface RenameModalProps {
 function RenameClassModal({ cls, onClose, onSuccess }: RenameModalProps) {
   const displayName =
     cls?.name.startsWith("Class ") ||
-    ["LKG", "UKG", "KG1", "KG2"].includes(cls?.name ?? "") ||
+    ["KG1", "KG2"].includes(cls?.name ?? "") ||
     cls?.name.toLowerCase().startsWith("wesa") ||
     cls?.institute?.toLowerCase() === "wes academy"
       ? cls?.name
@@ -136,7 +136,7 @@ function RenameClassModal({ cls, onClose, onSuccess }: RenameModalProps) {
                 setError(null);
               }}
               onKeyDown={(e) => e.key === "Enter" && !loading && handleRename()}
-              placeholder="e.g. Class 1A, Grade 1, LKG..."
+              placeholder="e.g. Class 1A, Grade 1, KG1..."
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all placeholder:font-normal placeholder:text-slate-400"
               autoFocus
             />
@@ -254,7 +254,7 @@ export default function ClassTable({ classData, isAdmin = false }: ClassTablePro
               {classData.map((cls) => {
                 const displayName =
                   cls.name.startsWith("Class ") ||
-                  ["LKG", "UKG", "KG1", "KG2"].includes(cls.name) ||
+                  ["KG1", "KG2"].includes(cls.name) ||
                   cls.name.toLowerCase().startsWith("wesa") ||
                   cls.institute?.toLowerCase() === "wes academy"
                     ? cls.name

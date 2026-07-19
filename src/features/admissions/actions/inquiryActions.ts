@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { inquiries, users, studentProfiles, admissionMeta } from "@/db/schema";
+import { inquiries, users, studentProfiles, admissionMeta, students, classes } from "@/db/schema";
 import { eq, sql, count, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
@@ -253,6 +253,29 @@ export async function updateInquiry(id: string, data: any) {
         updatedAt: new Date(),
       })
       .where(eq(inquiries.id, id));
+
+    // Cascade the class update to the students table if the student is fully admitted
+    if (data.appliedClass) {
+      const meta = await db.query.admissionMeta.findFirst({
+        where: eq(admissionMeta.inquiryId, id),
+      });
+
+      if (meta && meta.entryNumber) {
+        // Find the target class ID
+        const targetClass = await db.query.classes.findFirst({
+          where: or(
+            eq(classes.name, data.appliedClass),
+            eq(classes.name, `Class ${data.appliedClass}`)
+          )
+        });
+
+        if (targetClass) {
+          await db.update(students)
+            .set({ classId: targetClass.id })
+            .where(eq(students.studentId, meta.entryNumber));
+        }
+      }
+    }
 
     revalidatePath("/office/inquiries");
     return { success: true };

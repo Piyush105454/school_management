@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { db } from "@/db";
 import { inquiries, studentProfiles, admissionMeta, studentBio, students, classes } from "@/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { ArrowLeft, User, Phone } from "lucide-react";
 
 export default async function ClassStudentsPage({ params, searchParams }: { params: Promise<{ className: string }>, searchParams: Promise<{ institute?: string }> }) {
@@ -32,8 +32,13 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
         eq(studentProfiles.isFullyAdmitted, true),
         or(
           eq(classes.name, className),
-          eq(inquiries.appliedClass, className),
-          eq(inquiries.appliedClass, className.replace("Class ", ""))
+          and(
+            isNull(classes.id),
+            or(
+              eq(inquiries.appliedClass, className),
+              eq(inquiries.appliedClass, className.replace("Class ", ""))
+            )
+          )
         ),
         eq(inquiries.school, institute)
       )
@@ -50,7 +55,7 @@ export default async function ClassStudentsPage({ params, searchParams }: { para
         </Link>
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 font-outfit uppercase tracking-tight">
-            {["Nursery", "LKG", "UKG", "KG1", "KG2"].includes(className) || className.startsWith("Class ") ? className : `Class ${className}`} Admitted Students
+            {["Nursery", "KG1", "KG2"].includes(className) || className.startsWith("Class ") ? className : `Class ${className}`} Admitted Students
           </h1>
           <p className="text-xs md:text-sm text-slate-500 font-medium">List of all active and confirmed students joining this class.</p>
         </div>

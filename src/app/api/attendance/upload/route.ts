@@ -23,8 +23,6 @@ export async function POST(req: NextRequest) {
 
     const normalizeClassName = (name: string) => {
       const n = name.trim().toUpperCase();
-      if (n === "LKG") return "KG1";
-      if (n === "UKG") return "KG2";
       return n;
     };
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { admissionMeta, inquiries, studentProfiles, studentBio, students } from "@/db/schema";
+import { admissionMeta, inquiries, studentProfiles, studentBio, students, classes } from "@/db/schema";
 import { eq, and, count, inArray } from "drizzle-orm";
 
 export async function getStudentCountsByClass(school?: string, classesFilter?: string[]) {
@@ -34,31 +34,32 @@ export async function getStudentsByClass(className: string, school?: string) {
     const studentsList = await db
       .select({
         admissionId: admissionMeta.id,
-        studentName: inquiries.studentName,
-        parentName: inquiries.parentName,
-        appliedClass: inquiries.appliedClass,
+        studentName: studentBio.firstName,
+        studentLastName: studentBio.lastName,
+        appliedClass: classes.name,
         scholarNumber: students.scholarNumber,
         metaScholarNumber: admissionMeta.scholarNumber,
         admissionNumber: admissionMeta.admissionNumber,
         entryNumber: admissionMeta.entryNumber,
       })
-      .from(studentProfiles)
-      .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
-      .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-      .leftJoin(students, eq(admissionMeta.entryNumber, students.studentId))
+      .from(students)
+      .innerJoin(classes, eq(students.classId, classes.id))
+      .innerJoin(admissionMeta, eq(admissionMeta.entryNumber, students.studentId))
+      .innerJoin(studentBio, eq(studentBio.admissionId, admissionMeta.id))
       .where(
         and(
-          eq(studentProfiles.isFullyAdmitted, true),
-          eq(inquiries.appliedClass, className),
-          school && school !== "ALL" ? eq(inquiries.school, school) : undefined
+          eq(classes.name, className),
+          school && school !== "ALL" ? eq(classes.institute, school) : undefined
         )
       );
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: studentsList.map(s => ({
-        ...s,
-        scholarNumber: s.scholarNumber || s.metaScholarNumber || s.admissionNumber || s.entryNumber || null
+        admissionId: s.admissionId,
+        studentName: `${s.studentName || ""} ${s.studentLastName || ""}`.trim(),
+        appliedClass: s.appliedClass,
+        scholarNumber: s.scholarNumber || s.metaScholarNumber || s.admissionNumber || s.entryNumber || null,
       }))
     };
   } catch (error: any) {
