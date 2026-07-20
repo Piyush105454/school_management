@@ -27,6 +27,7 @@ import { getPtmSchedule, savePtmSchedule } from "@/features/scholarship/actions/
 import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
 import { ensureCompressed } from "@/lib/compression";
 import { useSession } from "next-auth/react";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 const MONTHS = [
   "April", "May", "June", "July", "August", "September", "October", "November", "December", 
@@ -37,6 +38,7 @@ const YEARS = ["2025", "2026", "2027"];
 
 export default function PtmCriteriaPage() {
   const { data: session } = useSession();
+  const { selectedInstitute } = useInstitute();
   const isAdmin = session?.user?.role !== "TEACHER";
 
   const [classes, setClasses] = useState<string[]>([]);
@@ -97,9 +99,18 @@ export default function PtmCriteriaPage() {
     getAssignedClassesForTeacher()
       .then(res => {
         if (res.success && res.data) {
-          setClasses(res.data);
-          if (res.data.length > 0) {
-            setSelectedClass(res.data[0]);
+          // Filter classes by selected institute
+          let filteredClasses = res.data;
+          if (selectedInstitute && selectedInstitute !== "ALL") {
+            filteredClasses = res.data.filter((cls: any) => 
+              (cls.institute || "Dhanpuri Public School") === selectedInstitute
+            );
+          }
+          // Extract just the class names for the dropdown
+          const classNames = filteredClasses.map((cls: any) => cls.name || cls);
+          setClasses(classNames);
+          if (classNames.length > 0) {
+            setSelectedClass(classNames[0]);
           }
         } else {
           setError(res.error || "Failed to load assigned classes.");
@@ -111,7 +122,7 @@ export default function PtmCriteriaPage() {
         setError("Failed to load assigned classes.");
         setClassesLoading(false);
       });
-  }, [session]);
+  }, [session, selectedInstitute]);
 
   // Fetch PTM scheduled date when filters change
   useEffect(() => {
@@ -416,34 +427,6 @@ export default function PtmCriteriaPage() {
       </div>
 
       {/* Admin Scheduler Card */}
-      {isAdmin && (
-        <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-5 md:p-6 shadow-sm space-y-4 animate-in fade-in-50">
-          <div className="flex items-center gap-3">
-            <Calendar className="text-slate-700" size={18} />
-            <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 font-outfit">Admin Panel: Schedule PTM Date</h2>
-          </div>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[200px] space-y-1.5">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Choose Date</label>
-              <input
-                type="date"
-                value={tempPtmDate}
-                onChange={(e) => setTempPtmDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleSaveSchedule}
-              disabled={scheduleSaving || !tempPtmDate}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
-            >
-              {scheduleSaving ? <Loader2 className="animate-spin w-4 h-4" /> : "Save Schedule Date"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Selectors and Filters */}
       <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="space-y-2">
@@ -501,34 +484,94 @@ export default function PtmCriteriaPage() {
         </div>
       </div>
 
-      {/* Student List Dropdown */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Student</label>
+      {/* Admin Scheduler Card */}
+      {isAdmin && (
+        <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-5 md:p-6 shadow-sm space-y-4 animate-in fade-in-50">
+          <div className="flex items-center gap-3">
+            <Calendar className="text-slate-700" size={18} />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 font-outfit">Admin Panel: Schedule PTM Date</h2>
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Choose Date</label>
+              <input
+                type="date"
+                value={tempPtmDate}
+                onChange={(e) => setTempPtmDate(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveSchedule}
+              disabled={scheduleSaving || !tempPtmDate}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+            >
+              {scheduleSaving ? <Loader2 className="animate-spin w-4 h-4" /> : "Save Schedule Date"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Student List Table */}
+      <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm overflow-x-auto">
+        <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 mb-4">Student PTM Records</h3>
+        
         {loading ? (
-          <div className="flex h-12 items-center px-4 bg-slate-50 border border-slate-200 rounded-2xl">
-            <Loader2 className="animate-spin text-blue-600 h-4 w-4 mr-2" />
+          <div className="flex h-32 items-center justify-center">
+            <Loader2 className="animate-spin text-blue-600 h-6 w-6 mr-2" />
             <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading student list...</span>
           </div>
         ) : students.length === 0 ? (
-          <div className="flex h-12 items-center px-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-400 font-bold uppercase tracking-wider">
+          <div className="flex h-32 items-center justify-center text-xs text-slate-400 font-bold uppercase tracking-wider">
             No confirmed students registered in class "{selectedClass}"
           </div>
         ) : (
-          <div className="relative">
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white appearance-none cursor-pointer"
-            >
-              <option value="">-- Choose a student from class {selectedClass} --</option>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50">
+                <th className="text-left px-4 py-3 font-black uppercase tracking-wider text-slate-600">Roll No</th>
+                <th className="text-left px-4 py-3 font-black uppercase tracking-wider text-slate-600">Name</th>
+                <th className="text-center px-4 py-3 font-black uppercase tracking-wider text-slate-600">Photo</th>
+                <th className="text-center px-4 py-3 font-black uppercase tracking-wider text-slate-600">Type</th>
+                <th className="text-center px-4 py-3 font-black uppercase tracking-wider text-slate-600">Attendance</th>
+                <th className="text-center px-4 py-3 font-black uppercase tracking-wider text-slate-600">Action</th>
+              </tr>
+            </thead>
+            <tbody>
               {students.map((student) => (
-                <option key={student.admissionId} value={student.admissionId}>
-                  {student.studentName} (#{student.scholarNumber})
-                </option>
+                <tr key={student.admissionId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3 font-bold text-slate-800">{student.scholarNumber || "N/A"}</td>
+                  <td className="px-4 py-3 font-bold text-slate-800">{student.studentName}</td>
+                  <td className="px-4 py-3 text-center">
+                    {student.ptm?.parentImages?.length > 0 ? (
+                      <span className="inline-block bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg font-black text-[9px]">✓ Yes</span>
+                    ) : (
+                      <span className="inline-block bg-slate-100 text-slate-600 px-3 py-1 rounded-lg font-black text-[9px]">✗ No</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center font-bold text-slate-800">
+                    {student.ptm?.attendee || (student.ptm?.attended ? "Present" : "—")}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {student.ptm?.attended ? (
+                      <span className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-black text-[9px]">Present</span>
+                    ) : (
+                      <span className="inline-block bg-slate-100 text-slate-600 px-3 py-1 rounded-lg font-black text-[9px]">Absent</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => setSelectedStudentId(student.admissionId)}
+                      className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider transition-all active:scale-95"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
               ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-4.5 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -546,9 +589,10 @@ export default function PtmCriteriaPage() {
         </div>
       )}
 
-      {/* Form View */}
-      {activeStudent ? (
-        <div className="max-w-2xl mx-auto bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 animate-in slide-in-from-bottom-6 duration-300">
+      {/* Modal/Drawer Form View */}
+      {selectedStudentId && activeStudent ? (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="max-w-2xl w-full mx-4 bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-6 duration-300">
           
           {/* Lock State Warning Banners */}
           {isSpecificRecordLocked ? (
@@ -566,14 +610,26 @@ export default function PtmCriteriaPage() {
             </div>
           ) : null}
 
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-              <ClipboardList size={18} />
+          {/* Close Button */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                <ClipboardList size={18} />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">PTM Attendance Form</h3>
+                <p className="text-[10px] text-slate-400 font-bold mt-0.5">{activeStudent.studentName}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">PTM Attendance Form</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Parent-Teacher Meeting Status</p>
-            </div>
+            <button
+              onClick={() => setSelectedStudentId("")}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+              title="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* PTM Toggle */}
@@ -777,19 +833,9 @@ export default function PtmCriteriaPage() {
               </button>
             )}
           </div>
-        </div>
-      ) : (
-        /* Empty placeholder card when no student is selected */
-        <div className="bg-white border border-slate-100 rounded-[32px] p-12 text-center shadow-sm max-w-xl mx-auto space-y-4">
-          <div className="bg-blue-50 text-blue-500 rounded-2xl p-4 w-14 h-14 flex items-center justify-center mx-auto">
-            <User size={24} />
           </div>
-          <h3 className="text-slate-800 font-black font-outfit text-base uppercase tracking-tight">Select a Student</h3>
-          <p className="text-slate-400 text-xs leading-relaxed max-w-md mx-auto">
-            Choose a confirmed student from class "{selectedClass}" in the dropdown list above to view and update their PTM attendance.
-          </p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

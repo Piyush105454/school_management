@@ -384,8 +384,7 @@ export async function getAssignedClassesForTeacher() {
     if (session.user.role !== "TEACHER") {
       // For Admin/Office/Principal, load all classes from the database
       const dbClasses = await db.select().from(classes).orderBy(classes.grade);
-      const classNames = dbClasses.map(c => c.name);
-      return { success: true, data: classNames };
+      return { success: true, data: dbClasses };
     }
 
     const teacherProfile = await db.query.teachers.findFirst({
@@ -396,13 +395,17 @@ export async function getAssignedClassesForTeacher() {
       return { success: true, data: [] };
     }
 
-    // Parse comma-separated classes
+    // Parse comma-separated classes and get full class objects
     const classNames = teacherProfile.classAssigned
       .split(",")
       .map(s => s.trim())
       .filter(Boolean);
+    
+    const dbClasses = await db.select().from(classes).where(
+      inArray(classes.name, classNames)
+    );
 
-    return { success: true, data: classNames };
+    return { success: true, data: dbClasses };
   } catch (error: any) {
     console.error("getAssignedClassesForTeacher error:", error);
     return { success: false, error: error.message };
