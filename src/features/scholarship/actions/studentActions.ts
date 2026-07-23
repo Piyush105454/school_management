@@ -106,6 +106,7 @@ export async function getAdmittedStudents() {
         studentName: inquiries.studentName,
         parentName: inquiries.parentName,
         appliedClass: inquiries.appliedClass,
+        school: inquiries.school,
         scholarNumber: students.scholarNumber,
         metaScholarNumber: admissionMeta.scholarNumber,
         admissionNumber: admissionMeta.admissionNumber,

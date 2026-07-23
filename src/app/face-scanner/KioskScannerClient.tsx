@@ -514,7 +514,7 @@ export default function KioskScannerClient({ classes, isKioskOnly = false }: Kio
         {/* Action controls: Sign Out if kiosk-only, else Tab Controls */}
         {isKioskOnly ? (
           <button
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: typeof window !== "undefined" ? window.location.origin : "/" })}
             className="px-4 py-2.5 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all active:scale-95 shadow-lg flex items-center gap-1.5 cursor-pointer"
           >
             Sign Out

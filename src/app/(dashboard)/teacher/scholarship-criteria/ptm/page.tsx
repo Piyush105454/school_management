@@ -792,23 +792,23 @@ export default function PtmCriteriaPage() {
           </div>
 
           {/* Calculation Status Box */}
-          {activeStudent.record && (
-            <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PTM Award</span>
-                <div className="text-sm font-black text-slate-800 mt-1">₹{activeStudent.record.ptmAmount ?? 0}</div>
-              </div>
-              <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
-                activeStudent.record.status === "APPROVED" 
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                  : activeStudent.record.status === "PAID"
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-amber-50 text-amber-700 border-amber-200"
-              }`}>
-                {activeStudent.record.status}
+          <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4">
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PTM Award</span>
+              <div className="text-sm font-black text-slate-800 mt-1">
+                ₹{ptmAttended ? (activeStudent.record?.ptmAmount || 750) : 0}
               </div>
             </div>
-          )}
+            <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
+              activeStudent.record?.status === "APPROVED" 
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                : activeStudent.record?.status === "PAID"
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            }`}>
+              {(!activeStudent.record?.status || activeStudent.record?.status === "PENDING") ? "SCHOLARSHIP AWARDED" : activeStudent.record?.status}
+            </div>
+          </div>
 
           {/* Actions */}
           <div className="flex gap-4 pt-4 border-t border-slate-100">

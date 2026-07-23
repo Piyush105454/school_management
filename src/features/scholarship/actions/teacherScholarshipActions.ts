@@ -56,33 +56,51 @@ export async function getStudentsWithCriteria(className: string, month: string, 
         )
       );
 
+    const admissionIds = studentsList.map(s => s.admissionId);
+    if (admissionIds.length === 0) return { success: true, data: [] };
+
+    // 2. Fetch ALL PTM records in ONE query (instead of per student)
+    const ptmRecords = await db
+      .select()
+      .from(scholarshipPtm)
+      .where(and(
+        inArray(scholarshipPtm.admissionId, admissionIds),
+        eq(scholarshipPtm.month, month),
+        eq(scholarshipPtm.year, year)
+      ));
+
+    // 3. Fetch ALL Guardian records in ONE query
+    const guardianRecords = await db
+      .select()
+      .from(scholarshipGuardian)
+      .where(and(
+        inArray(scholarshipGuardian.admissionId, admissionIds),
+        eq(scholarshipGuardian.month, month),
+        eq(scholarshipGuardian.year, year)
+      ));
+
+    // 4. Fetch ALL Scholarship records in ONE query
+    const scholarshipRecordsList = await db
+      .select()
+      .from(scholarshipRecords)
+      .where(and(
+        inArray(scholarshipRecords.admissionId, admissionIds),
+        eq(scholarshipRecords.month, month),
+        eq(scholarshipRecords.year, year)
+      ));
+
+    // Create maps for O(1) lookups
+    const ptmMap = new Map(ptmRecords.map(r => [r.admissionId, r]));
+    const guardianMap = new Map(guardianRecords.map(r => [r.admissionId, r]));
+    const recordMap = new Map(scholarshipRecordsList.map(r => [r.admissionId, r]));
+
     const data = [];
 
-    // 2. Fetch PTM and Guardian entries for each student for the selected month/year
+    // 5. Merge data using maps (no more database queries)
     for (const student of studentsList) {
-      const ptmRecord = await db.query.scholarshipPtm.findFirst({
-        where: (scholarshipPtm, { eq, and }) => and(
-          eq(scholarshipPtm.admissionId, student.admissionId),
-          eq(scholarshipPtm.month, month),
-          eq(scholarshipPtm.year, year)
-        )
-      });
-
-      const guardianRecord = await db.query.scholarshipGuardian.findFirst({
-        where: (scholarshipGuardian, { eq, and }) => and(
-          eq(scholarshipGuardian.admissionId, student.admissionId),
-          eq(scholarshipGuardian.month, month),
-          eq(scholarshipGuardian.year, year)
-        )
-      });
-
-      const scholarshipRecord = await db.query.scholarshipRecords.findFirst({
-        where: (scholarshipRecords, { eq, and }) => and(
-          eq(scholarshipRecords.admissionId, student.admissionId),
-          eq(scholarshipRecords.month, month),
-          eq(scholarshipRecords.year, year)
-        )
-      });
+      const ptmRecord = ptmMap.get(student.admissionId);
+      const guardianRecord = guardianMap.get(student.admissionId);
+      const scholarshipRecord = recordMap.get(student.admissionId);
 
       let parentImagesArray: string[] = [];
       if (ptmRecord?.parentImages) {

@@ -1,16 +1,26 @@
-import { db } from './src/db';
-import { classes } from './src/db/schema';
+import postgres from 'postgres';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-async function run() {
-  try {
-    const list = await db.select().from(classes).orderBy(classes.grade);
-    console.log('ALL CLASSES IN DB:');
-    console.log(JSON.stringify(list, null, 2));
-  } catch (e) {
-    console.error('Failed to query db:', e);
-  }
-  process.exit(0);
+const sql = postgres(process.env.DIRECT_URL || process.env.DATABASE_URL!, { ssl: 'require' });
+
+async function main() {
+  const settings = await sql`
+    SELECT DISTINCT academic_year FROM scholarship_criteria_settings;
+  `;
+  console.log("Distinct academic years in criteria settings:", settings);
+
+  const metaYears = await sql`
+    SELECT DISTINCT academic_year FROM admission_meta;
+  `;
+  console.log("Distinct academic years in admission_meta:", metaYears);
+
+  const allSettings = await sql`
+    SELECT * FROM scholarship_criteria_settings;
+  `;
+  console.log("All criteria settings rows:", allSettings);
+
+  await sql.end();
 }
 
-run();
-
+main().catch(console.error);

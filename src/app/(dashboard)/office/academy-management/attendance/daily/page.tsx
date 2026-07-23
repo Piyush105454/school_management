@@ -89,7 +89,6 @@ export default async function DailyAttendancePage({
               </div>
               <div>
                 <h3 className="font-black text-slate-900 uppercase tracking-tight">{cls.name}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Grade {cls.grade}</p>
               </div>
             </Link>
           ))}
