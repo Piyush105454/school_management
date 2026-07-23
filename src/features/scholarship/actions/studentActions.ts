@@ -31,6 +31,16 @@ export async function getStudentCountsByClass(school?: string, classesFilter?: s
 
 export async function getStudentsByClass(className: string, school?: string) {
   try {
+    const rawNum = className.replace(/^Class\s+/i, "").trim();
+    const potentialNames = [
+      className,
+      `Class ${className}`,
+      `CLASS ${className}`,
+      rawNum,
+      `Class ${rawNum}`,
+      `CLASS ${rawNum}`
+    ];
+
     const studentsList = await db
       .select({
         admissionId: admissionMeta.id,
@@ -48,7 +58,7 @@ export async function getStudentsByClass(className: string, school?: string) {
       .innerJoin(studentBio, eq(studentBio.admissionId, admissionMeta.id))
       .where(
         and(
-          eq(classes.name, className),
+          inArray(classes.name, potentialNames),
           school && school !== "ALL" ? eq(classes.institute, school) : undefined
         )
       );

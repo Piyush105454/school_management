@@ -2,44 +2,26 @@ import React from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { studentProfiles, studentDocuments, admissionMeta, inquiries, documentChecklists } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { studentProfiles, studentDocuments, admissionMeta, inquiries } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { DocumentVerificationCard } from "@/features/admissions/components/DocumentVerificationCard";
-import { ArrowLeft, FileText } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
 
 export default async function StudentDocumentVerificationPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
 
-  // OPTIMIZED QUERY: We join everything, but we do NOT fetch the heavy 'affidavit' base64 string here.
-  // Instead, we fetch it only when the user needs to view/download it.
   const profileResults = await db
     .select({
-      profile: {
-        id: studentProfiles.id,
-        admissionMetaId: studentProfiles.admissionMetaId,
-        admissionStep: studentProfiles.admissionStep,
-      },
-      admissionMeta: {
-        officeRemarks: admissionMeta.officeRemarks,
-      },
-      inquiry: {
-        studentName: inquiries.studentName,
-      },
-      documents: {
-        id: studentDocuments.id,
-        // We only check if the affidavit EXISTS, we don't fetch the 6MB string yet.
-        hasAffidavit: sql<boolean>`CASE WHEN ${studentDocuments.affidavit} IS NOT NULL THEN true ELSE false END`,
-      },
-      checklist: documentChecklists,
+      profile: studentProfiles,
+      admissionMeta: admissionMeta,
+      inquiry: inquiries,
     })
     .from(studentProfiles)
     .leftJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
     .leftJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
-    .leftJoin(studentDocuments, eq(admissionMeta.id, studentDocuments.admissionId))
-    .leftJoin(documentChecklists, eq(admissionMeta.id, documentChecklists.admissionId))
     .where(eq(studentProfiles.userId, session.user.id))
     .limit(1);
 
@@ -48,16 +30,22 @@ export default async function StudentDocumentVerificationPage() {
   }
 
   const result = profileResults[0];
-  
-  // Transform the simplified doc object for the component
-  const docData = result.documents ? { 
-    id: result.documents.id, 
-    affidavit: result.documents.hasAffidavit ? "PRESENT" : null // Just a flag
-  } : null;
+  const profile = {
+    ...result.profile,
+    admissionMeta: result.admissionMeta ? {
+      ...result.admissionMeta,
+      inquiry: result.inquiry,
+    } : null
+  };
 
-  const checklistData = result.checklist;
-  const studentName = result.inquiry?.studentName || "Student";
-  const admissionId = result.profile.admissionMetaId!;
+  const docResults = await db
+    .select()
+    .from(studentDocuments)
+    .where(eq(studentDocuments.admissionId, profile.admissionMetaId!));
+    
+  const docData = docResults.length > 0 ? docResults[0] : null;
+
+  const studentName = (profile as any).admissionMeta?.inquiry?.studentName || "Student";
 
   return (
     <div className="py-8 max-w-3xl mx-auto px-4 space-y-8 animate-in fade-in duration-700">
@@ -80,11 +68,8 @@ export default async function StudentDocumentVerificationPage() {
 
       <DocumentVerificationCard 
         docData={docData} 
-        checklistData={checklistData}
-        admissionId={admissionId}
+        admissionId={profile.admissionMetaId!}
         studentName={studentName} 
-        officeRemarks={result.admissionMeta?.officeRemarks}
-        admissionStep={result.profile.admissionStep}
       />
     </div>
   );

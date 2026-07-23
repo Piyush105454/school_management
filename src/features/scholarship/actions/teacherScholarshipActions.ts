@@ -30,10 +30,19 @@ export async function getStudentsWithCriteria(className: string, month: string, 
       `CLASS ${className}`,
       rawNum,
       `Class ${rawNum}`,
-      `CLASS ${rawNum}`
+      `CLASS ${rawNum}`,
+      // Add more variations to handle different formats
+      className.toUpperCase(),
+      `${className.toUpperCase()}`,
+      `CLASS ${className.toUpperCase()}`,
     ];
 
-    // 1. Fetch fully admitted students in the selected class
+    // Remove duplicates
+    const uniqueNames = Array.from(new Set(potentialNames));
+
+    console.log(`🔍 Looking for class: "${className}" - searching for:`, uniqueNames);
+
+    // 1. Fetch fully admitted students in the selected class (including those not fully admitted)
     const studentsList = await db
       .select({
         admissionId: admissionMeta.id,
@@ -44,20 +53,35 @@ export async function getStudentsWithCriteria(className: string, month: string, 
         metaScholarNumber: admissionMeta.scholarNumber,
         admissionNumber: admissionMeta.admissionNumber,
         entryNumber: admissionMeta.entryNumber,
+        isFullyAdmitted: studentProfiles.isFullyAdmitted,
       })
       .from(studentProfiles)
       .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
       .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
       .leftJoin(students, eq(admissionMeta.entryNumber, students.studentId))
       .where(
-        and(
-          eq(studentProfiles.isFullyAdmitted, true),
-          inArray(inquiries.appliedClass, potentialNames)
-        )
+        inArray(inquiries.appliedClass, uniqueNames)
       );
 
-    const admissionIds = studentsList.map(s => s.admissionId);
-    if (admissionIds.length === 0) return { success: true, data: [] };
+    console.log(`✅ Found ${studentsList.length} students for class "${className}"`);
+
+    if (studentsList.length === 0) {
+      console.log(`⚠️  No students found. Searching for all available classes...`);
+      const allClasses = await db
+        .select({ appliedClass: inquiries.appliedClass })
+        .from(inquiries)
+        .distinct();
+      console.log(`Available classes:`, allClasses.map(c => c.appliedClass));
+    }
+
+    const admissionIds = studentsList
+      .filter(s => s.isFullyAdmitted === true) // Filter only fully admitted
+      .map(s => s.admissionId);
+    
+    if (admissionIds.length === 0) {
+      console.log(`⚠️  No fully admitted students found. Found ${studentsList.length} students but none are fully admitted.`);
+      return { success: true, data: [] };
+    }
 
     // 2. Fetch ALL PTM records in ONE query (instead of per student)
     const ptmRecords = await db
