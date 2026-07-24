@@ -57,7 +57,7 @@ export function StudentListModal({ isOpen, onClose }: StudentListModalProps) {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-                        Class {adm.inquiry?.appliedClass}
+                        {adm.inquiry?.appliedClass || 'N/A'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">

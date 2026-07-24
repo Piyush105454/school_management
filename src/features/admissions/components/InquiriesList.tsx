@@ -14,12 +14,14 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Pencil
+  Pencil,
+  ChevronDown
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Modal } from "@/components/ui/Modal";
+import { useInstitute } from "@/providers/InstituteProvider";
 
 interface InquiriesListProps {
   initialInquiries: any[];
@@ -30,9 +32,11 @@ interface InquiriesListProps {
 export function InquiriesList({ initialInquiries, allClasses = [], role }: InquiriesListProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { dbClasses } = useInstitute();
   const [inquiries, setInquiries] = useState(initialInquiries);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedClass, setSelectedClass] = useState<string>("");
   
   const [selectedInquiry, setSelectedInquiry] = useState<any | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -52,6 +56,10 @@ export function InquiriesList({ initialInquiries, allClasses = [], role }: Inqui
 
   const filteredInquiries = inquiries.filter(inq => {
     if (session?.user?.institute && inq.school !== session.user.institute) return false;
+    
+    // Class filter
+    if (selectedClass && inq.appliedClass !== selectedClass) return false;
+    
     return inq.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            inq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
            inq.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,6 +127,24 @@ export function InquiriesList({ initialInquiries, allClasses = [], role }: Inqui
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             </div>
+            
+            {/* Class Filter Dropdown */}
+            <div className="relative">
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="pl-4 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500/20 outline-none cursor-pointer appearance-none"
+              >
+                <option value="">All Classes</option>
+                {dbClasses.map((cls) => (
+                  <option key={cls} value={cls}>
+                    {cls}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            </div>
+            
             <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
               <Filter className="h-4 w-4" />
             </button>
@@ -159,9 +185,7 @@ export function InquiriesList({ initialInquiries, allClasses = [], role }: Inqui
                   <td className="px-6 py-4 text-xs text-slate-600">{inq.phone}</td>
                   <td className="px-6 py-4">
                     <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
-                      {inq.appliedClass?.toLowerCase().startsWith('class') 
-                        ? inq.appliedClass 
-                        : `Class ${inq.appliedClass || '---'}`}
+                      {inq.appliedClass || '---'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">

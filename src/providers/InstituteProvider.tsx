@@ -108,8 +108,15 @@ export function InstituteProvider({ children }: { children: ReactNode }) {
       .then((res) => res.json())
       .then((data: any[]) => {
         if (Array.isArray(data)) {
-          // Extract unique class names
-          const uniqueClasses = Array.from(new Set(data.map((c) => c.name)));
+          // Extract unique class names - data should be {id, name, grade, institute} objects
+          const uniqueClasses = Array.from(new Set(data.map((c) => {
+            // Ensure we're getting the name field, handle both objects and strings
+            const name = typeof c === 'string' ? c : (c?.name || '');
+            return name;
+          }).filter(Boolean))).sort((a, b) => 
+            a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+          );
+          console.log(`📚 Loaded ${uniqueClasses.length} classes for institute "${selectedInstitute}":`, uniqueClasses);
           setDbClasses(uniqueClasses);
         }
       })

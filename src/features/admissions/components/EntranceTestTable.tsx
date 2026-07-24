@@ -108,7 +108,7 @@ export function EntranceTestTable({ applicants, teachers = [] }: EntranceTestTab
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-xs font-black px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-                        C-{applicant.inquiry?.appliedClass}
+                        {applicant.inquiry?.appliedClass || 'N/A'}
                       </span>
                     </td>
                     <td className="px-6 py-4">

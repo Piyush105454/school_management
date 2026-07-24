@@ -39,8 +39,15 @@ interface CategoryState {
   comment: string;
 }
 
+interface ClassData {
+  id: string;
+  name: string;
+  grade?: string;
+  institute?: string;
+}
+
 export default function GuardianCriteriaPage() {
-  const [classes, setClasses] = useState<string[]>([]);
+  const [classes, setClasses] = useState<ClassData[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
@@ -81,7 +88,7 @@ export default function GuardianCriteriaPage() {
         if (res.success && res.data) {
           setClasses(res.data);
           if (res.data.length > 0) {
-            setSelectedClass(res.data[0]);
+            setSelectedClass(res.data[0].id);
           }
         } else {
           setError(res.error || "Failed to load assigned classes.");
@@ -308,9 +315,9 @@ export default function GuardianCriteriaPage() {
               onChange={(e) => setSelectedClass(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white appearance-none cursor-pointer"
             >
-              {classes.map((clsName) => (
-                <option key={clsName} value={clsName}>
-                  {clsName}
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
                 </option>
               ))}
             </select>

@@ -162,13 +162,19 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
   React.useEffect(() => {
     fetch("/api/sidebar-permissions", { cache: "no-store" })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          console.warn(`Sidebar permissions API returned ${res.status}`);
+          return null;
+        }
+        return res.json();
+      })
       .then(data => {
         if (data && data.permissions) {
           setPermissions(data.permissions);
         }
       })
-      .catch(err => console.error("Error loading sidebar permissions:", err));
+      .catch(err => console.warn("Sidebar permissions not available, using default:", err.message));
   }, []);
 
   const MASTER_STRUCTURE = [

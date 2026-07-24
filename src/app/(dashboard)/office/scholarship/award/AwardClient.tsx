@@ -5,6 +5,18 @@ import { awardScholarshipDirect, revokeScholarshipDirect } from "@/features/admi
 import { CheckCircle, Clock, Award, RotateCcw, Loader2, Search, School, Layers, X } from "lucide-react";
 import { useInstitute } from "@/providers/InstituteProvider";
 
+// Helper function to normalize and format class names
+function normalizeClassName(className: string): string {
+  // Remove "Class" prefix if present, extract just the number/identifier
+  let cleaned = String(className).trim().replace(/^Class\s+/i, "").trim();
+  // If it's just a number, add "Class" prefix back
+  if (/^\d+$/.test(cleaned)) {
+    return `Class ${cleaned}`;
+  }
+  // Otherwise keep as is
+  return cleaned;
+}
+
 export default function AwardClient({ students }: { students: any[] }) {
   const { selectedInstitute, dbClasses } = useInstitute();
   const [loading, setLoading] = useState<string | null>(null);
@@ -17,26 +29,33 @@ export default function AwardClient({ students }: { students: any[] }) {
     return students.filter((student) => student.school === selectedInstitute);
   }, [students, selectedInstitute]);
 
-  // 2. Extract unique classes belonging ONLY to the selected institute
+  // 2. Extract unique classes from student data (appliedClass from inquiries)
+  // These are the classes students actually applied for, which is what we need to filter by
   const availableClasses = useMemo(() => {
     const classSet = new Set<string>();
     
     if (Array.isArray(instituteStudents)) {
       instituteStudents.forEach((s) => {
-        if (s.appliedClass) classSet.add(String(s.appliedClass).trim());
-      });
-    }
-
-    if (Array.isArray(dbClasses)) {
-      dbClasses.forEach((c) => {
-        if (c) classSet.add(String(c).trim());
+        if (s.appliedClass) {
+          const normalized = String(s.appliedClass).trim();
+          if (normalized) classSet.add(normalized);
+        }
       });
     }
 
     return Array.from(classSet).sort((a, b) => 
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     );
-  }, [instituteStudents, dbClasses]);
+  }, [instituteStudents]);
+
+  // Create map for display names
+  const classDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    availableClasses.forEach((cls) => {
+      map.set(cls, normalizeClassName(cls));
+    });
+    return map;
+  }, [availableClasses]);
 
   // 3. Reset selectedClass to "ALL" if selectedClass is not in the new institute's available classes
   useEffect(() => {
@@ -151,7 +170,7 @@ export default function AwardClient({ students }: { students: any[] }) {
                 <option value="ALL">All Classes</option>
                 {availableClasses.map((cls) => (
                   <option key={cls} value={cls}>
-                    {cls.toLowerCase().startsWith("class") ? cls : `Class ${cls}`}
+                    {classDisplayMap.get(cls) || cls}
                   </option>
                 ))}
               </select>
@@ -188,7 +207,7 @@ export default function AwardClient({ students }: { students: any[] }) {
           </span>
 
           <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${selectedClass !== "ALL" ? "bg-purple-50 text-purple-700 border-purple-100" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
-            <Layers size={11} /> Class: {selectedClass === "ALL" ? "All Classes" : (selectedClass.toLowerCase().startsWith("class") ? selectedClass : `Class ${selectedClass}`)}
+            <Layers size={11} /> Class: {selectedClass === "ALL" ? "All Classes" : classDisplayMap.get(selectedClass) || selectedClass}
           </span>
 
           {searchQuery && (
@@ -220,7 +239,7 @@ export default function AwardClient({ students }: { students: any[] }) {
                     <div className="text-[10px] text-slate-400 font-medium">No: {student.scholarNumber}</div>
                   )}
                 </td>
-                <td className="px-6 py-4 text-xs font-bold uppercase text-slate-500">{student.appliedClass}</td>
+                <td className="px-6 py-4 text-xs font-bold uppercase text-slate-500">{classDisplayMap.get(student.appliedClass) || student.appliedClass}</td>
                 <td className="px-6 py-4">
                   {student.appliedScholarship === true && (
                     <span className="text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-wider">Yes</span>

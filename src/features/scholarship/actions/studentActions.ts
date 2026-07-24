@@ -6,22 +6,25 @@ import { eq, and, count, inArray } from "drizzle-orm";
 
 export async function getStudentCountsByClass(school?: string, classesFilter?: string[]) {
   try {
+    // Get fully admitted students grouped by their actual class in the academy
     const result = await db
       .select({
-        appliedClass: inquiries.appliedClass,
+        className: classes.name,
         studentCount: count(studentProfiles.id),
       })
       .from(studentProfiles)
       .innerJoin(admissionMeta, eq(studentProfiles.admissionMetaId, admissionMeta.id))
       .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
+      .innerJoin(students, eq(admissionMeta.entryNumber, students.studentId))
+      .innerJoin(classes, eq(students.classId, classes.id))
       .where(
         and(
           eq(studentProfiles.isFullyAdmitted, true),
-          school && school !== "ALL" ? eq(inquiries.school, school) : undefined,
-          classesFilter && classesFilter.length > 0 ? inArray(inquiries.appliedClass, classesFilter) : undefined
+          school && school !== "ALL" ? eq(classes.institute, school) : undefined,
+          classesFilter && classesFilter.length > 0 ? inArray(classes.name, classesFilter) : undefined
         )
       )
-      .groupBy(inquiries.appliedClass);
+      .groupBy(classes.name);
 
     return { success: true, data: result };
   } catch (error: any) {

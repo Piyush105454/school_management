@@ -21,26 +21,20 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function getStudentsWithCriteria(className: string, month: string, year: string) {
+export async function getStudentsWithCriteria(classId: string, month: string, year: string) {
   try {
-    const rawNum = className.replace(/^Class\s+/i, "").trim();
-    const potentialNames = [
-      className,
-      `Class ${className}`,
-      `CLASS ${className}`,
-      rawNum,
-      `Class ${rawNum}`,
-      `CLASS ${rawNum}`,
-      // Add more variations to handle different formats
-      className.toUpperCase(),
-      `${className.toUpperCase()}`,
-      `CLASS ${className.toUpperCase()}`,
-    ];
+    // Fetch the class by ID to get its name
+    const classRecord = await db.query.classes.findFirst({
+      where: eq(classes.id, parseInt(classId))
+    });
 
-    // Remove duplicates
-    const uniqueNames = Array.from(new Set(potentialNames));
+    if (!classRecord) {
+      console.log(`⚠️  Class with ID "${classId}" not found`);
+      return { success: true, data: [] };
+    }
 
-    console.log(`🔍 Looking for class: "${className}" - searching for:`, uniqueNames);
+    const className = classRecord.name;
+    console.log(`🔍 Looking for students in class: "${className}" (ID: ${classId})`);
 
     // 1. Fetch fully admitted students in the selected class (including those not fully admitted)
     const studentsList = await db
@@ -60,18 +54,13 @@ export async function getStudentsWithCriteria(className: string, month: string, 
       .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
       .leftJoin(students, eq(admissionMeta.entryNumber, students.studentId))
       .where(
-        inArray(inquiries.appliedClass, uniqueNames)
+        eq(inquiries.appliedClass, className)
       );
 
     console.log(`✅ Found ${studentsList.length} students for class "${className}"`);
 
     if (studentsList.length === 0) {
-      console.log(`⚠️  No students found. Searching for all available classes...`);
-      const allClasses = await db
-        .select({ appliedClass: inquiries.appliedClass })
-        .from(inquiries)
-        .distinct();
-      console.log(`Available classes:`, allClasses.map(c => c.appliedClass));
+      console.log(`⚠️  No students found for class "${className}".`);
     }
 
     const admissionIds = studentsList

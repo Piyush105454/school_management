@@ -45,7 +45,7 @@ export default function StudentsClient({ classesList }: { classesList: string[] 
     const res = await getStudentCountsByClass(selectedInstitute, classesList);
     if (res.success) {
       setClassCounts(classesList.map(c => {
-        const match = res.data?.find((d: any) => d.appliedClass === c);
+        const match = res.data?.find((d: any) => d.className === c);
         return { appliedClass: c, studentCount: match ? match.studentCount : 0 };
       }));
     } else {
