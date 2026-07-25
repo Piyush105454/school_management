@@ -98,6 +98,21 @@ export const authOptions: NextAuthOptions = {
         };
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Use the production URL if in production, otherwise use baseUrl (local)
+      const productionUrl = process.env.NEXTAUTH_URL || baseUrl;
+      
+      // If the url is relative, make it absolute using the production URL
+      if (url.startsWith("/")) {
+        return `${productionUrl}${url}`;
+      }
+      // If url is same host or localhost, use production URL
+      else if (url.startsWith(baseUrl) || url.includes("localhost")) {
+        return productionUrl;
+      }
+      // Otherwise return the url as-is
+      return url;
     }
   },
   pages: {

@@ -46,7 +46,6 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
     }
   });
   const guardianRating = watch("guardian.rating") || 0;
-  const adjType = watch("adjustment.type") || "NONE";
   const discountAmtInput = Number(watch("adjustment.discountAmount") || 0);
   const additionalChargeAmtInput = Number(watch("adjustment.additionalChargeAmount") || 0);
 
@@ -588,14 +587,18 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
           {(() => {
             const criteria = data?.criteria;
             const calcAttendancePct = data?.attendance?.percentage ?? data?.calculatedAttendance?.percentage ?? 0;
-            const attendanceReward = Math.round(calcAttendancePct * ((criteria?.attendanceAmount || 750) / 100));
+            const attendanceReward = calcAttendancePct >= (criteria?.attendanceThreshold || 90)
+              ? (criteria?.attendanceAmount || 750)
+              : Math.round((calcAttendancePct / 100) * (criteria?.attendanceAmount || 750));
 
             const watchHwGiven = watch("homework.totalGiven");
             const watchHwDone = watch("homework.totalDone");
             const calcHomeworkGiven = watchHwGiven !== undefined ? Number(watchHwGiven) : (data?.homework?.totalGiven ?? data?.calculatedHomework?.totalGiven ?? 0);
             const calcHomeworkDone = watchHwDone !== undefined ? Number(watchHwDone) : (data?.homework?.totalDone ?? data?.calculatedHomework?.totalDone ?? 0);
             const calcHomeworkPct = calcHomeworkGiven > 0 ? (calcHomeworkDone / calcHomeworkGiven) * 100 : 0;
-            const homeworkReward = Math.round(calcHomeworkPct * ((criteria?.homeworkAmount || 750) / 100));
+            const homeworkReward = calcHomeworkPct >= (criteria?.homeworkThreshold || 90)
+              ? (criteria?.homeworkAmount || 750)
+              : Math.round((calcHomeworkPct / 100) * (criteria?.homeworkAmount || 750));
 
             const maxGuardian = criteria?.guardianAmount ?? 750;
             const guardianScore = calculatedGuardianRating;
@@ -915,54 +918,52 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Admin/Teacher Only</span>
                       </div>
                     
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Type</label>
-                        <select {...register("adjustment.type")} className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
-                          <option value="NONE">No Adjustment (Use Calculated)</option>
-                          <option value="DISCOUNT">Discount / Waiver (Reduce Pending)</option>
-                          <option value="CHARGE">Additional Charge (Increase Pending)</option>
-                          <option value="BOTH">Both (Discount & Additional Charge)</option>
-                        </select>
-                      </div>
-
-                      {(adjType === "DISCOUNT" || adjType === "BOTH") && (
+                    <div className="space-y-4">
+                      {/* Discount / Waiver */}
+                      <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl space-y-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Discount / Waiver (Reduce Pending) (₹)</label>
+                          <label className="block text-xs font-bold text-blue-700 mb-1">Discount / Waiver (Reduce Pending) (₹)</label>
                           <input 
                             type="number" 
                             min="0"
                             {...register("adjustment.discountAmount")} 
                             placeholder="Enter discount in ₹"
-                            className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="border p-2.5 rounded-xl text-sm bg-white border-blue-200 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
                           />
                         </div>
-                      )}
-
-                      {(adjType === "CHARGE" || adjType === "BOTH") && (
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Additional Charge (Increase Pending) (₹)</label>
+                          <label className="block text-xs font-bold text-blue-700 mb-1">Discount Reason / Note</label>
+                          <textarea 
+                            rows={2}
+                            {...register("adjustment.discountNote")} 
+                            placeholder="e.g. Student low-income waiver, fee concession"
+                            className="border p-2.5 rounded-xl text-xs bg-white border-blue-200 w-full font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Additional Charge */}
+                      <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl space-y-3">
+                        <div>
+                          <label className="block text-xs font-bold text-amber-700 mb-1">Additional Charge (Increase Pending) (₹)</label>
                           <input 
                             type="number" 
                             min="0"
                             {...register("adjustment.additionalChargeAmount")} 
                             placeholder="Enter charge in ₹"
-                            className="border p-2.5 rounded-xl text-sm bg-white border-slate-300 w-full font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="border p-2.5 rounded-xl text-sm bg-white border-amber-200 w-full font-semibold focus:ring-2 focus:ring-amber-500 outline-none"
                           />
                         </div>
-                      )}
-
-                      {adjType !== "NONE" && (
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Adjustment Reason / Note (Internal)</label>
+                          <label className="block text-xs font-bold text-amber-700 mb-1">Charge Reason / Note</label>
                           <textarea 
                             rows={2}
-                            {...register("adjustment.note")} 
-                            placeholder="e.g. Student low-income waiver, offline balance adjustment"
-                            className="border p-2.5 rounded-xl text-xs bg-white border-slate-300 w-full font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                            {...register("adjustment.additionalChargeNote")} 
+                            placeholder="e.g. Late fee, offline balance adjustment, exam fee"
+                            className="border p-2.5 rounded-xl text-xs bg-white border-amber-200 w-full font-medium focus:ring-2 focus:ring-amber-500 outline-none"
                           />
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -982,8 +983,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       
                       {(() => {
                         const isRecordPaid = record?.status === "PAID";
-                        const discount = (adjType === "DISCOUNT" || adjType === "BOTH") ? discountAmtInput : 0;
-                        const additional = (adjType === "CHARGE" || adjType === "BOTH") ? additionalChargeAmtInput : 0;
+                        const discount = discountAmtInput || 0;
+                        const additional = additionalChargeAmtInput || 0;
                         const signedAdj = additional - discount;
                         const originalPending = pendingToPay + signedAdj;
                         const finalPending = isRecordPaid ? 0 : originalPending;
@@ -1016,7 +1017,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                         );
                       })()}
                     </div>
-                    {adjType !== "NONE" && (discountAmtInput > 0 || additionalChargeAmtInput > 0) && (
+                    {(discountAmtInput > 0 || additionalChargeAmtInput > 0) && (
                       <p className="text-[11px] text-slate-400 font-semibold italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
                         * Note: This adjustment is stored internally for teacher/admin records and is **not** visible to the student.
                       </p>

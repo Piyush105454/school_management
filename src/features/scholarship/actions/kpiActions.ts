@@ -61,12 +61,16 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const attendancePct = data.attendance.totalDays > 0 ? (data.attendance.presentDays / data.attendance.totalDays) * 100 : 0;
     const homeworkPct = data.homework.totalGiven > 0 ? (data.homework.totalDone / data.homework.totalGiven) * 100 : 0;
 
-    // Calculate Amounts (Proportional Logic)
-    // 1. Attendance: Proportional to percentage (Max amount if 100%)
-    const attendanceAmount = Math.round(attendancePct * (criteria.attendanceAmount / 100));
+    // Calculate Amounts (Hybrid Logic: Threshold or Proportional)
+    // 1. Attendance: Full amount if >= threshold, otherwise proportional
+    const attendanceAmount = attendancePct >= criteria.attendanceThreshold 
+      ? criteria.attendanceAmount 
+      : Math.round((attendancePct / 100) * criteria.attendanceAmount);
 
-    // 2. Homework: Proportional to percentage (Max amount if 100%)
-    const homeworkAmount = Math.round(homeworkPct * (criteria.homeworkAmount / 100));
+    // 2. Homework: Full amount if >= threshold, otherwise proportional
+    const homeworkAmount = homeworkPct >= criteria.homeworkThreshold 
+      ? criteria.homeworkAmount 
+      : Math.round((homeworkPct / 100) * criteria.homeworkAmount);
 
     // 3. Guardian Rating: Dropdown average calculation
     // Calculate average rating from comments JSON if available
