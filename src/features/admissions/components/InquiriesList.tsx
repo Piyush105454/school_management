@@ -58,8 +58,17 @@ export function InquiriesList({ initialInquiries, allClasses = [], role }: Inqui
     if (session?.user?.institute && inq.school !== session.user.institute) return false;
     
     // Class filter
-    if (selectedClass && inq.appliedClass !== selectedClass) return false;
-    
+    if (selectedClass) {
+      const rawNum = selectedClass.replace(/^Class\s+/i, "").trim();
+      const inqClass = inq.appliedClass?.trim();
+      const match = inqClass === selectedClass ||
+                    inqClass === `Class ${selectedClass}` ||
+                    inqClass === `CLASS ${selectedClass}` ||
+                    inqClass === rawNum ||
+                    inqClass === `Class ${rawNum}` ||
+                    inqClass === `CLASS ${rawNum}`;
+      if (!match) return false;
+    }
     return inq.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            inq.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
            inq.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||

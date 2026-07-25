@@ -123,7 +123,7 @@ export default function AdminManagementPage() {
       // If the deleted admin is the current user, logout
       if (data.shouldLogout) {
         setTimeout(() => {
-          signOut({ callbackUrl: typeof window !== "undefined" ? window.location.origin : "/" });
+          signOut({ callbackUrl: typeof window !== "undefined" ? `${window.location.origin}/login` : "/login" });
         }, 1500);
       } else {
         fetchAdmins();

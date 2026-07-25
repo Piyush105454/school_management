@@ -36,6 +36,16 @@ export async function getStudentsWithCriteria(classId: string, month: string, ye
     const className = classRecord.name;
     console.log(`🔍 Looking for students in class: "${className}" (ID: ${classId})`);
 
+    const rawNum = className.replace(/^Class\s+/i, "").trim();
+    const potentialNames = [
+      className,
+      `Class ${className}`,
+      `CLASS ${className}`,
+      rawNum,
+      `Class ${rawNum}`,
+      `CLASS ${rawNum}`
+    ];
+
     // 1. Fetch fully admitted students in the selected class (including those not fully admitted)
     const studentsList = await db
       .select({
@@ -54,7 +64,7 @@ export async function getStudentsWithCriteria(classId: string, month: string, ye
       .innerJoin(inquiries, eq(admissionMeta.inquiryId, inquiries.id))
       .leftJoin(students, eq(admissionMeta.entryNumber, students.studentId))
       .where(
-        eq(inquiries.appliedClass, className)
+        inArray(inquiries.appliedClass, potentialNames)
       );
 
     console.log(`✅ Found ${studentsList.length} students for class "${className}"`);

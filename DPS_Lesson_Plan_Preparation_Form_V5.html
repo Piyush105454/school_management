@@ -1,0 +1,2224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#17324d" />
+  <title>DPS Lesson Plan Preparation Studio – Ready to Use</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#203040;
+      --muted:#6f7d89;
+      --navy:#17324d;
+      --navy-2:#244f74;
+      --green:#2f7d62;
+      --green-soft:#e8f3ee;
+      --gold:#c99a34;
+      --gold-soft:#fff6de;
+      --red:#b95a50;
+      --paper:#fffdf7;
+      --paper-2:#f8f3e8;
+      --line:#d9e3ec;
+      --border:#d7d2c6;
+      --shadow:0 18px 50px rgba(30,50,70,.12);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--ink);
+      background:
+        linear-gradient(90deg, transparent 0 74px, rgba(194,72,65,.18) 75px, transparent 76px),
+        repeating-linear-gradient(0deg, #f5f8fb 0 31px, #dbe7f0 32px);
+      min-height:100vh;
+    }
+
+    button, select{font:inherit}
+    button{cursor:pointer}
+
+    input:not([type="radio"]):not([type="checkbox"]),
+    textarea{
+      font-family:"Kalam","Segoe Print","Bradley Hand","Comic Sans MS",cursive;
+      font-size:20px;
+      font-weight:500;
+      line-height:1.7;
+      letter-spacing:.01em;
+    }
+
+    input::placeholder,
+    textarea::placeholder{
+      color:#8a9299;
+      opacity:.86;
+    }
+
+    .shell{
+      width:min(1380px, calc(100% - 28px));
+      margin:18px auto 40px;
+      display:grid;
+      grid-template-columns:300px minmax(0,1fr);
+      gap:18px;
+      align-items:start;
+    }
+
+    .sidebar{
+      position:sticky;
+      top:16px;
+      background:rgba(255,253,247,.95);
+      backdrop-filter:blur(10px);
+      border:1px solid rgba(215,210,198,.9);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .brand{
+      padding:22px 20px 18px;
+      background:linear-gradient(135deg,var(--navy),var(--navy-2));
+      color:white;
+    }
+
+    .brand-row{display:flex;gap:12px;align-items:center}
+    .brand-logo{
+      width:54px;height:54px;border-radius:16px;
+      background:#fff;
+      display:grid;place-items:center;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.4), 0 8px 20px rgba(0,0,0,.14);
+      flex:0 0 auto;
+    }
+    .brand h1{font-family:Georgia,serif;font-size:21px;line-height:1.1;margin:0 0 5px}
+    .brand p{margin:0;color:#dce8f1;font-size:12px;line-height:1.45}
+
+    .save-strip{
+      display:flex;align-items:center;gap:9px;
+      margin-top:16px;padding:9px 11px;
+      border-radius:12px;background:rgba(255,255,255,.1);
+      font-size:12px;color:#eff8f4;
+    }
+    .save-dot{width:9px;height:9px;border-radius:50%;background:#83d7ac;box-shadow:0 0 0 4px rgba(131,215,172,.14)}
+
+    .steps-nav{padding:13px}
+    .nav-step{
+      width:100%;
+      border:0;
+      background:transparent;
+      display:grid;
+      grid-template-columns:34px 1fr auto;
+      gap:10px;
+      align-items:center;
+      text-align:left;
+      padding:10px 9px;
+      border-radius:12px;
+      color:var(--muted);
+      transition:.18s ease;
+      margin:2px 0;
+    }
+    .nav-step:hover{background:#f2f6f9;color:var(--ink)}
+    .nav-step.active{background:#edf4f8;color:var(--navy);font-weight:700}
+    .nav-step.done{color:var(--green)}
+    .nav-num{
+      width:30px;height:30px;border-radius:10px;
+      display:grid;place-items:center;
+      background:#edf1f4;font-size:12px;font-weight:800;
+    }
+    .nav-step.active .nav-num{background:var(--navy);color:#fff}
+    .nav-step.done .nav-num{background:var(--green-soft);color:var(--green)}
+    .nav-label{font-size:13px;line-height:1.2}
+    .nav-check{font-size:13px;font-weight:900}
+
+    .side-actions{
+      border-top:1px solid #ece7dc;
+      padding:13px;
+      display:grid;gap:8px;
+    }
+
+    .main{
+      min-width:0;
+      background:rgba(255,253,247,.97);
+      border:1px solid rgba(215,210,198,.95);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .topbar{
+      display:flex;justify-content:space-between;gap:16px;align-items:center;
+      padding:14px 18px;
+      background:#fffdf8;
+      border-bottom:1px solid #ece7dc;
+      position:sticky;top:0;z-index:8;
+    }
+    .progress-wrap{flex:1;max-width:640px}
+    .progress-meta{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);margin-bottom:7px}
+    .progress{height:8px;border-radius:999px;background:#e9eef2;overflow:hidden}
+    .progress > div{height:100%;width:0;background:linear-gradient(90deg,var(--green),#59a884);transition:.25s ease}
+    .top-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+    .workspace{padding:30px 34px 118px}
+
+    .step-page{
+      display:none;
+      animation:fade .22s ease;
+      padding:10px 12px 24px;
+    }
+    .step-page.active{display:block}
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+    .hero{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:20px;
+      align-items:center;
+      border-bottom:1px solid #e8e1d4;
+      padding:4px 2px 18px;
+      margin-bottom:22px;
+    }
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;
+      color:var(--green);font-weight:800;font-size:12px;
+      text-transform:uppercase;letter-spacing:.08em;
+      margin-bottom:7px;
+    }
+    .hero h2{
+      font-family:Georgia,serif;
+      font-size:clamp(26px,3vw,38px);
+      line-height:1.08;
+      margin:0 0 8px;
+      color:var(--navy);
+    }
+    .hero p{margin:0;color:var(--muted);max-width:780px;line-height:1.6;font-size:15px}
+    .hero-art{
+      width:92px;height:92px;border-radius:28px;
+      background:linear-gradient(145deg,#f8edd0,#fffaf0);
+      display:grid;place-items:center;border:1px solid #ead9ad;
+      color:var(--gold);
+    }
+
+    .connection{
+      display:flex;gap:12px;align-items:flex-start;
+      padding:13px 15px;border-radius:14px;
+      background:var(--green-soft);border:1px solid #cfe3d8;
+      color:#265c49;margin-bottom:20px;
+    }
+    .connection strong{display:block;margin-bottom:2px}
+    .connection p{margin:0;line-height:1.45;font-size:13px}
+
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .col-12{grid-column:span 12}.col-8{grid-column:span 8}.col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-3{grid-column:span 3}
+
+    .card{
+      background:rgba(255,255,255,.72);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:18px;
+      box-shadow:0 6px 18px rgba(31,47,61,.04);
+    }
+    .card.soft{background:#fbf7ed}
+    .card-title{font-weight:800;color:var(--navy);margin:0 0 6px;font-size:15px}
+    .card-note{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.45}
+
+    .field{margin-bottom:16px}
+    .field:last-child{margin-bottom:0}
+    label{display:block;font-size:15px;font-weight:800;color:#2f4658;margin-bottom:9px}
+    .hint{display:block;font-weight:400;color:var(--muted);margin-top:4px;line-height:1.35}
+    .required::after{content:" *";color:var(--red)}
+    input, select, textarea{
+      width:100%;
+      border:1px solid #cfd9e1;
+      border-radius:12px;
+      background:#fff;
+      color:var(--ink);
+      padding:14px 16px;
+      outline:none;
+      transition:.18s ease;
+    }
+    input:not([type="radio"]):not([type="checkbox"]){min-height:52px}
+    textarea{min-height:150px;resize:vertical}
+    input:focus,select:focus,textarea:focus{
+      border-color:#5c8cac;
+      box-shadow:0 0 0 4px rgba(56,111,151,.11);
+    }
+    .mini textarea{min-height:82px}
+    .inline{display:flex;gap:10px;align-items:center}
+    .inline > *{flex:1}
+
+    .choice-row{display:flex;gap:10px;flex-wrap:wrap}
+    .choice{
+      position:relative;
+      flex:1 1 180px;
+      border:1px solid #d3dce3;
+      background:#fff;
+      border-radius:14px;
+      padding:14px;
+      display:flex;gap:11px;align-items:flex-start;
+      transition:.18s ease;
+    }
+    .choice:hover{border-color:#83a8c2;transform:translateY(-1px)}
+    .choice input{width:auto;margin-top:3px}
+    .choice:has(input:checked){border-color:var(--green);background:var(--green-soft)}
+    .choice strong{display:block;color:var(--navy);font-size:14px}
+    .choice span{display:block;color:var(--muted);font-size:12px;line-height:1.35;margin-top:3px}
+
+    .example-box{
+      background:var(--gold-soft);
+      border:1px solid #ead9ad;
+      border-radius:14px;
+      padding:14px 17px;
+      font-family:"Kalam","Segoe Print","Bradley Hand","Comic Sans MS",cursive;
+      font-size:17px;font-weight:500;color:#755b1f;line-height:1.6;
+    }
+
+    .writing-box{
+      background:
+        linear-gradient(90deg, transparent 0 42px, rgba(190,75,68,.10) 43px, transparent 44px),
+        repeating-linear-gradient(0deg,#fff 0 37px,#dce9f1 38px);
+      border-color:#cbd8e1;
+    }
+
+    .writing-box textarea{
+      min-height:280px;
+      background:rgba(255,255,255,.72);
+      font-size:21px;
+      line-height:1.86;
+      padding:18px 20px;
+    }
+
+    .simple-prompt{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px 14px;
+      border-radius:13px;
+      background:#f4f8fb;
+      border:1px solid #d9e6ee;
+      color:#39566b;
+      margin-bottom:14px;
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    .qa-support-guide{
+      margin:0 0 18px;
+      padding:16px;
+      border:1px solid #d9e3ea;
+      border-radius:15px;
+      background:#f8fbfd;
+    }
+    .qa-guide-title{
+      font-weight:850;
+      color:var(--navy);
+      margin-bottom:10px;
+      font-size:14px;
+    }
+    .qa-guide-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .qa-guide-grid > div{
+      padding:11px 12px;
+      border:1px solid #dce6ec;
+      border-radius:12px;
+      background:#fff;
+      color:#476174;
+      font-size:12.5px;
+      line-height:1.45;
+    }
+    .qa-guide-grid .red-zone-guide{
+      grid-column:1 / -1;
+      background:#fff4f1;
+      border-color:#edcbc5;
+      color:#82433d;
+    }
+
+    .repeater{display:grid;gap:12px}
+    .indicator{
+      display:grid;grid-template-columns:42px 1fr;gap:10px;align-items:start;
+    }
+    .indicator-num{
+      width:38px;height:38px;border-radius:12px;background:#edf4f8;
+      color:var(--navy);display:grid;place-items:center;font-weight:900;
+      border:1px solid #d7e2ea;
+    }
+
+    .activity-preview{
+      margin-top:12px;padding:13px;border-radius:14px;
+      background:#eef5f9;border:1px solid #d5e5ef;
+      display:none;
+    }
+    .activity-preview.show{display:block}
+    .activity-preview h4{margin:0 0 5px;color:var(--navy)}
+    .activity-preview p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+
+    .sticky-actions{
+      position:fixed;
+      left:calc((100vw - min(1380px, calc(100% - 28px)))/2 + 318px);
+      right:calc((100vw - min(1380px, calc(100% - 28px)))/2);
+      bottom:12px;
+      z-index:20;
+      pointer-events:none;
+    }
+    .sticky-inner{
+      pointer-events:auto;
+      display:flex;justify-content:space-between;gap:12px;align-items:center;
+      padding:12px 14px;
+      background:rgba(255,253,247,.94);
+      backdrop-filter:blur(12px);
+      border:1px solid rgba(215,210,198,.96);
+      box-shadow:0 14px 40px rgba(25,45,60,.14);
+      border-radius:16px;
+    }
+    .btn{
+      border:0;border-radius:11px;padding:10px 14px;
+      font-weight:800;font-size:13px;
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      transition:.18s ease;text-decoration:none;
+    }
+    .btn-primary{background:var(--navy);color:#fff}
+    .btn-primary:hover{background:#0f2941;transform:translateY(-1px)}
+    .btn-secondary{background:#eef3f6;color:var(--navy)}
+    .btn-secondary:hover{background:#e2ebf0}
+    .btn-success{background:var(--green);color:#fff}
+    .btn-success:hover{background:#276b54}
+    .btn-ghost{background:transparent;color:var(--muted);border:1px solid #d7dfe5}
+    .btn-danger{background:#fff2f0;color:#9c4038;border:1px solid #f0cbc7}
+    .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+    .review-banner{
+      padding:16px 18px;border-radius:16px;
+      background:linear-gradient(135deg,#edf7f1,#f9fcfa);
+      border:1px solid #cde1d4;
+      display:flex;justify-content:space-between;gap:15px;align-items:center;
+      margin-bottom:18px;
+    }
+    .review-banner h3{margin:0 0 4px;color:var(--green)}
+    .review-banner p{margin:0;color:var(--muted);font-size:13px}
+    .score{
+      min-width:82px;text-align:center;padding:10px 12px;border-radius:14px;
+      background:#fff;border:1px solid #cfe0d5;font-size:25px;font-weight:900;color:var(--green)
+    }
+    .score small{display:block;font-size:10px;color:var(--muted);font-weight:700}
+
+    .review-controls{
+      margin-bottom:18px;
+    }
+    .review-button-row{
+      display:flex;
+      gap:10px;
+      margin-top:14px;
+      flex-wrap:wrap;
+    }
+    .review-button-row .btn{
+      flex:1 1 190px;
+    }
+
+    .preview-paper{
+      background:#fff;
+      border:1px solid #cfd5da;
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow:0 14px 40px rgba(20,35,48,.09);
+    }
+    .preview-head{
+      display:grid;
+      grid-template-columns:minmax(260px,1.1fr) minmax(320px,1.4fr);
+      border-bottom:1px solid #9ea8b0;
+    }
+    .preview-head > div{
+      padding:12px 14px;
+      border-right:1px solid #9ea8b0;
+    }
+    .preview-head > div:last-child{border-right:0}
+    .school-name{
+      font-family:Georgia,serif;
+      font-size:24px;
+      font-weight:700;
+      text-align:center;
+      color:#111;
+    }
+    .lp-title{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      font-size:18px;
+    }
+    .meta-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      border-bottom:1px solid #9ea8b0;
+    }
+    .meta-cell{
+      padding:8px 10px;
+      border-right:1px solid #9ea8b0;
+      font-size:12px;
+    }
+    .meta-cell:last-child{border-right:0}
+    .meta-cell b{
+      display:block;
+      font-size:10px;
+      text-transform:uppercase;
+      color:#555;
+      margin-bottom:3px;
+    }
+
+    .table-scroll{width:100%;overflow-x:auto}
+    .lesson-table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:auto;
+      color:#111;
+    }
+    .lesson-table .section-col{width:112px}
+    .lesson-table .time-col{width:66px}
+    .lesson-table .label-col{width:205px}
+    .lesson-table .content-col{width:auto}
+    .lesson-table th,
+    .lesson-table td{
+      border-right:1px solid #aab2b8;
+      border-bottom:1px solid #aab2b8;
+      padding:7px 9px;
+      font-size:11px;
+      line-height:1.38;
+      vertical-align:top;
+      overflow-wrap:anywhere;
+    }
+    .lesson-table tr > *:last-child{border-right:0}
+    .lesson-table .section-cell{
+      background:#f3f6f8;
+      color:#17324d;
+      font-weight:850;
+      text-align:left;
+      vertical-align:middle;
+      white-space:nowrap;
+      padding:9px 10px;
+    }
+    .lesson-table .section-cell span{
+      color:#617281;
+      font-size:10px;
+      font-weight:700;
+    }
+    .lesson-table .time-cell{
+      text-align:center;
+      vertical-align:middle;
+      white-space:nowrap;
+      font-weight:750;
+      color:#40586a;
+      padding-left:6px;
+      padding-right:6px;
+    }
+    .lesson-table .label-cell{
+      text-align:left;
+      vertical-align:middle;
+      font-weight:820;
+      color:#1e394d;
+      background:#fbfcfd;
+    }
+    .lesson-table .content-cell{
+      white-space:pre-wrap;
+      font-family:"Kalam","Segoe Print","Bradley Hand","Comic Sans MS",cursive;
+      font-size:13.5px;
+      line-height:1.48;
+      min-width:280px;
+    }
+
+    .post-delivery-record{
+      padding:12px;
+      border-bottom:1px solid #aab2b8;
+      background:#fbfcfd;
+    }
+    .post-delivery-heading{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:10px;
+    }
+    .post-delivery-heading strong{
+      display:block;
+      color:var(--navy);
+      font-size:14px;
+    }
+    .post-delivery-heading span{
+      color:var(--muted);
+      font-size:11px;
+    }
+    .locked-tag{
+      padding:6px 9px;
+      border-radius:999px;
+      background:#eef2f5;
+      border:1px solid #d8e0e5;
+      white-space:nowrap;
+      font-weight:750;
+    }
+    .post-delivery-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr 1.3fr;
+      gap:10px;
+    }
+    .delivery-box{
+      border:1px solid #cfd8de;
+      border-radius:9px;
+      background:#fff;
+      padding:10px;
+      min-width:0;
+    }
+    .delivery-box b{
+      color:#17324d;
+      font-size:12px;
+    }
+    .delivery-box p{
+      margin:5px 0 9px;
+      color:#667784;
+      font-size:10.5px;
+      line-height:1.4;
+    }
+    .future-field{
+      min-height:45px;
+      padding:8px;
+      border:1px dashed #c9d2d8;
+      border-radius:7px;
+      background:#f8fafb;
+      color:#8996a0;
+      font-size:10.5px;
+      font-style:italic;
+    }
+    .observation-box .future-field{min-height:64px}
+
+    .preview-foot{
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .signature-box{
+      border:1px solid #c2c8cd;
+      border-radius:8px;
+      padding:9px;
+      font-size:11px;
+      min-height:68px;
+    }
+    .signature-box b{display:block;margin-bottom:7px}
+
+    .review-list{display:grid;gap:10px}
+    .review-item{
+      display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;
+      padding:11px 12px;border:1px solid #dce3e8;border-radius:12px;background:#fff;
+    }
+    .review-item.ok .review-icon{background:var(--green-soft);color:var(--green)}
+    .review-item.warn .review-icon{background:#fff1ed;color:var(--red)}
+    .review-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-weight:900}
+    .review-item strong{font-size:13px}
+    .review-item span{font-size:12px;color:var(--muted)}
+
+    .toast{
+      position:fixed;right:22px;bottom:88px;z-index:50;
+      background:var(--navy);color:#fff;
+      padding:11px 14px;border-radius:12px;
+      box-shadow:0 12px 30px rgba(0,0,0,.2);
+      font-size:13px;opacity:0;transform:translateY(8px);
+      pointer-events:none;transition:.2s ease;
+    }
+    .toast.show{opacity:1;transform:none}
+
+    .hidden{display:none!important}
+
+    @media (max-width: 980px){
+      .shell{grid-template-columns:1fr;width:min(100% - 18px, 920px);margin-top:9px}
+      .sidebar{position:relative;top:auto}
+      .steps-nav{display:flex;overflow:auto;gap:4px}
+      .nav-step{min-width:150px}
+      .side-actions{display:none}
+      .sticky-actions{left:10px;right:10px}
+      .workspace{padding:22px 18px 114px}
+      .step-page{padding:8px 6px 20px}
+      .hero-art{display:none}
+      .col-8,.col-6,.col-4,.col-3{grid-column:span 12}
+    }
+    @media (max-width: 680px){
+      .topbar{align-items:flex-start;flex-direction:column}
+      .top-actions{width:100%}
+      .top-actions .btn{flex:1}
+      .hero{grid-template-columns:1fr}
+      .preview-head,.meta-grid{grid-template-columns:1fr 1fr}
+      .qa-guide-grid{grid-template-columns:1fr}
+      .post-delivery-grid{grid-template-columns:1fr}
+      .post-delivery-heading{align-items:flex-start;flex-direction:column}
+      .lesson-table{min-width:760px}
+      .preview-foot{grid-template-columns:1fr}
+      .sticky-inner{padding:10px}
+      .sticky-inner .btn{padding:10px 12px}
+      .workspace{padding:18px 12px 112px}
+      .step-page{padding:6px 4px 18px}
+      .brand h1{font-size:19px}
+    }
+
+    @page{size:A4 portrait;margin:9mm}
+
+    @media print{
+      body{background:#fff}
+      .sidebar,.topbar,.sticky-actions,.hero,.connection,.review-banner,.review-controls,.toast{display:none!important}
+      .shell{display:block;width:100%;margin:0}
+      .main{border:0;box-shadow:none}
+      .workspace{padding:0}
+      .step-page{display:none!important}
+      #step-review{display:block!important}
+      .review-controls{display:none!important}
+      .preview-paper{box-shadow:none;border:1px solid #000}
+      .table-scroll{overflow:visible}
+      .lesson-table{min-width:0}
+      .lesson-table th,.lesson-table td{font-size:8.7px;padding:5px 6px}
+      .lesson-table .content-cell{font-size:10.3px;min-width:0}
+      .lesson-table .section-col{width:88px}
+      .lesson-table .time-col{width:48px}
+      .lesson-table .label-col{width:145px}
+      .preview-head,.meta-grid,.post-delivery-record,.preview-foot{break-inside:avoid}
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-row">
+          <div class="brand-logo" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
+              <path d="M8 9.5h20a6 6 0 0 1 6 6V39H14a6 6 0 0 1-6-6V9.5Z" fill="#EAF2F7" stroke="#17324D" stroke-width="2"/>
+              <path d="M34 15.5h6v22.8a.7.7 0 0 1-1.1.6L34 35.8V15.5Z" fill="#D9EDE4" stroke="#2F7D62" stroke-width="2"/>
+              <path d="M14 17h13M14 23h13M14 29h9" stroke="#C99A34" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <h1>DPS Lesson Plan Studio</h1>
+            <p>Think clearly. Plan honestly. Teach confidently.</p><div style="margin-top:5px;font-size:10px;color:#bdd0df">Final classroom-ready version</div>
+          </div>
+        </div>
+        <div class="save-strip">
+          <span class="save-dot"></span>
+          <span id="saveStatus">Your draft saves automatically in this browser.</span>
+        </div>
+      </div>
+
+      <nav class="steps-nav" id="stepsNav" aria-label="Lesson plan steps"></nav>
+
+      <div class="side-actions">
+        <button class="btn btn-secondary" type="button" id="downloadDraftBtn">Download Draft Data</button>
+        <button class="btn btn-danger" type="button" id="clearDraftBtn">Clear Saved Draft</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="progress-wrap">
+          <div class="progress-meta">
+            <span id="progressLabel">Step 1 of 11</span>
+            <span id="progressPercent">9% complete</span>
+          </div>
+          <div class="progress"><div id="progressBar"></div></div>
+        </div>
+        <div class="top-actions">
+          <button class="btn btn-ghost" type="button" id="saveNowBtn">Save now</button>
+          <button class="btn btn-secondary" type="button" id="reviewTopBtn">Review lesson plan</button>
+        </div>
+      </div>
+
+      <form id="lessonForm" novalidate>
+        <div class="workspace">
+
+          <!-- Step 0 -->
+          <section class="step-page active" data-step="0">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 1 · Lesson Details</div>
+                <h2>Begin with the lesson you are actually going to teach.</h2>
+                <p>Select the class, subject, chapter and exact page range first. Choose the lesson type after completing the remaining lesson details.</p>
+              </div>
+              <div class="hero-art" aria-hidden="true">
+                <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
+                  <rect x="10" y="8" width="38" height="48" rx="6" fill="#FFF" stroke="currentColor" stroke-width="3"/>
+                  <path d="M20 21h19M20 30h19M20 39h12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                  <path d="m43 48 8-8 5 5-8 8-7 2 2-7Z" fill="#E8F3EE" stroke="#2F7D62" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="connection">
+              <div>✦</div>
+              <div>
+                <strong>Your planning starts from the textbook, not from the blank form.</strong>
+                <p>Keep the textbook open so the chapter name and page range remain accurate.</p>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="card col-12">
+                <div class="grid">
+                  <div class="field col-3">
+                    <label class="required" for="className">Class</label>
+                    <select id="className" name="className" required>
+                      <option value="">Select class</option>
+                      <option>Nursery</option><option>KG 1</option><option>KG 2</option>
+                      <option>Class 1</option><option>Class 2</option><option>Class 3</option>
+                      <option>Class 4</option><option>Class 5</option><option>Class 6</option>
+                      <option>Class 7</option><option>Class 8</option>
+                    </select>
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="subject">Subject</label>
+                    <select id="subject" name="subject" required>
+                      <option value="">Select subject</option>
+                      <option>English</option><option>Hindi</option><option>Mathematics</option>
+                      <option>Environmental Studies</option><option>Science</option>
+                      <option>Social Science</option><option>Computer</option><option>General Knowledge</option>
+                      <option>Moral Science</option><option>Other</option>
+                    </select>
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="chapterNo">Chapter Number</label>
+                    <input id="chapterNo" name="chapterNo" placeholder="Example: 5" required />
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="chapterName">Chapter Name</label>
+                    <input id="chapterName" name="chapterName" placeholder="Write the exact chapter name" required />
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="pageFrom">Page From</label>
+                    <input id="pageFrom" name="pageFrom" type="number" min="1" placeholder="12" required />
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="pageTo">Page To</label>
+                    <input id="pageTo" name="pageTo" type="number" min="1" placeholder="15" required />
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="prepDate">Preparation Date</label>
+                    <input id="prepDate" name="prepDate" type="date" required />
+                  </div>
+
+                  <div class="field col-3">
+                    <label class="required" for="deliveryDate">Delivery Date</label>
+                    <input id="deliveryDate" name="deliveryDate" type="date" required />
+                  </div>
+
+                  <div class="field col-4">
+                    <label class="required" for="preparedBy">Prepared By</label>
+                    <input id="preparedBy" name="preparedBy" placeholder="Teacher name" required />
+                  </div>
+
+                  <div class="field col-4">
+                    <label for="reviewerName">Reviewer</label>
+                    <input id="reviewerName" name="reviewerName" placeholder="Reviewer name" />
+                  </div>
+
+                  <div class="field col-4">
+                    <label for="approverName">Approver</label>
+                    <input id="approverName" name="approverName" placeholder="Approver name" />
+                  </div>
+
+                  <div class="field col-12">
+                    <label class="required">Finally, choose the Lesson Plan Type</label>
+                    <span class="hint" style="margin-bottom:10px">Your next planning questions will adjust according to this selection.</span>
+                    <div class="choice-row">
+                      <label class="choice">
+                        <input type="radio" name="lessonType" value="Explanation" required />
+                        <div>
+                          <strong>Explanation</strong>
+                          <span>Introduce and explain a new concept, followed by discussion and a student activity.</span>
+                        </div>
+                      </label>
+                      <label class="choice">
+                        <input type="radio" name="lessonType" value="Q&A" required />
+                        <div>
+                          <strong>Question & Answer</strong>
+                          <span>Discuss, solve and write chapter-based answers with teacher inspection and support.</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 1 -->
+          <section class="step-page" data-step="1">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 2 · Objective</div>
+                <h2>What should students be able to do by the end?</h2>
+                <p>Write one clear and realistic result for this lesson.</p>
+              </div>
+              <div class="hero-art">🎯</div>
+            </div>
+
+            <div class="connection">
+              <div>→</div>
+              <div>
+                <strong>One lesson, one clear direction.</strong>
+                <p>Choose an action word and complete the sentence in your own words.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="grid">
+                <div class="field col-4">
+                  <label class="required" for="objectiveVerb">Students will be able to…</label>
+                  <select id="objectiveVerb" name="objectiveVerb" required>
+                    <option value="">Select an action</option>
+                    <option>understand</option><option>identify</option><option>describe</option>
+                    <option>explain</option><option>differentiate</option><option>compare</option>
+                    <option>demonstrate</option><option>apply</option><option>solve</option>
+                    <option>analyse</option><option>create</option><option>summarise</option>
+                  </select>
+                </div>
+
+                <div class="field col-8">
+                  <label class="required" for="objectiveText">Complete the objective</label>
+                  <input id="objectiveText" name="objectiveText" placeholder="Example: solve multiplication questions using repeated addition" required />
+                </div>
+              </div>
+
+              <div class="example-box" id="objectivePreview">
+                Your objective will appear here as one complete sentence.
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 2 -->
+          <section class="step-page" data-step="2">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 3 · Teacher’s Own Teaching Notes</div>
+                <h2 id="keyTeachingTitle">Write the teaching flow you will actually use.</h2>
+                <p id="keyTeachingLead">Keep it simple. Write in the same order in which you will teach.</p>
+              </div>
+              <div class="hero-art">✍️</div>
+            </div>
+
+            <div class="connection">
+              <div>1–2–3</div>
+              <div>
+                <strong>These are your own classroom notes.</strong>
+                <p>Write short points, questions, explanations or solved steps that will help you teach confidently.</p>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="card col-12 writing-box">
+                <div class="simple-prompt" id="keyTeachingPrompt">
+                  <div>✦</div>
+                  <div>
+                    <strong>Easy way to write:</strong>
+                    Begin with the first point, continue in teaching order, and finish with what students must understand.
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="required" for="teacherOwnNotes" id="keyTeachingLabel">Teacher’s Own Teaching Notes</label>
+                  <textarea
+                    id="teacherOwnNotes"
+                    name="teacherOwnNotes"
+                    placeholder="Write your teaching flow here. Short points or numbering are enough:&#10;&#10;1. First I will explain…&#10;2. Then I will ask / solve…&#10;3. Students will respond…&#10;4. Finally I will summarise…"
+                    required></textarea>
+                  <span class="hint">Write in your own teaching language. Perfect English is not required.</span>
+                </div>
+              </div>
+
+              <div class="card soft col-12">
+                <div class="field">
+                  <label for="teachingReferences">References used</label>
+                  <textarea
+                    id="teachingReferences"
+                    name="teachingReferences"
+                    placeholder="Example: textbook pages, exercise number, chart, map, object, image, poem or video. Write “Textbook only” when no other reference is used."></textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 3 -->
+          <section class="step-page" data-step="3">
+            <div class="hero">
+              <div>
+                <div class="eyebrow" id="participationEyebrow">Step 4 · Discussion & Participation</div>
+                <h2 id="participationTitle">How will students discuss, answer and ask?</h2>
+                <p id="participationLead">Plan one connected discussion instead of several separate question boxes.</p>
+              </div>
+              <div class="hero-art">💬</div>
+            </div>
+
+            <div class="connection">
+              <div>?</div>
+              <div>
+                <strong id="participationConnectionTitle">Keep the discussion simple and two-way.</strong>
+                <p id="participationConnectionText">Write the question you will ask, how students will respond, and how you will invite their questions.</p>
+              </div>
+            </div>
+
+            <div id="qaSupportGuide" class="qa-support-guide hidden">
+              <div class="qa-guide-title">Quick, inclusive and time-conscious support</div>
+              <div class="qa-guide-grid">
+                <div><strong>Check every bench:</strong> Scan notebooks and responses across the room instead of staying with only a few students.</div>
+                <div><strong>Support quickly:</strong> Give thinking time, an easy starting question, one correction or brief bench-partner support.</div>
+                <div><strong>Protect learning time:</strong> Avoid long scolding, arguments or repeated correction while the rest of the class waits.</div>
+                <div class="red-zone-guide"><strong>Red Zone follow-up:</strong> If a concern cannot be resolved quickly, give a calm direction, continue the lesson, mark it for follow-up and speak with the student separately after class.</div>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="card col-12" id="explanationDiscussionPanel">
+                <div class="field">
+                  <label class="required" for="discussionPlan">Discussion and questions plan</label>
+                  <textarea
+                    id="discussionPlan"
+                    name="discussionPlan"
+                    placeholder="Example: I will ask where students use multiplication in daily life. Students will share examples. I will ask why multiplication is faster than repeated addition and invite their questions."></textarea>
+                  <span class="hint">One connected paragraph or a few short points are enough.</span>
+                </div>
+              </div>
+
+              <div class="card soft col-12">
+                <div class="field">
+                  <label class="required" for="quieterStudentSupport" id="quieterSupportLabel">How will you involve quieter or struggling students?</label>
+                  <textarea
+                    id="quieterStudentSupport"
+                    name="quieterStudentSupport"
+                    placeholder="Example: give thinking time, begin with an easy question, allow a bench partner discussion, and personally check two students who need support."
+                    required></textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 4 -->
+          <section class="step-page" data-step="4">
+            <div class="hero">
+              <div>
+                <div class="eyebrow" id="practiceEyebrow">Step 5 · Lesson Activity</div>
+                <h2 id="practiceTitle">What will students do with the learning?</h2>
+                <p id="practiceLead">Choose a simple activity that students can realistically complete in this class.</p>
+              </div>
+              <div class="hero-art" id="practiceIcon">🧩</div>
+            </div>
+
+            <div class="connection">
+              <div>✓</div>
+              <div>
+                <strong id="practiceConnectionTitle">A simple activity done well is enough.</strong>
+                <p id="practiceConnectionText">It may be oral, practical, notebook-based, material-based or pair work at the bench.</p>
+              </div>
+            </div>
+
+            <div id="explanationActivityPanel" class="grid">
+              <div class="card col-4">
+                <div class="field">
+                  <label class="required" for="activityTitle">Activity name</label>
+                  <input id="activityTitle" name="activityTitle" placeholder="Give it a short, clear name" />
+                </div>
+
+                <div class="field">
+                  <label for="activityMode">Activity mode</label>
+                  <select id="activityMode" name="activityMode">
+                    <option>Notebook-based</option>
+                    <option>Oral / discussion-based</option>
+                    <option>Demonstration</option>
+                    <option>Material-based</option>
+                    <option>Pair work at bench</option>
+                    <option>Individual practice</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card col-8">
+                <div class="field">
+                  <label class="required" for="activitySteps">What will students do? Write the steps.</label>
+                  <textarea
+                    id="activitySteps"
+                    name="activitySteps"
+                    placeholder="1. Students will…&#10;2. Then they will…&#10;3. Finally they will…"></textarea>
+                </div>
+              </div>
+
+              <div class="card soft col-4 mini">
+                <p class="card-title">Materials</p>
+                <p class="card-note">Write “None” if no material is required.</p>
+                <textarea id="materials" name="materials" placeholder="Textbook, chalk, chart, leaves, coins…">None</textarea>
+              </div>
+
+              <div class="card soft col-4 mini">
+                <p class="card-title">Teacher’s role</p>
+                <p class="card-note">What will you demonstrate, observe or support?</p>
+                <textarea id="teacherRole" name="teacherRole" placeholder="I will demonstrate once and support students who need help."></textarea>
+              </div>
+
+              <div class="card soft col-4 mini">
+                <p class="card-title">Success check</p>
+                <p class="card-note">How will you know the activity worked?</p>
+                <textarea id="activitySuccess" name="activitySuccess" placeholder="Students will complete / identify / explain…"></textarea>
+              </div>
+            </div>
+            </div>
+          </section>
+
+          <!-- Step 5 -->
+          <section class="step-page" data-step="5">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 6 · Lesson Introduction</div>
+                <h2>Prepare a clear introduction that brings students into the topic.</h2>
+                <p>Use a familiar question, situation, object, image, previous lesson or short story.</p>
+              </div>
+              <div class="hero-art">🚪</div>
+            </div>
+
+            <div class="connection">
+              <div>∞</div>
+              <div>
+                <strong>The introduction should connect—not explain the entire lesson.</strong>
+                <p>Keep the introduction short and use it to create a clear picture of the topic.</p>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="card col-6">
+                <div class="field">
+                  <label class="required" for="lessonHook">Lesson Introduction (Opening Hook)</label>
+                  <textarea
+                    id="lessonHook"
+                    name="lessonHook"
+                    placeholder="What will you show, say or ask in the first 30–60 seconds?"
+                    required></textarea>
+                </div>
+              </div>
+
+              <div class="card col-6">
+                <div class="field">
+                  <label for="introConnection">Connection to prior learning or real life</label>
+                  <textarea
+                    id="introConnection"
+                    name="introConnection"
+                    placeholder="Connect the new topic with something students already know or experience."></textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 6 -->
+          <section class="step-page" data-step="6">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 7 · Learning Indicators</div>
+                <h2>What evidence will show that learning happened?</h2>
+                <p>Write 2–3 visible indicators. Each one should help you check students during or immediately after the lesson.</p>
+              </div>
+              <div class="hero-art">🔎</div>
+            </div>
+
+            <div class="connection">
+              <div>✓</div>
+              <div>
+                <strong>Use observable language.</strong>
+                <p>Prefer “students can identify three parts” instead of “students understood the chapter.”</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="repeater">
+                <div class="indicator">
+                  <div class="indicator-num">1</div>
+                  <div class="field">
+                    <label class="required" for="indicator1">Indicator 1</label>
+                    <input id="indicator1" name="indicator1" placeholder="Students can…" required />
+                  </div>
+                </div>
+                <div class="indicator">
+                  <div class="indicator-num">2</div>
+                  <div class="field">
+                    <label class="required" for="indicator2">Indicator 2</label>
+                    <input id="indicator2" name="indicator2" placeholder="Students can…" required />
+                  </div>
+                </div>
+                <div class="indicator">
+                  <div class="indicator-num">3</div>
+                  <div class="field">
+                    <label for="indicator3">Indicator 3</label>
+                    <input id="indicator3" name="indicator3" placeholder="Students can…" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 7 -->
+          <section class="step-page" data-step="7">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 8 · Homework</div>
+                <h2>Does this lesson need practice at home?</h2>
+                <p>Homework is optional. Give it only when it strengthens learning and can be clearly understood by students and parents.</p>
+              </div>
+              <div class="hero-art">🏠</div>
+            </div>
+
+            <div class="card">
+              <label class="required">Will you give homework?</label>
+              <div class="choice-row">
+                <label class="choice">
+                  <input type="radio" name="homeworkGiven" value="Yes" required />
+                  <div><strong>Yes</strong><span>I have a clear, useful task for students.</span></div>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="homeworkGiven" value="No" required />
+                  <div><strong>No</strong><span>The lesson does not need homework today.</span></div>
+                </label>
+              </div>
+            </div>
+
+            <div id="homeworkBox" class="grid hidden" style="margin-top:16px">
+              <div class="card col-8">
+                <div class="field">
+                  <label class="required" for="homeworkTask">Homework task</label>
+                  <textarea id="homeworkTask" name="homeworkTask" placeholder="Write exactly what students must do at home."></textarea>
+                </div>
+              </div>
+              <div class="card col-4">
+                <div class="field">
+                  <label for="homeworkDue">Submission date</label>
+                  <input id="homeworkDue" name="homeworkDue" type="date" />
+                </div>
+                <div class="field">
+                  <label for="homeworkInstruction">Special instruction</label>
+                  <textarea id="homeworkInstruction" name="homeworkInstruction" placeholder="Example: complete independently; parent signature; bring one local example."></textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 8 -->
+          <section class="step-page" data-step="8">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 9 · Energizer</div>
+                <h2>Select one quick activity to bring the class together.</h2>
+                <p>Choose a one-minute activity that can be performed while sitting or standing at the same place, without disturbing the classroom setup.</p>
+              </div>
+              <div class="hero-art">👏</div>
+            </div>
+
+            <div class="grid">
+              <div class="card col-8">
+                <div class="field">
+                  <label class="required" for="energizer">Energizer fun activity</label>
+                  <select id="energizer" name="energizer" required>
+                    <option value="">Select an activity</option>
+                  </select>
+                </div>
+                <div id="activityPreview" class="activity-preview"></div>
+              </div>
+              <div class="card soft col-4">
+                <p class="card-title">Execution rule</p>
+                <p class="card-note">Demonstrate once, begin together, and stop within one minute while students are still attentive.</p>
+                <label class="choice" style="margin-top:12px">
+                  <input id="energizerPrepared" name="energizerPrepared" type="checkbox" />
+                  <div><strong>I have practised it once</strong><span>This builds confidence and reduces classroom hesitation.</span></div>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 9 -->
+          <section class="step-page" data-step="9">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 10 · Closure & Reward</div>
+                <h2>How will you recognise meaningful student effort?</h2>
+                <p>The lesson summary, appreciation and closure guidance are already included. Plan only the reward or recognition.</p>
+              </div>
+              <div class="hero-art">⭐</div>
+            </div>
+
+            <div class="connection">
+              <div>↺</div>
+              <div>
+                <strong>Close positively and purposefully.</strong>
+                <p>Briefly summarise the key learning, appreciate the class, and recognise participation that you want students to repeat.</p>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="card soft col-4">
+                <div class="field">
+                  <label for="rewardType">Reward type</label>
+                  <select id="rewardType" name="rewardType">
+                    <option>Praise / Appreciation</option>
+                    <option>Points</option>
+                    <option>Recognition Card</option>
+                    <option>Small Item</option>
+                    <option>Class Applause</option>
+                    <option>No material reward</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card soft col-8">
+                <div class="field">
+                  <label class="required" for="rewardCriteria">Who will be recognised, and why?</label>
+                  <textarea
+                    id="rewardCriteria"
+                    name="rewardCriteria"
+                    placeholder="Example: students who explain in their own words, support a classmate, ask a thoughtful question or complete the work carefully."
+                    required></textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 10 -->
+          <section class="step-page" data-step="10" id="step-review">
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Step 11 · Review & Submit</div>
+                <h2>Your lesson plan is ready to become a teaching tool.</h2>
+                <p>Review the plan once as a teacher—not only as a form filler. Check whether you can genuinely deliver what is written.</p>
+              </div>
+              <div class="hero-art">📘</div>
+            </div>
+
+            <div class="review-banner">
+              <div>
+                <h3 id="reviewStatusTitle">Almost ready for review</h3>
+                <p id="reviewStatusText">Complete the remaining required items before marking this lesson plan ready.</p>
+              </div>
+              <div class="score"><span id="completionScore">0</span>%<small>complete</small></div>
+            </div>
+
+            <div class="review-controls card soft">
+              <div class="grid">
+                <div class="field col-6">
+                  <label for="submissionNote">Note to reviewer</label>
+                  <textarea id="submissionNote" name="submissionNote" placeholder="Optional: mention any special context, material limitation or support needed."></textarea>
+                </div>
+
+                <div class="col-6">
+                  <label class="choice">
+                    <input id="ownershipConfirm" name="ownershipConfirm" type="checkbox" />
+                    <div>
+                      <strong>I can teach this plan as written.</strong>
+                      <span>I have read the full plan and made it practical for my classroom.</span>
+                    </div>
+                  </label>
+
+                  <div class="review-button-row">
+                    <button class="btn btn-success" type="button" id="markReadyBtn">Mark ready for reviewer</button>
+                    <button class="btn btn-secondary" type="button" id="printBtn">Print / Save as PDF</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="preview-paper" id="lessonPreview">
+              <div class="preview-head">
+                <div class="school-name">Dhanpuri Public School</div>
+                <div class="lp-title">Lesson Plan Type <span data-out="lessonType">—</span> · ID <span id="planIdOut">—</span></div>
+              </div>
+
+              <div class="meta-grid">
+                <div class="meta-cell"><b>Subject</b><span data-out="subject">—</span></div>
+                <div class="meta-cell"><b>Class</b><span data-out="className">—</span></div>
+                <div class="meta-cell"><b>Chapter</b><span data-out="chapterNo">—</span> · <span data-out="chapterName">—</span></div>
+                <div class="meta-cell"><b>Pages</b><span data-out="pageFrom">—</span> – <span data-out="pageTo">—</span></div>
+              </div>
+
+              <div class="meta-grid">
+                <div class="meta-cell"><b>Preparation Date</b><span data-out="prepDate">—</span></div>
+                <div class="meta-cell"><b>Delivery Date</b><span data-out="deliveryDate">—</span></div>
+                <div class="meta-cell"><b>Prepared By</b><span data-out="preparedBy">—</span></div>
+                <div class="meta-cell"><b>Reviewer</b><span data-out="reviewerName">—</span></div>
+              </div>
+
+              <div class="table-scroll">
+                <table class="lesson-table">
+                  <colgroup>
+                    <col class="section-col" />
+                    <col class="time-col" />
+                    <col class="label-col" />
+                    <col class="content-col" />
+                  </colgroup>
+                  <tbody>
+                    <tr>
+                      <th class="section-cell" rowspan="2">Opening Time<br><span>(5 mins)</span></th>
+                      <td class="time-cell">2 mins</td>
+                      <th class="label-cell">Energizer Fun Activity</th>
+                      <td class="content-cell" id="energizerOut">—</td>
+                    </tr>
+                    <tr>
+                      <td class="time-cell">3 mins</td>
+                      <th class="label-cell">Session Roadmap & Objectives</th>
+                      <td class="content-cell" id="roadmapOut">—</td>
+                    </tr>
+
+                    <tr>
+                      <th class="section-cell" rowspan="5">Active Learning<br><span>(30 mins)</span></th>
+                      <td class="time-cell">2 mins</td>
+                      <th class="label-cell">Lesson Introduction</th>
+                      <td class="content-cell" id="introOut">—</td>
+                    </tr>
+                    <tr>
+                      <td class="time-cell">12 mins</td>
+                      <th class="label-cell">Teaching Notes</th>
+                      <td class="content-cell" id="teachingOut">—</td>
+                    </tr>
+                    <tr>
+                      <td class="time-cell">8 mins</td>
+                      <th class="label-cell" id="activityLabelOut">Lesson Activity</th>
+                      <td class="content-cell" id="activityOut">—</td>
+                    </tr>
+                    <tr>
+                      <td class="time-cell">5 mins</td>
+                      <th class="label-cell" id="knowledgeLabelOut">Knowledge Building · Discussion &amp; Participation</th>
+                      <td class="content-cell" id="knowledgeOut">—</td>
+                    </tr>
+                    <tr>
+                      <td class="time-cell">3 mins</td>
+                      <th class="label-cell">Learning Outcome &amp; Feedback</th>
+                      <td class="content-cell">
+                        Use this buffer time to assess the learning outcome through short questions, student responses and work checks. Share immediate feedback on performance. During or after delivery, record students who performed <strong>Good</strong> and those who <strong>Need Support</strong>; students not selected in either group will be treated as Average. Record a brief teacher observation on what was understood, what was difficult, and what needs revision or individual follow-up.
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <th class="section-cell" rowspan="2">Closing Time<br><span>(5 mins)</span></th>
+                      <td class="time-cell">2 mins</td>
+                      <th class="label-cell">Lesson Closure, Reward &amp; Recognition</th>
+                      <td class="content-cell" id="closureOut">—</td>
+                    </tr>
+                    <tr>
+                      <td class="time-cell">3 mins</td>
+                      <th class="label-cell">Homework &amp; Previous-Day Homework Feedback</th>
+                      <td class="content-cell" id="homeworkOut">—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="post-delivery-record">
+                <div class="post-delivery-heading">
+                  <div>
+                    <strong>Post-Delivery Learning Record</strong>
+                    <span>To be completed during or after lesson delivery when the student database is connected.</span>
+                  </div>
+                  <span class="locked-tag">Planning view · Locked</span>
+                </div>
+
+                <div class="post-delivery-grid">
+                  <div class="delivery-box">
+                    <b>Good</b>
+                    <p>Select only the names of students who performed notably well.</p>
+                    <div class="future-field">Student names will load from the class database.</div>
+                  </div>
+
+                  <div class="delivery-box">
+                    <b>Needs Support</b>
+                    <p>Select only the names of students who require further help. Unselected students will be considered Average.</p>
+                    <div class="future-field">Student names will load from the class database.</div>
+                  </div>
+
+                  <div class="delivery-box observation-box">
+                    <b>Teacher Observation</b>
+                    <p>Briefly record what students understood well, what they found difficult, what needs revision or support in the next class, and any important classroom observation.</p>
+                    <div class="future-field">Observation will be recorded after delivery.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="preview-foot">
+                <div class="signature-box">
+                  <b>Learning Indicators</b>
+                  <div id="indicatorsOut">—</div>
+                </div>
+                <div class="signature-box">
+                  <b>Submission Note</b>
+                  <div data-out="submissionNote">—</div>
+                </div>
+                <div class="signature-box">
+                  <b>Prepared By</b>
+                  <span data-out="preparedBy">—</span><br><br>Sign: __________________
+                </div>
+                <div class="signature-box">
+                  <b>Reviewed / Approved By</b>
+                  <span data-out="reviewerName">—</span> / <span data-out="approverName">—</span><br><br>Sign: __________________
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <div class="sticky-actions">
+    <div class="sticky-inner">
+      <button class="btn btn-secondary" type="button" id="backBtn">← Back</button>
+      <div style="font-size:12px;color:var(--muted);text-align:center" id="stepHelp">Your draft is saved automatically.</div>
+      <button class="btn btn-primary" type="button" id="nextBtn">Continue →</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = "dpsLessonPlanDraftV1";
+      const READY_KEY = "dpsLessonPlanReadyV1";
+
+      const steps = [
+        { label: "Lesson details", icon: "01" },
+        { label: "Objective", icon: "02" },
+        { label: "Teaching notes", icon: "03" },
+        { label: "Discussion & participation", icon: "04" },
+        { label: "Lesson activity", icon: "05" },
+        { label: "Lesson introduction", icon: "06" },
+        { label: "Learning indicators", icon: "07" },
+        { label: "Homework", icon: "08" },
+        { label: "Energizer", icon: "09" },
+        { label: "Closure & reward", icon: "10" },
+        { label: "Review & submit", icon: "11" }
+      ];
+
+      function isQALesson(){
+        return fieldValue("lessonType")==="Q&A";
+      }
+
+      function getActiveStepIndices(){
+        return isQALesson()
+          ? [0,1,2,3,5,6,7,8,9,10]
+          : [0,1,2,3,4,5,6,7,8,9,10];
+      }
+
+      function getStepLabel(pageIndex){
+        if(isQALesson() && pageIndex===3) return "Inspection & support";
+        return steps[pageIndex]?.label || "";
+      }
+
+      function getStepIcon(pageIndex, ordinal){
+        return String(ordinal + 1).padStart(2,"0");
+      }
+
+      function getStepOrdinal(pageIndex){
+        return getActiveStepIndices().indexOf(pageIndex);
+      }
+
+      function normalizeStep(pageIndex){
+        const active=getActiveStepIndices();
+        if(active.includes(pageIndex)) return pageIndex;
+
+        if(isQALesson() && pageIndex===4) return 3;
+
+        return active.reduce((best,item)=>{
+          return Math.abs(item-pageIndex)<Math.abs(best-pageIndex) ? item : best;
+        },active[0]);
+      }
+
+      function refreshVisibleStepNumbers(){
+        const active=getActiveStepIndices();
+
+        active.forEach((pageIndex,ordinal)=>{
+          const section=document.querySelector(`.step-page[data-step="${pageIndex}"]`);
+          const eyebrow=section?.querySelector(".eyebrow");
+          if(!eyebrow) return;
+
+          const title=eyebrow.textContent.replace(/^Step\s+\d+\s*·\s*/i,"").trim();
+          eyebrow.textContent=`Step ${ordinal+1} · ${title}`;
+        });
+      }
+
+      const energizers = [
+        {name:"Follow My Taali", position:"Sitting", desc:"Teacher performs 4–5 simple clap patterns. Students observe and repeat together. End with one final class clap."},
+        {name:"Aam–Kela–Papita Rhythm", position:"Sitting", desc:"Aam = 1 clap, Kela = 2 claps, Papita = clap–lap–clap. Teacher calls a fruit and students perform the beat."},
+        {name:"Count and Clap", position:"Sitting", desc:"Teacher says or shows a number from 1–5. Students clap exactly that many times."},
+        {name:"Clap–Lap–Snap", position:"Sitting", desc:"Students repeat clap hands, tap thighs, snap or rub fingers. Start slowly and increase speed slightly."},
+        {name:"Finger Spider Walk", position:"Sitting", desc:"Touch each finger to the thumb, then make fingers walk upward and downward in the air."},
+        {name:"Finger Copy Challenge", position:"Sitting", desc:"Teacher shows quick hand positions. Students copy, ending with different positions on each hand."},
+        {name:"Up–Down–Left–Right Hands", position:"Sitting", desc:"Teacher calls hand directions while students keep elbows close to the body and follow quickly."},
+        {name:"Machhli Jal Ki Rani – Hand Actions", position:"Sitting", desc:"Students use small fish-like hand actions while reciting one short verse."},
+        {name:"Aloo Kachaloo – Expression Actions", position:"Sitting", desc:"Students recite a short part with small expression and hand actions."},
+        {name:"Lakdi Ki Kathi – Horse Beat", position:"Sitting", desc:"Students tap alternate hands softly on their thighs like a horse beat."},
+        {name:"Teacher Says – Shikshak Kehte Hain", position:"Standing at place", desc:"Students act only when the instruction begins with ‘Teacher says’."},
+        {name:"Opposite Action Challenge", position:"Standing at place", desc:"Teacher says up, left or open; students perform the safe opposite action."},
+        {name:"Red Light–Green Light at Place", position:"Standing at place", desc:"Green = gentle march at place, yellow = slow, red = freeze. No forward movement."},
+        {name:"Move and Freeze", position:"Standing at place", desc:"Students move only hands, shoulders and head, then freeze immediately on the signal."},
+        {name:"Cross-Touch Brain Gym", position:"Standing at place", desc:"Students touch opposite shoulder and opposite knee without stepping away from the bench."}
+      ];
+
+      function getRequiredFieldsForStep(step){
+        const type=fieldValue("lessonType");
+
+        const common={
+          0:["className","subject","chapterNo","chapterName","pageFrom","pageTo","preparedBy","prepDate","deliveryDate","lessonType"],
+          1:["objectiveVerb","objectiveText"],
+          2:["teacherOwnNotes"],
+          5:["lessonHook"],
+          6:["indicator1","indicator2"],
+          7:["homeworkGiven"],
+          8:["energizer"],
+          9:["rewardCriteria"],
+          10:[]
+        };
+
+        if(step===3){
+          return type==="Q&A"
+            ? ["quieterStudentSupport"]
+            : ["discussionPlan","quieterStudentSupport"];
+        }
+
+        if(step===4){
+          return type==="Q&A"
+            ? []
+            : ["activityTitle","activitySteps"];
+        }
+
+        return common[step] || [];
+      }
+
+      let currentStep = 0;
+      let saveTimer = null;
+
+      const form = document.getElementById("lessonForm");
+      const pages = [...document.querySelectorAll(".step-page")];
+      const nav = document.getElementById("stepsNav");
+      const backBtn = document.getElementById("backBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const toast = document.getElementById("toast");
+
+      function buildNav(){
+        const active=getActiveStepIndices();
+
+        nav.innerHTML = active.map((pageIndex,ordinal)=>`
+          <button type="button" class="nav-step ${pageIndex===currentStep?'active':''}" data-go="${pageIndex}">
+            <span class="nav-num">${getStepIcon(pageIndex,ordinal)}</span>
+            <span class="nav-label">${getStepLabel(pageIndex)}</span>
+            <span class="nav-check"></span>
+          </button>
+        `).join("");
+
+        nav.onclick=e=>{
+          const btn=e.target.closest("[data-go]");
+          if(!btn) return;
+          goToStep(Number(btn.dataset.go));
+        };
+      }
+
+      function buildEnergizers(){
+        const select = document.getElementById("energizer");
+        energizers.forEach(a=>{
+          const o=document.createElement("option");
+          o.value=a.name;
+          o.textContent=`${a.name} — ${a.position}`;
+          select.appendChild(o);
+        });
+      }
+
+      function fieldValue(name){
+        const radios=form.querySelectorAll(`[name="${name}"]`);
+        if(radios.length>1 && radios[0].type==="radio"){
+          return [...radios].find(r=>r.checked)?.value || "";
+        }
+        const el=form.elements[name];
+        if(!el) return "";
+        if(el.type==="checkbox") return !!el.checked;
+        return (el.value || "").trim();
+      }
+
+      function getData(){
+        const data={};
+        [...form.elements].forEach(el=>{
+          if(!el.name) return;
+          if(el.type==="radio"){
+            if(el.checked) data[el.name]=el.value;
+          }else if(el.type==="checkbox"){
+            data[el.name]=el.checked;
+          }else{
+            data[el.name]=el.value;
+          }
+        });
+        data._step=currentStep;
+        data._savedAt=new Date().toISOString();
+        data._planId=createPlanId(data);
+        data._ready=localStorage.getItem(READY_KEY)==="true";
+        return data;
+      }
+
+      function setData(data){
+        if(!data) return;
+        Object.entries(data).forEach(([name,value])=>{
+          if(name.startsWith("_")) return;
+          const els=form.querySelectorAll(`[name="${name}"]`);
+          if(!els.length) return;
+          if(els[0].type==="radio"){
+            els.forEach(el=>el.checked=el.value===value);
+          }else if(els[0].type==="checkbox"){
+            els[0].checked=Boolean(value);
+          }else{
+            els[0].value=value ?? "";
+          }
+        });
+        currentStep = Number.isInteger(data._step) ? Math.min(data._step, steps.length-1) : 0;
+      }
+
+      function createPlanId(data=getData()){
+        const cls=(data.className||"CLS").replace(/\s+/g,"").toUpperCase().slice(0,5);
+        const sub=(data.subject||"SUB").replace(/\s+/g,"").toUpperCase().slice(0,4);
+        const date=(data.deliveryDate||new Date().toISOString().slice(0,10)).replaceAll("-","");
+        const ch=(data.chapterNo||"0").toString().replace(/\D/g,"")||"0";
+        return `${cls}-${sub}-${date}-C${ch}`;
+      }
+
+      function saveDraft(show=false){
+        const data=getData();
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+        document.getElementById("saveStatus").textContent=`Saved in this browser · ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+        if(show) showToast("Draft saved in this browser.");
+      }
+
+      function scheduleSave(){
+        clearTimeout(saveTimer);
+        document.getElementById("saveStatus").textContent="Saving your changes…";
+        saveTimer=setTimeout(()=>saveDraft(false),450);
+      }
+
+      function restoreDraft(){
+        const raw=localStorage.getItem(STORAGE_KEY);
+        if(!raw) return;
+
+        try{
+          const data=JSON.parse(raw);
+
+          // Older version → final version migration.
+          if(!data.teacherOwnNotes){
+            data.teacherOwnNotes=
+              data.keyTeachingPlan ||
+              [data.teachingPoint1,data.teachingPoint2].filter(Boolean).join("\n\n");
+          }
+
+          if(!data.teachingReferences){
+            data.teachingReferences=data.referenceDetails || "";
+          }
+
+          if(!data.discussionPlan){
+            data.discussionPlan=[
+              data.curiosityQuestion,
+              data.discussionQuestion,
+              data.studentQuestionPrompt
+            ].filter(Boolean).join("\n\n");
+          }
+
+          if(!data.quieterStudentSupport){
+            data.quieterStudentSupport=
+              data.inspectionSupportPlan ||
+              data.discussionSupport ||
+              "";
+          }
+
+          if(data.lessonType==="Q&A" && data._step===4){
+            data._step=3;
+          }
+
+          setData(data);
+          showToast("Your saved lesson plan draft has been restored.");
+        }catch(err){}
+      }
+
+      function goToStep(index){
+        currentStep=normalizeStep(index);
+        const active=getActiveStepIndices();
+        const ordinal=active.indexOf(currentStep);
+        const isLast=ordinal===active.length-1;
+
+        pages.forEach(p=>{
+          const pageIndex=Number(p.dataset.step);
+          p.classList.toggle("active",pageIndex===currentStep);
+        });
+
+        buildNav();
+
+        document.querySelectorAll(".nav-step").forEach(n=>{
+          const pageIndex=Number(n.dataset.go);
+          const complete=pageIndex===10
+            ? getActiveStepIndices().filter(i=>i!==10).every(isStepComplete)
+            : isStepComplete(pageIndex);
+
+          n.classList.toggle("active",pageIndex===currentStep);
+          n.classList.toggle("done",complete);
+          n.querySelector(".nav-check").textContent=complete ? "✓" : "";
+        });
+
+        backBtn.disabled=ordinal===0;
+        nextBtn.textContent=isLast ? "Back to top ↑" : "Continue →";
+
+        document.getElementById("progressLabel").textContent=`Step ${ordinal+1} of ${active.length}`;
+        const pct=Math.round(((ordinal+1)/active.length)*100);
+        document.getElementById("progressPercent").textContent=`${pct}% complete`;
+        document.getElementById("progressBar").style.width=`${pct}%`;
+
+        document.getElementById("stepHelp").textContent=isLast
+          ? "Read the final plan once before marking it ready."
+          : "Your draft is saved automatically.";
+
+        updateDynamicText();
+
+        if(currentStep===10) updateReview();
+
+        saveDraft(false);
+        window.scrollTo({top:0,behavior:"smooth"});
+      }
+
+      function isStepComplete(step){
+        const req=getRequiredFieldsForStep(step);
+        let ok=req.every(name=>!!fieldValue(name));
+
+        if(step===7 && fieldValue("homeworkGiven")==="Yes"){
+          ok=ok && !!fieldValue("homeworkTask");
+        }
+
+        return ok;
+      }
+
+      function validateStep(step){
+        const req=getRequiredFieldsForStep(step);
+        let firstInvalid=null;
+        req.forEach(name=>{
+          const els=form.querySelectorAll(`[name="${name}"]`);
+          let valid=!!fieldValue(name);
+          els.forEach(el=>{
+            if(!valid){
+              el.setAttribute("aria-invalid","true");
+              el.style.borderColor="#b95a50";
+              if(!firstInvalid) firstInvalid=el;
+            }else{
+              el.removeAttribute("aria-invalid");
+              el.style.borderColor="";
+            }
+          });
+        });
+        if(step===7 && fieldValue("homeworkGiven")==="Yes" && !fieldValue("homeworkTask")){
+          const el=document.getElementById("homeworkTask");
+          el.style.borderColor="#b95a50";
+          if(!firstInvalid) firstInvalid=el;
+        }
+        if(firstInvalid){
+          showToast("Please complete the highlighted item before continuing.");
+          firstInvalid.scrollIntoView({behavior:"smooth",block:"center"});
+          firstInvalid.focus({preventScroll:true});
+          return false;
+        }
+        return true;
+      }
+
+      function updateObjectivePreview(){
+        const verb=fieldValue("objectiveVerb");
+        const text=fieldValue("objectiveText");
+        document.getElementById("objectivePreview").textContent=
+          verb && text ? `Students will be able to ${verb} ${text}.` : "Your objective will appear here as one complete sentence.";
+      }
+
+      function updateHomework(){
+        const yes=fieldValue("homeworkGiven")==="Yes";
+        document.getElementById("homeworkBox").classList.toggle("hidden",!yes);
+        document.getElementById("homeworkTask").required=yes;
+      }
+
+      function updateEnergizer(){
+        const name=fieldValue("energizer");
+        const box=document.getElementById("activityPreview");
+        const a=energizers.find(x=>x.name===name);
+        if(!a){
+          box.classList.remove("show");
+          box.innerHTML="";
+          return;
+        }
+        box.classList.add("show");
+        box.innerHTML=`<h4>${a.name} · ${a.position}</h4><p>${a.desc}</p>`;
+      }
+
+      function updateDynamicText(){
+        const type=fieldValue("lessonType") || "Explanation";
+        const isQA=type==="Q&A";
+
+        const title=document.getElementById("keyTeachingTitle");
+        const lead=document.getElementById("keyTeachingLead");
+        const label=document.getElementById("keyTeachingLabel");
+        const prompt=document.getElementById("keyTeachingPrompt");
+        const notes=document.getElementById("teacherOwnNotes");
+
+        if(title && lead && label && prompt && notes){
+          if(isQA){
+            title.textContent="Write the questions, answers and teaching flow you will use.";
+            lead.textContent="Keep it practical: question, student response, correct answer and explanation.";
+            label.textContent="Teacher’s Own Q&A Teaching Notes";
+            prompt.innerHTML='<div>✦</div><div><strong>Easy way to write:</strong> Write each question, the expected answer, how you will explain it, and the order in which students will write.</div>';
+            notes.placeholder=`Write your complete Q&A teaching flow here:
+
+1. Read / ask the first question…
+2. Let students answer…
+3. Explain the correct answer…
+4. Continue with the next question…`;
+          }else{
+            title.textContent="Write the teaching flow you will actually use.";
+            lead.textContent="Keep it simple. Write in the same order in which you will teach.";
+            label.textContent="Teacher’s Own Teaching Notes";
+            prompt.innerHTML='<div>✦</div><div><strong>Easy way to write:</strong> Begin with the first point, continue in teaching order, and finish with what students must understand.</div>';
+            notes.placeholder=`Write your teaching flow here. Short points or numbering are enough:
+
+1. First I will explain…
+2. Then I will ask / solve…
+3. Students will respond…
+4. Finally I will summarise…`;
+          }
+        }
+
+        const explanationDiscussionPanel=document.getElementById("explanationDiscussionPanel");
+        if(explanationDiscussionPanel){
+          explanationDiscussionPanel.classList.toggle("hidden",isQA);
+        }
+
+        const qaSupportGuide=document.getElementById("qaSupportGuide");
+        if(qaSupportGuide){
+          qaSupportGuide.classList.toggle("hidden",!isQA);
+        }
+
+        const participationEyebrow=document.getElementById("participationEyebrow");
+        const participationTitle=document.getElementById("participationTitle");
+        const participationLead=document.getElementById("participationLead");
+        const participationConnectionTitle=document.getElementById("participationConnectionTitle");
+        const participationConnectionText=document.getElementById("participationConnectionText");
+        const quieterSupportLabel=document.getElementById("quieterSupportLabel");
+        const quieterSupportBox=document.getElementById("quieterStudentSupport");
+
+        if(isQA){
+          participationEyebrow.textContent="Step 4 · Inspection & Support";
+          participationTitle.textContent="How will you inspect, support and involve every student during Q&A?";
+          participationLead.textContent="Plan how you will inspect work, support participation and keep the Q&A moving for the whole class.";
+          participationConnectionTitle.textContent="Inspection and support must reach every bench—not only the fastest students.";
+          participationConnectionText.textContent="Use quick inclusive support during class. Move unresolved concerns to a calm Red Zone follow-up after the lesson instead of stopping everyone’s learning.";
+          quieterSupportLabel.textContent="How will you involve quieter or struggling students during Q&A?";
+          quieterSupportBox.placeholder="Plan how you will check all benches, involve quieter students, give short support and save class time. If a concern needs more time, write how you will mark it for Red Zone follow-up and discuss it separately after class.";
+        }else{
+          participationEyebrow.textContent="Step 4 · Discussion & Participation";
+          participationTitle.textContent="How will students discuss, answer and ask?";
+          participationLead.textContent="Plan one connected discussion instead of several separate question boxes.";
+          participationConnectionTitle.textContent="Keep the discussion simple and two-way.";
+          participationConnectionText.textContent="Write the question you will ask, how students will respond, and how you will invite their questions.";
+          quieterSupportLabel.textContent="How will you involve quieter or struggling students?";
+          quieterSupportBox.placeholder="Example: give thinking time, begin with an easy question, allow a bench partner discussion, and personally check two students who need support.";
+        }
+
+        const explanationActivityPanel=document.getElementById("explanationActivityPanel");
+        if(explanationActivityPanel){
+          explanationActivityPanel.classList.toggle("hidden",isQA);
+        }
+
+        const practiceEyebrow=document.getElementById("practiceEyebrow");
+        const practiceTitle=document.getElementById("practiceTitle");
+        const practiceLead=document.getElementById("practiceLead");
+        const practiceIcon=document.getElementById("practiceIcon");
+        const practiceConnectionTitle=document.getElementById("practiceConnectionTitle");
+        const practiceConnectionText=document.getElementById("practiceConnectionText");
+
+        if(!isQA){
+          practiceEyebrow.textContent="Step 5 · Lesson Activity";
+          practiceTitle.textContent="What will students do with the learning?";
+          practiceLead.textContent="Choose a simple activity that students can realistically complete in this class.";
+          practiceIcon.textContent="🧩";
+          practiceConnectionTitle.textContent="A simple activity done well is enough.";
+          practiceConnectionText.textContent="It may be oral, practical, notebook-based, material-based or pair work at the bench.";
+        }
+
+        refreshVisibleStepNumbers();
+      }
+
+      function combine(parts){
+        return parts.filter(Boolean).join("\n\n") || "—";
+      }
+
+      function updatePreview(){
+        const data=getData();
+        const isQA=data.lessonType==="Q&A";
+
+        document.querySelectorAll("[data-out]").forEach(el=>{
+          const val=data[el.dataset.out];
+          el.textContent=val || "—";
+        });
+
+        document.getElementById("planIdOut").textContent=data._planId || "—";
+
+        const objective=data.objectiveVerb && data.objectiveText
+          ? `Students will be able to ${data.objectiveVerb} ${data.objectiveText}.`
+          : "—";
+
+        const roadmapParts=[
+          `Objective: ${objective}`,
+          `Learning indicators: ${[data.indicator1,data.indicator2,data.indicator3].filter(Boolean).join("; ") || "—"}`,
+          isQA
+            ? "Class flow: Q&A discussion, answer writing, inspection and support"
+            : `Class flow: explanation, discussion and ${data.activityTitle || "lesson activity"}`,
+          `Reward: ${data.rewardType || "Praise / Appreciation"}`
+        ];
+
+        if(!isQA){
+          roadmapParts.splice(2,0,`Materials: ${data.materials || "None"}`);
+        }
+
+        document.getElementById("roadmapOut").textContent=combine(roadmapParts);
+
+        const eng=energizers.find(x=>x.name===data.energizer);
+        document.getElementById("energizerOut").textContent=
+          eng ? `${eng.name}: ${eng.desc}` : "—";
+
+        document.getElementById("introOut").textContent=combine([
+          data.lessonHook ? `Lesson introduction: ${data.lessonHook}` : "",
+          data.introConnection ? `Connection: ${data.introConnection}` : ""
+        ]);
+
+        document.getElementById("teachingOut").textContent=combine([
+          data.teacherOwnNotes || "",
+          data.teachingReferences ? `References: ${data.teachingReferences}` : ""
+        ]);
+
+        const activityLabel=document.getElementById("activityLabelOut");
+        const knowledgeLabel=document.getElementById("knowledgeLabelOut");
+
+        if(isQA){
+          activityLabel.textContent="Inspection & Support by Teacher";
+          knowledgeLabel.textContent="Knowledge Building · Discussion & Participation";
+
+          document.getElementById("activityOut").textContent=combine([
+            data.quieterStudentSupport
+              ? `Inspection and support plan: ${data.quieterStudentSupport}`
+              : ""
+          ]);
+
+          document.getElementById("knowledgeOut").textContent=
+            "Questions and answers will be discussed in the order prepared in the Teacher’s Own Q&A Teaching Notes. Students will be invited to respond before the correct answers are explained.";
+        }else{
+          activityLabel.textContent="Lesson Activity";
+          knowledgeLabel.textContent="Knowledge Building · Discussion & Participation";
+
+          document.getElementById("activityOut").textContent=combine([
+            data.activityTitle ? `${data.activityTitle} (${data.activityMode || "Activity"})` : "",
+            data.activitySteps,
+            data.materials ? `Materials: ${data.materials}` : "",
+            data.teacherRole ? `Teacher's role: ${data.teacherRole}` : "",
+            data.activitySuccess ? `Success check: ${data.activitySuccess}` : ""
+          ]);
+
+          document.getElementById("knowledgeOut").textContent=combine([
+            data.discussionPlan ? `Discussion and questions: ${data.discussionPlan}` : "",
+            data.quieterStudentSupport
+              ? `Support for quieter or struggling students: ${data.quieterStudentSupport}`
+              : ""
+          ]);
+        }
+
+        document.getElementById("closureOut").textContent=combine([
+          "Wrap up the lesson by briefly summarising the key takeaways, appreciating students’ efforts, and clearly sharing the planned reward or recognition.",
+          `Reward type: ${data.rewardType || "Praise / Appreciation"}`,
+          data.rewardCriteria ? `Recognition: ${data.rewardCriteria}` : ""
+        ]);
+
+        const todayHomework=data.homeworkGiven==="Yes"
+          ? combine([
+              `Today’s Homework: ${data.homeworkTask || "—"}`,
+              data.homeworkDue ? `Submission date: ${data.homeworkDue}` : "",
+              data.homeworkInstruction ? `Instruction: ${data.homeworkInstruction}` : ""
+            ])
+          : "Today’s Homework: No homework planned for this lesson.";
+
+        document.getElementById("homeworkOut").textContent=combine([
+          todayHomework,
+          "Previous-Day Homework Feedback: Share feedback on the students’ work from the previous day and assess their understanding before starting the new session."
+        ]);
+
+        const inds=[data.indicator1,data.indicator2,data.indicator3].filter(Boolean);
+        document.getElementById("indicatorsOut").innerHTML=inds.length
+          ? inds.map((x,i)=>`${i+1}. ${escapeHtml(x)}`).join("<br>")
+          : "—";
+      }
+
+      function reviewItems(){
+        const isQA=fieldValue("lessonType")==="Q&A";
+
+        if(isQA){
+          return [
+            ["Lesson details", isStepComplete(0), 0],
+            ["Objective", isStepComplete(1), 1],
+            ["Teacher’s own teaching notes", isStepComplete(2), 2],
+            ["Inspection & support", isStepComplete(3), 3],
+            ["Lesson introduction", isStepComplete(5), 5],
+            ["Learning indicators", isStepComplete(6), 6],
+            ["Homework decision", isStepComplete(7), 7],
+            ["Energizer", isStepComplete(8), 8],
+            ["Closure & reward", isStepComplete(9), 9]
+          ];
+        }
+
+        return [
+          ["Lesson details", isStepComplete(0), 0],
+          ["Objective", isStepComplete(1), 1],
+          ["Teacher’s own teaching notes", isStepComplete(2), 2],
+          ["Discussion & participation", isStepComplete(3), 3],
+          ["Lesson activity", isStepComplete(4), 4],
+          ["Lesson introduction", isStepComplete(5), 5],
+          ["Learning indicators", isStepComplete(6), 6],
+          ["Homework decision", isStepComplete(7), 7],
+          ["Energizer", isStepComplete(8), 8],
+          ["Closure & reward", isStepComplete(9), 9]
+        ];
+      }
+
+      function updateReview(){
+        updatePreview();
+        const items=reviewItems();
+        const done=items.filter(x=>x[1]).length;
+        const pct=Math.round((done/items.length)*100);
+        document.getElementById("completionScore").textContent=pct;
+        document.getElementById("reviewStatusTitle").textContent=pct===100 ? "Ready for your final ownership check" : "Almost ready for review";
+        document.getElementById("reviewStatusText").textContent=pct===100
+          ? "Read the plan once, confirm that you can teach it, and mark it ready for the reviewer."
+          : "Complete the remaining required items before marking this lesson plan ready.";
+
+      }
+
+      function markReady(){
+        updateReview();
+        const all=reviewItems().every(x=>x[1]);
+        if(!all){
+          showToast("Complete all required sections first.");
+          return;
+        }
+        if(!document.getElementById("ownershipConfirm").checked){
+          showToast("Please confirm that you can teach the plan as written.");
+          return;
+        }
+        localStorage.setItem(READY_KEY,"true");
+        saveDraft(false);
+        document.getElementById("reviewStatusTitle").textContent="Ready for reviewer";
+        document.getElementById("reviewStatusText").textContent="The lesson plan has been marked ready. You can now print it or save it as PDF.";
+        showToast("Lesson plan marked ready for reviewer.");
+      }
+
+      function downloadDraft(){
+        const data=getData();
+        const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+        const a=document.createElement("a");
+        a.href=URL.createObjectURL(blob);
+        a.download=`${data._planId || "DPS-Lesson-Plan"}-draft.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      function clearDraft(){
+        if(!confirm("Clear the saved lesson plan draft from this browser?")) return;
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(READY_KEY);
+        form.reset();
+        document.getElementById("materials").value="None";
+        currentStep=0;
+        updateHomework(); updateEnergizer(); updateObjectivePreview(); updateDynamicText();
+        goToStep(0);
+        showToast("Saved draft cleared.");
+      }
+
+      function showToast(message){
+        toast.textContent=message;
+        toast.classList.add("show");
+        clearTimeout(showToast.t);
+        showToast.t=setTimeout(()=>toast.classList.remove("show"),2600);
+      }
+
+      function escapeHtml(str){
+        return String(str).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+      }
+
+      form.addEventListener("input",e=>{
+        if(e.target.style) e.target.style.borderColor="";
+        updateObjectivePreview();
+        updateHomework();
+        updateEnergizer();
+        updateDynamicText();
+        scheduleSave();
+      });
+
+      form.addEventListener("change",e=>{
+        updateObjectivePreview();
+        updateHomework();
+        updateEnergizer();
+        updateDynamicText();
+
+        if(e.target.name==="lessonType"){
+          currentStep=normalizeStep(currentStep);
+          buildNav();
+          goToStep(currentStep);
+        }
+
+        scheduleSave();
+      });
+
+      backBtn.addEventListener("click",()=>{
+        const active=getActiveStepIndices();
+        const ordinal=active.indexOf(currentStep);
+        if(ordinal>0) goToStep(active[ordinal-1]);
+      });
+
+      nextBtn.addEventListener("click",()=>{
+        const active=getActiveStepIndices();
+        const ordinal=active.indexOf(currentStep);
+
+        if(ordinal===active.length-1){
+          window.scrollTo({top:0,behavior:"smooth"});
+          return;
+        }
+
+        if(validateStep(currentStep)){
+          goToStep(active[ordinal+1]);
+        }
+      });
+
+      document.getElementById("saveNowBtn").onclick=()=>saveDraft(true);
+      document.getElementById("reviewTopBtn").onclick=()=>goToStep(10);
+      document.getElementById("downloadDraftBtn").onclick=downloadDraft;
+      document.getElementById("clearDraftBtn").onclick=clearDraft;
+      document.getElementById("markReadyBtn").onclick=markReady;
+      document.getElementById("printBtn").onclick=()=>{ updateReview(); window.print(); };
+
+      document.addEventListener("keydown",e=>{
+        if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s"){
+          e.preventDefault(); saveDraft(true);
+        }
+      });
+
+      buildNav();
+      buildEnergizers();
+      restoreDraft();
+
+      if(!document.getElementById("prepDate").value){
+        document.getElementById("prepDate").value=new Date().toISOString().slice(0,10);
+      }
+
+      updateHomework();
+      updateEnergizer();
+      updateObjectivePreview();
+      updateDynamicText();
+      goToStep(currentStep);
+    })();
+  </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4bce47dac9ad47f8b167ede0bb116f8c","r":1}' crossorigin="anonymous"></script>
+</body>
+</html>

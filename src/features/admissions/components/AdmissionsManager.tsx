@@ -54,8 +54,17 @@ export function AdmissionsManager({
       if (!matchesSearch) return false;
 
       // Class filter
-      if (classFilter && adm.inquiry?.appliedClass !== classFilter) return false;
-
+      if (classFilter) {
+        const rawNum = classFilter.replace(/^Class\s+/i, "").trim();
+        const inqClass = adm.inquiry?.appliedClass?.trim();
+        const match = inqClass === classFilter ||
+                      inqClass === `Class ${classFilter}` ||
+                      inqClass === `CLASS ${classFilter}` ||
+                      inqClass === rawNum ||
+                      inqClass === `Class ${rawNum}` ||
+                      inqClass === `CLASS ${rawNum}`;
+        if (!match) return false;
+      }
       // Step filter
       if (stepFilter && String(getComputedStep(adm)) !== stepFilter) return false;
 

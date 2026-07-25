@@ -41,7 +41,7 @@ export default function PtmCriteriaPage() {
   const { selectedInstitute } = useInstitute();
   const isAdmin = session?.user?.role !== "TEACHER";
 
-  const [classes, setClasses] = useState<string[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
@@ -106,11 +106,10 @@ export default function PtmCriteriaPage() {
               (cls.institute || "Dhanpuri Public School") === selectedInstitute
             );
           }
-          // Extract just the class names for the dropdown
-          const classNames = filteredClasses.map((cls: any) => cls.name || cls);
-          setClasses(classNames);
-          if (classNames.length > 0) {
-            setSelectedClass(classNames[0]);
+          // Store full class objects
+          setClasses(filteredClasses);
+          if (filteredClasses.length > 0) {
+            setSelectedClass(String(filteredClasses[0].id));
           }
         } else {
           setError(res.error || "Failed to load assigned classes.");
@@ -437,9 +436,9 @@ export default function PtmCriteriaPage() {
               onChange={(e) => setSelectedClass(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white appearance-none cursor-pointer"
             >
-              {classes.map((clsName) => (
-                <option key={clsName} value={clsName}>
-                  {clsName}
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
                 </option>
               ))}
             </select>
@@ -524,7 +523,7 @@ export default function PtmCriteriaPage() {
           </div>
         ) : students.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-xs text-slate-400 font-bold uppercase tracking-wider">
-            No confirmed students registered in class "{selectedClass}"
+            No confirmed students registered in class "{classes.find(c => c.id === parseInt(selectedClass))?.name || selectedClass}"
           </div>
         ) : (
           <table className="w-full text-xs">

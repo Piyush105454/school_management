@@ -198,7 +198,7 @@ export default function PrincipalManagementPage() {
       
       if (resData.shouldLogout) {
         setTimeout(() => {
-          signOut({ callbackUrl: typeof window !== "undefined" ? window.location.origin : "/" });
+          signOut({ callbackUrl: typeof window !== "undefined" ? `${window.location.origin}/login` : "/login" });
         }, 1500);
       } else {
         fetchPrincipals();

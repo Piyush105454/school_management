@@ -35,7 +35,17 @@ export function FinalAdmissionDashboard({
       if (!matchesSearch) return false;
 
       // Class filter
-      if (classFilter && a.inquiry?.appliedClass !== classFilter) return false;
+      if (classFilter) {
+        const rawNum = classFilter.replace(/^Class\s+/i, "").trim();
+        const inqClass = a.inquiry?.appliedClass?.trim();
+        const match = inqClass === classFilter ||
+                      inqClass === `Class ${classFilter}` ||
+                      inqClass === `CLASS ${classFilter}` ||
+                      inqClass === rawNum ||
+                      inqClass === `Class ${rawNum}` ||
+                      inqClass === `CLASS ${rawNum}`;
+        if (!match) return false;
+      }
 
       // Fee status filter
       if (feeFilter) {
