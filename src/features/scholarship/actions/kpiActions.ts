@@ -87,8 +87,10 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       }
     }
 
-    // If rating is 4 and above (means 4 to 5), then full money. Otherwise, average percentage.
-    const guardianAmount = guardianRating >= 4
+    // If rating is >= threshold (e.g., 4 out of 5), then full money. Otherwise, proportional.
+    // guardianRatingThreshold is stored as /10 in DB, but guardianRating is /5, so convert: threshold/10 * 5 = threshold/2
+    const guardianThresholdOutOf5 = (criteria.guardianRatingThreshold || 8) / 2; // 8/10 = 4/5
+    const guardianAmount = guardianRating >= guardianThresholdOutOf5
       ? criteria.guardianAmount
       : Math.round((guardianRating / 5) * criteria.guardianAmount);
 
@@ -96,6 +98,9 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const ptmAmount = data.ptm.attended ? criteria.ptmAmount : 0;
 
     const totalAmount = attendanceAmount + homeworkAmount + guardianAmount + ptmAmount;
+
+    // Calculate school fee (sum of all max criteria amounts)
+    const schoolFee = criteria.attendanceAmount + criteria.homeworkAmount + criteria.guardianAmount + criteria.ptmAmount;
 
     // Calculate signed adjustment amount for record-keeping
     let adjustmentAmount = 0;
@@ -200,6 +205,8 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       guardianAmount,
       ptmAmount,
       totalAmount,
+      schoolFee,
+      pendingAmount: Math.max(0, schoolFee - totalAmount + adjustmentAmount),
       adjustmentAmount,
       discountAmount,
       additionalChargeAmount,

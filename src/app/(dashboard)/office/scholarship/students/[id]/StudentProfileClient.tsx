@@ -8,7 +8,7 @@ import { ArrowLeft, CheckCircle2, XCircle, Upload, Trash2, Image as ImageIcon, E
 import { proxyUploadDocument } from "@/features/admissions/actions/admissionActions";
 import { ensureCompressed } from "@/lib/compression";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface CategoryState {
   rating: number;
@@ -18,6 +18,7 @@ interface CategoryState {
 export default function StudentProfileClient({ id, student }: { id: string, student: any }) {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isTeacher = session?.user?.role === "TEACHER";
   const [selectedMonth, setSelectedMonth] = useState("");
   const [year, setYear] = useState("2026");
@@ -137,6 +138,19 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
   useEffect(() => {
     loadOverview();
   }, [year]);
+
+  // Check URL parameters on mount
+  useEffect(() => {
+    const monthParam = searchParams.get("month");
+    const yearParam = searchParams.get("year");
+    
+    if (monthParam) {
+      setSelectedMonth(monthParam);
+    }
+    if (yearParam) {
+      setYear(yearParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (selectedMonth) {
@@ -615,7 +629,10 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const maxHomework = criteria?.homeworkAmount ?? 750;
             const maxPtm = criteria?.ptmAmount ?? 750;
             const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
-            const pendingToPay = maxTotal - totalEarned;
+            
+            // Use database values for consistency
+            const schoolFee = record?.schoolFee ?? maxTotal;
+            const pendingFromDB = record?.pendingAmount ?? (maxTotal - totalEarned);
 
             return (
               <div className="space-y-6">
@@ -974,20 +991,18 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider pb-2 border-b border-slate-100">Fee Summary</h4>
                       <div className="flex justify-between items-center text-sm font-bold text-slate-500 pt-2">
                         <span>Total School Fee</span>
-                        <span>₹{maxTotal}</span>
+                        <span>₹{schoolFee}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
                         <span>Scholarship Earned</span>
-                        <span>- ₹{totalEarned}</span>
+                        <span>- ₹{record?.totalAmount ?? totalEarned}</span>
                       </div>
                       
                       {(() => {
                         const isRecordPaid = record?.status === "PAID";
                         const discount = discountAmtInput || 0;
                         const additional = additionalChargeAmtInput || 0;
-                        const signedAdj = additional - discount;
-                        const originalPending = pendingToPay + signedAdj;
-                        const finalPending = isRecordPaid ? 0 : originalPending;
+                        const finalPending = isRecordPaid ? 0 : pendingFromDB;
                         
                         return (
                           <>
@@ -1006,7 +1021,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                             {isRecordPaid && (
                               <div className="flex justify-between items-center text-sm font-bold text-blue-600">
                                 <span>Amount Paid Online</span>
-                                <span>- ₹{maxTotal - totalEarned}</span>
+                                <span>- ₹{schoolFee - (record?.totalAmount ?? totalEarned)}</span>
                               </div>
                             )}
                             <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-200 pt-3">

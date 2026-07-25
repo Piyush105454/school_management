@@ -8,6 +8,10 @@ import {
   studentBio,
   classes,
   scholarshipCriteriaSettings,
+  scholarshipAttendance,
+  scholarshipHomework,
+  scholarshipGuardian,
+  scholarshipPtm,
 } from "@/db/schema";
 import { eq, inArray, and, desc, or, isNull } from "drizzle-orm";
 import { getServerSession } from "next-auth";
@@ -19,9 +23,11 @@ export async function GET(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
+    const admissionIdParam = searchParams.get("admissionId");
     const monthsParam = searchParams.get("months");
     const classesParam = searchParams.get("classes");
     const statusesParam = searchParams.get("statuses");
+    const yearParam = searchParams.get("year");
     let institute = searchParams.get("institute");
 
     // Force institute override for restricted roles
@@ -31,7 +37,8 @@ export async function GET(req: NextRequest) {
       institute = (session.user as any).institute;
     }
 
-    const rawRecords = await db
+    // First fetch scholarship records with basic info
+    const recordsWithStudents = await db
       .select({
         id: scholarshipRecords.id,
         admissionId: scholarshipRecords.admissionId,
@@ -39,8 +46,14 @@ export async function GET(req: NextRequest) {
         year: scholarshipRecords.year,
         status: scholarshipRecords.status,
         scholarshipEarned: scholarshipRecords.totalAmount,
+        schoolFee: scholarshipRecords.schoolFee,
+        pendingAmount: scholarshipRecords.pendingAmount,
         waiverGiven: scholarshipRecords.discountAmount,
         additionalCharge: scholarshipRecords.additionalChargeAmount,
+        attendanceAmount: scholarshipRecords.attendanceAmount,
+        homeworkAmount: scholarshipRecords.homeworkAmount,
+        guardianAmount: scholarshipRecords.guardianAmount,
+        ptmAmount: scholarshipRecords.ptmAmount,
         studentName: studentBio.firstName,
         studentLastName: studentBio.lastName,
         className: classes.name,
@@ -56,6 +69,7 @@ export async function GET(req: NextRequest) {
       .innerJoin(classes, eq(students.classId, classes.id))
       .where(
         and(
+          admissionIdParam ? eq(scholarshipRecords.admissionId, admissionIdParam) : undefined,
           monthsParam && monthsParam !== "ALL"
             ? inArray(scholarshipRecords.month, monthsParam.split(","))
             : undefined,
@@ -65,6 +79,7 @@ export async function GET(req: NextRequest) {
           statusesParam && statusesParam !== "ALL"
             ? inArray(scholarshipRecords.status as any, statusesParam.split(","))
             : undefined,
+          yearParam ? eq(scholarshipRecords.year, yearParam) : undefined,
           institute && institute !== "ALL"
             ? eq(classes.institute, institute)
             : undefined,
@@ -72,54 +87,89 @@ export async function GET(req: NextRequest) {
       )
       .orderBy(desc(scholarshipRecords.createdAt));
 
-    // Fetch current year criteria to get the "Total School Fee" (maxTotal)
-    const currentYear = new Date().getFullYear();
-    const academicYear = `${currentYear}-${String(currentYear + 1).slice(-2)}`;
+    // Fetch criteria data for all records
+    const attendanceMap = new Map();
+    const homeworkMap = new Map();
+    const guardianMap = new Map();
+    const ptmMap = new Map();
 
-    // Fetch criteria for each admissionId (student-specific criteria or global)
-    const admissionIds = [...new Set(rawRecords.map((r) => r.admissionId))];
-    const criteriaList = admissionIds.length > 0
-      ? await db
-          .select()
-          .from(scholarshipCriteriaSettings)
-          .where(
-            and(
-              eq(scholarshipCriteriaSettings.academicYear, academicYear),
-              inArray(scholarshipCriteriaSettings.admissionId, admissionIds)
-            )
-          )
-      : [];
-
-    // Also fetch global criteria (admissionId is null) as fallback
-    const globalCriteria = await db
-      .select()
-      .from(scholarshipCriteriaSettings)
-      .where(
-        and(
-          eq(scholarshipCriteriaSettings.academicYear, academicYear),
-          isNull(scholarshipCriteriaSettings.admissionId)
+    if (recordsWithStudents.length > 0) {
+      const attendanceRecords = await db.query.scholarshipAttendance.findMany({
+        where: inArray(
+          scholarshipAttendance.admissionId,
+          recordsWithStudents.map(r => r.admissionId)
         )
-      )
-      .limit(1);
+      });
+      attendanceRecords.forEach(att => {
+        attendanceMap.set(`${att.admissionId}-${att.month}-${att.year}`, att);
+      });
 
-    const criteriaMap = new Map(criteriaList.map((c) => [c.admissionId, c]));
-    const defaultCriteria = globalCriteria[0];
+      const homeworkRecords = await db.query.scholarshipHomework.findMany({
+        where: inArray(
+          scholarshipHomework.admissionId,
+          recordsWithStudents.map(r => r.admissionId)
+        )
+      });
+      homeworkRecords.forEach(hw => {
+        homeworkMap.set(`${hw.admissionId}-${hw.month}-${hw.year}`, hw);
+      });
+
+      const guardianRecords = await db.query.scholarshipGuardian.findMany({
+        where: inArray(
+          scholarshipGuardian.admissionId,
+          recordsWithStudents.map(r => r.admissionId)
+        )
+      });
+      guardianRecords.forEach(gd => {
+        guardianMap.set(`${gd.admissionId}-${gd.month}-${gd.year}`, gd);
+      });
+
+      const ptmRecords = await db.query.scholarshipPtm.findMany({
+        where: inArray(
+          scholarshipPtm.admissionId,
+          recordsWithStudents.map(r => r.admissionId)
+        )
+      });
+      ptmRecords.forEach(pt => {
+        ptmMap.set(`${pt.admissionId}-${pt.month}-${pt.year}`, pt);
+      });
+    }
+
+    // Map criteria data to records
+    const rawRecords = recordsWithStudents.map(record => {
+      const key = `${record.admissionId}-${record.month}-${record.year}`;
+      const att = attendanceMap.get(key);
+      const hw = homeworkMap.get(key);
+      const gd = guardianMap.get(key);
+      const pt = ptmMap.get(key);
+
+      return {
+        ...record,
+        attendancePercentage: att?.percentage || null,
+        homeworkPercentage: hw?.percentage || null,
+        guardianRating: gd?.rating || null,
+        ptmAttended: pt?.attended ?? false,
+      };
+    });
 
     const formattedRecords = rawRecords.map((record) => {
-      const criteria = criteriaMap.get(record.admissionId) || defaultCriteria;
-
-      // Total School Fee = sum of max amounts from criteria
-      const maxAttendance = criteria?.attendanceAmount ?? 750;
-      const maxHomework = criteria?.homeworkAmount ?? 750;
-      const maxGuardian = criteria?.guardianAmount ?? 750;
-      const maxPtm = criteria?.ptmAmount ?? 750;
-      const totalSchoolFee = maxAttendance + maxHomework + maxGuardian + maxPtm;
-
-      // Pending Due = Total School Fee - Scholarship Earned
-      const pendingDue = totalSchoolFee - record.scholarshipEarned;
-
-      // Final Due = Pending Due - Waiver Given + Additional Charge
-      const finalDue = Math.max(0, pendingDue - record.waiverGiven + record.additionalCharge);
+      // Use database values for consistency (no calculations!)
+      const totalSchoolFee = record.schoolFee ?? 3000;
+      const pendingDue = record.pendingAmount ?? 0;
+      const finalDue = pendingDue; // pending_amount already includes adjustments
+      
+      // Paid Online = amount already paid (only if status is PAID)
+      const paidOnline = record.status === "PAID" ? (totalSchoolFee - pendingDue) : 0;
+      
+      // Smart Status Based on Pending Amount
+      let displayStatus = record.status;
+      if (record.status === "PENDING") {
+        if (pendingDue === 0) {
+          displayStatus = "SCHOLARSHIP FULL AWARDED";
+        } else {
+          displayStatus = "PENDING";
+        }
+      }
 
       return {
         id: record.id,
@@ -132,11 +182,20 @@ export async function GET(req: NextRequest) {
         year: record.year,
         totalSchoolFee,
         scholarshipEarned: record.scholarshipEarned,
-        pendingDue: Math.max(0, pendingDue),
+        pendingDue,
         waiverGiven: record.waiverGiven,
         additionalCharge: record.additionalCharge,
         finalDue,
-        status: record.status,
+        paidOnline,
+        status: displayStatus,
+        attendancePercentage: record.attendancePercentage || null,
+        homeworkPercentage: record.homeworkPercentage || null,
+        guardianRating: record.guardianRating || null,
+        ptmAttended: record.ptmAttended ?? false,
+        attendanceAmount: record.attendanceAmount || 0,
+        homeworkAmount: record.homeworkAmount || 0,
+        guardianAmount: record.guardianAmount || 0,
+        ptmAmount: record.ptmAmount || 0,
       };
     });
 

@@ -1,8 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getStudentKpiData, getStudentMonthlyOverview } from "@/features/scholarship/actions/kpiActions";
-import { X, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+
+interface RecordRow {
+  id: string;
+  admissionId: string;
+  name: string;
+  className: string;
+  rollNo: string;
+  scholarNo: string;
+  month: string;
+  year: string;
+  totalSchoolFee: number;
+  scholarshipEarned: number;
+  pendingDue: number;
+  waiverGiven: number;
+  additionalCharge: number;
+  finalDue: number;
+  paidOnline: number;
+  status: string;
+  attendancePercentage: number | null;
+  homeworkPercentage: number | null;
+  guardianRating: number | null;
+  ptmAttended: boolean;
+  attendanceAmount: number;
+  homeworkAmount: number;
+  guardianAmount: number;
+  ptmAmount: number;
+}
 
 export default function ScholarshipClient({ 
   admissionId, 
@@ -11,90 +37,113 @@ export default function ScholarshipClient({
   admissionId: string; 
   isScholarshipAwarded: boolean; 
 }) {
-  // Dynamically calculate the previous month and year for default selection
-  const getDefaultMonthAndYear = () => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 1);
-    const months = [
-      "January", "February", "March", "April", "May", "June", 
-      "July", "August", "September", "October", "November", "December"
-    ];
-    const prevYear = String(date.getFullYear());
-    const supportedYears = ["2025", "2026", "2027"];
-    return {
-      month: months[date.getMonth()],
-      year: supportedYears.includes(prevYear) ? prevYear : "2026"
-    };
-  };
-
-  const defaults = getDefaultMonthAndYear();
-  const [month, setMonth] = useState(defaults.month);
-  const [year, setYear] = useState(defaults.year);
-  const [data, setData] = useState<any>(null);
+  const [year, setYear] = useState("2026");
+  const [monthlyData, setMonthlyData] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalDue, setTotalDue] = useState<number>(0);
+  const [totalEarned, setTotalEarned] = useState<number>(0);
+  const [totalWaiver, setTotalWaiver] = useState<number>(0);
+  const [totalCharge, setTotalCharge] = useState<number>(0);
+  const [totalPayable, setTotalPayable] = useState<number>(0);
+  const [paying, setPaying] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<RecordRow | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [month, year]);
+  }, [year, admissionId]);
 
   const loadData = async () => {
     setLoading(true);
-    const res = await getStudentKpiData(admissionId, month, year);
-    let activeCriteria = null;
-    if (res.success) {
-      setData(res.data);
-      activeCriteria = res.data?.criteria;
-    }
-
-    // Load monthly overview to calculate overall total due for the year
-    const overviewRes = await getStudentMonthlyOverview(admissionId, year);
-    if (overviewRes.success && overviewRes.data) {
-      let sumDue = 0;
-      overviewRes.data.forEach((m: any) => {
-        if (m.record && m.record.status !== "PAID") {
-          const maxAttendance = activeCriteria?.attendanceAmount ?? 750;
-          const maxHomework = activeCriteria?.homeworkAmount ?? 750;
-          const maxGuardian = activeCriteria?.guardianAmount ?? 750;
-          const maxPtm = activeCriteria?.ptmAmount ?? 750;
-          const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
+    try {
+      const res = await fetch(`/api/scholarship/records?admissionId=${admissionId}&year=${year}`);
+      if (res.ok) {
+        const records: RecordRow[] = await res.json();
+        
+        // Create full 12-month list (June to April) with placeholders for missing months
+        const monthOrder = ["June", "July", "August", "September", "October", "November", "December", "January", "February", "March", "April", "May"];
+        const recordMap = new Map(records.map(r => [r.month, r]));
+        
+        // Build full month list - include records that exist, and create empty placeholders for missing months
+        const fullMonthlyData: RecordRow[] = monthOrder.map(month => {
+          const record = recordMap.get(month);
+          if (record) {
+            return record;
+          }
+          // Return placeholder for missing months (will show as "No data" in table)
+          return {
+            id: `placeholder-${month}`,
+            admissionId,
+            name: "",
+            className: "",
+            rollNo: "",
+            scholarNo: "",
+            month,
+            year,
+            totalSchoolFee: 0,
+            scholarshipEarned: 0,
+            pendingDue: 0,
+            waiverGiven: 0,
+            additionalCharge: 0,
+            finalDue: 0,
+            paidOnline: 0,
+            status: "PENDING",
+            attendancePercentage: null,
+            homeworkPercentage: null,
+            guardianRating: null,
+            ptmAttended: false,
+            attendanceAmount: 0,
+            homeworkAmount: 0,
+            guardianAmount: 0,
+            ptmAmount: 0,
+          };
+        });
+        
+        setMonthlyData(fullMonthlyData);
+        
+        // Calculate totals from actual records only
+        let sumDue = 0;
+        let sumEarned = 0;
+        let sumWaiver = 0;
+        let sumCharge = 0;
+        let sumPayable = 0;
+        
+        records.forEach((record) => {
+          sumEarned += record.scholarshipEarned;
+          sumWaiver += record.waiverGiven;
+          sumCharge += record.additionalCharge;
+          sumPayable += record.finalDue;
           
-          const originalPending = maxTotal - (m.record.totalAmount ?? 0) + (m.record.adjustmentAmount ?? 0);
-          sumDue += Math.max(0, originalPending);
-        }
-      });
-      setTotalDue(sumDue);
+          if (record.status !== "PAID" && record.pendingDue > 0) {
+            sumDue += record.pendingDue;
+          }
+        });
+        
+        setTotalEarned(sumEarned);
+        setTotalWaiver(sumWaiver);
+        setTotalCharge(sumCharge);
+        setTotalPayable(sumPayable);
+        setTotalDue(sumDue);
+      }
+    } catch (error) {
+      console.error("Failed to load scholarship records:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const record = data?.record;
-  const criteria = data?.criteria;
-  const maxAttendance = criteria?.attendanceAmount ?? 750;
-  const maxHomework = criteria?.homeworkAmount ?? 750;
-  const maxGuardian = criteria?.guardianAmount ?? 750;
-  const maxPtm = criteria?.ptmAmount ?? 750;
-  const maxTotal = maxAttendance + maxHomework + maxGuardian + maxPtm;
-  const originalPending = maxTotal - (record?.totalAmount ?? 0) + (record?.adjustmentAmount ?? 0);
-  const isPaid = record?.status === "PAID";
-  const pendingToPay = isPaid ? 0 : originalPending;
-
-  const [paying, setPaying] = useState(false);
-
   const handlePaymentInit = async () => {
-    if (!record) return;
+    if (!selectedRecord) return;
     try {
       setPaying(true);
       const res = await fetch("/api/payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recordId: record.id }),
+        body: JSON.stringify({ recordId: selectedRecord.id }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to initiate payment");
 
-      // Load Razorpay Script and open checkout
       const loadScript = () => {
         return new Promise((resolve) => {
           const script = document.createElement("script");
@@ -116,16 +165,15 @@ export default function ScholarshipClient({
         amount: data.amount,
         currency: data.currency,
         name: "DPS Dhanpuri",
-        description: `Scholarship Balance Payment - ${month} ${year}`,
+        description: `Scholarship Balance Payment - ${selectedRecord.month} ${year}`,
         order_id: data.orderId,
         handler: async function (response: any) {
           try {
-            setPaying(true);
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                recordId: record.id,
+                recordId: selectedRecord.id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
@@ -136,7 +184,8 @@ export default function ScholarshipClient({
             if (!verifyRes.ok) throw new Error(verifyData.error || "Signature verification failed");
 
             alert("🎉 Payment verified and balance updated successfully!");
-            loadData(); // Refresh UI
+            loadData();
+            setSelectedRecord(null);
           } catch (err: any) {
             alert(err.message || "Failed to verify payment");
           } finally {
@@ -161,20 +210,13 @@ export default function ScholarshipClient({
     }
   };
 
-  return (
-    <div className="space-y-6 max-w-md mx-auto relative">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-slate-900">My Scholarship</h1>
-        <div className="flex gap-2">
-          <select value={month} onChange={(e) => setMonth(e.target.value)} className="border p-2 rounded-md text-sm bg-white border-slate-300">
-            {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <select value={year} onChange={(e) => setYear(e.target.value)} className="border p-2 rounded-md text-sm bg-white border-slate-300">
-            {["2025", "2026", "2027"].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-      </div>
+  const record = selectedRecord;
+  const isPaid = record?.status === "PAID";
+  const pendingToPay = isPaid ? 0 : (record?.pendingDue ?? 0);
 
+  return (
+    <div className="space-y-6 w-full">
+      {/* Certificate Section */}
       {isScholarshipAwarded && (
         <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 text-center space-y-3 shadow-sm">
           <div className="flex items-center justify-center gap-2 text-emerald-800 font-black text-sm uppercase tracking-wider">
@@ -184,7 +226,7 @@ export default function ScholarshipClient({
             Your scholarship award is active. Download your official certificate to keep for your records.
           </p>
           <a 
-            href={`/api/scholarship/certificate?month=${month}&year=${year}`} 
+            href={`/api/scholarship/certificate?month=June&year=${year}`} 
             download 
             className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95 animate-in fade-in duration-300"
           >
@@ -194,103 +236,148 @@ export default function ScholarshipClient({
         </div>
       )}
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-slate-200">
-          <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-bold text-slate-500">Loading KPI Data...</p>
+      {/* Header with Year Selector */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Scholarship Records</h1>
+          <p className="text-xs text-slate-500 font-medium mt-1">June to April monthly breakdown</p>
         </div>
-      ) : record ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 relative">
-          <div className="border-b pb-4">
-            <h2 className="text-lg font-bold text-slate-800">{month} {year}</h2>
-          </div>
+        <select value={year} onChange={(e) => setYear(e.target.value)} className="border p-2 rounded-md text-sm bg-white border-slate-300 font-semibold">
+          {["2025", "2026", "2027"].map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
 
-          <div className="space-y-3">
-            <KpiRow 
-              label="Attendance" 
-              value={`${data.attendance?.percentage?.toFixed(1) || 0}%`} 
-              amount={record.attendanceAmount} 
-              success={record.attendanceAmount > 0} 
-            />
-            <KpiRow 
-              label="Homework" 
-              value={`${(data.homework?.percentage ?? data.calculatedHomework?.percentage ?? 0).toFixed(1)}%`} 
-              amount={record.homeworkAmount} 
-              success={record.homeworkAmount > 0} 
-            />
-            <KpiRow 
-              label="Guardian Rating" 
-              value={`${data.guardian?.rating || 0}/5`} 
-              amount={record.guardianAmount} 
-              success={record.guardianAmount > 0} 
-            />
-            <KpiRow 
-              label="PTM Attended" 
-              value={data.ptm?.attended ? "Yes" : "No"} 
-              amount={record.ptmAmount} 
-              success={record.ptmAmount > 0} 
-            />
-          </div>
-
-          <div className="border-t pt-4 space-y-2">
-            <div className="flex justify-between items-center text-sm font-bold text-slate-500">
-              <span>Total School Fee</span>
-              <span>₹{maxTotal}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
-              <span>Scholarship Earned</span>
-              <span>- ₹{record.totalAmount}</span>
-            </div>
-            {record.adjustmentAmount && record.adjustmentAmount !== 0 && (
-              <div className={`flex justify-between items-center text-sm font-bold ${record.adjustmentAmount < 0 ? "text-blue-600" : "text-amber-600"}`}>
-                <span>Adjustment ({record.adjustmentAmount < 0 ? "Discount" : "Charge"})</span>
-                <span>{record.adjustmentAmount < 0 ? "-" : "+"} ₹{Math.abs(record.adjustmentAmount)}</span>
-              </div>
-            )}
-            {isPaid && originalPending > 0 && (
-              <div className="flex justify-between items-center text-sm font-bold text-blue-600">
-                <span>Amount Paid Online</span>
-                <span>- ₹{originalPending}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-100 pt-2">
-              <span>Pending Money to Pay</span>
-              <span>₹{pendingToPay}</span>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center text-sm border-t pt-3 border-slate-100">
-            <span className="text-slate-500">Scholarship Status</span>
-            <span className={`font-black uppercase tracking-wider text-xs px-3 py-1 rounded-full ${record.status === "PAID" ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-600"}`}>
-              {record.status}
-            </span>
-          </div>
-
-          {record.status !== "PAID" && pendingToPay > 0 && (
-            <button
-              onClick={handlePaymentInit}
-              disabled={paying}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 text-sm mt-3"
-            >
-              {paying ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Initializing Secure Payment...
-                </>
-              ) : (
-                `💳 Pay Pending Balance (₹${pendingToPay})`
-              )}
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-500 animate-in fade-in duration-300">
-          No records found for {month} {year}.
+      {/* Summary Cards */}
+      {!loading && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <SummaryCard label="Total Earned" value={totalEarned} color="text-emerald-600" />
+          <SummaryCard label="Pending Due" value={totalDue} color="text-slate-800" />
+          <SummaryCard label="Waiver Given" value={totalWaiver} color="text-blue-600" />
+          <SummaryCard label="Additional Charge" value={totalCharge} color="text-amber-600" />
+          <SummaryCard label="Net Payable" value={totalPayable} color="text-rose-600" highlight />
         </div>
       )}
 
-      {/* Sleek Total Due Card representing sum of all outstanding months */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-lg flex items-center justify-between mt-6">
+      {/* Monthly Table */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-slate-200">
+          <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-sm font-bold text-slate-500">Loading scholarship records...</p>
+        </div>
+      ) : monthlyData.length > 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-[11px] font-black text-slate-500 uppercase bg-slate-50/80 border-b border-slate-100 tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 whitespace-nowrap">Month</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Attendance %</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Homework %</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Guardian</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">PTM</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right text-emerald-600">Sch. Earned</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right">Pending Due</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right text-blue-600">Waiver</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right text-amber-600">Addl. Charge</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right text-rose-600 font-black">Net Payable</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {monthlyData.map((record) => {
+                  // Check if this is a placeholder (no actual data)
+                  const isPlaceholder = record.id.startsWith("placeholder-");
+                  
+                  if (isPlaceholder) {
+                    return (
+                      <tr key={record.month} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-900">{record.month}</td>
+                        <td colSpan={10} className="px-4 py-3 text-center text-slate-400 text-sm font-medium">No data</td>
+                        <td className="px-4 py-3 text-center">—</td>
+                      </tr>
+                    );
+                  }
+
+                  const att = record.attendancePercentage ? `${record.attendancePercentage.toFixed(1)}%` : "N/A";
+                  const hw = record.homeworkPercentage ? `${record.homeworkPercentage.toFixed(1)}%` : "N/A";
+                  const guard = record.guardianRating ? `${record.guardianRating}/5` : "N/A";
+                  const ptm = record.ptmAttended ? "Yes" : "No";
+
+                  const isPending = record.status !== "PAID";
+                  const pendingDue = record.pendingDue ?? 0;
+
+                  return (
+                    <tr key={record.month} className="hover:bg-blue-50/30 cursor-pointer transition-colors" onClick={() => isPending && pendingDue > 0 && setSelectedRecord(record)}>
+                      <td className="px-4 py-3 font-bold text-slate-800">{record.month}</td>
+                      <td className="px-4 py-3 font-medium text-slate-600 text-right">{att}</td>
+                      <td className="px-4 py-3 font-medium text-slate-600 text-right">{hw}</td>
+                      <td className="px-4 py-3 font-medium text-slate-600 text-right">{guard}</td>
+                      <td className="px-4 py-3 font-medium text-slate-600 text-right">
+                        <span className={ptm === "Yes" ? "text-emerald-600 font-black" : "text-slate-300"}>
+                          {ptm}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-emerald-600 text-right">₹{record.scholarshipEarned.toLocaleString()}</td>
+                      <td className="px-4 py-3 font-medium text-slate-600 text-right">₹{pendingDue.toLocaleString()}</td>
+                      <td className="px-4 py-3 font-medium text-blue-600 text-right">
+                        {record.waiverGiven > 0 ? `₹${record.waiverGiven.toLocaleString()}` : "—"}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-amber-600 text-right">
+                        {record.additionalCharge > 0 ? `₹${record.additionalCharge.toLocaleString()}` : "—"}
+                      </td>
+                      <td className="px-4 py-3 font-black text-right">
+                        <span className={record.finalDue > 0 ? "text-rose-600" : "text-emerald-600"}>
+                          ₹{record.finalDue.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
+                          record.status === "PAID"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : record.status === "SCHOLARSHIP FULL AWARDED"
+                            ? "bg-green-100 text-green-700"
+                            : record.status === "APPROVED"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {record.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {record.status !== "PAID" && pendingDue > 0 ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRecord(record);
+                            }}
+                            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/30 active:scale-95"
+                          >
+                            💳 Pay Now
+                          </button>
+                        ) : record.status === "PAID" ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-600 font-black text-xs bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
+                            ✓ Paid
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-500">
+          No scholarship records found for {year}.
+        </div>
+      )}
+
+      {/* Total Outstanding Due Card */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-lg flex items-center justify-between">
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Total Outstanding Due</h3>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">Sum of all pending months in {year}</p>
@@ -305,20 +392,158 @@ export default function ScholarshipClient({
           )}
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/30 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full md:max-w-lg md:rounded-3xl shadow-2xl animate-in slide-in-from-bottom-4 duration-300 overflow-hidden max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-900 to-slate-800 sticky top-0">
+              <div>
+                <h2 className="text-lg font-black text-white">Pay Pending Balance</h2>
+                <p className="text-xs text-slate-400 font-medium">{selectedRecord.month} {year}</p>
+              </div>
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="p-2 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Payment Details */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Scholarship Details Section */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Scholarship Criteria Results</h3>
+                <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <div>
+                      <span className="text-slate-600">Attendance</span>
+                      <span className="text-xs text-slate-500 block">
+                        {selectedRecord.attendancePercentage ? `${selectedRecord.attendancePercentage.toFixed(1)}%` : "N/A"}
+                      </span>
+                    </div>
+                    <span className="font-bold text-emerald-600">₹{selectedRecord.attendanceAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <div>
+                      <span className="text-slate-600">Homework</span>
+                      <span className="text-xs text-slate-500 block">
+                        {selectedRecord.homeworkPercentage ? `${selectedRecord.homeworkPercentage.toFixed(1)}%` : "N/A"}
+                      </span>
+                    </div>
+                    <span className="font-bold text-emerald-600">₹{selectedRecord.homeworkAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <div>
+                      <span className="text-slate-600">Guardian Rating</span>
+                      <span className="text-xs text-slate-500 block">
+                        {selectedRecord.guardianRating ? `${selectedRecord.guardianRating}/5` : "N/A"}
+                      </span>
+                    </div>
+                    <span className="font-bold text-emerald-600">₹{selectedRecord.guardianAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <div>
+                      <span className="text-slate-600">PTM Attended</span>
+                      <span className="text-xs text-slate-500 block">
+                        {selectedRecord.ptmAttended ? "Yes ✓" : "No"}
+                      </span>
+                    </div>
+                    <span className="font-bold text-emerald-600">₹{selectedRecord.ptmAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fee Breakdown Section */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Fee Summary</h3>
+                <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-slate-600">School Fee</span>
+                    <span className="font-bold text-slate-800">₹{selectedRecord.totalSchoolFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-slate-600">Scholarship Earned</span>
+                    <span className="font-bold text-emerald-600">- ₹{selectedRecord.scholarshipEarned.toLocaleString()}</span>
+                  </div>
+                  {selectedRecord.waiverGiven > 0 && (
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-slate-600">Waiver/Discount</span>
+                      <span className="font-bold text-blue-600">- ₹{selectedRecord.waiverGiven.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedRecord.additionalCharge > 0 && (
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-slate-600">Additional Charge</span>
+                      <span className="font-bold text-amber-600">+ ₹{selectedRecord.additionalCharge.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="border-t-2 border-slate-200 pt-3 flex justify-between font-black text-lg">
+                    <span className="text-slate-900">Balance Due</span>
+                    <span className="text-rose-600">₹{pendingToPay.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handlePaymentInit()}
+                disabled={paying}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95"
+              >
+                {paying ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  `💳 Pay ₹${pendingToPay.toLocaleString()} Now`
+                )}
+              </button>
+            </div>
+
+            {/* Close Button */}
+            <div className="px-6 py-3 border-t border-slate-100 flex gap-3 sticky bottom-0 bg-white">
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="flex-1 px-5 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function KpiRow({ label, value, amount, success }: { label: string, value: any, amount: number, success: boolean }) {
+
+function SummaryCard({
+  label,
+  value,
+  color,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  highlight?: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between py-2 border-b last:border-0 border-slate-100">
-      <div className="flex items-center gap-2">
-        <span>{success ? "✅" : "❌"}</span>
-        <span className="text-slate-700 font-medium text-sm">{label}</span>
-        <span className="text-slate-400 text-xs">({value})</span>
-      </div>
-      <span className={`font-bold text-sm ${success ? "text-green-600" : "text-slate-400"}`}>
-        ₹{amount}
+    <div
+      className={`p-4 rounded-2xl border shadow-sm flex flex-col items-center justify-center gap-1 ${
+        highlight
+          ? "bg-gradient-to-br from-rose-50 to-rose-100/50 border-rose-100"
+          : "bg-white border-slate-100"
+      }`}
+    >
+      <span className={`text-[10px] font-black uppercase tracking-wider text-center ${highlight ? "text-rose-500" : "text-slate-400"}`}>
+        {label}
+      </span>
+      <span className={`text-xl md:text-2xl font-black ${color}`}>
+        ₹{value.toLocaleString()}
       </span>
     </div>
   );

@@ -327,6 +327,9 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   ptmAmount: integer("ptm_amount").notNull(),
   totalAmount: integer("total_amount").notNull(),
 
+  schoolFee: integer("school_fee").notNull().default(3000), // Total school fee (sum of max criteria)
+  pendingAmount: integer("pending_amount").notNull().default(0), // School fee - scholarship earned + adjustments
+
   adjustmentAmount: integer("adjustment_amount").default(0).notNull(),
   discountAmount: integer("discount_amount").default(0).notNull(),
   additionalChargeAmount: integer("additional_charge_amount").default(0).notNull(),

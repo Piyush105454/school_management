@@ -20,7 +20,12 @@ interface RecordRow {
   waiverGiven: number;
   additionalCharge: number;
   finalDue: number;
+  paidOnline: number;
   status: string;
+  attendancePercentage: number | null;
+  homeworkPercentage: number | null;
+  guardianRating: number | null;
+  ptmAttended: boolean;
 }
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
@@ -57,6 +62,7 @@ function RecordDetailPanel({
           <span>Status:
             <span className={`ml-1 px-2 py-0.5 rounded-full font-black ${
               record.status === "PAID" ? "bg-emerald-100 text-emerald-700" :
+              record.status === "SCHOLARSHIP FULL AWARDED" ? "bg-green-100 text-green-700" :
               record.status === "APPROVED" ? "bg-blue-100 text-blue-700" :
               "bg-amber-100 text-amber-700"
             }`}>
@@ -67,7 +73,16 @@ function RecordDetailPanel({
 
         {/* Fee Breakdown */}
         <div className="px-6 py-5 space-y-3">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Fee Summary</h3>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Criteria Results</h3>
+
+          <div className="space-y-2">
+            <FeeRow label="Attendance %" value={record.attendancePercentage || 0} color="text-slate-600" isPercentage />
+            <FeeRow label="Homework %" value={record.homeworkPercentage || 0} color="text-slate-600" isPercentage />
+            <FeeRow label="Guardian Rating" value={record.guardianRating || 0} color="text-slate-600" isRating />
+            <FeeRow label="PTM Attended" value={record.ptmAttended ? 1 : 0} color="text-slate-600" isBoolean />
+          </div>
+
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mt-4">Fee Summary</h3>
 
           <div className="space-y-2">
             <FeeRow label="Total School Fee" value={record.totalSchoolFee} color="text-slate-700" />
@@ -80,9 +95,12 @@ function RecordDetailPanel({
             {record.additionalCharge > 0 && (
               <FeeRow label="Additional Charge" value={record.additionalCharge} color="text-amber-600" prefix="+" />
             )}
+            {record.paidOnline > 0 && (
+              <FeeRow label="Paid Online" value={-record.paidOnline} color="text-emerald-600" prefix="−" />
+            )}
             <div className="border-t-2 border-slate-200 mt-2 pt-3">
               <div className="flex justify-between items-center">
-                <span className="text-base font-black text-rose-600">Pending Money to Pay</span>
+                <span className="text-base font-black text-rose-600">Net Payable</span>
                 <span className="text-xl font-black text-rose-600">₹{record.finalDue.toLocaleString()}</span>
               </div>
             </div>
@@ -92,10 +110,10 @@ function RecordDetailPanel({
         {/* Actions */}
         <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
           <Link
-            href={`/office/scholarship/students/${record.admissionId}`}
+            href={`/office/scholarship/students/${record.admissionId}?month=${record.month}&year=${record.year}`}
             className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-bold py-3 rounded-xl hover:bg-slate-700 transition-all active:scale-95"
           >
-            View Full Profile <ChevronRight className="h-4 w-4" />
+            View Detailed Scholarship <ChevronRight className="h-4 w-4" />
           </Link>
           <button
             onClick={onClose}
@@ -115,19 +133,37 @@ function FeeRow({
   color,
   prefix,
   bold,
+  isPercentage,
+  isRating,
+  isBoolean,
 }: {
   label: string;
   value: number;
   color: string;
   prefix?: string;
   bold?: boolean;
+  isPercentage?: boolean;
+  isRating?: boolean;
+  isBoolean?: boolean;
 }) {
-  const display = Math.abs(value).toLocaleString();
+  let display: string;
+  
+  if (isPercentage) {
+    display = value ? `${value.toFixed(1)}%` : "N/A";
+  } else if (isRating) {
+    display = value ? `${value}/5` : "N/A";
+  } else if (isBoolean) {
+    display = value ? "Yes" : "No";
+  } else {
+    display = Math.abs(value).toLocaleString();
+  }
+
   return (
     <div className={`flex justify-between items-center text-sm ${bold ? "font-black" : "font-medium"}`}>
       <span className="text-slate-600">{label}</span>
       <span className={color}>
-        {prefix ?? ""}₹{display}
+        {!isPercentage && !isRating && !isBoolean ? (prefix ?? "") : ""}
+        {isPercentage || isRating || isBoolean ? display : `₹${display}`}
       </span>
     </div>
   );
@@ -141,7 +177,7 @@ export default function RecordsClient() {
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ];
-  const statuses = ["PENDING", "APPROVED", "PAID"];
+  const statuses = ["PENDING", "SCHOLARSHIP FULL AWARDED", "APPROVED", "PAID"];
 
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -216,8 +252,9 @@ export default function RecordsClient() {
           waiverGiven: acc.waiverGiven + curr.waiverGiven,
           additionalCharge: acc.additionalCharge + curr.additionalCharge,
           finalDue: acc.finalDue + curr.finalDue,
+          paidOnline: acc.paidOnline + curr.paidOnline,
         }),
-        { scholarshipEarned: 0, pendingDue: 0, waiverGiven: 0, additionalCharge: 0, finalDue: 0 }
+        { scholarshipEarned: 0, pendingDue: 0, waiverGiven: 0, additionalCharge: 0, finalDue: 0, paidOnline: 0 }
       ),
     [filteredRecords]
   );
@@ -235,7 +272,7 @@ export default function RecordsClient() {
     const filterText = `Filters: Month: ${filters.month || "All"}, Class: ${filters.class || "All Classes"}, Status: ${filters.status || "All Statuses"}`;
     doc.text(filterText, 14, 30);
 
-    const tableColumn = ["S.No.", "Name", "Class", "Roll No.", "Scholar No.", "Month", "Sch. Earned", "Pending Due", "Waiver", "Addl. Charge", "Final Due", "Status"];
+    const tableColumn = ["S.No.", "Name", "Class", "Roll No.", "Scholar No.", "Month", "Attendance %", "Homework %", "Guardian", "PTM", "Sch. Earned", "Pending Due", "Waiver", "Addl. Charge", "Net Payable", "Paid Online", "Status"];
     const tableRows: any[] = [];
 
     filteredRecords.forEach((record, idx) => {
@@ -246,11 +283,16 @@ export default function RecordsClient() {
         record.rollNo || "-",
         record.scholarNo || "-",
         record.month,
+        record.attendancePercentage ? `${record.attendancePercentage.toFixed(1)}%` : "N/A",
+        record.homeworkPercentage ? `${record.homeworkPercentage.toFixed(1)}%` : "N/A",
+        record.guardianRating ? `${record.guardianRating}/5` : "N/A",
+        record.ptmAttended ? "Yes" : "No",
         `Rs ${record.scholarshipEarned}`,
         `Rs ${record.pendingDue}`,
         `Rs ${record.waiverGiven}`,
         `Rs ${record.additionalCharge}`,
         `Rs ${record.finalDue}`,
+        `Rs ${record.paidOnline}`,
         record.status
       ]);
     });
@@ -263,11 +305,16 @@ export default function RecordsClient() {
       "",
       "",
       "",
+      "",
+      "",
+      "",
+      "",
       `Rs ${subtotals.scholarshipEarned}`,
       `Rs ${subtotals.pendingDue}`,
       `Rs ${subtotals.waiverGiven}`,
       `Rs ${subtotals.additionalCharge}`,
       `Rs ${subtotals.finalDue}`,
+      `Rs ${subtotals.paidOnline}`,
       ""
     ]);
 
@@ -321,7 +368,8 @@ export default function RecordsClient() {
         <SummaryCard label="Pending Due" value={subtotals.pendingDue} color="text-slate-800" />
         <SummaryCard label="Waiver Given" value={subtotals.waiverGiven} color="text-blue-600" />
         <SummaryCard label="Additional Charge" value={subtotals.additionalCharge} color="text-amber-600" />
-        <SummaryCard label="Final Due" value={subtotals.finalDue} color="text-rose-600" highlight />
+        <SummaryCard label="Net Payable" value={subtotals.finalDue} color="text-rose-600" highlight />
+        <SummaryCard label="Paid Online" value={subtotals.paidOnline} color="text-emerald-600" />
       </div>
 
       {/* Filters & Search */}
@@ -388,11 +436,16 @@ export default function RecordsClient() {
                 <th className="px-4 py-3 whitespace-nowrap">Roll No.</th>
                 <th className="px-4 py-3 whitespace-nowrap">Scholar No.</th>
                 <th className="px-4 py-3 whitespace-nowrap">Month</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">Attendance %</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">Homework %</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">Guardian</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right">PTM</th>
                 <th className="px-4 py-3 whitespace-nowrap text-right text-emerald-600">Sch. Earned</th>
                 <th className="px-4 py-3 whitespace-nowrap text-right">Pending Due</th>
                 <th className="px-4 py-3 whitespace-nowrap text-right text-blue-600">Waiver Given</th>
                 <th className="px-4 py-3 whitespace-nowrap text-right text-amber-600">Addl. Charge</th>
-                <th className="px-4 py-3 whitespace-nowrap text-right text-rose-600 font-black">Final Due</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right text-rose-600 font-black">Net Payable</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right text-emerald-600">Paid Online</th>
                 <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
               </tr>
             </thead>
@@ -421,6 +474,20 @@ export default function RecordsClient() {
                     <td className="px-4 py-3 font-medium text-slate-500">{r.rollNo}</td>
                     <td className="px-4 py-3 font-medium text-slate-500">{r.scholarNo}</td>
                     <td className="px-4 py-3 font-bold text-slate-600">{r.month}</td>
+                    <td className="px-4 py-3 font-medium text-slate-600 text-right">
+                      {r.attendancePercentage ? `${r.attendancePercentage.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-600 text-right">
+                      {r.homeworkPercentage ? `${r.homeworkPercentage.toFixed(1)}%` : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-600 text-right">
+                      {r.guardianRating ? `${r.guardianRating}/5` : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-600 text-right">
+                      <span className={r.ptmAttended ? "text-emerald-600 font-black" : "text-slate-300"}>
+                        {r.ptmAttended ? "Yes" : "No"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 font-semibold text-emerald-600 text-right">₹{r.scholarshipEarned.toLocaleString()}</td>
                     <td className="px-4 py-3 font-medium text-slate-600 text-right">₹{r.pendingDue.toLocaleString()}</td>
                     <td className="px-4 py-3 font-medium text-blue-600 text-right">
@@ -434,10 +501,17 @@ export default function RecordsClient() {
                         ₹{r.finalDue.toLocaleString()}
                       </span>
                     </td>
+                    <td className="px-4 py-3 font-black text-right">
+                      <span className={r.paidOnline > 0 ? "text-emerald-600" : "text-slate-300"}>
+                        ₹{r.paidOnline.toLocaleString()}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
                         r.status === "PAID"
                           ? "bg-emerald-100 text-emerald-700"
+                          : r.status === "SCHOLARSHIP FULL AWARDED"
+                          ? "bg-green-100 text-green-700"
                           : r.status === "APPROVED"
                           ? "bg-blue-100 text-blue-700"
                           : "bg-amber-100 text-amber-700"
@@ -455,13 +529,18 @@ export default function RecordsClient() {
         {/* Table Footer Totals */}
         {filteredRecords.length > 0 && !isLoading && (
           <div className="border-t-2 border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-wider overflow-x-auto pb-2">
               <span className="mr-auto">{filteredRecords.length} Records</span>
+              <span className="min-w-[80px]">—</span>
+              <span className="min-w-[80px]">—</span>
+              <span className="min-w-[80px]">—</span>
+              <span className="min-w-[80px]">—</span>
               <span className="text-emerald-600 min-w-[80px] text-right">₹{subtotals.scholarshipEarned.toLocaleString()}</span>
               <span className="min-w-[80px] text-right">₹{subtotals.pendingDue.toLocaleString()}</span>
               <span className="text-blue-600 min-w-[80px] text-right">₹{subtotals.waiverGiven.toLocaleString()}</span>
               <span className="text-amber-600 min-w-[80px] text-right">₹{subtotals.additionalCharge.toLocaleString()}</span>
               <span className="text-rose-600 min-w-[80px] text-right font-black">₹{subtotals.finalDue.toLocaleString()}</span>
+              <span className="text-emerald-600 min-w-[80px] text-right">₹{subtotals.paidOnline.toLocaleString()}</span>
               <span className="min-w-[80px]" />
             </div>
           </div>
