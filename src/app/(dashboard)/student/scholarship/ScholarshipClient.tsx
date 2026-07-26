@@ -204,6 +204,7 @@ export default function ScholarshipClient({
                   <th className="px-4 py-3 whitespace-nowrap text-right text-blue-600">Waiver</th>
                   <th className="px-4 py-3 whitespace-nowrap text-right text-amber-600">Addl. Charge</th>
                   <th className="px-4 py-3 whitespace-nowrap text-right text-rose-600 font-black">Net Payable</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-right text-emerald-600 font-black">Paid Online</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Status</th>
                   <th className="px-4 py-3 whitespace-nowrap text-center">Action</th>
                 </tr>
@@ -261,6 +262,11 @@ export default function ScholarshipClient({
                       <td className="px-4 py-3 font-black text-right">
                         <span className={record.finalDue > 0 ? "text-rose-600" : "text-emerald-600"}>
                           ₹{record.finalDue.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-right">
+                        <span className={record.paidOnline > 0 ? "text-emerald-600 font-black" : "text-slate-300"}>
+                          {record.paidOnline > 0 ? `₹${record.paidOnline.toLocaleString()}` : "—"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">

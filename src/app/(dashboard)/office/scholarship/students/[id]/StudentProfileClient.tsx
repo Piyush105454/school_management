@@ -602,7 +602,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const calcAttendancePct = data?.attendance?.percentage ?? data?.calculatedAttendance?.percentage ?? 0;
             const attendanceReward = calcAttendancePct >= (criteria?.attendanceThreshold || 90)
               ? (criteria?.attendanceAmount || 750)
-              : Math.round((calcAttendancePct / 100) * (criteria?.attendanceAmount || 750));
+              : 0;
 
             const watchHwGiven = watch("homework.totalGiven");
             const watchHwDone = watch("homework.totalDone");
