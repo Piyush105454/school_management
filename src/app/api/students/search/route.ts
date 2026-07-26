@@ -14,10 +14,10 @@ export async function GET(req: NextRequest) {
     }
 
     let query = db.select({
-      id: students.studentId,
+      id: admissionMeta.id,
       firstName: studentBio.firstName,
       lastName: studentBio.lastName,
-      admissionNumber: admissionMeta.entryNumber,
+      admissionNumber: admissionMeta.admissionNumber,
       classId: students.classId,
     })
     .from(students)

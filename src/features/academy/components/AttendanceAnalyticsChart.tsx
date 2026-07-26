@@ -125,7 +125,7 @@ export default function AttendanceAnalyticsChart({ data, months, year, genderFil
         {/* Left Side: Chart */}
         <div className="flex-1 min-w-0">
           <h2 className="text-xl font-black text-slate-800 text-center mb-6 font-outfit uppercase">
-            Students Attendance {titleMonths.toUpperCase()} {year}
+            {isStudentView ? `Selected Students` : `Classes`} Attendance {titleMonths.toUpperCase()} {year}
           </h2>
           <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -177,11 +177,11 @@ export default function AttendanceAnalyticsChart({ data, months, year, genderFil
         <div className="w-full xl:w-[350px] flex flex-col gap-6">
           <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100">
             <h3 className="text-sm font-black text-indigo-900 mb-2 uppercase tracking-wide">
-              {isStudentView ? 'Student Overview' : 'Monthly Overview'}
+              {isStudentView ? 'Selected Students Overview' : 'Monthly Overview'}
             </h3>
             <p className="text-sm text-slate-700 leading-relaxed font-medium">
               {isStudentView ? (
-                <>You are currently tracking individual student attendance for <span className="font-bold text-slate-900">{titleMonths} {year}</span>. The chart breaks down the exact attendance percentage for each selected student.</>
+                <>You are currently tracking <span className="font-bold text-indigo-900">{data.students?.length}</span> selected students for <span className="font-bold text-slate-900">{titleMonths} {year}</span>. The chart shows the exact attendance percentage for each selected student.</>
               ) : (
                 <>In the period of {titleMonths}, the overall attendance {data.overall ? `of the school was ` : `was `}
                 <span className="font-bold text-emerald-700">{data.overall?.pct || maxEntity.pct}%</span>. 

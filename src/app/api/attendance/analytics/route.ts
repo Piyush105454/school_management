@@ -83,6 +83,8 @@ export async function GET(req: NextRequest) {
 
     // Add student filter if specified
     if (specificStudents && studentIdsFilter.length > 0) {
+      // studentIdsFilter now contains admission UUIDs (from updated search API)
+      // Use them directly without needing to look them up
       dynamicWheres.push(inArray(admissionMeta.id, studentIdsFilter));
     }
 
