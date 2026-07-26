@@ -61,11 +61,11 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const attendancePct = data.attendance.totalDays > 0 ? (data.attendance.presentDays / data.attendance.totalDays) * 100 : 0;
     const homeworkPct = data.homework.totalGiven > 0 ? (data.homework.totalDone / data.homework.totalGiven) * 100 : 0;
 
-    // Calculate Amounts (Hybrid Logic: Threshold or Proportional)
-    // 1. Attendance: Full amount if >= threshold, otherwise proportional
+    // Calculate Amounts (Hybrid Logic: Threshold or All/Nothing)
+    // 1. Attendance: Full amount if >= threshold, otherwise 0 (all or nothing)
     const attendanceAmount = attendancePct >= criteria.attendanceThreshold 
       ? criteria.attendanceAmount 
-      : Math.round((attendancePct / 100) * criteria.attendanceAmount);
+      : 0;
 
     // 2. Homework: Full amount if >= threshold, otherwise proportional
     const homeworkAmount = homeworkPct >= criteria.homeworkThreshold 
@@ -206,7 +206,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       ptmAmount,
       totalAmount,
       schoolFee,
-      pendingAmount: Math.max(0, schoolFee - totalAmount + adjustmentAmount),
+      pendingAmount: Math.max(0, schoolFee - totalAmount - discountAmount + additionalChargeAmount),
       adjustmentAmount,
       discountAmount,
       additionalChargeAmount,

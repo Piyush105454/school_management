@@ -250,8 +250,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         },
         adjustment: {
           type: loadedType,
-          discountAmount: initialDiscount !== 0 ? initialDiscount : "",
-          additionalChargeAmount: initialAdditional !== 0 ? initialAdditional : "",
+          discountAmount: initialDiscount || 0,
+          additionalChargeAmount: initialAdditional || 0,
           note: kpiRes.data.record?.adjustmentNote || ""
         }
       });
@@ -303,12 +303,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         additionalChargeAmount: data?.record?.additionalChargeAmount || 0,
         note: data?.record?.adjustmentNote || ""
       } : {
-        discountAmount: (formData.adjustment?.type === "DISCOUNT" || formData.adjustment?.type === "BOTH") 
-          ? Number(formData.adjustment?.discountAmount || 0) 
-          : 0,
-        additionalChargeAmount: (formData.adjustment?.type === "CHARGE" || formData.adjustment?.type === "BOTH") 
-          ? Number(formData.adjustment?.additionalChargeAmount || 0) 
-          : 0,
+        // Auto-detect type based on input values, not the form type field
+        discountAmount: Number(formData.adjustment?.discountAmount || 0),
+        additionalChargeAmount: Number(formData.adjustment?.additionalChargeAmount || 0),
         note: formData.adjustment?.note || ""
       }
     });
@@ -338,10 +335,12 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       } else {
         setMessage(`Saved Successfully! Total Amount: ₹${baseTotal}`);
       }
-      loadData(); 
+      
+      // Reload data to refresh form with saved adjustments
+      await loadData();
       loadOverview(); // Refresh list as well
     } else {
-      setMessage("Error: " + res.error);
+      setMessage(`Error: ${res.error}`);
     }
   };
 
@@ -1002,7 +1001,11 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                         const isRecordPaid = record?.status === "PAID";
                         const discount = discountAmtInput || 0;
                         const additional = additionalChargeAmtInput || 0;
-                        const finalPending = isRecordPaid ? 0 : pendingFromDB;
+                        
+                        // Calculate base pending WITHOUT adjustments (schoolFee - scholarship earned)
+                        // Then apply CURRENT form adjustments
+                        const basePending = schoolFee - (record?.totalAmount ?? totalEarned);
+                        const finalPending = isRecordPaid ? 0 : Math.max(0, basePending - discount + additional);
                         
                         return (
                           <>

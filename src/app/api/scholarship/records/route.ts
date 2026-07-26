@@ -7,13 +7,12 @@ import {
   students,
   studentBio,
   classes,
-  scholarshipCriteriaSettings,
   scholarshipAttendance,
   scholarshipHomework,
   scholarshipGuardian,
   scholarshipPtm,
 } from "@/db/schema";
-import { eq, inArray, and, desc, or, isNull } from "drizzle-orm";
+import { eq, inArray, and, desc } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -87,17 +86,28 @@ export async function GET(req: NextRequest) {
       )
       .orderBy(desc(scholarshipRecords.createdAt));
 
-    // Fetch criteria data for all records
+    // Fetch criteria data for all records - now with month/year filtering
     const attendanceMap = new Map();
     const homeworkMap = new Map();
     const guardianMap = new Map();
     const ptmMap = new Map();
 
     if (recordsWithStudents.length > 0) {
+
       const attendanceRecords = await db.query.scholarshipAttendance.findMany({
-        where: inArray(
-          scholarshipAttendance.admissionId,
-          recordsWithStudents.map(r => r.admissionId)
+        where: and(
+          inArray(
+            scholarshipAttendance.admissionId,
+            recordsWithStudents.map(r => r.admissionId)
+          ),
+          inArray(
+            scholarshipAttendance.month,
+            [...new Set(recordsWithStudents.map(r => r.month))]
+          ),
+          inArray(
+            scholarshipAttendance.year,
+            [...new Set(recordsWithStudents.map(r => r.year))]
+          )
         )
       });
       attendanceRecords.forEach(att => {
@@ -105,9 +115,19 @@ export async function GET(req: NextRequest) {
       });
 
       const homeworkRecords = await db.query.scholarshipHomework.findMany({
-        where: inArray(
-          scholarshipHomework.admissionId,
-          recordsWithStudents.map(r => r.admissionId)
+        where: and(
+          inArray(
+            scholarshipHomework.admissionId,
+            recordsWithStudents.map(r => r.admissionId)
+          ),
+          inArray(
+            scholarshipHomework.month,
+            [...new Set(recordsWithStudents.map(r => r.month))]
+          ),
+          inArray(
+            scholarshipHomework.year,
+            [...new Set(recordsWithStudents.map(r => r.year))]
+          )
         )
       });
       homeworkRecords.forEach(hw => {
@@ -115,9 +135,19 @@ export async function GET(req: NextRequest) {
       });
 
       const guardianRecords = await db.query.scholarshipGuardian.findMany({
-        where: inArray(
-          scholarshipGuardian.admissionId,
-          recordsWithStudents.map(r => r.admissionId)
+        where: and(
+          inArray(
+            scholarshipGuardian.admissionId,
+            recordsWithStudents.map(r => r.admissionId)
+          ),
+          inArray(
+            scholarshipGuardian.month,
+            [...new Set(recordsWithStudents.map(r => r.month))]
+          ),
+          inArray(
+            scholarshipGuardian.year,
+            [...new Set(recordsWithStudents.map(r => r.year))]
+          )
         )
       });
       guardianRecords.forEach(gd => {
@@ -125,9 +155,19 @@ export async function GET(req: NextRequest) {
       });
 
       const ptmRecords = await db.query.scholarshipPtm.findMany({
-        where: inArray(
-          scholarshipPtm.admissionId,
-          recordsWithStudents.map(r => r.admissionId)
+        where: and(
+          inArray(
+            scholarshipPtm.admissionId,
+            recordsWithStudents.map(r => r.admissionId)
+          ),
+          inArray(
+            scholarshipPtm.month,
+            [...new Set(recordsWithStudents.map(r => r.month))]
+          ),
+          inArray(
+            scholarshipPtm.year,
+            [...new Set(recordsWithStudents.map(r => r.year))]
+          )
         )
       });
       ptmRecords.forEach(pt => {
@@ -161,14 +201,10 @@ export async function GET(req: NextRequest) {
       // Paid Online = amount already paid (only if status is PAID)
       const paidOnline = record.status === "PAID" ? (totalSchoolFee - pendingDue) : 0;
       
-      // Smart Status Based on Pending Amount
+      // Determine final status
       let displayStatus = record.status;
-      if (record.status === "PENDING") {
-        if (pendingDue === 0) {
-          displayStatus = "SCHOLARSHIP FULL AWARDED";
-        } else {
-          displayStatus = "PENDING";
-        }
+      if (record.status === "PENDING" && pendingDue === 0) {
+        displayStatus = "APPROVED";
       }
 
       return {

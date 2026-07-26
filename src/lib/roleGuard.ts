@@ -31,28 +31,37 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
   // If pathname is provided, check custom database overrides
   if (pathname && userId) {
     try {
-      const permissionRecord = await db.query.sidebarPermissions.findFirst({
-        where: eq(sidebarPermissions.userId, userId),
-      });
-      if (permissionRecord) {
-        const parsed = JSON.parse(permissionRecord.permissions);
-        if (parsed && parsed.items) {
-          const override = parsed.items[pathname];
-          if (override !== undefined) {
-            isAllowed = override;
-          } else {
-            // Check parent prefix paths (deepest matching path first)
-            const matchingKey = Object.keys(parsed.items)
-              .sort((a, b) => b.length - a.length)
-              .find(itemPath => pathname.startsWith(itemPath + "/"));
-            if (matchingKey !== undefined) {
-              isAllowed = parsed.items[matchingKey];
+      const permissionRecords = await db
+        .select()
+        .from(sidebarPermissions)
+        .where(eq(sidebarPermissions.userId, userId))
+        .limit(1);
+
+      if (permissionRecords && permissionRecords.length > 0) {
+        const permissionRecord = permissionRecords[0];
+        try {
+          const parsed = JSON.parse(permissionRecord.permissions as string);
+          if (parsed && parsed.items) {
+            const override = parsed.items[pathname];
+            if (override !== undefined) {
+              isAllowed = override;
+            } else {
+              // Check parent prefix paths (deepest matching path first)
+              const matchingKey = Object.keys(parsed.items)
+                .sort((a, b) => b.length - a.length)
+                .find(itemPath => pathname.startsWith(itemPath + "/"));
+              if (matchingKey !== undefined) {
+                isAllowed = parsed.items[matchingKey];
+              }
             }
           }
+        } catch (parseErr) {
+          console.error("Error parsing permission JSON:", parseErr);
         }
       }
     } catch (err) {
-      console.error("Error checking custom route permissions:", err);
+      // Silently skip if permissions table doesn't exist or user has no overrides
+      // This is not a critical error - just means no custom overrides
     }
   }
 

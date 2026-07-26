@@ -1,10 +1,13 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { studentProfiles, admissionMeta, students, studentAttendance } from "@/db/schema";
 import { redirect } from "next/navigation";
 import AttendanceClient from "./AttendanceClient";
+
+// Cache for 1 minute, then revalidate
+export const revalidate = 60;
 
 export default async function StudentAttendancePage() {
   const session = await getServerSession(authOptions);
@@ -46,8 +49,22 @@ export default async function StudentAttendancePage() {
     );
   }
 
-  const attendanceData = await db.select().from(studentAttendance)
-    .where(eq(studentAttendance.studentId, student.id));
+  // Use the SAME data source as the admin class grid: filtered by classId + studentId
+  // This ensures we show identical data across all views
+  const attendanceData = await db.select({
+    id: studentAttendance.id,
+    date: studentAttendance.date,
+    status: studentAttendance.status,
+    month: studentAttendance.month,
+    year: studentAttendance.year,
+    day: studentAttendance.day
+  }).from(studentAttendance)
+    .where(
+      and(
+        eq(studentAttendance.classId, student.classId),
+        eq(studentAttendance.studentId, student.id)
+      )
+    );
 
   return <AttendanceClient initialData={attendanceData as any} />;
 }

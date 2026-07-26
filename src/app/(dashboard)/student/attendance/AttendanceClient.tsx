@@ -32,16 +32,25 @@ export default function AttendanceClient({ initialData }: { initialData: Attenda
   }, [initialData, currentDate]);
 
   const stats = useMemo(() => {
-    const total = monthAttendance.filter(r => !["H", "NA"].includes(r.status)).length;
-    const present = monthAttendance.filter(r => ["P", "ML", "HD"].includes(r.status)).length;
+    // Count all status types
+    const total = monthAttendance.filter(r => r.status === "P" || r.status === "A").length;
+    const present = monthAttendance.filter(r => r.status === "P").length;
     const absent = monthAttendance.filter(r => r.status === "A").length;
     const leaves = monthAttendance.filter(r => r.status === "L").length;
+    const holidays = monthAttendance.filter(r => r.status === "H").length;
+    const medicalLeave = monthAttendance.filter(r => r.status === "ML").length;
+    const halfDays = monthAttendance.filter(r => r.status === "HD").length;
+    const na = monthAttendance.filter(r => r.status === "NA").length;
     
     return {
       total,
       present,
       absent,
       leaves,
+      holidays,
+      medicalLeave,
+      halfDays,
+      na,
       percentage: total > 0 ? ((present / total) * 100).toFixed(1) : "0.0"
     };
   }, [monthAttendance]);
@@ -133,9 +142,20 @@ export default function AttendanceClient({ initialData }: { initialData: Attenda
             {calendarDays.map((date, i) => {
               if (!date) return <div key={`pad-${i}`} />;
               
+              // Match using simple date comparison (same logic as admin grid)
               const record = monthAttendance.find(r => {
-                const rDate = new Date(r.date);
-                return rDate.getDate() === date.getDate() && rDate.getMonth() === date.getMonth() && rDate.getFullYear() === date.getFullYear();
+                const rDate = typeof r.date === 'string' 
+                  ? new Date(r.date)
+                  : new Date(r.date);
+                
+                // Compare just the day, month, year (ignore timezone)
+                const rDay = rDate.getDate();
+                const rMonth = rDate.getMonth();
+                const rYear = rDate.getFullYear();
+                
+                return rDay === date.getDate() && 
+                       rMonth === date.getMonth() && 
+                       rYear === date.getFullYear();
               });
               const status = record?.status || "";
               
@@ -194,6 +214,22 @@ export default function AttendanceClient({ initialData }: { initialData: Attenda
               <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Absent</p>
                 <p className="text-xl font-black text-rose-400">{stats.absent}</p>
+              </div>
+              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Leave</p>
+                <p className="text-xl font-black text-amber-400">{stats.leaves}</p>
+              </div>
+              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Holiday</p>
+                <p className="text-xl font-black text-slate-300">{stats.holidays}</p>
+              </div>
+              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Med. Leave</p>
+                <p className="text-xl font-black text-blue-400">{stats.medicalLeave}</p>
+              </div>
+              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">N/A</p>
+                <p className="text-xl font-black text-slate-400">{stats.na}</p>
               </div>
             </div>
 

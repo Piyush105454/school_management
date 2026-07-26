@@ -1,45 +1,27 @@
-
-import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { classes, teachers, inquiries } from "@/db/schema";
+import { teachers } from "@/db/schema";
 import { sql } from "drizzle-orm";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if ((session?.user?.role === "PRINCIPAL" || session?.user?.role === "TEACHER") && session.user.institute) {
-      return NextResponse.json([session.user.institute]);
-    }
+    // Get distinct institutes from teachers table
+    const institutes = await db
+      .selectDistinct({ institute: teachers.institute })
+      .from(teachers)
+      .where(sql`${teachers.institute} IS NOT NULL`)
+      .orderBy(teachers.institute);
 
-    const allClasses = await db.select({ institute: classes.institute }).from(classes);
-    const allTeachers = await db.select({ institute: teachers.institute }).from(teachers);
-    const allInquiries = await db.select({ institute: inquiries.school }).from(inquiries);
-    
-    const institutesSet = new Set<string>();
-    
-    allClasses.forEach(c => {
-      if (c.institute) institutesSet.add(c.institute);
-    });
-    
-    allTeachers.forEach(t => {
-      if (t.institute) institutesSet.add(t.institute);
-    });
+    const instituteList = institutes
+      .map((row) => row.institute)
+      .filter((institute): institute is string => institute !== null && institute !== undefined && institute.trim() !== "");
 
-    allInquiries.forEach(i => {
-      if (i.institute) institutesSet.add(i.institute);
-    });
-    
-    // Default values if none found in DB yet
-    if (institutesSet.size === 0) {
-      institutesSet.add("DPS Dhanpuri");
-      institutesSet.add("Academy");
-    }
-    
-    return NextResponse.json(Array.from(institutesSet).sort());
+    return NextResponse.json(instituteList);
   } catch (error) {
-    console.error("API Error fetching institutes:", error);
-    return NextResponse.json(["DPS Dhanpuri", "Academy"], { status: 200 }); // Fallback
+    console.error("Error fetching institutes:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch institutes" },
+      { status: 500 }
+    );
   }
 }

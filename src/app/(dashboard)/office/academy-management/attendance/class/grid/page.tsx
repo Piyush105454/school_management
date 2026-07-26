@@ -146,12 +146,26 @@ export default function ClassAttendanceGrid() {
                         {d}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-[10px] uppercase font-black text-slate-400 text-center border-l-2 border-slate-200 bg-slate-100/50">Total</th>
+                    <th className="px-4 py-3 text-[10px] uppercase font-black text-slate-400 text-center border-l-2 border-slate-200 bg-slate-100/50 min-w-[50px]">Total Days</th>
+                    <th className="px-4 py-3 text-[10px] uppercase font-black text-emerald-600 text-center bg-emerald-50 min-w-[50px]">Present</th>
+                    <th className="px-4 py-3 text-[10px] uppercase font-black text-rose-600 text-center bg-rose-50 min-w-[50px]">Absent</th>
+                    <th className="px-4 py-3 text-[10px] uppercase font-black text-indigo-600 text-center bg-indigo-50 min-w-[50px]">ML</th>
+                    <th className="px-4 py-3 text-[10px] uppercase font-black text-violet-600 text-center bg-violet-50 min-w-[50px]">H/Day</th>
+                    <th className="px-4 py-3 text-[10px] uppercase font-black text-blue-600 text-center bg-blue-50 min-w-[50px]">Leave</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {attendanceData.map((row) => {
-                    const presentCount = Object.values(row.attendance).filter(v => v === "P" || v === "ML").length;
+                    const attendanceValues = Object.values(row.attendance) as string[];
+                    const presentCount = attendanceValues.filter(v => v === "P").length;
+                    const absentCount = attendanceValues.filter(v => v === "A").length;
+                    const mlCount = attendanceValues.filter(v => v === "ML").length;
+                    const halfDayCount = attendanceValues.filter(v => v === "HD").length;
+                    const leaveCount = attendanceValues.filter(v => v === "L").length;
+                    
+                    // Total days = Present + Absent (excluding holidays, Sundays, and empty entries)
+                    const totalDays = presentCount + absentCount;
+                    
                     return (
                       <tr key={row.studentId} className="hover:bg-slate-50 transition-all group">
                         <td className="sticky left-0 bg-white group-hover:bg-slate-50 px-4 py-3 border-r border-slate-100 text-center text-[10px] font-black text-indigo-600">
@@ -184,8 +198,23 @@ export default function ClassAttendanceGrid() {
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-xs font-black text-slate-900 text-center border-l-2 border-slate-200 bg-slate-50/30">
+                        <td className="px-4 py-3 text-xs font-black text-slate-900 text-center border-l-2 border-slate-200 bg-slate-50/30 min-w-[50px]">
+                          {totalDays}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-black text-emerald-600 text-center bg-emerald-50 min-w-[50px]">
                           {presentCount}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-black text-rose-600 text-center bg-rose-50 min-w-[50px]">
+                          {absentCount}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-black text-indigo-600 text-center bg-indigo-50 min-w-[50px]">
+                          {mlCount}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-black text-violet-600 text-center bg-violet-50 min-w-[50px]">
+                          {halfDayCount}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-black text-blue-600 text-center bg-blue-50 min-w-[50px]">
+                          {leaveCount}
                         </td>
                       </tr>
                     );

@@ -36,10 +36,11 @@ export async function GET(req: NextRequest) {
     }
     
     let specificStudents = false;
+    let studentIdsFilter: string[] = [];
     if (studentIdsParam && studentIdsParam.trim().length > 0) {
       const studentIds = studentIdsParam.split(",").map(id => id.trim()).filter(id => id.length > 0);
       if (studentIds.length > 0) {
-        attendanceConditions.push(inArray(studentAttendance.studentId, studentIds));
+        studentIdsFilter = studentIds;
         specificStudents = true;
       }
     }
@@ -78,6 +79,11 @@ export async function GET(req: NextRequest) {
     if (occupation && occupation !== "ALL") {
       query = query.innerJoin(parentGuardianDetails, eq(admissionMeta.id, parentGuardianDetails.admissionId));
       dynamicWheres.push(eq(parentGuardianDetails.occupation, occupation));
+    }
+
+    // Add student filter if specified
+    if (specificStudents && studentIdsFilter.length > 0) {
+      dynamicWheres.push(inArray(admissionMeta.id, studentIdsFilter));
     }
 
     // Apply conditions

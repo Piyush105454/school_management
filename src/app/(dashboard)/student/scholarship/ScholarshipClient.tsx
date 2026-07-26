@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 
 interface RecordRow {
@@ -37,6 +38,7 @@ export default function ScholarshipClient({
   admissionId: string; 
   isScholarshipAwarded: boolean; 
 }) {
+  const router = useRouter();
   const [year, setYear] = useState("2026");
   const [monthlyData, setMonthlyData] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,8 +47,8 @@ export default function ScholarshipClient({
   const [totalWaiver, setTotalWaiver] = useState<number>(0);
   const [totalCharge, setTotalCharge] = useState<number>(0);
   const [totalPayable, setTotalPayable] = useState<number>(0);
-  const [paying, setPaying] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<RecordRow | null>(null);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -133,86 +135,8 @@ export default function ScholarshipClient({
 
   const handlePaymentInit = async () => {
     if (!selectedRecord) return;
-    try {
-      setPaying(true);
-      const res = await fetch("/api/payment/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recordId: selectedRecord.id }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to initiate payment");
-
-      const loadScript = () => {
-        return new Promise((resolve) => {
-          const script = document.createElement("script");
-          script.src = "https://checkout.razorpay.com/v1/checkout.js";
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
-          document.body.appendChild(script);
-        });
-      };
-
-      const loaded = await loadScript();
-      if (!loaded) {
-        alert("Failed to load Razorpay SDK. Please check your internet connection.");
-        return;
-      }
-
-      const options = {
-        key: data.keyId,
-        amount: data.amount,
-        currency: data.currency,
-        name: "DPS Dhanpuri",
-        description: `Scholarship Balance Payment - ${selectedRecord.month} ${year}`,
-        order_id: data.orderId,
-        handler: async function (response: any) {
-          try {
-            const verifyRes = await fetch("/api/payment/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                recordId: selectedRecord.id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-            if (!verifyRes.ok) throw new Error(verifyData.error || "Signature verification failed");
-
-            alert("🎉 Payment verified and balance updated successfully!");
-            loadData();
-            setSelectedRecord(null);
-          } catch (err: any) {
-            alert(err.message || "Failed to verify payment");
-          } finally {
-            setPaying(false);
-          }
-        },
-        prefill: {
-          email: "student@dps.com",
-          contact: "9999999999",
-        },
-        theme: {
-          color: "#2563EB",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (error: any) {
-      alert(error.message || "Failed to start payment process");
-    } finally {
-      setPaying(false);
-    }
+    router.push(`/student/scholarship/${selectedRecord.id}/payment?month=${selectedRecord.month}&year=${selectedRecord.year}`);
   };
-
-  const record = selectedRecord;
-  const isPaid = record?.status === "PAID";
-  const pendingToPay = isPaid ? 0 : (record?.pendingDue ?? 0);
 
   return (
     <div className="space-y-6 w-full">
@@ -299,16 +223,24 @@ export default function ScholarshipClient({
                     );
                   }
 
-                  const att = record.attendancePercentage ? `${record.attendancePercentage.toFixed(1)}%` : "N/A";
-                  const hw = record.homeworkPercentage ? `${record.homeworkPercentage.toFixed(1)}%` : "N/A";
-                  const guard = record.guardianRating ? `${record.guardianRating}/5` : "N/A";
+                  const att = record.attendancePercentage !== null && record.attendancePercentage !== undefined ? `${record.attendancePercentage.toFixed(1)}%` : "N/A";
+                  const hw = record.homeworkPercentage !== null && record.homeworkPercentage !== undefined ? `${record.homeworkPercentage.toFixed(1)}%` : "N/A";
+                  const guard = record.guardianRating !== null && record.guardianRating !== undefined ? `${record.guardianRating}/5` : "N/A";
                   const ptm = record.ptmAttended ? "Yes" : "No";
 
                   const isPending = record.status !== "PAID";
                   const pendingDue = record.pendingDue ?? 0;
 
                   return (
-                    <tr key={record.month} className="hover:bg-blue-50/30 cursor-pointer transition-colors" onClick={() => isPending && pendingDue > 0 && setSelectedRecord(record)}>
+                    <tr 
+                      key={record.month} 
+                      className="hover:bg-blue-50/30 cursor-pointer transition-colors" 
+                      onClick={() => {
+                        if (record.status !== "PAID" && pendingDue > 0) {
+                          router.push(`/student/scholarship/${record.id}/payment?month=${record.month}&year=${record.year}`);
+                        }
+                      }}
+                    >
                       <td className="px-4 py-3 font-bold text-slate-800">{record.month}</td>
                       <td className="px-4 py-3 font-medium text-slate-600 text-right">{att}</td>
                       <td className="px-4 py-3 font-medium text-slate-600 text-right">{hw}</td>
@@ -349,11 +281,11 @@ export default function ScholarshipClient({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedRecord(record);
+                              router.push(`/student/scholarship/${record.id}/payment?month=${record.month}&year=${record.year}`);
                             }}
                             className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-blue-500/30 active:scale-95"
                           >
-                            💳 Pay Now
+                            👁️ View Now
                           </button>
                         ) : record.status === "PAID" ? (
                           <span className="inline-flex items-center gap-1 text-emerald-600 font-black text-xs bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
@@ -421,7 +353,7 @@ export default function ScholarshipClient({
                     <div>
                       <span className="text-slate-600">Attendance</span>
                       <span className="text-xs text-slate-500 block">
-                        {selectedRecord.attendancePercentage ? `${selectedRecord.attendancePercentage.toFixed(1)}%` : "N/A"}
+                        {selectedRecord.attendancePercentage !== null && selectedRecord.attendancePercentage !== undefined ? `${selectedRecord.attendancePercentage.toFixed(1)}%` : "N/A"}
                       </span>
                     </div>
                     <span className="font-bold text-emerald-600">₹{selectedRecord.attendanceAmount.toLocaleString()}</span>
@@ -430,7 +362,7 @@ export default function ScholarshipClient({
                     <div>
                       <span className="text-slate-600">Homework</span>
                       <span className="text-xs text-slate-500 block">
-                        {selectedRecord.homeworkPercentage ? `${selectedRecord.homeworkPercentage.toFixed(1)}%` : "N/A"}
+                        {selectedRecord.homeworkPercentage !== null && selectedRecord.homeworkPercentage !== undefined ? `${selectedRecord.homeworkPercentage.toFixed(1)}%` : "N/A"}
                       </span>
                     </div>
                     <span className="font-bold text-emerald-600">₹{selectedRecord.homeworkAmount.toLocaleString()}</span>
@@ -439,7 +371,7 @@ export default function ScholarshipClient({
                     <div>
                       <span className="text-slate-600">Guardian Rating</span>
                       <span className="text-xs text-slate-500 block">
-                        {selectedRecord.guardianRating ? `${selectedRecord.guardianRating}/5` : "N/A"}
+                        {selectedRecord.guardianRating !== null && selectedRecord.guardianRating !== undefined ? `${selectedRecord.guardianRating}/5` : "N/A"}
                       </span>
                     </div>
                     <span className="font-bold text-emerald-600">₹{selectedRecord.guardianAmount.toLocaleString()}</span>
@@ -482,7 +414,7 @@ export default function ScholarshipClient({
                   )}
                   <div className="border-t-2 border-slate-200 pt-3 flex justify-between font-black text-lg">
                     <span className="text-slate-900">Balance Due</span>
-                    <span className="text-rose-600">₹{pendingToPay.toLocaleString()}</span>
+                    <span className="text-rose-600">₹{selectedRecord.finalDue.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -498,7 +430,7 @@ export default function ScholarshipClient({
                     Processing...
                   </>
                 ) : (
-                  `💳 Pay ₹${pendingToPay.toLocaleString()} Now`
+                  `💳 Pay ₹${selectedRecord.finalDue.toLocaleString()} Now`
                 )}
               </button>
             </div>

@@ -219,12 +219,13 @@ export default async function StudentDashboard() {
       a => a.month === currentMonthName && a.year === currentYearNum
     );
 
+    // Only count P (Present) and A (Absent) for percentage calculation
     const validLogs = thisMonthAttendance.filter(
-      a => a.status !== "H" && a.status !== "NA"
+      a => a.status === "P" || a.status === "A"
     );
     const totalAttendanceDays = validLogs.length;
     const presentAttendanceDays = validLogs.filter(
-      a => a.status === "P" || a.status === "ML" || a.status === "Present"
+      a => a.status === "P"
     ).length;
     const attendancePercentage = totalAttendanceDays > 0 
       ? Math.round((presentAttendanceDays / totalAttendanceDays) * 100) 
