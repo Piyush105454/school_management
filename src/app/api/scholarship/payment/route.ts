@@ -36,31 +36,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Dynamically import Razorpay
-    const Razorpay = (await import("razorpay")).default;
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
-
-    // Create Razorpay order
-    // Receipt must be max 40 characters
+    // Use Razorpay REST API directly instead of SDK
     const receipt = `sch_${recordId.slice(0, 24)}_${Date.now().toString().slice(-7)}`;
     
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(amount * 100), // Convert to paise
-      currency: "INR",
-      receipt: receipt.slice(0, 40),
-      notes: {
-        recordId,
-        month,
-        year,
+    const basicAuth = Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString("base64");
+    
+    const response = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${basicAuth}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        amount: Math.round(amount * 100), // Convert to paise
+        currency: "INR",
+        receipt: receipt.slice(0, 40),
+        notes: {
+          recordId,
+          month,
+          year,
+        },
+      }),
     });
+
+    const orderData = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(orderData.error?.description || "Razorpay order creation failed");
+    }
 
     return NextResponse.json({
       success: true,
-      orderId: razorpayOrder.id,
+      orderId: orderData.id,
       key: process.env.RAZORPAY_KEY_ID,
       amount,
       month,
@@ -69,7 +76,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error processing payment:", error);
     return NextResponse.json(
-      { error: "Failed to process payment" },
+      { error: "Failed to initiate payment" },
       { status: 500 }
     );
   }
