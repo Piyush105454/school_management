@@ -114,7 +114,11 @@ export function Navbar({ onMenuClick }: NavbarProps) {
               </div>
               <div className="border-t border-slate-100 py-2 pb-0">
                 <button 
-                  onClick={() => signOut({ callbackUrl: typeof window !== "undefined" ? `${window.location.origin}/login` : "/login" })}
+                  onClick={() => {
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                                   (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+                    signOut({ callbackUrl: `${baseUrl}/login` });
+                  }}
                   className="flex w-full items-center px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="h-4 w-4 mr-3" />

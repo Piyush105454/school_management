@@ -49,6 +49,9 @@ export default function LessonPlanClient({
   const currentStepOrdinal = activeSteps.indexOf(currentStep);
   const progress = Math.round(((currentStepOrdinal + 1) / activeSteps.length) * 100);
   const isReviewStep = currentStep === 10;
+  
+  // Check if lesson plan is submitted/reviewed - if so, make it read-only
+  const isEditable = !formData.status || formData.status === "DRAFT";
 
   useEffect(() => {
     setIsMounted(true);
@@ -62,19 +65,24 @@ export default function LessonPlanClient({
         initialData.pageTo = parseInt(pageTo);
         delete initialData.pages;
       }
+      console.log("Loading from initialFormData:", initialData);
       setFormData(initialData);
     } else if (existingData) {
+      console.log("Loading from existingData:", existingData);
       setFormData(existingData);
     } else {
       const saved = localStorage.getItem("dpsLessonPlanDraftV1") || localStorage.getItem("lessonPlanDraft");
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          console.log("Loading from localStorage:", parsed);
           setFormData({ ...parsed, selectedInstitute });
         } catch {
+          console.log("Loading default initialData");
           setFormData(initialData);
         }
       } else {
+        console.log("Loading default initialData");
         setFormData(initialData);
       }
     }
@@ -310,60 +318,70 @@ export default function LessonPlanClient({
                   <Step1LessonDetails
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 1 && (
                   <Step2Objective
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 2 && (
                   <Step3TeachingNotes
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 3 && (
                   <Step4Discussion
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 4 && !isQALesson && (
                   <Step5LessonActivity
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 5 && (
                   <Step6LessonIntroduction
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 6 && (
                   <Step7LearningIndicators
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 7 && (
                   <Step8Homework
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 8 && (
                   <Step9Energizer
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 9 && (
                   <Step10Closure
                     formData={formData}
                     setFormData={setFormData}
+                    isEditable={isEditable}
                   />
                 )}
                 {currentStep === 10 && (

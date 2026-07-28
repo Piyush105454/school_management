@@ -4,6 +4,9 @@ import React from "react";
 import "./Step10ReviewUI.css";
 
 interface LessonPlanData {
+  // Lesson Plan ID
+  id?: string;
+  
   // Step 1: Lesson Details
   className?: string;
   subject?: string;

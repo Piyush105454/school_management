@@ -197,8 +197,10 @@ export async function GET(request: NextRequest) {
       try {
         if (plan.step1Data && typeof plan.step1Data === 'string') {
           step1 = JSON.parse(plan.step1Data);
+          console.log("Parsed step1 from string:", step1);
         } else if (plan.step1Data && typeof plan.step1Data === 'object') {
           step1 = plan.step1Data;
+          console.log("Using step1 as object:", step1);
         }
       } catch (e) {
         console.error("Failed to parse step1Data:", e);
@@ -207,6 +209,7 @@ export async function GET(request: NextRequest) {
       try {
         if (plan.step2Data && typeof plan.step2Data === 'string') {
           const parsedStep2 = JSON.parse(plan.step2Data);
+          console.log("Parsed step2 from string:", parsedStep2);
           if (parsedStep2.sharedData || parsedStep2.explanationData || parsedStep2.qaData) {
             step2 = {
               ...parsedStep2.sharedData,
@@ -214,11 +217,14 @@ export async function GET(request: NextRequest) {
               ...parsedStep2.qaData,
               ...parsedStep2,
             };
+            console.log("Flattened step2:", step2);
           } else {
             step2 = parsedStep2;
+            console.log("Using step2 as-is:", step2);
           }
         } else if (plan.step2Data && typeof plan.step2Data === 'object') {
           const parsedStep2: any = plan.step2Data;
+          console.log("Using step2 as object:", parsedStep2);
           if (parsedStep2.sharedData || parsedStep2.explanationData || parsedStep2.qaData) {
             step2 = {
               ...parsedStep2.sharedData,
@@ -226,8 +232,10 @@ export async function GET(request: NextRequest) {
               ...parsedStep2.qaData,
               ...parsedStep2,
             };
+            console.log("Flattened step2 from object:", step2);
           } else {
             step2 = parsedStep2;
+            console.log("Using step2 object as-is:", step2);
           }
         }
       } catch (e) {
@@ -243,9 +251,7 @@ export async function GET(request: NextRequest) {
         pageFrom: step1.pageFrom || "",
         pageTo: step1.pageTo || "",
         lessonType: plan.type === "QA" ? "Q&A" : (step1.lessonType || "Explanation"),
-        preparedBy: step1.preparedBy || (plan.teacherProfile?.firstName 
-          ? `${plan.teacherProfile.firstName} ${plan.teacherProfile.lastName || ""}`.trim()
-          : ""),
+        preparedBy: step1.preparedBy || plan.teacherProfile?.name || "",
         reviewerName: step1.reviewerName || "",
         approverName: step1.approverName || "",
         prepDate: step1.prepDate || plan.date,
@@ -257,6 +263,8 @@ export async function GET(request: NextRequest) {
         updatedAt: plan.updatedAt,
         date: plan.date,
       };
+
+      console.log("API returning formData:", JSON.stringify(formData, null, 2));
 
       return NextResponse.json({
         success: true,

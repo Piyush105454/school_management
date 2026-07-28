@@ -40,27 +40,16 @@ export default function Step1LessonDetails({
   const [chapterList, setChapterList] = useState<any[]>([]);
   const [divisionList, setDivisionList] = useState<any[]>([]);
 
-  // Set current preparation date and teacher name on mount
+  // Set current preparation date immediately on mount (don't wait for session)
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     
-    // Get teacher name from session - use email as fallback
-    let name = session?.user?.name || session?.user?.email || "";
-    
-    if (name && name.includes("@")) {
-      // If we only have email, use first part
-      name = name.split("@")[0];
-    }
-    
     setFormData((prev: any) => {
-      // Update preparedBy with current session name/email
-      const updates: any = {
-        prepDate: prev.prepDate || today,
-      };
+      if (prev.prepDate) return prev; // Already set, don't override
       
-      if (name) {
-        updates.preparedBy = name;
-      }
+      const updates: any = {
+        prepDate: today,
+      };
 
       // Parse pages string if present (from URL parameters)
       if (prev.pages && typeof prev.pages === 'string' && !prev.pageFrom) {
@@ -71,6 +60,26 @@ export default function Step1LessonDetails({
       
       return { ...prev, ...updates };
     });
+  }, [setFormData]);
+
+  // Set teacher name from session separately
+  useEffect(() => {
+    if (!session?.user) return;
+    
+    // Get teacher name from session - use email as fallback
+    let name = session.user.name || session.user.email || "";
+    
+    if (name && name.includes("@")) {
+      // If we only have email, use first part
+      name = name.split("@")[0];
+    }
+    
+    if (name) {
+      setFormData((prev: any) => {
+        if (prev.preparedBy) return prev; // Already set, don't override
+        return { ...prev, preparedBy: name };
+      });
+    }
   }, [session, setFormData]);
 
   // Load classes on mount

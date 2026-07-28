@@ -628,7 +628,11 @@ export function Sidebar({ role, onClose }: SidebarProps) {
           Reset Password
         </Link>
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                           (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+            signOut({ callbackUrl: `${baseUrl}/` });
+          }}
           className="flex w-full items-center px-3 py-2.5 text-xs font-bold text-slate-500 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all select-none"
         >
           <LogOut className="mr-3 h-4 w-4" />
