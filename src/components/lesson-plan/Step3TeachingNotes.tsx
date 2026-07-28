@@ -2,95 +2,91 @@
 
 import React from "react";
 
-interface Step10ClosureProps {
+interface Step3TeachingNotesProps {
   formData: {
-    rewardType?: string;
-    rewardCriteria?: string;
+    lessonType?: string;
+    teacherOwnNotes?: string;
+    teachingReferences?: string;
   };
   setFormData: (data: any) => void;
   isEditable?: boolean;
 }
 
-const REWARD_TYPES = [
-  "Praise / Appreciation",
-  "Points",
-  "Recognition Card",
-  "Small Item",
-  "Class Applause",
-  "No material reward",
-];
-
-export default function Step10Closure({
+export default function Step3TeachingNotes({
   formData,
   setFormData,
   isEditable = true,
-}: Step10ClosureProps) {
+}: Step3TeachingNotesProps) {
   const handleChange = (field: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const isQALesson = formData.lessonType === "Q&A";
+
   return (
-    <section className="step-page active" data-step="9">
+    <section className="step-page active" data-step="2">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 10 Â· Closure & Reward</div>
-          <h2>How will you close the lesson and recognise effort?</h2>
+          <div className="eyebrow">Step 3 Â· Teaching Notes</div>
+          <h2>
+            {isQALesson
+              ? "Write the questions, answers and teaching flow you will use."
+              : "Write the teaching flow you will actually use."}
+          </h2>
           <p>
-            The lesson summary, appreciation and closure guidance are already included. Plan only
-            the reward or recognition.
+            {isQALesson
+              ? "Keep it practical: question, student response, correct answer and explanation."
+              : "Keep it simple. Write in the same order in which you will teach."}
           </p>
         </div>
-        <div className="hero-art">ðŸ†</div>
+        <div className="hero-art">ðŸ“</div>
       </div>
 
       <div className="connection">
-        <div>âœ“</div>
+        <div>âœ¦</div>
         <div>
-          <strong>Recognition motivates when it is specific and fair.</strong>
+          <strong>Easy way to write:</strong>
           <p>
-            Name what students did well and why they deserve recognition. Keep it simple and
-            inclusive.
+            {isQALesson
+              ? "Write each question, the expected answer, how you will explain it, and the order in which students will write."
+              : "Begin with the first point, continue in teaching order, and finish with what students must understand."}
           </p>
         </div>
       </div>
 
       <div className="card">
         <div className="field">
-          <label className="required" htmlFor="rewardType">
-            Reward Type
+          <label className="required" htmlFor="teacherOwnNotes">
+            {isQALesson
+              ? "Teacherâ€™s own Q&A teaching notes"
+              : "Teacherâ€™s own teaching notes"}
           </label>
-          <select
-            id="rewardType"
-            name="rewardType"
-            value={formData.rewardType || ""}
-            onChange={(e) => handleChange("rewardType", e.target.value)}
+          <textarea
+            id="teacherOwnNotes"
+            name="teacherOwnNotes"
+            value={formData.teacherOwnNotes || ""}
+            onChange={(e) => handleChange("teacherOwnNotes", e.target.value)}
+            placeholder={
+              isQALesson
+                ? "Write your complete Q&A teaching flow here:\n\n1. Read / ask the first questionâ€¦\n2. Let students answerâ€¦\n3. Explain the correct answerâ€¦\n4. Continue with the next questionâ€¦"
+                : "Write your teaching flow here. Short points or numbering are enough:\n\n1. First I will explainâ€¦\n2. Then I will ask / solveâ€¦\n3. Students will respondâ€¦\n4. Finally I will summariseâ€¦"
+            }
             disabled={!isEditable}
+            rows={10}
             required
-          >
-            <option value="">Select reward type</option>
-            {REWARD_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        <div className="field">
-          <label className="required" htmlFor="rewardCriteria">
-            Who will be recognised, and why?
-          </label>
-          <span className="hint">
-            Be specific about student actions or participation. Avoid vague praise.
-          </span>
+        <div className="field" style={{ marginTop: "20px" }}>
+          <label htmlFor="teachingReferences">References</label>
           <textarea
-            id="rewardCriteria"
-            name="rewardCriteria"
-            value={formData.rewardCriteria || ""}
-            onChange={(e) => handleChange("rewardCriteria", e.target.value)}
-            placeholder="Example: Students who complete the activity correctly and help their bench partner will receive praise and class applause."
+            id="teachingReferences"
+            name="teachingReferences"
+            value={formData.teachingReferences || ""}
+            onChange={(e) => handleChange("teachingReferences", e.target.value)}
+            placeholder="Textbook page, notebook exercise, chart or board diagram reference."
             disabled={!isEditable}
-            required
+            rows={3}
           />
         </div>
       </div>
@@ -121,8 +117,8 @@ export default function Step10Closure({
 
         .hero h2 {
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          font-size: clamp(26px, 3vw, 38px);
-          line-height: 1.08;
+          font-size: clamp(24px, 3vw, 36px);
+          line-height: 1.1;
           margin: 0 0 8px;
           color: #17324d;
         }
@@ -170,20 +166,16 @@ export default function Step10Closure({
           background: rgba(255, 255, 255, 0.72);
           border: 1px solid #d7d2c6;
           border-radius: 16px;
-          padding: 18px;
+          padding: 20px;
           box-shadow: 0 6px 18px rgba(31, 47, 61, 0.04);
         }
 
         .field {
-          margin-bottom: 16px;
-        }
-
-        .field:last-child {
-          margin-bottom: 0;
+          display: flex;
+          flex-direction: column;
         }
 
         label {
-          display: block;
           font-size: 15px;
           font-weight: 800;
           color: #2f4658;
@@ -195,17 +187,6 @@ export default function Step10Closure({
           color: #b95a50;
         }
 
-        .hint {
-          display: block;
-          font-weight: 400;
-          color: #6f7d89;
-          margin-top: 4px;
-          margin-bottom: 9px;
-          line-height: 1.35;
-          font-size: 13px;
-        }
-
-        select,
         textarea {
           width: 100%;
           border: 1px solid #cfd9e1;
@@ -216,29 +197,15 @@ export default function Step10Closure({
           outline: none;
           transition: 0.18s ease;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 500;
-          line-height: 1.7;
-        }
-
-        select {
-          min-height: 52px;
-        }
-
-        textarea {
-          min-height: 150px;
+          line-height: 1.6;
           resize: vertical;
         }
 
-        select:focus,
         textarea:focus {
           border-color: #5c8cac;
           box-shadow: 0 0 0 4px rgba(56, 111, 151, 0.11);
-        }
-
-        textarea::placeholder {
-          color: #8a9299;
-          opacity: 0.86;
         }
 
         @media (max-width: 980px) {

@@ -1,13 +1,17 @@
 "use client";
 
-import React from "react";
+import { useState, useEffect } from "react";
+import { useInstitute } from "@/providers/InstituteProvider";
+import { useSession } from "next-auth/react";
 
 interface Step1LessonDetailsProps {
   formData: {
     className?: string;
     subject?: string;
+    chapterId?: number | string;
     chapterNo?: string;
     chapterName?: string;
+    chapterDivisionId?: string | number;
     pageFrom?: string;
     pageTo?: string;
     prepDate?: string;
@@ -21,11 +25,267 @@ interface Step1LessonDetailsProps {
   isEditable?: boolean;
 }
 
+const DEFAULT_CLASSES = ["Nursery", "KG 1", "KG 2", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7", "Class 8"];
+const DEFAULT_SUBJECTS = ["English", "Hindi", "Mathematics", "Environmental Studies", "Science", "Social Science", "Computer", "General Knowledge", "Moral Science", "Other"];
+
 export default function Step1LessonDetails({
   formData,
   setFormData,
   isEditable = true,
 }: Step1LessonDetailsProps) {
+  const { dbClasses } = useInstitute();
+  const { data: session } = useSession();
+  const [classList, setClassList] = useState<string[]>(DEFAULT_CLASSES);
+  const [subjectList, setSubjectList] = useState<string[]>(DEFAULT_SUBJECTS);
+  const [chapterList, setChapterList] = useState<any[]>([]);
+  const [divisionList, setDivisionList] = useState<any[]>([]);
+
+  // Set current preparation date and teacher name on mount
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    
+    // Get teacher name from session - use email as fallback
+    let name = session?.user?.name || session?.user?.email || "";
+    
+    if (name && name.includes("@")) {
+      // If we only have email, use first part
+      name = name.split("@")[0];
+    }
+    
+    setFormData((prev: any) => {
+      // Update preparedBy with current session name/email
+      const updates: any = {
+        prepDate: prev.prepDate || today,
+      };
+      
+      if (name) {
+        updates.preparedBy = name;
+      }
+
+      // Parse pages string if present (from URL parameters)
+      if (prev.pages && typeof prev.pages === 'string' && !prev.pageFrom) {
+        const [pageFrom, pageTo] = prev.pages.split("-");
+        updates.pageFrom = pageFrom;
+        updates.pageTo = pageTo;
+      }
+      
+      return { ...prev, ...updates };
+    });
+  }, [session, setFormData]);
+
+  // Load classes on mount
+  useEffect(() => {
+    if (dbClasses && dbClasses.length > 0) {
+      setClassList(dbClasses);
+    } else {
+      fetch("/api/classes")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            const names = Array.from(
+              new Set(data.map((c: any) => (typeof c === "string" ? c : c.name)).filter(Boolean))
+            ) as string[];
+            setClassList(names);
+          } else {
+            setClassList(DEFAULT_CLASSES);
+          }
+        })
+        .catch(() => setClassList(DEFAULT_CLASSES));
+    }
+  }, [dbClasses]);
+
+  // Load subjects based on selected class - now using consolidated API
+  useEffect(() => {
+    if (!formData.className) {
+      setSubjectList(DEFAULT_SUBJECTS);
+      return;
+    }
+
+    // Fetch subjects for the selected class
+    fetch(`/api/classes/subjects?className=${encodeURIComponent(formData.className)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.subjects && Array.isArray(data.subjects) && data.subjects.length > 0) {
+          const subjectNames = data.subjects.map((s: any) => (typeof s === "string" ? s : s.name)).filter(Boolean);
+          const merged = Array.from(new Set([...subjectNames, ...DEFAULT_SUBJECTS]));
+          setSubjectList(merged);
+        } else {
+          setSubjectList(DEFAULT_SUBJECTS);
+        }
+      })
+      .catch(() => {
+        fetch("/api/form-options?type=subjects")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.subjects && Array.isArray(data.subjects) && data.subjects.length > 0) {
+              const merged = Array.from(new Set([...data.subjects, ...DEFAULT_SUBJECTS]));
+              setSubjectList(merged);
+            } else {
+              setSubjectList(DEFAULT_SUBJECTS);
+            }
+          })
+          .catch(() => setSubjectList(DEFAULT_SUBJECTS));
+      });
+
+    // Fetch approver for this class using consolidated endpoint
+    fetch(`/api/lesson-plan/form-data?className=${encodeURIComponent(formData.className)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.approverName && data.approverName !== "NA") {
+          setFormData((prev: any) => ({
+            ...prev,
+            approverName: data.approverName,
+          }));
+        }
+      })
+      .catch(() => {
+        console.warn("Failed to fetch approver name");
+      });
+  }, [formData.className]);
+
+  // Load subject details including reviewers and chapters - using consolidated API
+  useEffect(() => {
+    if (!formData.subject || !formData.className) {
+      setChapterList([]);
+      setDivisionList([]);
+      return;
+    }
+
+    // Fetch all data (reviewers and chapters) using consolidated endpoint
+    const url = `/api/lesson-plan/form-data?className=${encodeURIComponent(formData.className)}&subjectName=${encodeURIComponent(formData.subject)}`;
+    
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          console.warn("API error:", data.error);
+          setChapterList([]);
+          setDivisionList([]);
+          return;
+        }
+
+        // Set reviewer names
+        if (data.reviewer1Name || data.reviewer2Name) {
+          const reviewers = [];
+          if (data.reviewer1Name && data.reviewer1Name !== "NA") reviewers.push(data.reviewer1Name);
+          if (data.reviewer2Name && data.reviewer2Name !== "NA") reviewers.push(data.reviewer2Name);
+          const reviewerDisplay = reviewers.length > 0 ? reviewers.join(" | ") : "NA";
+          setFormData((prev: any) => ({
+            ...prev,
+            reviewerName: reviewerDisplay,
+          }));
+        }
+
+        // Load chapters
+        if (data.chapters && Array.isArray(data.chapters)) {
+          setChapterList(data.chapters);
+          
+          // Auto-select chapter if chapterId was passed as URL param
+          if (formData.chapterId && !formData.chapterNo) {
+            const selectedChapter = data.chapters.find((ch: any) => ch.id === parseInt(String(formData.chapterId), 10));
+            if (selectedChapter) {
+              setFormData((prev: any) => ({
+                ...prev,
+                chapterNo: selectedChapter.chapterNo,
+                chapterName: selectedChapter.name || "",
+              }));
+            }
+          }
+        } else {
+          setChapterList([]);
+          setDivisionList([]);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch subject details:", error);
+        setChapterList([]);
+        setDivisionList([]);
+      });
+  }, [formData.subject, formData.className, setFormData]);
+
+  // Update chapter details and load divisions when chapter number is selected
+  useEffect(() => {
+    if (!formData.chapterNo) {
+      setDivisionList([]);
+      return;
+    }
+
+    if (chapterList.length === 0) {
+      setDivisionList([]);
+      return;
+    }
+
+    // Find the selected chapter
+    const selectedChapter = chapterList.find((ch: any) => String(ch.chapterNo) === String(formData.chapterNo));
+    
+    if (selectedChapter) {
+      // Set chapter details
+      setFormData((prev: any) => {
+        const updates: any = {
+          chapterName: selectedChapter.name || "",
+        };
+        
+        // Only set page ranges if they're not already set (0 or empty)
+        const hasValidPageRanges = prev.pageFrom && prev.pageTo && 
+                                    parseInt(prev.pageFrom) > 0 && parseInt(prev.pageTo) > 0;
+        
+        if (!hasValidPageRanges) {
+          // Load divisions for this chapter
+          if (selectedChapter.divisions && selectedChapter.divisions.length > 0) {
+            setDivisionList(selectedChapter.divisions);
+            
+            // If we have a chapterDivisionId from URL, use it
+            if (prev.chapterDivisionId) {
+              const selectedDivision = selectedChapter.divisions.find(
+                (div: any) => String(div.id) === String(prev.chapterDivisionId)
+              );
+              if (selectedDivision) {
+                updates.pageFrom = selectedDivision.pageStart?.toString() || "";
+                updates.pageTo = selectedDivision.pageEnd?.toString() || "";
+              }
+            } else {
+              // Auto-select first division
+              const firstDivision = selectedChapter.divisions[0];
+              updates.chapterDivisionId = firstDivision.id;
+              updates.pageFrom = firstDivision.pageStart?.toString() || "";
+              updates.pageTo = firstDivision.pageEnd?.toString() || "";
+            }
+          } else {
+            // No divisions, use chapter page range
+            setDivisionList([]);
+            updates.pageFrom = selectedChapter.pageStart?.toString() || "";
+            updates.pageTo = selectedChapter.pageEnd?.toString() || "";
+          }
+        } else {
+          // Page ranges already set, just load divisions for dropdown
+          if (selectedChapter.divisions && selectedChapter.divisions.length > 0) {
+            setDivisionList(selectedChapter.divisions);
+          }
+        }
+        
+        return { ...prev, ...updates };
+      });
+    }
+  }, [formData.chapterNo, chapterList, setFormData]);
+
+  // Update page ranges when division is manually selected (not during initial load)
+  useEffect(() => {
+    if (!formData.chapterDivisionId || divisionList.length === 0) {
+      return;
+    }
+
+    const selectedDivision = divisionList.find((div: any) => String(div.id) === String(formData.chapterDivisionId));
+    
+    if (selectedDivision && (formData.pageFrom === "0" || formData.pageFrom === "" || parseInt(formData.pageFrom || "0") === 0)) {
+      // Only update if page ranges are not already set
+      setFormData((prev: any) => ({
+        ...prev,
+        pageFrom: selectedDivision.pageStart?.toString() || "",
+        pageTo: selectedDivision.pageEnd?.toString() || "",
+      }));
+    }
+  }, [formData.chapterDivisionId, divisionList, setFormData]);
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
@@ -74,17 +334,11 @@ export default function Step1LessonDetails({
                 required
               >
                 <option value="">Select class</option>
-                <option>Nursery</option>
-                <option>KG 1</option>
-                <option>KG 2</option>
-                <option>Class 1</option>
-                <option>Class 2</option>
-                <option>Class 3</option>
-                <option>Class 4</option>
-                <option>Class 5</option>
-                <option>Class 6</option>
-                <option>Class 7</option>
-                <option>Class 8</option>
+                {classList.map((cls) => (
+                  <option key={cls} value={cls}>
+                    {cls}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -101,16 +355,11 @@ export default function Step1LessonDetails({
                 required
               >
                 <option value="">Select subject</option>
-                <option>English</option>
-                <option>Hindi</option>
-                <option>Mathematics</option>
-                <option>Environmental Studies</option>
-                <option>Science</option>
-                <option>Social Science</option>
-                <option>Computer</option>
-                <option>General Knowledge</option>
-                <option>Moral Science</option>
-                <option>Other</option>
+                {subjectList.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -118,15 +367,27 @@ export default function Step1LessonDetails({
               <label className="required" htmlFor="chapterNo">
                 Chapter Number
               </label>
-              <input
+              <select
                 id="chapterNo"
                 name="chapterNo"
                 value={formData.chapterNo || ""}
                 onChange={(e) => handleChange("chapterNo", e.target.value)}
-                placeholder="Example: 5"
-                disabled={!isEditable}
+                disabled={!isEditable || chapterList.length === 0}
                 required
-              />
+              >
+                <option value="">
+                  {chapterList.length === 0
+                    ? formData.subject
+                      ? "Loading chapters..."
+                      : "Select subject first"
+                    : "Select chapter"}
+                </option>
+                {chapterList.map((ch) => (
+                  <option key={ch.id} value={ch.chapterNo}>
+                    Chapter {ch.chapterNo}: {ch.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="field col-3">
@@ -138,11 +399,34 @@ export default function Step1LessonDetails({
                 name="chapterName"
                 value={formData.chapterName || ""}
                 onChange={(e) => handleChange("chapterName", e.target.value)}
-                placeholder="Write the exact chapter name"
-                disabled={!isEditable}
+                placeholder="Chapter name will auto-fill"
+                disabled={!!formData.chapterName}
                 required
               />
             </div>
+
+            {divisionList.length > 0 && (
+              <div className="field col-3">
+                <label className="required" htmlFor="chapterDivision">
+                  Page Division
+                </label>
+                <select
+                  id="chapterDivision"
+                  name="chapterDivision"
+                  value={formData.chapterDivisionId || ""}
+                  onChange={(e) => handleChange("chapterDivisionId", e.target.value)}
+                  disabled={!isEditable || divisionList.length === 0}
+                  required
+                >
+                  <option value="">Select division</option>
+                  {divisionList.map((div) => (
+                    <option key={div.id} value={div.id}>
+                      Pages {div.pageStart}-{div.pageEnd}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="field col-3">
               <label className="required" htmlFor="pageFrom">
@@ -154,9 +438,14 @@ export default function Step1LessonDetails({
                 type="number"
                 min="1"
                 value={formData.pageFrom || ""}
-                onChange={(e) => handleChange("pageFrom", e.target.value)}
-                placeholder="12"
-                disabled={!isEditable}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "" || (parseInt(val) > 0)) {
+                    handleChange("pageFrom", val);
+                  }
+                }}
+                placeholder={formData.chapterDivisionId ? "Auto-filled from division" : "Enter page number"}
+                disabled={!!formData.chapterDivisionId}
                 required
               />
             </div>
@@ -171,9 +460,14 @@ export default function Step1LessonDetails({
                 type="number"
                 min="1"
                 value={formData.pageTo || ""}
-                onChange={(e) => handleChange("pageTo", e.target.value)}
-                placeholder="15"
-                disabled={!isEditable}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "" || (parseInt(val) > 0)) {
+                    handleChange("pageTo", val);
+                  }
+                }}
+                placeholder={formData.chapterDivisionId ? "Auto-filled from division" : "Enter page number"}
+                disabled={!!formData.chapterDivisionId}
                 required
               />
             </div>
@@ -187,8 +481,8 @@ export default function Step1LessonDetails({
                 name="prepDate"
                 type="date"
                 value={formData.prepDate || ""}
-                onChange={(e) => handleChange("prepDate", e.target.value)}
-                disabled={!isEditable}
+                onChange={(e) => {}}
+                disabled={true}
                 required
               />
             </div>
@@ -216,9 +510,8 @@ export default function Step1LessonDetails({
                 id="preparedBy"
                 name="preparedBy"
                 value={formData.preparedBy || ""}
-                onChange={(e) => handleChange("preparedBy", e.target.value)}
                 placeholder="Teacher name"
-                disabled={!isEditable}
+                disabled={true}
                 required
               />
             </div>
@@ -229,9 +522,9 @@ export default function Step1LessonDetails({
                 id="reviewerName"
                 name="reviewerName"
                 value={formData.reviewerName || ""}
-                onChange={(e) => handleChange("reviewerName", e.target.value)}
+                onChange={(e) => {}}
                 placeholder="Reviewer name"
-                disabled={!isEditable}
+                disabled={true}
               />
             </div>
 
@@ -241,9 +534,9 @@ export default function Step1LessonDetails({
                 id="approverName"
                 name="approverName"
                 value={formData.approverName || ""}
-                onChange={(e) => handleChange("approverName", e.target.value)}
+                onChange={(e) => {}}
                 placeholder="Approver name"
-                disabled={!isEditable}
+                disabled={true}
               />
             </div>
 
@@ -323,7 +616,7 @@ export default function Step1LessonDetails({
         }
 
         .hero h2 {
-          font-family: Georgia, serif;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: clamp(26px, 3vw, 38px);
           line-height: 1.08;
           margin: 0 0 8px;
@@ -440,7 +733,7 @@ export default function Step1LessonDetails({
 
         input,
         select {
-          font-family: "Kalam", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: 20px;
           font-weight: 500;
           line-height: 1.7;

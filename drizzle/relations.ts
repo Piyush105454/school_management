@@ -128,6 +128,16 @@ export const subjectsRelations = relations(subjects, ({one, many}) => ({
 		fields: [subjects.classId],
 		references: [classes.id]
 	}),
+	reviewer1: one(teachers, {
+		fields: [subjects.reviewerId1],
+		references: [teachers.id],
+		relationName: "subjects_reviewer1"
+	}),
+	reviewer2: one(teachers, {
+		fields: [subjects.reviewerId2],
+		references: [teachers.id],
+		relationName: "subjects_reviewer2"
+	}),
 	units: many(units),
 	examSchedules: many(examSchedules),
 	timetables: many(timetable),
@@ -265,6 +275,12 @@ export const teachersRelations = relations(teachers, ({one, many}) => ({
 		references: [users.id]
 	}),
 	subjects: many(subjects),
+	subjects_as_reviewer1: many(subjects, {
+		relationName: "subjects_reviewer1"
+	}),
+	subjects_as_reviewer2: many(subjects, {
+		relationName: "subjects_reviewer2"
+	}),
 	incidents: many(incidents),
 	resourceIssuances: many(resourceIssuances),
 	timetables: many(timetable),

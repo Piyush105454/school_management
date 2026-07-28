@@ -14,18 +14,18 @@ interface Step9EnergizerProps {
 const ENERGIZER_ACTIVITIES = [
   {
     name: "Follow My Taali (Sitting)",
-    desc: "Teacher performs 4–5 simple clap patterns. Students observe and repeat together. End with one final class clap.",
+    desc: "Teacher performs 4â€“5 simple clap patterns. Students observe and repeat together. End with one final class clap.",
   },
   {
-    name: "Aam–Kela–Papita Rhythm (Sitting)",
-    desc: "Aam = 1 clap, Kela = 2 claps, Papita = clap–lap–clap. Teacher calls a fruit and students perform the beat.",
+    name: "Aamâ€“Kelaâ€“Papita Rhythm (Sitting)",
+    desc: "Aam = 1 clap, Kela = 2 claps, Papita = clapâ€“lapâ€“clap. Teacher calls a fruit and students perform the beat.",
   },
   {
     name: "Count and Clap (Sitting)",
-    desc: "Teacher says or shows a number from 1–5. Students clap exactly that many times.",
+    desc: "Teacher says or shows a number from 1â€“5. Students clap exactly that many times.",
   },
   {
-    name: "Clap–Lap–Snap (Sitting)",
+    name: "Clapâ€“Lapâ€“Snap (Sitting)",
     desc: "Students repeat clap hands, tap thighs, snap or rub fingers. Start slowly and increase speed slightly.",
   },
   {
@@ -37,23 +37,23 @@ const ENERGIZER_ACTIVITIES = [
     desc: "Teacher shows quick hand positions. Students copy, ending with different positions on each hand.",
   },
   {
-    name: "Up–Down–Left–Right Hands (Sitting)",
+    name: "Upâ€“Downâ€“Leftâ€“Right Hands (Sitting)",
     desc: "Teacher calls hand directions while students keep elbows close to the body and follow quickly.",
   },
   {
-    name: "Machhli Jal Ki Rani – Hand Actions (Sitting)",
+    name: "Machhli Jal Ki Rani â€“ Hand Actions (Sitting)",
     desc: "Students use small fish-like hand actions while reciting one short verse.",
   },
   {
-    name: "Aloo Kachaloo – Expression Actions (Sitting)",
+    name: "Aloo Kachaloo â€“ Expression Actions (Sitting)",
     desc: "Students recite a short part with small expression and hand actions.",
   },
   {
-    name: "Lakdi Ki Kathi – Horse Beat (Sitting)",
+    name: "Lakdi Ki Kathi â€“ Horse Beat (Sitting)",
     desc: "Students tap alternate hands softly on their thighs like a horse beat.",
   },
   {
-    name: "Teacher Says – Shikshak Kehte Hain (Standing at place)",
+    name: "Teacher Says â€“ Shikshak Kehte Hain (Standing at place)",
     desc: "Students act only when the instruction begins with 'Teacher says'.",
   },
   {
@@ -61,7 +61,7 @@ const ENERGIZER_ACTIVITIES = [
     desc: "Teacher says up, left or open; students perform the safe opposite action.",
   },
   {
-    name: "Red Light–Green Light at Place (Standing at place)",
+    name: "Red Lightâ€“Green Light at Place (Standing at place)",
     desc: "Green = gentle march at place, yellow = slow, red = freeze. No forward movement.",
   },
   {
@@ -89,18 +89,18 @@ export default function Step9Energizer({
     <section className="step-page active" data-step="8">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 9 · Energizer</div>
+          <div className="eyebrow">Step 9 Â· Energizer</div>
           <h2>Plan a one-minute classroom energizer.</h2>
           <p>
             Choose a simple, inclusive activity that helps students stay alert without leaving
             their seats or causing distraction.
           </p>
         </div>
-        <div className="hero-art">⚡</div>
+        <div className="hero-art">âš¡</div>
       </div>
 
       <div className="connection">
-        <div>✧</div>
+        <div>âœ§</div>
         <div>
           <strong>Short, simple and easy to lead.</strong>
           <p>
@@ -179,7 +179,7 @@ export default function Step9Energizer({
         }
 
         .hero h2 {
-          font-family: Georgia, serif;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: clamp(26px, 3vw, 38px);
           line-height: 1.08;
           margin: 0 0 8px;
@@ -264,7 +264,7 @@ export default function Step9Energizer({
           outline: none;
           transition: 0.18s ease;
           min-height: 52px;
-          font-family: "Kalam", "Segoe Print", cursive;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: 20px;
           font-weight: 500;
         }

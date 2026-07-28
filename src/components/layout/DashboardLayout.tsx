@@ -9,9 +9,9 @@ import { getDashboardUrl } from "@/lib/roleUtils";
 
 // Role-based route access control
 const ROLE_ROUTES: Record<string, string[]> = {
-  OFFICE: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks"],
-  PRINCIPAL: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks"],
-  ADMIN: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks"],
+  OFFICE: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks", "/lesson-plan-review"],
+  PRINCIPAL: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks", "/lesson-plan-review"],
+  ADMIN: ["/office", "/dashboard", "/teacher", "/profile", "/reset-password", "/tasks", "/lesson-plan-review"],
   STUDENT_PARENT: ["/student", "/dashboard", "/profile", "/reset-password"],
   TEACHER: [
     "/teacher", 
@@ -27,7 +27,8 @@ const ROLE_ROUTES: Record<string, string[]> = {
     "/teacher/timetable",
     "/profile",
     "/reset-password",
-    "/tasks"
+    "/tasks",
+    "/lesson-plan-review"
   ],
 };
 

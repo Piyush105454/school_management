@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 import { useInstitute } from "@/providers/InstituteProvider";
+import Step10ReviewUI from "@/components/lesson-plan/Step10ReviewUI";
+import "@/components/lesson-plan/AllStepsStyles.css";
 import "katex/dist/katex.min.css";
 import "react-quill-new/dist/quill.snow.css";
 
@@ -80,6 +82,31 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       alert("Error loading lesson plan.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMarkReady = async () => {
+    if (!selectedPlan) return;
+    
+    try {
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+      
+      // Redirect based on user role
+      if (session?.user?.role === "TEACHER") {
+        // Teachers go to their lesson plan page
+        window.location.href = `/teacher/lesson-plan?id=${selectedPlan.id}`;
+      } else if (session?.user?.role === "PRINCIPAL" || session?.user?.role === "OFFICE" || session?.user?.role === "ADMIN") {
+        // Admin/Office/Principal stay on review page or go to review list
+        window.location.href = `/office/academy-management/lesson-plan/review`;
+      } else {
+        // Fallback
+        window.location.href = `/office/academy-management/lesson-plan/review`;
+      }
+    } catch (sessionError) {
+      console.error("Failed to get session:", sessionError);
+      // Fallback
+      window.location.href = `/office/academy-management/lesson-plan/review`;
     }
   };
 
@@ -195,15 +222,46 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
         ? JSON.parse(selectedPlan.step2Data)
         : selectedPlan.step2Data;
       
+      let merged: any = {};
       const isNewFormat = rawStep2.explanationData !== undefined || rawStep2.qaData !== undefined || rawStep2.sharedData !== undefined;
       if (isNewFormat) {
         const modeData = selectedPlan?.type === "QA" ? (rawStep2.qaData || {}) : (rawStep2.explanationData || {});
-        return {
+        merged = {
           ...(rawStep2.sharedData || {}),
           ...modeData,
+          ...rawStep2,
         };
+      } else {
+        merged = { ...rawStep2 };
       }
-      return rawStep2;
+
+      const objectiveText = merged.objectiveVerb && merged.objectiveText
+        ? `Students will be able to ${merged.objectiveVerb} ${merged.objectiveText}.`
+        : (merged.objectiveText || "");
+
+      const indicators = merged.learningIndicators || 
+        [merged.indicator1, merged.indicator2, merged.indicator3].filter(Boolean).join("; ");
+
+      const activity = merged.lessonActivity || 
+        (merged.activityTitle ? `${merged.activityTitle}: ${merged.activitySteps || merged.activityDescription || ""}` : (merged.activitySteps || merged.activityDescription || ""));
+
+      const closureText = merged.rewardType 
+        ? `${merged.rewardType}${merged.rewardCriteria ? ` - ${merged.rewardCriteria}` : ""}`
+        : (merged.closure || "");
+
+      return {
+        ...merged,
+        openingTimeEnergizer: merged.openingTimeEnergizer || merged.energizer || "-",
+        openingTimeRoadmap: merged.openingTimeRoadmap || objectiveText || "-",
+        learningIndicators: indicators || "-",
+        lessonIntroObjective: merged.lessonIntroObjective || merged.lessonHook || merged.lessonIntroduction || "-",
+        newTopicIntro: merged.newTopicIntro || merged.teacherOwnNotes || merged.teachingNotes || "-",
+        knowledgeBuilding: merged.knowledgeBuilding || merged.discussionPlan || "-",
+        lessonActivity: activity || "-",
+        outcomeFeedback: merged.outcomeFeedback || merged.activitySuccess || "-",
+        closure: merged.closure || closureText || "-",
+        unitChapterPage: merged.unitChapterPage || (merged.chapterName ? `${merged.chapterName}, Pg ${merged.pageFrom || ""}-${merged.pageTo || ""}` : undefined),
+      };
     } catch (e) {
       console.error(e);
       return {};
@@ -462,9 +520,9 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                       <td className="px-6 py-4">
                         <div className="space-y-1">
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
-                            {plan.class?.name}
+                            {plan.class?.name || plan.className || "—"}
                           </span>
-                          <p className="font-black text-slate-900 group-hover:text-blue-600 transition-colors capitalize text-xs">{plan.subject?.name}</p>
+                          <p className="font-black text-slate-900 group-hover:text-blue-600 transition-colors capitalize text-xs">{plan.subject?.name || plan.subject || "—"}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -514,7 +572,29 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         ) : (
                           <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-700">
-                              {[plan.subject?.reviewer1?.name, plan.subject?.reviewer2?.name].filter(Boolean).join(" | ") || plan.specialistProfile?.name || "Reviewer"}
+                              {(() => {
+                                const reviewerNames = [];
+                                // Try to get reviewer names from subject.reviewer1 and subject.reviewer2
+                                if (plan.subject?.reviewer1?.name) {
+                                  reviewerNames.push(plan.subject.reviewer1.name);
+                                }
+                                if (plan.subject?.reviewer2?.name) {
+                                  reviewerNames.push(plan.subject.reviewer2.name);
+                                }
+                                
+                                // If we have reviewer names, display them
+                                if (reviewerNames.length > 0) {
+                                  return reviewerNames.join(" | ");
+                                }
+                                
+                                // Fallback to specialistProfile if available
+                                if (plan.specialistProfile?.name) {
+                                  return plan.specialistProfile.name;
+                                }
+                                
+                                // Default fallback
+                                return "Reviewer";
+                              })()}
                             </p>
                             {plan.status !== "SUBMITTED" ? (
                               <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">Reviewed</span>
@@ -599,13 +679,46 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     );
   }
 
-  // Detail View (Exact same layout as Lesson Plan Management)
+  // Detail View (Step10ReviewUI Paper Preview)
   const step1 = getStep1Data();
   const step2 = getStep2Data();
 
+  // Build reviewer names from subject.reviewer1 and subject.reviewer2
+  const getReviewerNames = () => {
+    const reviewerNames = [];
+    if (selectedPlan.subject?.reviewer1?.name) {
+      reviewerNames.push(selectedPlan.subject.reviewer1.name);
+    }
+    if (selectedPlan.subject?.reviewer2?.name) {
+      reviewerNames.push(selectedPlan.subject.reviewer2.name);
+    }
+    if (reviewerNames.length > 0) {
+      return reviewerNames.join(" | ");
+    }
+    return step1.reviewerName || step2.reviewerName || selectedPlan.reviewerProfile?.name || "—";
+  };
+
+  const fullPlanData = {
+    id: selectedPlan.id,
+    className: selectedPlan.class?.name || step1.className || step2.className || "—",
+    subject: selectedPlan.subject?.name || step1.subject || step2.subject || "—",
+    chapterNo: step1.chapterNo || step2.chapterNo || "—",
+    chapterName: step1.chapterName || step2.chapterName || "—",
+    pageFrom: step1.pageFrom || step2.pageFrom || "—",
+    pageTo: step1.pageTo || step2.pageTo || "—",
+    prepDate: step1.prepDate || step2.prepDate || selectedPlan.date || "—",
+    deliveryDate: step1.deliveryDate || step2.deliveryDate || selectedPlan.date || "—",
+    preparedBy: step1.preparedBy || step2.preparedBy || selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "—",
+    reviewerName: getReviewerNames(),
+    approverName: step1.approverName || step2.approverName || (selectedPlan as any).principalProfile?.name || "—",
+    lessonType: selectedPlan.type === "QA" ? "Q&A" : (step1.lessonType || step2.lessonType || "Explanation"),
+    ...step1,
+    ...step2,
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button 
@@ -647,653 +760,21 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               <p className="text-sm text-slate-500 font-medium">Validating content for {selectedPlan.subject?.name} ({selectedPlan.class?.name})</p>
             </div>
           </div>
-
-          {/* Descriptive Step Selector matching LessonPlanForm */}
-          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
-            <button
-              onClick={() => setActiveStep(1)}
-              className={`px-4 py-2 rounded-lg font-bold text-[10px] transition-all uppercase tracking-widest ${activeStep === 1
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-                }`}
-            >
-              1. Teacher Preparation
-            </button>
-            <button
-              onClick={() => setActiveStep(2)}
-              className={`px-4 py-2 rounded-lg font-bold text-[10px] transition-all uppercase tracking-widest ${activeStep === 2
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-                }`}
-            >
-              2. LESSON PLAN
-            </button>
-            <button
-              onClick={() => setActiveStep(3)}
-              className={`px-4 py-2 rounded-lg font-bold text-[10px] transition-all uppercase tracking-widest ${activeStep === 3
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-                }`}
-            >
-              3. LESSON delivery & Sign off
-            </button>
-          </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden min-h-[600px] flex flex-col">
-          <div className="p-8 md:p-12 flex-1">
-            {activeStep === 1 && (
-              <div className="space-y-8 animate-in fade-in duration-300 bg-white">
-                {/* 1A. Teacher's Note Table */}
-                <div className="border border-black">
-                  {/* TOP HEADER ROW */}
-                  <div className="grid grid-cols-12 border-b border-black divide-x divide-black h-12">
-                    <div className="col-span-6 flex items-center justify-center font-black text-2xl tracking-tight uppercase text-slate-900">1A. Teacher's Note</div>
-                    <div className="col-span-6 grid grid-cols-3 divide-x divide-black h-full text-slate-900">
-                      <div className="flex items-center px-2 text-[10px] font-bold">LP Delivery Day <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{getDeliveryDay()}</span></div>
-                      <div className="flex items-center px-2 text-[10px] font-bold">Date: <span className="ml-1 border-b border-black flex-1 min-w-[50px]">{selectedPlan.date}</span></div>
-                      <div className="flex items-center px-2 text-[10px] font-bold whitespace-nowrap">Your LP ID <span className="ml-1 border-b border-black flex-1 min-w-[30px]">{selectedPlan.id || step2.lpNo || "No."}</span></div>
-                    </div>
-                  </div>
-
-                  {/* INSTRUCTION GRID */}
-                  <div className="grid grid-cols-2 border-b border-black divide-x divide-black text-[11px] leading-snug text-slate-600">
-                    <div className="p-4 space-y-2">
-                      <p>This section is for your own preparation and reflections before delivering the class. Use it to stay organized and confident while teaching.</p>
-                      <p>Please use this space to:</p>
-                      <ol className="list-decimal list-inside pl-1">
-                        <li>Write key points or concepts you want to highlight in today's lesson.</li>
-                        <li>Note any stories, examples, or activities you plan to include.</li>
-                        <li>Plan your blackboard work or rough class flow in steps.</li>
-                        <li>Prepare simple questions you'll ask to check understanding during class.</li>
-                      </ol>
-                    </div>
-                    <div className="p-4 space-y-2 font-medium">
-                      <p>यह भाग कक्षा शुरू करने से पहले आपकी तैयारी और चिंतन के लिए है। इसका उपयोग पढ़ाते समय व्यवस्थित और आत्मविश्वासी बने रहने के लिए करें।</p>
-                      <p>कृपया इस स्थान का उपयोग निम्न के लिए करें:</p>
-                      <ol className="list-decimal list-inside pl-1">
-                        <li>आज के पाठ में किन मुख्य बिंदुओं या अवधारणाओं पर आप प्रकाश डालना चाहते हैं, उन्हें लिखें।</li>
-                        <li>उन कहानियों, उदाहरणों या गतिविधियों को नोट करें जिन्हें आप शामिल करने की योजना बना रहे हैं।</li>
-                      </ol>
-                    </div>
-                  </div>
-
-                  {/* WRITING SPACE */}
-                  <div 
-                    className="w-full p-6 text-base font-medium min-h-[300px] text-slate-800 bg-white select-text ql-editor"
-                    dangerouslySetInnerHTML={{ __html: step1.teacherNote || "No preparation notes provided." }}
-                  />
-                </div>
-
-                {/* 1B. Homework Table */}
-                <div className="border border-black">
-                  {/* TOP HEADER ROW */}
-                  <div className="grid grid-cols-12 border-b border-black divide-x divide-black h-12 text-slate-900">
-                    <div className="col-span-6 flex items-center justify-center font-black text-xl tracking-tight uppercase">1B. Today's Homework</div>
-                    <div className="col-span-6 grid grid-cols-3 divide-x divide-black h-full">
-                      <div className="flex items-center px-2 text-[10px] font-bold truncate">Class: <span className="ml-1 border-b border-black flex-1">{selectedPlan.class?.name}</span></div>
-                      <div className="flex items-center px-2 text-[10px] font-bold truncate">Subject: <span className="ml-1 border-b border-black flex-1">{selectedPlan.subject?.name}</span></div>
-                      <div className="flex items-center px-2 text-[10px] font-bold truncate">Date: <span className="ml-1 border-b border-black flex-1">{selectedPlan.date}</span></div>
-                    </div>
-                  </div>
-
-                  {/* INSTRUCTION GRID */}
-                  <div className="grid grid-cols-2 border-b border-black divide-x divide-black text-[11px] leading-snug text-slate-600">
-                    <div className="p-4 space-y-2">
-                      <p>Write homework clearly and in simple words, so that both students and parents can understand what needs to be done at home.</p>
-                      <p>While writing, make sure to include:</p>
-                      <ol className="list-decimal list-inside pl-1">
-                        <li>What to do?</li>
-                        <li>Deadline / Submission Date.</li>
-                        <li>Special instructions if any.</li>
-                      </ol>
-                    </div>
-                    <div className="p-4 space-y-2 font-medium">
-                      <p>होमवर्क को स्पष्ट और सरल शब्दों में लिखें, ताकि छात्र और अभिभावक दोनों समझ सकें कि घर पर क्या करना है। होमवर्क लिखते समय निम्नलिखित बातों का ध्यान रखें:</p>
-                      <p>1. क्या करना है?</p>
-                      <p>2. अंतिम तिथि / जमा करने की तारीख।</p>
-                      <p>3. यदि कोई विशेष निर्देश हों तो उन्हें लिखें।</p>
-                    </div>
-                  </div>
-
-                  {/* WRITING SPACE */}
-                  <div 
-                    className="w-full p-6 text-base font-medium min-h-[200px] text-slate-800 bg-white select-text ql-editor"
-                    dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {activeStep === 2 && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 text-slate-900">
-                {(!selectedPlan.type || selectedPlan.type === "EXPLANATION" || selectedPlan.type === "PREPRIMARY") ? (
-                  <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
-                    {/* Header Row */}
-                    <div className="grid grid-cols-12 border-b border-slate-300">
-                      <div className="col-span-3 p-6 flex items-center justify-center border-r border-slate-300 bg-slate-50">
-                        <img src="/logo.png" alt="Logo" className="h-16 w-16 object-contain grayscale opacity-60" />
-                      </div>
-                      <div className="col-span-6 p-6 flex flex-col items-center justify-center border-r border-slate-300">
-                        <h2 className="text-2xl font-black tracking-tighter text-slate-800">Dhanpuri Public School</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1 italic">Knowledge is Power</p>
-                      </div>
-                      <div className="col-span-3 p-6 flex flex-col items-center justify-center bg-slate-50">
-                        <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Lesson Plan</p>
-                        <p className="text-lg font-black text-slate-800 uppercase italic">({selectedPlan.type || "EXPLANATION"})</p>
-                      </div>
-                    </div>
-
-                    {/* Meta Rows (Grid style) */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{selectedPlan.subject?.name || "-"}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{selectedPlan.class?.name || "-"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Chapter Name:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
-                        {step2.unitChapterPage ? step2.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '') : "-"}
-                      </div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">
-                        {step2.unitChapterPage ? (() => {
-                          const pagesMatch = step2.unitChapterPage.match(/Pg ([0-9-]+)/);
-                          const divMatch = step2.unitChapterPage.match(/\(Div ([0-9]+)\)/);
-                          return pagesMatch ? `${pagesMatch[1]}${divMatch ? ` (Div ${divMatch[1]})` : ''}` : (step2.unitChapterPage.includes("Pg") ? step2.unitChapterPage.split("Pg ")[1] : step2.unitChapterPage);
-                        })() : "-"}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{step2.prepDay || "Monday"}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{step2.prepDate || "-"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{getDeliveryDay()}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "______"}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
-                    </div>
-
-                    {/* Instruction Table */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 bg-slate-800 text-white font-black uppercase tracking-widest text-[8px] h-8 items-center text-center">
-                      <div className="col-span-2 border-r border-slate-700">Section</div>
-                      <div className="col-span-1 border-r border-slate-700">Time</div>
-                      <div className="col-span-3 border-r border-slate-700">Objective / Goal</div>
-                      <div className="col-span-6">Implementation Details</div>
-                    </div>
-
-                    {/* Self Prep */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 min-h-[140px]">
-                      <div className="col-span-2 p-4 flex items-center justify-center font-black text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Self Preparation</div>
-                      <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300">30 min</div>
-                      <div className="col-span-3 p-4 flex flex-col justify-center border-r border-slate-300 space-y-2">
-                        <p className="font-black text-[9px] text-blue-600 leading-tight uppercase">Instruction for teachers-</p>
-                        <p className="font-bold text-[11px] text-slate-600 italic">Plan and prepare for the session before entering the room.</p>
-                      </div>
-                      <div className="col-span-6 p-6 text-left">
-                        <ul className="list-decimal list-inside text-[10px] font-bold text-slate-500 space-y-1.5 marker:text-blue-500">
-                          <li>Review and prepare for the session today.</li>
-                          <li>Plan the energizer activity.</li>
-                          <li>Ready any rewards or materials.</li>
-                          <li>Plan for maximum learning outcomes.</li>
-                          <li>Set up projector/laptop if needed.</li>
-                          <li>Be ready 5 minutes early.</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Opening Time */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 text-left">
-                      <div className="col-span-2 p-4 flex items-center justify-center font-black text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30 row-span-2 min-h-[120px] text-center">Opening time (5 min)</div>
-                      <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300 border-b">2 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b font-medium text-[11px] text-slate-600">Lead students to perform an energizer/fun activity</div>
-                      <div className="col-span-6 p-4 border-b font-bold text-sm text-slate-700 whitespace-pre-wrap select-text">
-                        {step2.openingTimeEnergizer || "-"}
-                      </div>
-
-                      <div className="contents">
-                        <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300">3 min</div>
-                        <div className="col-span-3 p-4 flex flex-col justify-center border-r border-slate-300">
-                          <p className="font-bold text-[11px] text-slate-600 mb-2">Roadmap of the day & Learning Indicators</p>
-                        </div>
-                        <div className="col-span-6 p-4 grid grid-cols-2 gap-4">
-                          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">
-                            <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Roadmap:</span>
-                            {step2.openingTimeRoadmap || "-"}
-                          </div>
-                          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">
-                            <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Indicators:</span>
-                            {step2.learningIndicators || "-"}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Active Learning Time */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 text-left">
-                      <div className="col-span-2 row-span-4 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Active Learning Time (30 min)</div>
-                      
-                      {/* Row 1 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Lesson Intro & Objective</div>
-                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">
-                        {step2.lessonIntroObjective || "-"}
-                      </div>
-
-                      {/* Row 2 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">8 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight">New topic Introduction & Explanation</div>
-                      <div 
-                        className="col-span-6 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 select-text ql-editor ql-editor-small"
-                        dangerouslySetInnerHTML={{ __html: step2.newTopicIntro || "-" }}
-                      />
-
-                      {/* Row 3 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">5 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Knowledge Building / Discussion</div>
-                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">
-                        {step2.knowledgeBuilding || "-"}
-                      </div>
-
-                      {/* Row 4 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">15 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600">Lesson Activity & Outcome Feedback</div>
-                      <div className="col-span-6 grid grid-rows-2 divide-y divide-slate-200 p-4">
-                        <div className="pb-2">
-                          <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Activity:</span>
-                          <p className="font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.lessonActivity || "-"}</p>
-                        </div>
-                        <div className="pt-2">
-                          <span className="text-[8px] uppercase tracking-widest text-slate-400 block mb-1">Outcome Feedback:</span>
-                          <p className="font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.outcomeFeedback || "-"}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Closing Time */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 text-left">
-                      <div className="col-span-2 row-span-3 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Closing Time (5 min)</div>
-                      
-                      {/* Row 1 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Closure, Reward & Recognition</div>
-                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">
-                        {step2.closure || "-"}
-                      </div>
-
-                      {/* Row 2 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600">Homework for the day</div>
-                      <div className="col-span-6 p-4 border-b border-slate-200 font-bold text-slate-700 text-xs select-text ql-editor ql-editor-small">
-                        <div dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }} />
-                      </div>
-
-                      {/* Row 3 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs">2 min</div>
-                      <div className="col-span-3 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight">Submission of Previous day work check</div>
-                      <div className="col-span-6 p-4 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">
-                        {step2.prevDayCheck || "-"}
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-50 p-6">
-                      <p className="text-[10px] font-black uppercase text-slate-400 text-center tracking-[0.3em] italic">End of Lesson Plan</p>
-                    </div>
-                  </div>
-                ) : (
-                  /* --- LESSON PLAN (Q & A) --- */
-                  <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl text-left">
-                    {/* Header Row */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 text-center">
-                      <div className="col-span-2 p-6 flex items-center justify-center border-r border-slate-300 bg-slate-50">
-                        <img src="/logo.png" alt="Logo" className="h-14 w-14 object-contain grayscale opacity-60" />
-                      </div>
-                      <div className="col-span-7 p-6 flex flex-col items-center justify-center border-r border-slate-300">
-                        <h2 className="text-2xl font-black tracking-tighter text-slate-800">Dhanpuri Public School</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1 italic">Knowledge is Power</p>
-                      </div>
-                      <div className="col-span-3 p-6 flex flex-col items-center justify-center bg-slate-50">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                          Lesson Plan <span className="text-emerald-500">(Q & A)</span>
-                        </p>
-                        <div className="flex items-center gap-2 justify-center">
-                          <span className="text-[10px] font-black uppercase text-slate-400">Your LP ID</span>
-                          <span className="text-sm font-black text-slate-800 border-b border-slate-200 min-w-[40px] text-center">{selectedPlan.id || step2.lpNo || "____"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Meta Rows (Grid style) */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Subject:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm border-r border-slate-300 truncate">{selectedPlan.subject?.name || "-"}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Grade:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{selectedPlan.class?.name || "-"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Chapter Name:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">
-                        {step2.unitChapterPage ? step2.unitChapterPage.split(', Pg')[0].replace(/ \(Div \d+\)/, '') : "-"}
-                      </div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Page Range:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">
-                        {step2.unitChapterPage ? (() => {
-                          const pagesMatch = step2.unitChapterPage.match(/Pg ([0-9-]+)/);
-                          const divMatch = step2.unitChapterPage.match(/\(Div ([0-9]+)\)/);
-                          return pagesMatch ? `${pagesMatch[1]}${divMatch ? ` (Div ${divMatch[1]})` : ''}` : (step2.unitChapterPage.includes("Pg") ? step2.unitChapterPage.split("Pg ")[1] : step2.unitChapterPage);
-                        })() : "-"}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Day:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{step2.prepDay || "Monday"}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Prep Date:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{step2.prepDate || "-"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Day:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm">{getDeliveryDay()}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">LP Delivery Date:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm">{selectedPlan.date || "-"}</div>
-                    </div>
-
-                    <div className="grid grid-cols-12 border-b border-slate-300 h-14">
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Teacher Name/Sign:</div>
-                      <div className="col-span-4 p-3 flex items-center border-r border-slate-300 font-bold text-sm truncate">{selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "______"}</div>
-                      <div className="col-span-2 p-3 flex items-center bg-slate-50/50 font-black text-[9px] uppercase tracking-widest border-r border-slate-300 text-slate-500">Reviewer/Principal:</div>
-                      <div className="col-span-4 p-3 flex items-center font-bold text-sm truncate">{step2.reviewerPrincipal || "______"}</div>
-                    </div>
-
-                    {/* Instruction Table (Q & A Specific) */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 bg-slate-900 text-white font-black uppercase tracking-widest text-[8px] h-8 items-center text-center">
-                      <div className="col-span-2 border-r border-slate-800">Section</div>
-                      <div className="col-span-1 border-r border-slate-800 text-[6px]">Time</div>
-                      <div className="col-span-2 border-r border-slate-800">Objective / Goal</div>
-                      <div className="col-span-7">Implementation Details</div>
-                    </div>
-
-                    {/* Self Prep (Shared) */}
-                    <div className="grid grid-cols-12 border-b border-slate-200 min-h-[140px]">
-                      <div className="col-span-2 p-4 flex items-center justify-center font-black text-center text-[10px] uppercase border-r border-slate-300 text-slate-700 bg-slate-50/30">Self Preparation</div>
-                      <div className="col-span-1 p-4 flex flex-col items-center justify-center border-r border-slate-300 gap-1 text-center">
-                        <span className="font-bold text-[10px] text-slate-800">Before session</span>
-                        <span className="font-medium text-[9px] text-slate-400">(30 Minutes)</span>
-                      </div>
-                      <div className="col-span-2 p-4 flex flex-col justify-center border-r border-slate-300 space-y-2">
-                        <p className="font-black text-[9px] text-blue-600 leading-tight uppercase">Instruction for teachers-</p>
-                        <p className="font-bold text-[11px] text-slate-600 italic">Plan and prepare for the session</p>
-                      </div>
-                      <div className="col-span-7 p-6">
-                        <ul className="list-decimal list-inside text-[10px] font-bold text-slate-500 space-y-1.5 marker:text-blue-500 leading-relaxed">
-                          <li>Review and prepare for the session today, make teaching notes & video.</li>
-                          <li>Plan the energizer activity, prepare & understand it and try it once to visualize the classroom.</li>
-                          <li>If you plan to reward the students, keep some candies/pen/pencils etc.</li>
-                          <li>Plan to get most learning outcomes from the students, specially for those who participate less.</li>
-                          <li>Set up all necessary items, including projector, laptop, chargers, & activity materials.</li>
-                          <li>Ensure you're ready at least 5 minutes before the session begins.</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Opening Time (Shared Layout but Q & A text) */}
-                    <div className="grid grid-cols-12 border-b border-slate-200">
-                      <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 row-span-2 min-h-[120px] text-center">
-                        <span className="font-black text-[10px] uppercase">Opening Time</span>
-                        <span className="font-black text-[10px] mt-1 tracking-widest text-blue-600">घेरा समय</span>
-                        <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
-                      </div>
-                      <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300 border-b">2 minutes</div>
-                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b font-medium text-[11px] text-slate-600 leading-tight">Lead the students to perform an energizer/fun activity</div>
-                      <div className="col-span-7 p-4 border-b font-bold text-sm text-slate-700 whitespace-pre-wrap select-text">
-                        {step2.openingTimeEnergizer || "-"}
-                      </div>
-
-                      <div className="contents">
-                        <div className="col-span-1 p-4 flex items-center justify-center font-bold text-xs border-r border-slate-300">3 minutes</div>
-                        <div className="col-span-2 p-4 flex flex-col justify-center border-r border-slate-300">
-                          <p className="font-bold text-[11px] text-slate-600">Roadmap of the day</p>
-                        </div>
-                        <div className="col-span-7 grid grid-cols-12 divide-x divide-slate-100">
-                          <div className="col-span-8 p-3 flex flex-col gap-2 font-bold text-[11px] text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">
-                            {step2.openingTimeRoadmap || "-"}
-                          </div>
-                          <div className="col-span-4 p-3 flex flex-col gap-2 bg-slate-50/50">
-                            <span className="text-[8px] font-black uppercase text-slate-400">Learning Indicators:</span>
-                            <div className="font-bold text-[11px] text-slate-700 whitespace-pre-wrap select-text overflow-y-auto">
-                              {step2.learningIndicators || "-"}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Active Learning Time (Q & A Specific) */}
-                    <div className="grid grid-cols-12 border-b border-slate-200 text-left">
-                      <div className="col-span-2 row-span-3 p-4 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 uppercase font-black text-[10px] text-center">
-                        <span>Active Learning Time</span>
-                        <span className="text-[9px] font-bold text-slate-400 mt-2">(30mins)</span>
-                      </div>
-                      
-                      {/* Row 1 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic">2 Minutes</div>
-                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight italic">Chapter Summary And Quick Revision</div>
-                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.chapterSummaryRevision || "-"}</div>
-
-                      {/* Row 2 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs italic text-blue-600">25 Minutes</div>
-                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-snug italic">
-                        Chapter Based Question Answer - Discussion - Dictation By Teacher And Writing By Students
-                      </div>
-                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.chapterBasedQA || "-"}</div>
-
-                      {/* Row 3 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs italic">3 Minutes</div>
-                      <div className="col-span-2 p-4 flex items-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight italic">Inspection By Teacher</div>
-                      <div className="col-span-7 p-4 font-bold text-xs text-slate-700 whitespace-pre-wrap select-text">{step2.inspectionByTeacher || "-"}</div>
-                    </div>
-
-                    {/* Closing Time (Shared Layout but Q & A specific text) */}
-                    <div className="grid grid-cols-12 border-b border-slate-300 text-left">
-                      <div className="col-span-2 row-span-3 flex flex-col items-center justify-center border-r border-slate-300 text-slate-700 bg-slate-50/30 p-4 text-center">
-                        <span className="font-black text-[10px] uppercase text-center">Closing Time</span>
-                        <span className="font-black text-[10px] mt-1 tracking-widest text-rose-600 uppercase text-center">समापन सर्किल समय</span>
-                        <span className="text-[9px] font-bold text-slate-400 mt-2">(5mins)</span>
-                      </div>
-                      
-                      {/* Row 1 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">1 Minute</div>
-                      <div className="col-span-2 p-4 flex flex-col items-center justify-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                        <span>Lesson Closure with appreciation,</span>
-                        <span>Reward and recognition</span>
-                      </div>
-                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">{step2.closure || "-"}</div>
-
-                      {/* Row 2 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-bold text-xs">2 Minute</div>
-                      <div className="col-span-2 p-4 flex items-center justify-center border-r border-slate-300 border-b border-slate-200 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                        Homework for the day
-                      </div>
-                      <div className="col-span-7 p-4 border-b border-slate-200 font-bold text-slate-700 text-xs select-text ql-editor ql-editor-small">
-                        <div dangerouslySetInnerHTML={{ __html: step1.homework || "No homework assigned." }} />
-                      </div>
-
-                      {/* Row 3 */}
-                      <div className="col-span-1 p-4 flex items-center justify-center border-r border-slate-300 font-bold text-xs text-rose-500">2 Minute</div>
-                      <div className="col-span-2 p-4 flex items-center justify-center border-r border-slate-300 font-medium text-[11px] text-slate-600 leading-tight text-center italic">
-                        Submission of Previous day work check
-                      </div>
-                      <div className="col-span-7 p-4 font-bold text-sm text-slate-700 select-text whitespace-pre-wrap">{step2.prevDayCheck || "-"}</div>
-                    </div>
-
-                    <div className="bg-slate-50 p-6 border-t border-slate-300">
-                      <p className="text-[10px] font-black uppercase text-slate-400 text-center tracking-[0.3em] italic text-center">End of Lesson Plan (Q & A)</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeStep === 3 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
-                <div className="border border-slate-300 rounded-[1.5rem] overflow-hidden bg-white shadow-xl">
-                  <div className="bg-slate-800 text-white p-6 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-black uppercase tracking-tight">3. LESSON delivery & Sign off</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Observations & Feedback</p>
-                    </div>
-                    <Save className="h-6 w-6 opacity-20" />
-                  </div>
-
-                  {/* 1. Reviewer & Principal Feedback Section (3A) */}
-                  <div className="p-8 border-b border-slate-100 bg-slate-50/30">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-8 w-8 bg-slate-800 text-white rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3A</div>
-                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Reviewer & Principal Feedback</h4>
-                    </div>
-                    
-                    <div className="space-y-6">
-                      {/* Specialist Remark */}
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Specialist / Reviewer Feedback</label>
-                        <textarea 
-                          value={selectedPlan.reviewerRemark || ""} 
-                          ref={adjustHeight}
-                          className="w-full min-h-[96px] p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500 overflow-hidden" 
-                          placeholder="No specialist feedback provided yet."
-                          readOnly
-                        />
-                      </div>
-
-                      {/* Principal Remark */}
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Principal / Approver Feedback</label>
-                        <textarea 
-                          value={selectedPlan.principalRemark || ""} 
-                          ref={adjustHeight}
-                          className="w-full min-h-[96px] p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm resize-none shadow-sm text-slate-500 overflow-hidden" 
-                          placeholder="No principal feedback provided yet."
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2. Observation Section (3B) */}
-                  <div className="p-8 border-b border-slate-100">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-black text-xs uppercase shadow-sm">3B</div>
-                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Teacher Observation</h4>
-                    </div>
-                    <textarea 
-                      value={step2.teacherObservation || ""} 
-                      ref={adjustHeight}
-                      className="w-full min-h-[160px] p-6 bg-slate-50/50 border border-slate-100 rounded-2xl outline-none font-medium text-sm resize-none text-slate-500 overflow-hidden" 
-                      placeholder="Write observations here..." 
-                      readOnly
-                    />
-                  </div>
-
-                  {/* 3. Student Performance Section */}
-                  <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row gap-8">
-                    <div className="flex-1 space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-6 w-6 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-black text-[10px] uppercase shadow-sm">Good</div>
-                        <h4 className="font-black text-slate-600 text-xs uppercase tracking-widest">Student Performance (Positive)</h4>
-                      </div>
-                      <textarea 
-                        value={step2.studentPerformanceGood || ""} 
-                        ref={adjustHeight}
-                        className="w-full min-h-[128px] p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500 overflow-hidden" 
-                        placeholder="Note positive highlights..." 
-                        readOnly
-                      />
-                    </div>
-                    <div className="flex-1 space-y-4 border-l border-slate-100 md:pl-8">
-                      <div className="flex items-center gap-3">
-                        <div className="h-6 w-6 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center font-black text-[10px] uppercase shadow-sm">Bad</div>
-                        <h4 className="font-black text-slate-600 text-xs uppercase tracking-widest">Student Performance (Concerns)</h4>
-                      </div>
-                      <textarea 
-                        value={step2.studentPerformanceBad || ""} 
-                        ref={adjustHeight}
-                        className="w-full min-h-[128px] p-4 bg-rose-50/30 border border-rose-100 rounded-xl outline-none font-bold text-xs resize-none text-slate-500 overflow-hidden" 
-                        placeholder="Note areas for improvement..." 
-                        readOnly
-                      />
-                    </div>
-                  </div>
-
-                  {/* 4. Signatures Section */}
-                  <div className="p-8 bg-slate-50/30">
-                    <div className="mt-8 pt-8 flex justify-between items-end">
-                      <div className="space-y-1">
-                        <div className="mb-2 h-8 flex flex-col justify-end">
-                           <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "Teacher"}
-                           </p>
-                           {selectedPlan.createdAt && (
-                             <p className="text-[9px] font-bold text-slate-400">
-                                {new Date(selectedPlan.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                             </p>
-                           )}
-                        </div>
-                        <div className="w-48 border-b border-black"></div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher's Digital Signature</p>
-                      </div>
-                      <div className="space-y-1 text-center">
-                        <div className="mb-2 h-8 flex flex-col justify-end items-center">
-                           <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED" 
-                                ? (selectedPlan.reviewerProfile?.name && selectedPlan.reviewerProfile?.name !== selectedPlan.principalProfile?.name
-                                    ? selectedPlan.reviewerProfile.name
-                                    : selectedPlan.specialistProfile?.name || "Reviewer") 
-                                : ""}
-                           </p>
-                           {(selectedPlan.status === "REVIEWED" || selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED") && (
-                              <p className="text-[9px] font-bold text-blue-500">
-                                Reviewed
-                              </p>
-                           )}
-                        </div>
-                        <div className="w-48 border-b border-black mx-auto"></div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reviewer</p>
-                      </div>
-                      <div className="space-y-1 text-right">
-                        <div className="mb-2 h-8 flex flex-col justify-end items-end">
-                           <p className="text-xs font-black text-slate-800">
-                              {selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED" ? ((selectedPlan as any).principalProfile?.name || "Principal") : ""}
-                           </p>
-                           {(selectedPlan.status === "APPROVED" || selectedPlan.status === "COMPLETED") && (
-                              <p className="text-[9px] font-bold text-emerald-500">
-                                Approved
-                              </p>
-                           )}
-                        </div>
-                        <div className="w-48 border-b border-black ml-auto"></div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Head/Principal Signoff</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden min-h-[600px] flex flex-col">
+          <div className="p-4 md:p-8 flex-1 lesson-plan-studio">
+            <Step10ReviewUI
+              lessonPlanData={fullPlanData}
+              completionScore={100}
+              isReviewerMode={true}
+              onMarkReady={handleMarkReady}
+              onPrint={() => window.print()}
+              ownershipConfirmed={true}
+              setOwnershipConfirmed={() => {}}
+              submissionNote={""}
+              setSubmissionNote={() => {}}
+            />
           </div>
 
           <div className="p-8 md:p-12 bg-slate-900 text-white rounded-b-[2.5rem] space-y-6">
@@ -1312,7 +793,18 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
               {(() => {
                 const principalName = selectedPlan.principalProfile?.name || "Principal";
-                const reviewerNames = [selectedPlan.subject?.reviewer1?.name, selectedPlan.subject?.reviewer2?.name].filter(Boolean).join(" | ") || selectedPlan.specialistProfile?.name || "Reviewer";
+                const reviewerNames = (() => {
+                  const names = [];
+                  if (selectedPlan.subject?.reviewer1) {
+                    const r1Name = selectedPlan.subject.reviewer1.name || selectedPlan.subject.reviewer1.id;
+                    if (r1Name) names.push(r1Name);
+                  }
+                  if (selectedPlan.subject?.reviewer2) {
+                    const r2Name = selectedPlan.subject.reviewer2.name || selectedPlan.subject.reviewer2.id;
+                    if (r2Name) names.push(r2Name);
+                  }
+                  return names.length > 0 ? names.join(" | ") : (selectedPlan.specialistProfile?.name || "Reviewer");
+                })();
 
                 const displayPrincipal = principalName && principalName !== "Shared Principal Account" && principalName !== "Principal"
                   ? ` — ${principalName}` 

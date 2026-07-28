@@ -264,7 +264,11 @@ export async function saveLessonPlan(data: {
           const subRecord = await db.query.subjects.findFirst({
             where: eq(subjects.id, data.subjectId)
           });
-          if (subRecord) subjectCode = getSubjectCode(subRecord.name);
+          if (subRecord) {
+            // Try to use a mapping first, otherwise use first 4 letters of subject name
+            const mappedCode = getSubjectCode(subRecord.name);
+            subjectCode = mappedCode !== "SUB" ? mappedCode : subRecord.name.substring(0, 4).toUpperCase();
+          }
         }
         
         const prefix = `LP-${sessionCode}-${classCode}-${subjectCode}-`;

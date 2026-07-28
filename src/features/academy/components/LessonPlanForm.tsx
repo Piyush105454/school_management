@@ -195,6 +195,13 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
     teacherNote: "",
     homework: "", // User previously asked to remove defaults
 
+    // Step 1: Chapter Details
+    chapterId: undefined as number | undefined,
+    chapterNo: "",
+    chapterName: "",
+    pageFrom: "",
+    pageTo: "",
+
     // Step 2: Lesson Plan Details (Excel Fields)
     unitChapterPage: "",
     chapterDivisionId: undefined as number | undefined,
@@ -369,6 +376,15 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
        exactUnitChapterPage = `${exactUnitChapterPage} (Div ${divisionNo || ''})`;
     }
 
+    // Extract page numbers from pages parameter for form fields
+    let pageFromValue = "";
+    let pageToValue = "";
+    if (pages) {
+      const [from, to] = pages.split("-");
+      pageFromValue = from?.trim() || "";
+      pageToValue = to?.trim() || "";
+    }
+
     const defaultFields = {
       id: undefined,
       status: "DRAFT",
@@ -410,6 +426,12 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
       reviewerPrincipal: "",
       chapterDivisionId: divisionId ? parseInt(divisionId, 10) : undefined,
       unitChapterPage: exactUnitChapterPage,
+      // Step 1 specific fields
+      chapterId: chapterId ? parseInt(chapterId, 10) : undefined,
+      chapterNo: "",
+      chapterName: chapterName || unitChapter || "",
+      pageFrom: pageFromValue,
+      pageTo: pageToValue,
     };
 
     setFormData(defaultFields);
@@ -1314,6 +1336,19 @@ export default function LessonPlanForm({ classes, subjects, teacherId, teacherNa
         status: targetStatus,
         chapterDivisionId: formData.chapterDivisionId,
         step1Data: {
+          className: formData.className,
+          subject: formData.subject,
+          chapterId: formData.chapterId || undefined,
+          chapterNo: formData.chapterNo || "",
+          chapterName: formData.chapterName || formData.unitChapterPage.split(', Pg')[0] || "",
+          pageFrom: formData.pageFrom || formData.unitChapterPage.match(/Pg\s*(\d+)-/)?.[1] || "",
+          pageTo: formData.pageTo || formData.unitChapterPage.match(/-(\d+)/)?.[1] || "",
+          prepDate: formData.prepDate,
+          deliveryDate: formData.date,
+          preparedBy: formData.teacherName,
+          reviewerName: formData.reviewerName,
+          approverName: formData.principalName,
+          lessonType: lessonPlanMode === "QA" ? "Q&A" : "Explanation",
           teacherNote: formData.teacherNote,
           homework: formData.homework
         },

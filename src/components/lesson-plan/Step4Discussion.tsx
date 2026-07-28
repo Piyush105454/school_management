@@ -2,94 +2,95 @@
 
 import React from "react";
 
-interface Step10ClosureProps {
+interface Step4DiscussionProps {
   formData: {
-    rewardType?: string;
-    rewardCriteria?: string;
+    lessonType?: string;
+    discussionPlan?: string;
+    quieterStudentSupport?: string;
   };
   setFormData: (data: any) => void;
   isEditable?: boolean;
 }
 
-const REWARD_TYPES = [
-  "Praise / Appreciation",
-  "Points",
-  "Recognition Card",
-  "Small Item",
-  "Class Applause",
-  "No material reward",
-];
-
-export default function Step10Closure({
+export default function Step4Discussion({
   formData,
   setFormData,
   isEditable = true,
-}: Step10ClosureProps) {
+}: Step4DiscussionProps) {
   const handleChange = (field: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const isQALesson = formData.lessonType === "Q&A";
+
   return (
-    <section className="step-page active" data-step="9">
+    <section className="step-page active" data-step="3">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 10 Â· Closure & Reward</div>
-          <h2>How will you close the lesson and recognise effort?</h2>
+          <div className="eyebrow">Step 4 Â· Discussion & Participation</div>
+          <h2>
+            {isQALesson
+              ? "How will you inspect, support and involve every student during Q&A?"
+              : "How will students discuss, answer and ask?"}
+          </h2>
           <p>
-            The lesson summary, appreciation and closure guidance are already included. Plan only
-            the reward or recognition.
+            {isQALesson
+              ? "Plan how you will inspect work, support participation and keep the Q&A moving for the whole class."
+              : "Plan one connected discussion instead of several separate question boxes."}
           </p>
         </div>
-        <div className="hero-art">ðŸ†</div>
+        <div className="hero-art">ðŸ’¬</div>
       </div>
 
       <div className="connection">
-        <div>âœ“</div>
+        <div>â†’</div>
         <div>
-          <strong>Recognition motivates when it is specific and fair.</strong>
+          <strong>
+            {isQALesson
+              ? "Inspection and support must reach every benchâ€”not only the fastest students."
+              : "Keep the discussion simple and two-way."}
+          </strong>
           <p>
-            Name what students did well and why they deserve recognition. Keep it simple and
-            inclusive.
+            {isQALesson
+              ? "Use quick inclusive support during class. Move unresolved concerns to a calm Red Zone follow-up after the lesson instead of stopping everyone's learning."
+              : "Write the question you will ask, how students will respond, and how you will invite their questions."}
           </p>
         </div>
       </div>
 
       <div className="card">
         <div className="field">
-          <label className="required" htmlFor="rewardType">
-            Reward Type
+          <label className="required" htmlFor="discussionPlan">
+            {isQALesson ? "Inspection & support plan" : "Discussion plan"}
           </label>
-          <select
-            id="rewardType"
-            name="rewardType"
-            value={formData.rewardType || ""}
-            onChange={(e) => handleChange("rewardType", e.target.value)}
+          <textarea
+            id="discussionPlan"
+            name="discussionPlan"
+            value={formData.discussionPlan || ""}
+            onChange={(e) => handleChange("discussionPlan", e.target.value)}
+            placeholder={
+              isQALesson
+                ? "Plan how you will check all benches, involve quieter students, give short support and save class time. If a concern needs more time, write how you will mark it for Red Zone follow-up and discuss it separately after class."
+                : "Example: ask what happens after step 1; allow student pairs to discuss for 1 minute; call 2 quiet students to share; take 1 question from class."
+            }
             disabled={!isEditable}
+            rows={6}
             required
-          >
-            <option value="">Select reward type</option>
-            {REWARD_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        <div className="field">
-          <label className="required" htmlFor="rewardCriteria">
-            Who will be recognised, and why?
+        <div className="field" style={{ marginTop: "20px" }}>
+          <label className="required" htmlFor="quieterStudentSupport">
+            How will you involve quieter or struggling students?
           </label>
-          <span className="hint">
-            Be specific about student actions or participation. Avoid vague praise.
-          </span>
           <textarea
-            id="rewardCriteria"
-            name="rewardCriteria"
-            value={formData.rewardCriteria || ""}
-            onChange={(e) => handleChange("rewardCriteria", e.target.value)}
-            placeholder="Example: Students who complete the activity correctly and help their bench partner will receive praise and class applause."
+            id="quieterStudentSupport"
+            name="quieterStudentSupport"
+            value={formData.quieterStudentSupport || ""}
+            onChange={(e) => handleChange("quieterStudentSupport", e.target.value)}
+            placeholder="Example: give thinking time, begin with an easy question, allow a bench partner discussion, and personally check two students who need support."
             disabled={!isEditable}
+            rows={5}
             required
           />
         </div>
@@ -121,8 +122,8 @@ export default function Step10Closure({
 
         .hero h2 {
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          font-size: clamp(26px, 3vw, 38px);
-          line-height: 1.08;
+          font-size: clamp(24px, 3vw, 36px);
+          line-height: 1.1;
           margin: 0 0 8px;
           color: #17324d;
         }
@@ -170,20 +171,16 @@ export default function Step10Closure({
           background: rgba(255, 255, 255, 0.72);
           border: 1px solid #d7d2c6;
           border-radius: 16px;
-          padding: 18px;
+          padding: 20px;
           box-shadow: 0 6px 18px rgba(31, 47, 61, 0.04);
         }
 
         .field {
-          margin-bottom: 16px;
-        }
-
-        .field:last-child {
-          margin-bottom: 0;
+          display: flex;
+          flex-direction: column;
         }
 
         label {
-          display: block;
           font-size: 15px;
           font-weight: 800;
           color: #2f4658;
@@ -195,17 +192,6 @@ export default function Step10Closure({
           color: #b95a50;
         }
 
-        .hint {
-          display: block;
-          font-weight: 400;
-          color: #6f7d89;
-          margin-top: 4px;
-          margin-bottom: 9px;
-          line-height: 1.35;
-          font-size: 13px;
-        }
-
-        select,
         textarea {
           width: 100%;
           border: 1px solid #cfd9e1;
@@ -216,29 +202,15 @@ export default function Step10Closure({
           outline: none;
           transition: 0.18s ease;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 500;
-          line-height: 1.7;
-        }
-
-        select {
-          min-height: 52px;
-        }
-
-        textarea {
-          min-height: 150px;
+          line-height: 1.6;
           resize: vertical;
         }
 
-        select:focus,
         textarea:focus {
           border-color: #5c8cac;
           box-shadow: 0 0 0 4px rgba(56, 111, 151, 0.11);
-        }
-
-        textarea::placeholder {
-          color: #8a9299;
-          opacity: 0.86;
         }
 
         @media (max-width: 980px) {

@@ -558,6 +558,8 @@ export const subjects = pgTable("subjects", {
 	bookName: text("book_name"),
 	medium: text().default('English/Hindi').notNull(),
 	assignedTeacherId: uuid("assigned_teacher_id"),
+	reviewerId1: uuid("reviewer_id_1"),
+	reviewerId2: uuid("reviewer_id_2"),
 }, (table) => [
 	foreignKey({
 			columns: [table.classId],
@@ -568,6 +570,16 @@ export const subjects = pgTable("subjects", {
 			columns: [table.assignedTeacherId],
 			foreignColumns: [teachers.id],
 			name: "subjects_assigned_teacher_id_teachers_id_fk"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.reviewerId1],
+			foreignColumns: [teachers.id],
+			name: "subjects_reviewer_id_1_teachers_id_fk"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.reviewerId2],
+			foreignColumns: [teachers.id],
+			name: "subjects_reviewer_id_2_teachers_id_fk"
 		}).onDelete("set null"),
 ]);
 

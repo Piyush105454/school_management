@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import "./Step10ReviewUI.css";
 
 interface LessonPlanData {
   // Step 1: Lesson Details
@@ -73,6 +74,7 @@ interface Step10ReviewUIProps {
   setOwnershipConfirmed: (val: boolean) => void;
   submissionNote: string;
   setSubmissionNote: (val: string) => void;
+  isReviewerMode?: boolean;
 }
 
 export default function Step10ReviewUI({
@@ -84,83 +86,91 @@ export default function Step10ReviewUI({
   setOwnershipConfirmed,
   submissionNote,
   setSubmissionNote,
+  isReviewerMode = false,
 }: Step10ReviewUIProps) {
+  const emDash = "—";
+  const bullet = "·";
+  
   return (
     <div className="step-10-review">
-      {/* Hero Section */}
-      <div className="hero">
-        <div>
-          <div className="eyebrow">STEP 10 · REVIEW & SUBMIT</div>
-          <h2>Your lesson plan is ready to become a teaching tool.</h2>
-          <p>
-            Review the plan once as a teacher—not only as a form filler. Check whether you can
-            genuinely deliver what is written.
-          </p>
-        </div>
-        <div className="hero-art">📘</div>
-      </div>
-
-      {/* Review Banner */}
-      <div className="review-banner">
-        <div>
-          <h3 id="reviewStatusTitle">
-            {completionScore >= 100 ? "Ready for your final ownership check" : "Almost ready for review"}
-          </h3>
-          <p id="reviewStatusText">
-            {completionScore >= 100
-              ? "Read the plan once, confirm that you can teach it, and mark it ready for the reviewer."
-              : "Complete the remaining required items before marking this lesson plan ready."}
-          </p>
-        </div>
-        <div className="score">
-          <span>{completionScore}%</span>
-          <small>complete</small>
-        </div>
-      </div>
-
-      {/* Review Controls */}
-      <div className="review-controls card-soft">
-        <div className="grid-layout">
-          <div className="col-6">
-            <label htmlFor="submissionNote">Note to reviewer</label>
-            <textarea
-              id="submissionNote"
-              value={submissionNote}
-              onChange={(e) => setSubmissionNote(e.target.value)}
-              placeholder="Optional: mention any special context, material limitation or support needed."
-              className="textarea-field"
-            />
+      {!isReviewerMode && (
+        <>
+          {/* Hero Section */}
+          <div className="hero">
+            <div>
+              <div className="eyebrow">STEP 10 · REVIEW & SUBMIT</div>
+              <h2>Your lesson plan is ready to become a teaching tool.</h2>
+              <p>
+                Review the plan once as a teacher—not only as a form filler. Check whether you can
+                genuinely deliver what is written.
+              </p>
+            </div>
+            <div className="hero-art">📖</div>
           </div>
 
-          <div className="col-6">
-            <label className="choice-label">
-              <input
-                type="checkbox"
-                checked={ownershipConfirmed}
-                onChange={(e) => setOwnershipConfirmed(e.target.checked)}
-              />
-              <div>
-                <strong>I can teach this plan as written.</strong>
-                <span>I have read the full plan and made it practical for my classroom.</span>
-              </div>
-            </label>
-
-            <div className="review-button-row">
-              <button
-                className="btn btn-success"
-                type="button"
-                onClick={onMarkReady}
-                disabled={!ownershipConfirmed || completionScore < 100}
-              >
-                Mark ready for reviewer
-              </button>
-              <button className="btn btn-secondary" type="button" onClick={onPrint}>
-                Print / Save as PDF
-              </button>
+          {/* Review Banner */}
+          <div className="review-banner">
+            <div>
+              <h3 id="reviewStatusTitle">
+                {completionScore >= 100 ? "Ready for your final ownership check" : "Almost ready for review"}
+              </h3>
+              <p id="reviewStatusText">
+                {completionScore >= 100
+                  ? "Read the plan once, confirm that you can teach it, and mark it ready for the reviewer."
+                  : "Complete the remaining required items before marking this lesson plan ready."}
+              </p>
+            </div>
+            <div className="score">
+              <span>{completionScore}%</span>
+              <small>complete</small>
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* Review Controls */}
+          <div className="review-controls card-soft">
+            <div className="grid-layout">
+              <div className="col-6">
+                <label htmlFor="submissionNote">Note to reviewer</label>
+                <textarea
+                  id="submissionNote"
+                  value={submissionNote}
+                  onChange={(e) => setSubmissionNote(e.target.value)}
+                  placeholder="Optional: mention any special context, material limitation or support needed."
+                  className="textarea-field"
+                />
+              </div>
+
+              <div className="col-6">
+                <label className="choice-label">
+                  <input
+                    type="checkbox"
+                    checked={ownershipConfirmed}
+                    onChange={(e) => setOwnershipConfirmed(e.target.checked)}
+                  />
+                  <div>
+                    <strong>I can teach this plan as written.</strong>
+                    <span>I have read the full plan and made it practical for my classroom.</span>
+                  </div>
+                </label>
+
+                <div className="review-button-row">
+                  <button
+                    className="btn btn-success"
+                    type="button"
+                    onClick={onMarkReady}
+                    disabled={!ownershipConfirmed || completionScore < 100}
+                  >
+                    Mark ready for reviewer
+                  </button>
+                  <button className="btn btn-secondary" type="button" onClick={onPrint}>
+                    Print / Save as PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Preview Paper */}
       <div className="preview-paper">
@@ -168,7 +178,7 @@ export default function Step10ReviewUI({
         <div className="preview-head">
           <div className="school-name">Dhanpuri Public School</div>
           <div className="lp-title">
-            Lesson Plan Type: {lessonPlanData.lessonType || "—"} · ID: {lessonPlanData.id || "—"}
+            Lesson Plan Type: {lessonPlanData.lessonType || emDash} {bullet} ID: {lessonPlanData.id || emDash}
           </div>
         </div>
 
@@ -176,22 +186,22 @@ export default function Step10ReviewUI({
         <div className="meta-grid">
           <div className="meta-cell">
             <b>SUBJECT</b>
-            <span>{lessonPlanData.subject || "—"}</span>
+            <span>{lessonPlanData.subject || emDash}</span>
           </div>
           <div className="meta-cell">
             <b>CLASS</b>
-            <span>{lessonPlanData.className || "—"}</span>
+            <span>{lessonPlanData.className || emDash}</span>
           </div>
           <div className="meta-cell">
             <b>CHAPTER</b>
             <span>
-              {lessonPlanData.chapterNo || "—"} · {lessonPlanData.chapterName || "—"}
+              {lessonPlanData.chapterNo || emDash} {bullet} {lessonPlanData.chapterName || emDash}
             </span>
           </div>
           <div className="meta-cell">
             <b>PAGES</b>
             <span>
-              {lessonPlanData.pageFrom || "—"} – {lessonPlanData.pageTo || "—"}
+              {lessonPlanData.pageFrom || emDash} {emDash} {lessonPlanData.pageTo || emDash}
             </span>
           </div>
         </div>
@@ -200,19 +210,19 @@ export default function Step10ReviewUI({
         <div className="meta-grid">
           <div className="meta-cell">
             <b>PREPARATION DATE</b>
-            <span>{lessonPlanData.prepDate || "—"}</span>
+            <span>{lessonPlanData.prepDate || emDash}</span>
           </div>
           <div className="meta-cell">
             <b>DELIVERY DATE</b>
-            <span>{lessonPlanData.deliveryDate || "—"}</span>
+            <span>{lessonPlanData.deliveryDate || emDash}</span>
           </div>
           <div className="meta-cell">
             <b>PREPARED BY</b>
-            <span>{lessonPlanData.preparedBy || "—"}</span>
+            <span>{lessonPlanData.preparedBy || emDash}</span>
           </div>
           <div className="meta-cell">
             <b>REVIEWER</b>
-            <span>{lessonPlanData.reviewerName || "—"}</span>
+            <span>{lessonPlanData.reviewerName || emDash}</span>
           </div>
         </div>
 
@@ -235,7 +245,7 @@ export default function Step10ReviewUI({
                 </th>
                 <td className="time-cell">2 mins</td>
                 <th className="label-cell">Energizer Fun Activity</th>
-                <td className="content-cell">{lessonPlanData.energizer || "—"}</td>
+                <td className="content-cell">{lessonPlanData.energizer || emDash}</td>
               </tr>
               <tr>
                 <td className="time-cell">3 mins</td>
@@ -251,7 +261,7 @@ export default function Step10ReviewUI({
                       <br /><br />
                       <strong>Reward:</strong> {lessonPlanData.rewardType || "Praise / Appreciation"}
                     </>
-                  ) : "—"}
+                  ) : emDash}
                 </td>
               </tr>
 
@@ -275,14 +285,14 @@ export default function Step10ReviewUI({
                         </>
                       )}
                     </>
-                  ) : "—"}
+                  ) : emDash}
                 </td>
               </tr>
               <tr>
                 <td className="time-cell">12 mins</td>
                 <th className="label-cell">Teaching Notes</th>
                 <td className="content-cell">
-                  {lessonPlanData.teachingNotes || "—"}
+                  {lessonPlanData.teachingNotes || emDash}
                   {lessonPlanData.references && (
                     <>
                       <br /><br />
@@ -304,7 +314,7 @@ export default function Step10ReviewUI({
                       <>
                         <strong>Inspection and support plan:</strong> {lessonPlanData.quieterStudentSupport}
                       </>
-                    ) : "—"
+                    ) : emDash
                   ) : (
                     lessonPlanData.activityTitle ? (
                       <>
@@ -312,7 +322,7 @@ export default function Step10ReviewUI({
                         {lessonPlanData.activityMode && ` (${lessonPlanData.activityMode})`}
                         <br /><br />
                         <strong>Steps:</strong><br />
-                        {lessonPlanData.activitySteps || "—"}
+                        {lessonPlanData.activitySteps || emDash}
                         {lessonPlanData.materials && (
                           <>
                             <br /><br />
@@ -332,7 +342,7 @@ export default function Step10ReviewUI({
                           </>
                         )}
                       </>
-                    ) : "—"
+                    ) : emDash
                   )}
                 </td>
               </tr>
@@ -379,7 +389,7 @@ export default function Step10ReviewUI({
                       <br /><br />
                       <strong>Recognition:</strong> {lessonPlanData.rewardCriteria}
                     </>
-                  ) : "—"}
+                  ) : emDash}
                 </td>
               </tr>
               <tr>
@@ -477,16 +487,16 @@ export default function Step10ReviewUI({
                   3. {lessonPlanData.indicator3}
                 </>
               )}
-              {!lessonPlanData.indicator1 && "—"}
+              {!lessonPlanData.indicator1 && emDash}
             </div>
           </div>
           <div className="signature-box">
             <b>Submission Note</b>
-            <div>{submissionNote || "—"}</div>
+            <div>{submissionNote || emDash}</div>
           </div>
           <div className="signature-box">
             <b>Prepared By</b>
-            <span>{lessonPlanData.preparedBy || "—"}</span>
+            <span>{lessonPlanData.preparedBy || emDash}</span>
             <br />
             <br />
             Sign: __________________
@@ -494,7 +504,7 @@ export default function Step10ReviewUI({
           <div className="signature-box">
             <b>Reviewed / Approved By</b>
             <span>
-              {lessonPlanData.reviewerName || "—"} / {lessonPlanData.approverName || "—"}
+              {lessonPlanData.reviewerName || emDash} / {lessonPlanData.approverName || emDash}
             </span>
             <br />
             <br />

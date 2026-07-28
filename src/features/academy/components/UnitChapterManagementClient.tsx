@@ -166,7 +166,9 @@ export default function UnitChapterManagementClient({
                                       class: className,
                                       subject: subjectName,
                                       chapterId: chapter.id.toString(),
-                                      unitChapter: chapter.name,
+                                      divisionId: div.id.toString(),
+                                      chapterName: chapter.name,
+                                      unitName: "",
                                       pages: `${div.pageStart}-${div.pageEnd}`,
                                       ...(institute ? { institute } : {})
                                     });

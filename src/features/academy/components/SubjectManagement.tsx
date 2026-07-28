@@ -244,7 +244,7 @@ export default function SubjectManagement({
                     )}
                     <td className="px-8 py-5">
                       <Link 
-                        href={`/office/academy-management/classes/${classNameParam}/subjects/${subject.id}`}
+                        href={`/office/academy-management/classes/${encodeURIComponent(classNameParam)}/subjects/${subject.id}`}
                         className="inline-flex items-center gap-2.5 px-4 py-2 bg-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-600 hover:text-white transition-all group active:scale-95"
                       >
                         <Layers className="h-3.5 w-3.5 text-blue-500 group-hover:text-white transition-colors" />

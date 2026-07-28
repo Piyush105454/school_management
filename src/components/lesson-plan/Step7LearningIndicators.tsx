@@ -25,18 +25,18 @@ export default function Step7LearningIndicators({
     <section className="step-page active" data-step="6">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 7 · Learning Indicators</div>
+          <div className="eyebrow">Step 7 Â· Learning Indicators</div>
           <h2>How will you check if students learned?</h2>
           <p>
-            Write 2–3 visible indicators. Each one should help you check students during or
+            Write 2â€“3 visible indicators. Each one should help you check students during or
             immediately after the lesson.
           </p>
         </div>
-        <div className="hero-art">📊</div>
+        <div className="hero-art">ðŸ“Š</div>
       </div>
 
       <div className="connection">
-        <div>✓</div>
+        <div>âœ“</div>
         <div>
           <strong>Think about what you can actually see, hear or check in class.</strong>
           <p>
@@ -130,7 +130,7 @@ export default function Step7LearningIndicators({
         }
 
         .hero h2 {
-          font-family: Georgia, serif;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: clamp(26px, 3vw, 38px);
           line-height: 1.08;
           margin: 0 0 8px;
@@ -242,7 +242,7 @@ export default function Step7LearningIndicators({
           outline: none;
           transition: 0.18s ease;
           min-height: 52px;
-          font-family: "Kalam", "Segoe Print", cursive;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: 20px;
           font-weight: 500;
           line-height: 1.7;

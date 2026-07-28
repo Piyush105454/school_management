@@ -1,26 +1,32 @@
-/* Shared styles for all lesson plan steps - matching DPS HTML */
+/* Shared styles for Lesson Plan Studio - Strictly Scoped under .lesson-plan-studio */
 
-.step-page {
+.lesson-plan-studio .step-page {
   padding: 10px 12px 24px;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #203040;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+  width: 100%;
 }
 
-.hero {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 20px;
-  align-items: center;
-  border-bottom: 1px solid #e8e1d4;
+.lesson-plan-studio .hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 1px solid #e2e8f0;
   padding: 4px 2px 18px;
   margin-bottom: 22px;
 }
 
-.eyebrow {
+.lesson-plan-studio .hero > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-plan-studio .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #2f7d62;
+  color: #059669;
   font-weight: 800;
   font-size: 12px;
   text-transform: uppercase;
@@ -28,190 +34,195 @@
   margin-bottom: 7px;
 }
 
-.hero h2 {
-  font-family: Georgia, serif;
-  font-size: clamp(26px, 3vw, 38px);
-  line-height: 1.08;
+.lesson-plan-studio .hero h2 {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.3;
   margin: 0 0 8px;
-  color: #17324d;
+  color: #0f172a;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
-.hero p {
+.lesson-plan-studio .hero p {
   margin: 0;
-  color: #6f7d89;
+  color: #64748b;
   max-width: 780px;
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 14px;
 }
 
-.hero-art {
-  width: 92px;
-  height: 92px;
-  border-radius: 28px;
-  background: linear-gradient(145deg, #f8edd0, #fffaf0);
+.lesson-plan-studio .hero-art {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #fef3c7, #fffbeb);
   display: grid;
   place-items: center;
-  border: 1px solid #ead9ad;
-  color: #c99a34;
-  font-size: 48px;
+  border: 1px solid #fde68a;
+  color: #d97706;
+  font-size: 40px;
+  flex-shrink: 0;
 }
 
-.connection {
+.lesson-plan-studio .connection {
   display: flex;
   gap: 12px;
   align-items: flex-start;
   padding: 13px 15px;
   border-radius: 14px;
-  background: #e8f3ee;
-  border: 1px solid #cfe3d8;
-  color: #265c49;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
   margin-bottom: 20px;
 }
 
-.connection strong {
+.lesson-plan-studio .connection strong {
   display: block;
   margin-bottom: 2px;
 }
 
-.connection p {
+.lesson-plan-studio .connection p {
   margin: 0;
   line-height: 1.45;
   font-size: 13px;
 }
 
-.grid {
+.lesson-plan-studio .grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 16px;
+  width: 100%;
 }
 
-.col-12 { grid-column: span 12; }
-.col-8 { grid-column: span 8; }
-.col-6 { grid-column: span 6; }
-.col-4 { grid-column: span 4; }
-.col-3 { grid-column: span 3; }
+.lesson-plan-studio .col-12 { grid-column: span 12; }
+.lesson-plan-studio .col-8 { grid-column: span 8; }
+.lesson-plan-studio .col-6 { grid-column: span 6; }
+.lesson-plan-studio .col-4 { grid-column: span 4; }
+.lesson-plan-studio .col-3 { grid-column: span 3; }
 
-.card {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid #d7d2c6;
+.lesson-plan-studio .card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 16px;
   padding: 18px;
-  box-shadow: 0 6px 18px rgba(31, 47, 61, 0.04);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
 }
 
-.card.soft {
-  background: #fbf7ed;
+.lesson-plan-studio .card.soft {
+  background: #f8fafc;
 }
 
-.card-title {
+.lesson-plan-studio .card-title {
   font-weight: 800;
-  color: #17324d;
+  color: #0f172a;
   margin: 0 0 6px;
   font-size: 15px;
 }
 
-.card-note {
+.lesson-plan-studio .card-note {
   margin: 0 0 14px;
-  color: #6f7d89;
+  color: #64748b;
   font-size: 13px;
   line-height: 1.45;
 }
 
-.field {
+.lesson-plan-studio .field {
   margin-bottom: 16px;
 }
 
-.field:last-child {
+.lesson-plan-studio .field:last-child {
   margin-bottom: 0;
 }
 
-label {
+.lesson-plan-studio label {
   display: block;
-  font-size: 15px;
-  font-weight: 800;
-  color: #2f4658;
-  margin-bottom: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
 }
 
-.hint {
+.lesson-plan-studio .hint {
   display: block;
   font-weight: 400;
-  color: #6f7d89;
+  color: #64748b;
   margin-top: 4px;
   line-height: 1.35;
 }
 
-.required::after {
+.lesson-plan-studio .required::after {
   content: " *";
-  color: #b95a50;
+  color: #ef4444;
 }
 
-input:not([type="radio"]):not([type="checkbox"]),
-select,
-textarea {
+.lesson-plan-studio input:not([type="radio"]):not([type="checkbox"]),
+.lesson-plan-studio select,
+.lesson-plan-studio textarea {
   width: 100%;
-  border: 1px solid #cfd9e1;
-  border-radius: 12px;
-  background: #fff;
-  color: #203040;
-  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  padding: 9px 12px;
   outline: none;
-  transition: 0.18s ease;
-  font-family: "Kalam", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
-  font-size: 20px;
-  font-weight: 500;
-  line-height: 1.7;
-  letter-spacing: 0.01em;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
-input:not([type="radio"]):not([type="checkbox"]) {
-  min-height: 52px;
+.lesson-plan-studio input:not([type="radio"]):not([type="checkbox"]) {
+  min-height: 44px;
 }
 
-textarea {
-  min-height: 150px;
+.lesson-plan-studio textarea {
+  min-height: 130px;
   resize: vertical;
 }
 
-.mini textarea {
-  min-height: 82px;
+.lesson-plan-studio .mini textarea {
+  min-height: 80px;
 }
 
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: #5c8cac;
-  box-shadow: 0 0 0 4px rgba(56, 111, 151, 0.11);
+.lesson-plan-studio input:focus,
+.lesson-plan-studio select:focus,
+.lesson-plan-studio textarea:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: #8a9299;
-  opacity: 0.86;
+.lesson-plan-studio input::placeholder,
+.lesson-plan-studio textarea::placeholder {
+  color: #94a3b8;
+  opacity: 0.9;
 }
 
-.inline {
+.lesson-plan-studio .inline {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
-.inline > * {
+.lesson-plan-studio .inline > * {
   flex: 1;
 }
 
-.choice-row {
+.lesson-plan-studio .choice-row {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.choice {
+.lesson-plan-studio .choice {
   position: relative;
   flex: 1 1 180px;
-  border: 1px solid #d3dce3;
-  background: #fff;
-  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 12px;
   padding: 14px;
   display: flex;
   gap: 11px;
@@ -220,71 +231,76 @@ textarea::placeholder {
   cursor: pointer;
 }
 
-.choice:hover {
-  border-color: #83a8c2;
+.lesson-plan-studio .choice:hover {
+  border-color: #64748b;
   transform: translateY(-1px);
 }
 
-.choice input {
-  width: auto;
-  margin-top: 3px;
+.lesson-plan-studio .choice input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
   cursor: pointer;
+  accent-color: #059669;
 }
 
-.choice:has(input:checked) {
-  border-color: #2f7d62;
-  background: #e8f3ee;
+.lesson-plan-studio .choice:has(input:checked) {
+  border-color: #059669;
+  background: #ecfdf5;
 }
 
-.choice strong {
+.lesson-plan-studio .choice strong {
   display: block;
-  color: #17324d;
+  color: #0f172a;
   font-size: 14px;
 }
 
-.choice span {
+.lesson-plan-studio .choice span {
   display: block;
-  color: #6f7d89;
+  color: #64748b;
   font-size: 12px;
   line-height: 1.35;
   margin-top: 3px;
 }
 
-.repeater {
+.lesson-plan-studio .repeater {
   display: grid;
   gap: 12px;
 }
 
-.indicator {
+.lesson-plan-studio .indicator {
   display: grid;
   grid-template-columns: 42px 1fr;
   gap: 10px;
   align-items: start;
 }
 
-.indicator-num {
+.lesson-plan-studio .indicator-num {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
-  background: #edf4f8;
-  color: #17324d;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #0f172a;
   display: grid;
   place-items: center;
-  font-weight: 900;
-  border: 1px solid #d7e2ea;
+  font-weight: 800;
+  border: 1px solid #cbd5e1;
 }
 
-@media (max-width: 980px) {
-  .hero-art {
+@media (max-width: 1200px) {
+  .lesson-plan-studio .hero-art {
     display: none;
   }
-  .col-8, .col-6, .col-4, .col-3 {
+  .lesson-plan-studio .col-8,
+  .lesson-plan-studio .col-6,
+  .lesson-plan-studio .col-4,
+  .lesson-plan-studio .col-3 {
     grid-column: span 12;
   }
 }
 
 @media (max-width: 680px) {
-  .hero {
-    grid-template-columns: 1fr;
+  .lesson-plan-studio .hero {
+    flex-direction: column;
   }
 }

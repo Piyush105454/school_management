@@ -2,95 +2,73 @@
 
 import React from "react";
 
-interface Step10ClosureProps {
+interface Step6LessonIntroductionProps {
   formData: {
-    rewardType?: string;
-    rewardCriteria?: string;
+    lessonHook?: string;
+    introConnection?: string;
   };
   setFormData: (data: any) => void;
   isEditable?: boolean;
 }
 
-const REWARD_TYPES = [
-  "Praise / Appreciation",
-  "Points",
-  "Recognition Card",
-  "Small Item",
-  "Class Applause",
-  "No material reward",
-];
-
-export default function Step10Closure({
+export default function Step6LessonIntroduction({
   formData,
   setFormData,
   isEditable = true,
-}: Step10ClosureProps) {
+}: Step6LessonIntroductionProps) {
   const handleChange = (field: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   return (
-    <section className="step-page active" data-step="9">
+    <section className="step-page active" data-step="5">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 10 Â· Closure & Reward</div>
-          <h2>How will you close the lesson and recognise effort?</h2>
-          <p>
-            The lesson summary, appreciation and closure guidance are already included. Plan only
-            the reward or recognition.
-          </p>
+          <div className="eyebrow">Step 6 Â· Lesson Introduction</div>
+          <h2>Prepare a clear introduction that brings students into the topic.</h2>
+          <p>Use a familiar question, situation, object, image, previous lesson or short story.</p>
         </div>
-        <div className="hero-art">ðŸ†</div>
+        <div className="hero-art">ðŸ’¡</div>
       </div>
 
       <div className="connection">
-        <div>âœ“</div>
+        <div>ðŸ’¡</div>
         <div>
-          <strong>Recognition motivates when it is specific and fair.</strong>
+          <strong>Connect before you instruct.</strong>
           <p>
-            Name what students did well and why they deserve recognition. Keep it simple and
-            inclusive.
+            A short, interesting hook brings student attention into the classroom before you open
+            the textbook.
           </p>
         </div>
       </div>
 
       <div className="card">
         <div className="field">
-          <label className="required" htmlFor="rewardType">
-            Reward Type
+          <label className="required" htmlFor="lessonHook">
+            Lesson introduction / hook
           </label>
-          <select
-            id="rewardType"
-            name="rewardType"
-            value={formData.rewardType || ""}
-            onChange={(e) => handleChange("rewardType", e.target.value)}
+          <textarea
+            id="lessonHook"
+            name="lessonHook"
+            value={formData.lessonHook || ""}
+            onChange={(e) => handleChange("lessonHook", e.target.value)}
+            placeholder="Write how you will start the lesson in 1â€“2 minutes: a question, a short story, a real example or an object."
             disabled={!isEditable}
+            rows={5}
             required
-          >
-            <option value="">Select reward type</option>
-            {REWARD_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        <div className="field">
-          <label className="required" htmlFor="rewardCriteria">
-            Who will be recognised, and why?
-          </label>
-          <span className="hint">
-            Be specific about student actions or participation. Avoid vague praise.
-          </span>
+        <div className="field" style={{ marginTop: "20px" }}>
+          <label htmlFor="introConnection">Connection to prior learning</label>
           <textarea
-            id="rewardCriteria"
-            name="rewardCriteria"
-            value={formData.rewardCriteria || ""}
-            onChange={(e) => handleChange("rewardCriteria", e.target.value)}
-            placeholder="Example: Students who complete the activity correctly and help their bench partner will receive praise and class applause."
+            id="introConnection"
+            name="introConnection"
+            value={formData.introConnection || ""}
+            onChange={(e) => handleChange("introConnection", e.target.value)}
+            placeholder="Example: yesterday we learnt addition; today we will see what happens when we add the same number again and again."
             disabled={!isEditable}
-            required
+            rows={4}
           />
         </div>
       </div>
@@ -121,8 +99,8 @@ export default function Step10Closure({
 
         .hero h2 {
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          font-size: clamp(26px, 3vw, 38px);
-          line-height: 1.08;
+          font-size: clamp(24px, 3vw, 36px);
+          line-height: 1.1;
           margin: 0 0 8px;
           color: #17324d;
         }
@@ -170,20 +148,16 @@ export default function Step10Closure({
           background: rgba(255, 255, 255, 0.72);
           border: 1px solid #d7d2c6;
           border-radius: 16px;
-          padding: 18px;
+          padding: 20px;
           box-shadow: 0 6px 18px rgba(31, 47, 61, 0.04);
         }
 
         .field {
-          margin-bottom: 16px;
-        }
-
-        .field:last-child {
-          margin-bottom: 0;
+          display: flex;
+          flex-direction: column;
         }
 
         label {
-          display: block;
           font-size: 15px;
           font-weight: 800;
           color: #2f4658;
@@ -195,17 +169,6 @@ export default function Step10Closure({
           color: #b95a50;
         }
 
-        .hint {
-          display: block;
-          font-weight: 400;
-          color: #6f7d89;
-          margin-top: 4px;
-          margin-bottom: 9px;
-          line-height: 1.35;
-          font-size: 13px;
-        }
-
-        select,
         textarea {
           width: 100%;
           border: 1px solid #cfd9e1;
@@ -216,29 +179,15 @@ export default function Step10Closure({
           outline: none;
           transition: 0.18s ease;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 500;
-          line-height: 1.7;
-        }
-
-        select {
-          min-height: 52px;
-        }
-
-        textarea {
-          min-height: 150px;
+          line-height: 1.6;
           resize: vertical;
         }
 
-        select:focus,
         textarea:focus {
           border-color: #5c8cac;
           box-shadow: 0 0 0 4px rgba(56, 111, 151, 0.11);
-        }
-
-        textarea::placeholder {
-          color: #8a9299;
-          opacity: 0.86;
         }
 
         @media (max-width: 980px) {

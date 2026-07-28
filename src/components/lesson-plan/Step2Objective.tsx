@@ -44,15 +44,15 @@ export default function Step2Objective({
     <section className="step-page active" data-step="1">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 2 · Objective</div>
+          <div className="eyebrow">Step 2 Â· Objective</div>
           <h2>What should students be able to do by the end?</h2>
           <p>Write one clear and realistic result for this lesson.</p>
         </div>
-        <div className="hero-art">🎯</div>
+        <div className="hero-art">ðŸŽ¯</div>
       </div>
 
       <div className="connection">
-        <div>→</div>
+        <div>â†’</div>
         <div>
           <strong>One lesson, one clear direction.</strong>
           <p>Choose an action word and complete the sentence in your own words.</p>
@@ -128,7 +128,7 @@ export default function Step2Objective({
         }
 
         .hero h2 {
-          font-family: Georgia, serif;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: clamp(26px, 3vw, 38px);
           line-height: 1.08;
           margin: 0 0 8px;
@@ -223,7 +223,7 @@ export default function Step2Objective({
           outline: none;
           transition: 0.18s ease;
           min-height: 52px;
-          font-family: "Kalam", "Segoe Print", cursive;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: 20px;
           font-weight: 500;
         }
@@ -240,7 +240,7 @@ export default function Step2Objective({
           border: 1px solid #ead9ad;
           border-radius: 14px;
           padding: 14px 17px;
-          font-family: "Kalam", "Segoe Print", cursive;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: 17px;
           font-weight: 500;
           color: #755b1f;

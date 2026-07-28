@@ -22,14 +22,14 @@ export default function Step8Homework({
     <section className="step-page active" data-step="7">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 8 · Homework</div>
+          <div className="eyebrow">Step 8 Â· Homework</div>
           <h2>Does this lesson need practice at home?</h2>
           <p>
             Homework is optional. Give it only when it strengthens learning and can be clearly
             understood by students and parents.
           </p>
         </div>
-        <div className="hero-art">🏠</div>
+        <div className="hero-art">ðŸ </div>
       </div>
 
       <div className="card">
@@ -166,7 +166,7 @@ export default function Step8Homework({
         }
 
         .hero h2 {
-          font-family: Georgia, serif;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: clamp(26px, 3vw, 38px);
           line-height: 1.08;
           margin: 0 0 8px;
@@ -296,7 +296,7 @@ export default function Step8Homework({
           padding: 14px 16px;
           outline: none;
           transition: 0.18s ease;
-          font-family: "Kalam", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
           font-size: 20px;
           font-weight: 500;
           line-height: 1.7;

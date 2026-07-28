@@ -29,13 +29,24 @@ export async function GET(req: Request) {
 
     if (type === "classes") {
       const institute = searchParams.get("institute");
-      if (!institute) return NextResponse.json({ classes: [] });
+      let queryWhere = undefined;
+      if (institute && institute !== "ALL") {
+        queryWhere = eq(classes.institute, institute);
+      }
       
       const instituteClasses = await db.query.classes.findMany({
-        where: eq(classes.institute, institute),
+        where: queryWhere,
         orderBy: (classes, { asc }) => [asc(classes.name)]
       });
       return NextResponse.json({ classes: instituteClasses });
+    }
+
+    if (type === "subjects") {
+      const allSubjects = await db.query.subjects.findMany({
+        columns: { name: true }
+      });
+      const uniqueSubjects = Array.from(new Set(allSubjects.map(s => s.name).filter(Boolean))).sort();
+      return NextResponse.json({ subjects: uniqueSubjects });
     }
 
     if (type === "students") {
