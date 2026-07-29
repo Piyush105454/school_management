@@ -28,6 +28,7 @@ import { proxyUploadDocument } from "@/features/admissions/actions/admissionActi
 import { ensureCompressed } from "@/lib/compression";
 import { useSession } from "next-auth/react";
 import { useInstitute } from "@/providers/InstituteProvider";
+import DateRangePickerModal from "@/components/common/DateRangePickerModal";
 
 const MONTHS = [
   "April", "May", "June", "July", "August", "September", "October", "November", "December", 
@@ -65,7 +66,12 @@ export default function PtmCriteriaPage() {
 
   // PTM Scheduling states
   const [scheduledPtmDate, setScheduledPtmDate] = useState<string | null>(null);
+  const [scheduledStartDate, setScheduledStartDate] = useState<string | null>(null);
+  const [scheduledEndDate, setScheduledEndDate] = useState<string | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState<boolean>(false);
   const [tempPtmDate, setTempPtmDate] = useState<string>("");
+  const [tempStartDate, setTempStartDate] = useState<string>("");
+  const [tempEndDate, setTempEndDate] = useState<string>("");
   const [scheduleSaving, setScheduleSaving] = useState<boolean>(false);
 
   // Get today's local date in YYYY-MM-DD
@@ -74,8 +80,11 @@ export default function PtmCriteriaPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   })();
 
-  // Determine if PTM edit access is open
-  const isPtmOpen = isAdmin || (scheduledPtmDate !== null && todayStr === scheduledPtmDate);
+  // Determine if PTM edit access is open based on schedule date range
+  const isPtmOpen = (() => {
+    if (!scheduledStartDate || !scheduledEndDate) return false;
+    return todayStr >= scheduledStartDate && todayStr <= scheduledEndDate;
+  })();
 
   // Initialize defaults and load classes
   useEffect(() => {
@@ -128,13 +137,17 @@ export default function PtmCriteriaPage() {
     const fetchSchedule = async () => {
       if (!selectedMonth || !selectedYear) return;
       try {
-        const res = await getPtmSchedule(selectedMonth, selectedYear);
-        if (res.success && res.ptmDate) {
-          setScheduledPtmDate(res.ptmDate);
-          setTempPtmDate(res.ptmDate);
+        const res = await getPtmSchedule(selectedMonth, selectedYear, "PTM");
+        if (res.success && (res.startDate || res.ptmDate)) {
+          const start = res.startDate || res.ptmDate;
+          const end = res.endDate || res.ptmDate || start;
+          setScheduledStartDate(start);
+          setScheduledEndDate(end);
+          setScheduledPtmDate(start);
         } else {
+          setScheduledStartDate(null);
+          setScheduledEndDate(null);
           setScheduledPtmDate(null);
-          setTempPtmDate("");
         }
       } catch (e) {
         console.error("Failed to load PTM schedule:", e);
@@ -194,26 +207,7 @@ export default function PtmCriteriaPage() {
     }
   }, [selectedStudentId, students]);
 
-  // Handle PTM Date Scheduling by Admin
-  const handleSaveSchedule = async () => {
-    if (!tempPtmDate) return;
-    setScheduleSaving(true);
-    setError(null);
-    setSuccessMsg(null);
-    try {
-      const res = await savePtmSchedule(selectedMonth, selectedYear, tempPtmDate);
-      if (res.success) {
-        setScheduledPtmDate(tempPtmDate);
-        setSuccessMsg(`PTM Date successfully scheduled for ${selectedMonth} ${selectedYear}: ${tempPtmDate}`);
-      } else {
-        setError(res.error || "Failed to save schedule.");
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to save schedule.");
-    } finally {
-      setScheduleSaving(false);
-    }
-  };
+
 
   // Validate form entries before saving/calculating
   const validateForm = () => {
@@ -425,9 +419,8 @@ export default function PtmCriteriaPage() {
         </div>
       </div>
 
-      {/* Admin Scheduler Card */}
       {/* Selectors and Filters */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className={`bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm grid grid-cols-1 ${isAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6`}>
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Class Assigned</label>
           <div className="relative">
@@ -481,36 +474,28 @@ export default function PtmCriteriaPage() {
             <ChevronDown className="absolute right-4 top-4.5 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
         </div>
-      </div>
 
-      {/* Admin Scheduler Card */}
-      {isAdmin && (
-        <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-5 md:p-6 shadow-sm space-y-4 animate-in fade-in-50">
-          <div className="flex items-center gap-3">
-            <Calendar className="text-slate-700" size={18} />
-            <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 font-outfit">Admin Panel: Schedule PTM Date</h2>
-          </div>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[200px] space-y-1.5">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Choose Date</label>
-              <input
-                type="date"
-                value={tempPtmDate}
-                onChange={(e) => setTempPtmDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
-              />
-            </div>
+        {isAdmin && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schedule Date Range</label>
             <button
               type="button"
-              onClick={handleSaveSchedule}
-              disabled={scheduleSaving || !tempPtmDate}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+              onClick={() => setIsDatePickerOpen(true)}
+              className="w-full bg-slate-50 border border-slate-200 hover:border-blue-400 rounded-2xl px-4 py-3.5 text-xs font-black uppercase tracking-wider text-slate-800 hover:bg-white flex items-center justify-between transition-all shadow-sm"
             >
-              {scheduleSaving ? <Loader2 className="animate-spin w-4 h-4" /> : "Save Schedule Date"}
+              <div className="flex items-center gap-2 truncate">
+                <Calendar size={16} className="text-blue-500 shrink-0" />
+                <span className="truncate">
+                  {scheduledStartDate && scheduledEndDate
+                    ? `${new Date(scheduledStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${new Date(scheduledEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+                    : "Set Date Range"}
+                </span>
+              </div>
+              <span className="text-[10px] text-blue-600 font-bold underline shrink-0">Edit</span>
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Student List Table */}
       <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm overflow-x-auto">
@@ -526,7 +511,7 @@ export default function PtmCriteriaPage() {
             No confirmed students registered in class "{classes.find(c => c.id === parseInt(selectedClass))?.name || selectedClass}"
           </div>
         ) : (
-          <table className="w-full text-xs">
+          <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
                 <th className="text-left px-4 py-3 font-black uppercase tracking-wider text-slate-600">Roll No</th>
@@ -835,6 +820,27 @@ export default function PtmCriteriaPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Date Range Picker Modal for PTM Schedule */}
+      <DateRangePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        month={selectedMonth}
+        year={selectedYear}
+        initialStartDate={scheduledStartDate}
+        initialEndDate={scheduledEndDate}
+        title="Schedule PTM Attendance Date Range"
+        onSave={async (start, end) => {
+          const res = await savePtmSchedule(selectedMonth, selectedYear, start, start, end, "PTM");
+          if (res.success) {
+            setScheduledStartDate(start);
+            setScheduledEndDate(end);
+            setScheduledPtmDate(start);
+          } else {
+            alert(res.error || "Failed to save date range schedule.");
+          }
+        }}
+      />
     </div>
   );
 }

@@ -163,8 +163,8 @@ export default function ClassAttendanceGrid() {
                     const halfDayCount = attendanceValues.filter(v => v === "HD").length;
                     const leaveCount = attendanceValues.filter(v => v === "L").length;
                     
-                    // Total days = Present + Absent (excluding holidays, Sundays, and empty entries)
-                    const totalDays = presentCount + absentCount;
+                    // Total days = Present + Absent + ML + HalfDay + Leave (all marked working attendance days)
+                    const totalDays = presentCount + absentCount + mlCount + halfDayCount + leaveCount;
                     
                     return (
                       <tr key={row.studentId} className="hover:bg-slate-50 transition-all group">

@@ -18,6 +18,7 @@ interface RecordRow {
   pendingDue: number;
   waiverGiven: number;
   additionalCharge: number;
+  adjustmentNote?: string;
   finalDue: number;
   paidOnline: number;
   status: string;
@@ -351,79 +352,130 @@ export default function ScholarshipClient({
 
             {/* Payment Details */}
             <div className="px-6 py-5 space-y-5">
-              {/* Scholarship Details Section */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Scholarship Criteria Results</h3>
-                <div className="bg-slate-50 p-4 rounded-xl space-y-2">
-                  <div className="flex justify-between items-center text-sm">
-                    <div>
-                      <span className="text-slate-600">Attendance</span>
-                      <span className="text-xs text-slate-500 block">
-                        {selectedRecord.attendancePercentage !== null && selectedRecord.attendancePercentage !== undefined ? `${selectedRecord.attendancePercentage.toFixed(1)}%` : "N/A"}
-                      </span>
-                    </div>
-                    <span className="font-bold text-emerald-600">₹{selectedRecord.attendanceAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <div>
-                      <span className="text-slate-600">Homework</span>
-                      <span className="text-xs text-slate-500 block">
-                        {selectedRecord.homeworkPercentage !== null && selectedRecord.homeworkPercentage !== undefined ? `${selectedRecord.homeworkPercentage.toFixed(1)}%` : "N/A"}
-                      </span>
-                    </div>
-                    <span className="font-bold text-emerald-600">₹{selectedRecord.homeworkAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <div>
-                      <span className="text-slate-600">Guardian Rating</span>
-                      <span className="text-xs text-slate-500 block">
-                        {selectedRecord.guardianRating !== null && selectedRecord.guardianRating !== undefined ? `${selectedRecord.guardianRating}/5` : "N/A"}
-                      </span>
-                    </div>
-                    <span className="font-bold text-emerald-600">₹{selectedRecord.guardianAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <div>
-                      <span className="text-slate-600">PTM Attended</span>
-                      <span className="text-xs text-slate-500 block">
-                        {selectedRecord.ptmAttended ? "Yes ✓" : "No"}
-                      </span>
-                    </div>
-                    <span className="font-bold text-emerald-600">₹{selectedRecord.ptmAmount.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
+              {(() => {
+                const parseAdjustmentNotes = (note?: string | null) => {
+                  if (!note) return { discountNote: "", chargeNote: "" };
+                  let discountNote = "";
+                  let chargeNote = "";
 
-              {/* Fee Breakdown Section */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Fee Summary</h3>
-                <div className="bg-slate-50 p-4 rounded-xl space-y-2">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-slate-600">School Fee</span>
-                    <span className="font-bold text-slate-800">₹{selectedRecord.totalSchoolFee.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-slate-600">Scholarship Earned</span>
-                    <span className="font-bold text-emerald-600">- ₹{selectedRecord.scholarshipEarned.toLocaleString()}</span>
-                  </div>
-                  {selectedRecord.waiverGiven > 0 && (
-                    <div className="flex justify-between text-sm font-medium">
-                      <span className="text-slate-600">Waiver/Discount</span>
-                      <span className="font-bold text-blue-600">- ₹{selectedRecord.waiverGiven.toLocaleString()}</span>
+                  if (note.includes("|")) {
+                    const parts = note.split("|");
+                    parts.forEach(p => {
+                      if (p.includes("Discount Note:")) {
+                        discountNote = p.replace("Discount Note:", "").trim();
+                      } else if (p.includes("Charge Note:")) {
+                        chargeNote = p.replace("Charge Note:", "").trim();
+                      }
+                    });
+                  } else if (note.startsWith("Discount Note:")) {
+                    discountNote = note.replace("Discount Note:", "").trim();
+                  } else if (note.startsWith("Charge Note:")) {
+                    chargeNote = note.replace("Charge Note:", "").trim();
+                  } else {
+                    discountNote = note;
+                  }
+                  return { discountNote, chargeNote };
+                };
+
+                const { discountNote, chargeNote } = parseAdjustmentNotes(selectedRecord.adjustmentNote);
+
+                return (
+                  <>
+                    {/* Scholarship Details Section */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Scholarship Criteria Results</h3>
+                      <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <div>
+                            <span className="text-slate-600 font-medium">Attendance</span>
+                            <div className="text-xs text-slate-500">
+                              <span>{selectedRecord.attendancePercentage !== null && selectedRecord.attendancePercentage !== undefined ? `${selectedRecord.attendancePercentage.toFixed(1)}%` : "N/A"}</span>
+                              {((selectedRecord as any).totalDays || 0) > 0 && (
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                                  Total: {(selectedRecord as any).totalDays}d (P: {(selectedRecord as any).presentDays || 0}, A: {(selectedRecord as any).absentDays || 0}, ML: {(selectedRecord as any).mlDays || 0}, HD: {(selectedRecord as any).halfDays || 0}, L: {(selectedRecord as any).leaveDays || 0})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="font-bold text-emerald-600">₹{selectedRecord.attendanceAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <div>
+                            <span className="text-slate-600">Homework</span>
+                            <span className="text-xs text-slate-500 block">
+                              {selectedRecord.homeworkPercentage !== null && selectedRecord.homeworkPercentage !== undefined ? `${selectedRecord.homeworkPercentage.toFixed(1)}%` : "N/A"}
+                            </span>
+                          </div>
+                          <span className="font-bold text-emerald-600">₹{selectedRecord.homeworkAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <div>
+                            <span className="text-slate-600">Guardian Rating</span>
+                            <span className="text-xs text-slate-500 block">
+                              {selectedRecord.guardianRating !== null && selectedRecord.guardianRating !== undefined ? `${selectedRecord.guardianRating}/5` : "N/A"}
+                            </span>
+                          </div>
+                          <span className="font-bold text-emerald-600">₹{selectedRecord.guardianAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <div>
+                            <span className="text-slate-600">PTM Attended</span>
+                            <span className="text-xs text-slate-500 block">
+                              {selectedRecord.ptmAttended ? "Yes ✓" : "No"}
+                            </span>
+                          </div>
+                          <span className="font-bold text-emerald-600">₹{selectedRecord.ptmAmount.toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  {selectedRecord.additionalCharge > 0 && (
-                    <div className="flex justify-between text-sm font-medium">
-                      <span className="text-slate-600">Additional Charge</span>
-                      <span className="font-bold text-amber-600">+ ₹{selectedRecord.additionalCharge.toLocaleString()}</span>
+
+                    {/* Fee Breakdown Section */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Fee Summary</h3>
+                      <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                        <div className="flex justify-between text-sm font-medium">
+                          <span className="text-slate-600">School Fee</span>
+                          <span className="font-bold text-slate-800">₹{selectedRecord.totalSchoolFee.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-medium">
+                          <span className="text-slate-600">Scholarship Earned</span>
+                          <span className="font-bold text-emerald-600">- ₹{selectedRecord.scholarshipEarned.toLocaleString()}</span>
+                        </div>
+                        {selectedRecord.waiverGiven > 0 && (
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="text-slate-600">Waiver/Discount</span>
+                              <span className="font-bold text-blue-600">- ₹{selectedRecord.waiverGiven.toLocaleString()}</span>
+                            </div>
+                            {discountNote && (
+                              <p className="text-[11px] font-semibold text-blue-500/90 pl-1 italic">
+                                Note: {discountNote}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {selectedRecord.additionalCharge > 0 && (
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="text-slate-600">Additional Charge</span>
+                              <span className="font-bold text-amber-600">+ ₹{selectedRecord.additionalCharge.toLocaleString()}</span>
+                            </div>
+                            {chargeNote && (
+                              <p className="text-[11px] font-semibold text-amber-600/90 pl-1 italic">
+                                Note: {chargeNote}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <div className="border-t-2 border-slate-200 pt-3 flex justify-between font-black text-lg">
+                          <span className="text-slate-900">Balance Due</span>
+                          <span className="text-rose-600">₹{selectedRecord.finalDue.toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div className="border-t-2 border-slate-200 pt-3 flex justify-between font-black text-lg">
-                    <span className="text-slate-900">Balance Due</span>
-                    <span className="text-rose-600">₹{selectedRecord.finalDue.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
+                  </>
+                );
+              })()}
 
               <button
                 onClick={() => handlePaymentInit()}

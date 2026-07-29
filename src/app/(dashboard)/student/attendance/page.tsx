@@ -61,7 +61,7 @@ export default async function StudentAttendancePage() {
   }).from(studentAttendance)
     .where(
       and(
-        eq(studentAttendance.classId, student.classId),
+        student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
         eq(studentAttendance.studentId, student.id)
       )
     );

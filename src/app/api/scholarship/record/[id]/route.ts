@@ -49,36 +49,35 @@ export async function GET(
       : [];
 
     // Fetch criteria data (attendance, homework, guardian, ptm)
-    const [attendanceData, homeworkData, guardianData, ptmData] = await Promise.all([
-      db.query.scholarshipAttendance.findFirst({
-        where: and(
-          eq(scholarshipAttendance.admissionId, scholarshipRecord.admissionId),
-          eq(scholarshipAttendance.month, scholarshipRecord.month),
-          eq(scholarshipAttendance.year, scholarshipRecord.year)
-        ),
-      }),
-      db.query.scholarshipHomework.findFirst({
-        where: and(
-          eq(scholarshipHomework.admissionId, scholarshipRecord.admissionId),
-          eq(scholarshipHomework.month, scholarshipRecord.month),
-          eq(scholarshipHomework.year, scholarshipRecord.year)
-        ),
-      }),
-      db.query.scholarshipGuardian.findFirst({
-        where: and(
-          eq(scholarshipGuardian.admissionId, scholarshipRecord.admissionId),
-          eq(scholarshipGuardian.month, scholarshipRecord.month),
-          eq(scholarshipGuardian.year, scholarshipRecord.year)
-        ),
-      }),
-      db.query.scholarshipPtm.findFirst({
-        where: and(
-          eq(scholarshipPtm.admissionId, scholarshipRecord.admissionId),
-          eq(scholarshipPtm.month, scholarshipRecord.month),
-          eq(scholarshipPtm.year, scholarshipRecord.year)
-        ),
-      }),
-    ]);
+    // Fetch criteria data (attendance, homework, guardian, ptm) sequentially to prevent connection pool exhaustion
+    const attendanceData = await db.query.scholarshipAttendance.findFirst({
+      where: and(
+        eq(scholarshipAttendance.admissionId, scholarshipRecord.admissionId),
+        eq(scholarshipAttendance.month, scholarshipRecord.month),
+        eq(scholarshipAttendance.year, scholarshipRecord.year)
+      ),
+    });
+    const homeworkData = await db.query.scholarshipHomework.findFirst({
+      where: and(
+        eq(scholarshipHomework.admissionId, scholarshipRecord.admissionId),
+        eq(scholarshipHomework.month, scholarshipRecord.month),
+        eq(scholarshipHomework.year, scholarshipRecord.year)
+      ),
+    });
+    const guardianData = await db.query.scholarshipGuardian.findFirst({
+      where: and(
+        eq(scholarshipGuardian.admissionId, scholarshipRecord.admissionId),
+        eq(scholarshipGuardian.month, scholarshipRecord.month),
+        eq(scholarshipGuardian.year, scholarshipRecord.year)
+      ),
+    });
+    const ptmData = await db.query.scholarshipPtm.findFirst({
+      where: and(
+        eq(scholarshipPtm.admissionId, scholarshipRecord.admissionId),
+        eq(scholarshipPtm.month, scholarshipRecord.month),
+        eq(scholarshipPtm.year, scholarshipRecord.year)
+      ),
+    });
 
     // Map database fields to component interface
     const mappedRecord = {
@@ -95,10 +94,17 @@ export async function GET(
       pendingDue: scholarshipRecord.pendingAmount,
       waiverGiven: scholarshipRecord.discountAmount,
       additionalCharge: scholarshipRecord.additionalChargeAmount,
+      adjustmentNote: scholarshipRecord.adjustmentNote || "",
       finalDue: scholarshipRecord.pendingAmount,
       paidOnline: 0,
       status: scholarshipRecord.status,
       attendancePercentage: attendanceData?.percentage || null,
+      totalDays: attendanceData?.totalDays || 0,
+      presentDays: attendanceData?.presentDays || 0,
+      absentDays: (attendanceData as any)?.absentDays || 0,
+      mlDays: (attendanceData as any)?.mlDays || 0,
+      halfDays: (attendanceData as any)?.halfDays || 0,
+      leaveDays: (attendanceData as any)?.leaveDays || 0,
       homeworkPercentage: homeworkData?.percentage || null,
       guardianRating: guardianData?.rating || null,
       ptmAttended: ptmData?.attended ?? false,

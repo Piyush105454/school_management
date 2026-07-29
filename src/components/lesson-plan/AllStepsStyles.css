@@ -26,7 +26,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #059669;
+  color: #2563eb;
   font-weight: 800;
   font-size: 12px;
   text-transform: uppercase;
@@ -57,12 +57,12 @@
   width: 80px;
   height: 80px;
   border-radius: 20px;
-  background: linear-gradient(145deg, #fef3c7, #fffbeb);
+  background: linear-gradient(145deg, #eff6ff, #dbeafe);
   display: grid;
   place-items: center;
-  border: 1px solid #fde68a;
-  color: #d97706;
-  font-size: 40px;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 36px;
   flex-shrink: 0;
 }
 
@@ -70,23 +70,25 @@
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 13px 15px;
+  padding: 14px 16px;
   border-radius: 14px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #047857;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
   margin-bottom: 20px;
 }
 
 .lesson-plan-studio .connection strong {
   display: block;
   margin-bottom: 2px;
+  color: #1e3a8a;
 }
 
 .lesson-plan-studio .connection p {
   margin: 0;
   line-height: 1.45;
   font-size: 13px;
+  color: #1e40af;
 }
 
 .lesson-plan-studio .grid {
@@ -161,26 +163,28 @@
 .lesson-plan-studio select,
 .lesson-plan-studio textarea {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
   background: #ffffff;
-  color: #111827;
-  padding: 9px 12px;
+  color: #0f172a;
+  padding: 10px 14px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.5;
   letter-spacing: 0;
 }
 
-.lesson-plan-studio input:not([type="radio"]):not([type="checkbox"]) {
+.lesson-plan-studio input:not([type="radio"]):not([type="checkbox"]),
+.lesson-plan-studio select {
+  height: 44px;
   min-height: 44px;
 }
 
 .lesson-plan-studio textarea {
-  min-height: 130px;
+  min-height: 120px;
   resize: vertical;
 }
 
@@ -191,8 +195,8 @@
 .lesson-plan-studio input:focus,
 .lesson-plan-studio select:focus,
 .lesson-plan-studio textarea:focus {
-  border-color: #059669;
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .lesson-plan-studio input::placeholder,
@@ -213,7 +217,7 @@
 
 .lesson-plan-studio .choice-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -232,7 +236,7 @@
 }
 
 .lesson-plan-studio .choice:hover {
-  border-color: #64748b;
+  border-color: #3b82f6;
   transform: translateY(-1px);
 }
 
@@ -241,12 +245,12 @@
   height: 18px;
   margin-top: 2px;
   cursor: pointer;
-  accent-color: #059669;
+  accent-color: #2563eb;
 }
 
 .lesson-plan-studio .choice:has(input:checked) {
-  border-color: #059669;
-  background: #ecfdf5;
+  border-color: #2563eb;
+  background: #eff6ff;
 }
 
 .lesson-plan-studio .choice strong {
@@ -279,12 +283,12 @@
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #eff6ff;
+  color: #1d4ed8;
   display: grid;
   place-items: center;
   font-weight: 800;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #bfdbfe;
 }
 
 @media (max-width: 1200px) {
@@ -304,3 +308,4 @@
     flex-direction: column;
   }
 }
+

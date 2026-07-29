@@ -7,14 +7,14 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
     const body = await req.json();
     const { status, comments } = body;
 

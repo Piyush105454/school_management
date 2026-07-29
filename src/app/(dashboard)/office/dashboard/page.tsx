@@ -13,7 +13,7 @@ import { protectRoute } from "@/lib/roleGuard";
 import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
 
 export default async function OfficeDashboard(props: {
-  searchParams: Promise<{ institute?: string }>;
+  searchParams: Promise<{ institute?: string; date?: string }>;
 }) {
   const searchParams = await props.searchParams;
   const session = await protectRoute(["OFFICE"]);

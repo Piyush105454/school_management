@@ -10,17 +10,19 @@ if (!connectionString) {
 }
 
 const globalForDb = globalThis as unknown as {
+  client: postgres.Sql | undefined;
   db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 };
 
-export const db = drizzle(
-  postgres(connectionString, { 
-    prepare: false,
-    max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 10,
-    idle_timeout: 30,
-    connect_timeout: 30
-  }), 
-  { schema }
-);
+const client = globalForDb.client ?? postgres(connectionString, {
+  prepare: false,
+  max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 5,
+  idle_timeout: 10,
+  connect_timeout: 10
+});
+
+if (process.env.NODE_ENV !== "production") globalForDb.client = client;
+
+export const db = globalForDb.db ?? drizzle(client, { schema });
 
 if (process.env.NODE_ENV !== "production") globalForDb.db = db;

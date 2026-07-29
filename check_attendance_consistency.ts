@@ -1,5 +1,5 @@
-import { db } from "@/src/db";
-import { studentAttendance, scholarshipAttendance } from "@/src/db/schema";
+import { db } from "@/db";
+import { studentAttendance, scholarshipAttendance } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 /**
@@ -48,10 +48,10 @@ async function checkAttendanceConsistency() {
 
       // Calculate present and total days
       const presentDays = studentAttendanceRecords.filter(
-        (r) => r.status === "P"
+        (r: any) => r.status === "P"
       ).length;
       const absentDays = studentAttendanceRecords.filter(
-        (r) => r.status === "A"
+        (r: any) => r.status === "A"
       ).length;
       const totalDays = presentDays + absentDays;
       const calculatedPercentage = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
@@ -118,10 +118,10 @@ async function syncAttendancePercentages() {
         );
 
       const presentDays = studentAttendanceRecords.filter(
-        (r) => r.status === "P"
+        (r: any) => r.status === "P"
       ).length;
       const absentDays = studentAttendanceRecords.filter(
-        (r) => r.status === "A"
+        (r: any) => r.status === "A"
       ).length;
       const totalDays = presentDays + absentDays;
       const calculatedPercentage = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;

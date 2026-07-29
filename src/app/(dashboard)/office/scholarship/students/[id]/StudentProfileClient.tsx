@@ -198,6 +198,22 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         loadedType = "CHARGE";
       }
 
+      const existingNote = kpiRes.data.record?.adjustmentNote || "";
+      let discNote = "";
+      let chargeNote = "";
+
+      if (existingNote.includes("|")) {
+        const parts = existingNote.split("|");
+        discNote = parts[0]?.replace("Discount Note:", "").trim() || "";
+        chargeNote = parts[1]?.replace("Charge Note:", "").trim() || "";
+      } else if (existingNote.startsWith("Discount Note:")) {
+        discNote = existingNote.replace("Discount Note:", "").trim();
+      } else if (existingNote.startsWith("Charge Note:")) {
+        chargeNote = existingNote.replace("Charge Note:", "").trim();
+      } else {
+        discNote = existingNote;
+      }
+
       setPtmAttended(kpiRes.data.ptm?.attended || false);
       setAttendee(kpiRes.data.ptm?.attendee || "");
       setGuardianName(kpiRes.data.ptm?.guardianName || "");
@@ -252,7 +268,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
           type: loadedType,
           discountAmount: initialDiscount || 0,
           additionalChargeAmount: initialAdditional || 0,
-          note: kpiRes.data.record?.adjustmentNote || ""
+          discountNote: discNote,
+          additionalChargeNote: chargeNote,
+          note: existingNote
         }
       });
     }
@@ -301,11 +319,15 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       adjustment: isTeacher ? {
         discountAmount: data?.record?.discountAmount || 0,
         additionalChargeAmount: data?.record?.additionalChargeAmount || 0,
+        discountNote: "",
+        additionalChargeNote: "",
         note: data?.record?.adjustmentNote || ""
       } : {
         // Auto-detect type based on input values, not the form type field
         discountAmount: Number(formData.adjustment?.discountAmount || 0),
         additionalChargeAmount: Number(formData.adjustment?.additionalChargeAmount || 0),
+        discountNote: formData.adjustment?.discountNote || "",
+        additionalChargeNote: formData.adjustment?.additionalChargeNote || "",
         note: formData.adjustment?.note || ""
       }
     });
@@ -644,16 +666,37 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                     requiredThreshold={criteria?.attendanceThreshold}
                     maxAmount={criteria?.attendanceAmount}
                   >
-                    <div className="grid grid-cols-2 gap-4 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <div className="text-center">
-                        <p className="text-[10px] uppercase font-black text-slate-400">Total Days</p>
-                        <p className="text-lg font-black text-slate-700">{data?.attendance?.totalDays ?? data?.calculatedAttendance?.totalDays ?? 0}</p>
-                        <input type="hidden" {...register("attendance.totalDays")} value={data?.attendance?.totalDays ?? data?.calculatedAttendance?.totalDays ?? 0} />
+                    <div className="space-y-2 mt-4">
+                      <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase font-black text-slate-400">Total Days</p>
+                          <p className="text-lg font-black text-slate-700">{data?.attendance?.totalDays ?? data?.calculatedAttendance?.totalDays ?? 0}</p>
+                          <input type="hidden" {...register("attendance.totalDays")} value={data?.attendance?.totalDays ?? data?.calculatedAttendance?.totalDays ?? 0} />
+                        </div>
+                        <div className="text-center border-l border-slate-200">
+                          <p className="text-[10px] uppercase font-black text-slate-400">Present (P)</p>
+                          <p className="text-lg font-black text-emerald-600">{data?.attendance?.presentDays ?? data?.calculatedAttendance?.presentDays ?? 0}</p>
+                          <input type="hidden" {...register("attendance.presentDays")} value={data?.attendance?.presentDays ?? data?.calculatedAttendance?.presentDays ?? 0} />
+                        </div>
                       </div>
-                      <div className="text-center border-l border-slate-200">
-                        <p className="text-[10px] uppercase font-black text-slate-400">Present</p>
-                        <p className="text-lg font-black text-emerald-600">{data?.attendance?.presentDays ?? data?.calculatedAttendance?.presentDays ?? 0}</p>
-                        <input type="hidden" {...register("attendance.presentDays")} value={data?.attendance?.presentDays ?? data?.calculatedAttendance?.presentDays ?? 0} />
+
+                      <div className="grid grid-cols-4 gap-1.5 bg-slate-50/80 p-2 rounded-xl border border-slate-100 text-center">
+                        <div>
+                          <p className="text-[9px] uppercase font-bold text-rose-500">Absent</p>
+                          <p className="text-xs font-black text-rose-700">{data?.attendance?.absentDays ?? data?.calculatedAttendance?.absentDays ?? 0}</p>
+                        </div>
+                        <div className="border-l border-slate-200">
+                          <p className="text-[9px] uppercase font-bold text-indigo-500">ML</p>
+                          <p className="text-xs font-black text-indigo-700">{data?.attendance?.mlDays ?? data?.calculatedAttendance?.mlDays ?? 0}</p>
+                        </div>
+                        <div className="border-l border-slate-200">
+                          <p className="text-[9px] uppercase font-bold text-violet-500">H/Day</p>
+                          <p className="text-xs font-black text-violet-700">{data?.attendance?.halfDays ?? data?.calculatedAttendance?.halfDays ?? 0}</p>
+                        </div>
+                        <div className="border-l border-slate-200">
+                          <p className="text-[9px] uppercase font-bold text-blue-500">Leave</p>
+                          <p className="text-xs font-black text-blue-700">{data?.attendance?.leaveDays ?? data?.calculatedAttendance?.leaveDays ?? 0}</p>
+                        </div>
                       </div>
                     </div>
                     {calcAttendancePct < (criteria?.attendanceThreshold || 90) && calcAttendancePct > 0 && (

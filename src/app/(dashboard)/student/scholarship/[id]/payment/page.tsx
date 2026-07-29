@@ -17,10 +17,17 @@ interface PaymentRecord {
   pendingDue: number;
   waiverGiven: number;
   additionalCharge: number;
+  adjustmentNote?: string;
   finalDue: number;
   paidOnline: number;
   status: string;
   attendancePercentage: number | null;
+  totalDays?: number;
+  presentDays?: number;
+  absentDays?: number;
+  mlDays?: number;
+  halfDays?: number;
+  leaveDays?: number;
   homeworkPercentage: number | null;
   guardianRating: number | null;
   ptmAttended: boolean;
@@ -183,9 +190,35 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     );
   }
 
+  const parseAdjustmentNotes = (note?: string | null) => {
+    if (!note) return { discountNote: "", chargeNote: "" };
+    let discountNote = "";
+    let chargeNote = "";
+
+    if (note.includes("|")) {
+      const parts = note.split("|");
+      parts.forEach(p => {
+        if (p.includes("Discount Note:")) {
+          discountNote = p.replace("Discount Note:", "").trim();
+        } else if (p.includes("Charge Note:")) {
+          chargeNote = p.replace("Charge Note:", "").trim();
+        }
+      });
+    } else if (note.startsWith("Discount Note:")) {
+      discountNote = note.replace("Discount Note:", "").trim();
+    } else if (note.startsWith("Charge Note:")) {
+      chargeNote = note.replace("Charge Note:", "").trim();
+    } else {
+      discountNote = note;
+    }
+    return { discountNote, chargeNote };
+  };
+
+  const { discountNote, chargeNote } = parseAdjustmentNotes(record.adjustmentNote);
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-900 to-slate-800 sticky top-0">
           <div>
@@ -201,17 +234,22 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
         </div>
 
         {/* Payment Details */}
-        <div className="px-6 py-5 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 space-y-5 max-h-[75vh] overflow-y-auto">
           {/* Scholarship Details Section */}
           <div className="space-y-3">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Scholarship Criteria Results</h3>
             <div className="bg-slate-50 p-4 rounded-xl space-y-2">
               <div className="flex justify-between items-center text-sm">
                 <div>
-                  <span className="text-slate-600">Attendance</span>
-                  <span className="text-xs text-slate-500 block">
-                    {record.attendancePercentage !== null && record.attendancePercentage !== undefined ? `${record.attendancePercentage.toFixed(1)}%` : "N/A"}
-                  </span>
+                  <span className="text-slate-600 font-medium">Attendance</span>
+                  <div className="text-xs text-slate-500">
+                    <span>{record.attendancePercentage !== null && record.attendancePercentage !== undefined ? `${record.attendancePercentage.toFixed(1)}%` : "N/A"}</span>
+                    {(record.totalDays || 0) > 0 && (
+                      <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                        Total: {record.totalDays}d (P: {record.presentDays || 0}, A: {record.absentDays || 0}, ML: {record.mlDays || 0}, HD: {record.halfDays || 0}, L: {record.leaveDays || 0})
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="font-bold text-emerald-600">₹{record.attendanceAmount.toLocaleString()}</span>
               </div>
@@ -258,15 +296,29 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
                 <span className="font-bold text-emerald-600">- ₹{record.scholarshipEarned.toLocaleString()}</span>
               </div>
               {record.waiverGiven > 0 && (
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-slate-600">Waiver/Discount</span>
-                  <span className="font-bold text-blue-600">- ₹{record.waiverGiven.toLocaleString()}</span>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-slate-600">Waiver/Discount</span>
+                    <span className="font-bold text-blue-600">- ₹{record.waiverGiven.toLocaleString()}</span>
+                  </div>
+                  {discountNote && (
+                    <p className="text-[11px] font-semibold text-blue-500/90 pl-1 italic">
+                      Note: {discountNote}
+                    </p>
+                  )}
                 </div>
               )}
               {record.additionalCharge > 0 && (
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-slate-600">Additional Charge</span>
-                  <span className="font-bold text-amber-600">+ ₹{record.additionalCharge.toLocaleString()}</span>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-slate-600">Additional Charge</span>
+                    <span className="font-bold text-amber-600">+ ₹{record.additionalCharge.toLocaleString()}</span>
+                  </div>
+                  {chargeNote && (
+                    <p className="text-[11px] font-semibold text-amber-600/90 pl-1 italic">
+                      Note: {chargeNote}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="border-t-2 border-slate-200 pt-3 flex justify-between font-black text-lg">

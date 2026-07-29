@@ -29,6 +29,8 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     type?: string; 
     discountAmount?: number; 
     additionalChargeAmount?: number; 
+    discountNote?: string;
+    additionalChargeNote?: string;
     note: string 
   };
   locked?: boolean;
@@ -124,7 +126,20 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
           adjustmentAmount = additionalChargeAmount;
         }
       }
-      adjustmentNote = note || "";
+
+      const discountNote = (data.adjustment as any).discountNote || "";
+      const additionalChargeNote = (data.adjustment as any).additionalChargeNote || "";
+      const generalNote = note || "";
+
+      if (discountNote && additionalChargeNote) {
+        adjustmentNote = `Discount Note: ${discountNote} | Charge Note: ${additionalChargeNote}`;
+      } else if (discountNote) {
+        adjustmentNote = `Discount Note: ${discountNote}`;
+      } else if (additionalChargeNote) {
+        adjustmentNote = `Charge Note: ${additionalChargeNote}`;
+      } else if (generalNote) {
+        adjustmentNote = generalNote;
+      }
     }
 
     // 2. Save Attendance
@@ -239,13 +254,11 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
 
 export async function getStudentKpiData(admissionId: string, month: string, year: string) {
   try {
-    const [attendance, homework, guardian, ptm, record] = await Promise.all([
-      db.query.scholarshipAttendance.findFirst({ where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.month, month), eq(scholarshipAttendance.year, year)) }),
-      db.query.scholarshipHomework.findFirst({ where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.month, month), eq(scholarshipHomework.year, year)) }),
-      db.query.scholarshipGuardian.findFirst({ where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)) }),
-      db.query.scholarshipPtm.findFirst({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)) }),
-      db.query.scholarshipRecords.findFirst({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)) }),
-    ]);
+    const attendance = await db.query.scholarshipAttendance.findFirst({ where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.month, month), eq(scholarshipAttendance.year, year)) });
+    const homework = await db.query.scholarshipHomework.findFirst({ where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.month, month), eq(scholarshipHomework.year, year)) });
+    const guardian = await db.query.scholarshipGuardian.findFirst({ where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)) });
+    const ptm = await db.query.scholarshipPtm.findFirst({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)) });
+    const record = await db.query.scholarshipRecords.findFirst({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)) });
 
     // Fetch Criteria (Override first, then global)
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
@@ -278,12 +291,17 @@ export async function getStudentKpiData(admissionId: string, month: string, year
 
       if (student) {
         const stats = await db.select({
-          total: sql`count(case when status not in ('H', 'NA') then 1 end)`,
-          present: sql`count(case when status in ('P', 'ML') then 1 end)`,
+          total: sql`count(case when status in ('P', 'A', 'ML', 'HD', 'L') then 1 end)`,
+          present: sql`count(case when status in ('P', 'ML', 'HD') then 1 end)`,
+          absent: sql`count(case when status = 'A' then 1 end)`,
+          ml: sql`count(case when status = 'ML' then 1 end)`,
+          hd: sql`count(case when status = 'HD' then 1 end)`,
+          leave: sql`count(case when status = 'L' then 1 end)`,
         })
         .from(studentAttendance)
         .where(and(
           eq(studentAttendance.studentId, student.id),
+          student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
           eq(studentAttendance.month, month),
           eq(studentAttendance.year, parseInt(year))
         ));
@@ -294,6 +312,10 @@ export async function getStudentKpiData(admissionId: string, month: string, year
         realAttendance = {
           totalDays: total,
           presentDays: present,
+          absentDays: Number(stats[0]?.absent || 0),
+          mlDays: Number(stats[0]?.ml || 0),
+          halfDays: Number(stats[0]?.hd || 0),
+          leaveDays: Number(stats[0]?.leave || 0),
           percentage: total > 0 ? (present / total) * 100 : 0
         };
       }
@@ -347,8 +369,8 @@ export async function getStudentKpiData(admissionId: string, month: string, year
     return { 
       success: true, 
       data: { 
-        attendance: attendance || realAttendance || null, 
-        homework: homework || null, 
+        attendance: (realAttendance && realAttendance.totalDays > 0) ? realAttendance : (attendance || null), 
+        homework: (realHomework && realHomework.totalGiven > 0) ? realHomework : (homework || null), 
         guardian: guardian || null, 
         ptm: ptm || null, 
         record: record || null,
@@ -370,6 +392,53 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
     const ptm = await db.query.scholarshipPtm.findMany({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.year, year)) });
     const records = await db.query.scholarshipRecords.findMany({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.year, year)) });
 
+    // Fetch real attendance map from studentAttendance table
+    const meta = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.id, admissionId),
+      columns: { entryNumber: true }
+    });
+
+    const realAttendanceMap: Record<string, { totalDays: number; presentDays: number; absentDays: number; mlDays: number; halfDays: number; leaveDays: number; percentage: number }> = {};
+    if (meta?.entryNumber) {
+      const student = await db.query.students.findFirst({
+        where: eq(students.studentId, meta.entryNumber)
+      });
+      if (student) {
+        const stats = await db.select({
+          month: studentAttendance.month,
+          total: sql`count(case when status in ('P', 'A', 'ML', 'HD', 'L') then 1 end)`,
+          present: sql`count(case when status in ('P', 'ML', 'HD') then 1 end)`,
+          absent: sql`count(case when status = 'A' then 1 end)`,
+          ml: sql`count(case when status = 'ML' then 1 end)`,
+          hd: sql`count(case when status = 'HD' then 1 end)`,
+          leave: sql`count(case when status = 'L' then 1 end)`,
+        })
+        .from(studentAttendance)
+        .where(and(
+          eq(studentAttendance.studentId, student.id),
+          student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
+          eq(studentAttendance.year, parseInt(year))
+        ))
+        .groupBy(studentAttendance.month);
+
+        stats.forEach(s => {
+          const tot = Number(s.total || 0);
+          const pres = Number(s.present || 0);
+          if (s.month) {
+            realAttendanceMap[s.month] = {
+              totalDays: tot,
+              presentDays: pres,
+              absentDays: Number(s.absent || 0),
+              mlDays: Number(s.ml || 0),
+              halfDays: Number(s.hd || 0),
+              leaveDays: Number(s.leave || 0),
+              percentage: tot > 0 ? (pres / tot) * 100 : 0
+            };
+          }
+        });
+      }
+    }
+
     // Fetch criteria to compute financial columns
     const currentYear = new Date().getFullYear();
     const academicYear = `${currentYear}-${String(currentYear + 1).slice(-2)}`;
@@ -389,7 +458,10 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
 
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const overview = months.map(month => {
-      const att = attendance.find(a => a.month === month);
+      const savedAtt = attendance.find(a => a.month === month);
+      const realAtt = realAttendanceMap[month];
+      const att = (realAtt && realAtt.totalDays > 0) ? { ...realAtt, month, year } : (savedAtt || null);
+
       const hw = homework.find(h => h.month === month);
       const gd = guardian.find(g => g.month === month);
       const pt = ptm.find(p => p.month === month);

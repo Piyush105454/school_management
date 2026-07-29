@@ -18,6 +18,10 @@ import {
   calculateStudentScholarship,
   getAssignedClassesForTeacher
 } from "@/features/scholarship/actions/teacherScholarshipActions";
+import { getPtmSchedule, savePtmSchedule } from "@/features/scholarship/actions/ptmScheduleActions";
+import DateRangePickerModal from "@/components/common/DateRangePickerModal";
+import { useSession } from "next-auth/react";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 const MONTHS = [
   "April", "May", "June", "July", "August", "September", "October", "November", "December", 
@@ -40,17 +44,24 @@ interface CategoryState {
 }
 
 interface ClassData {
-  id: string;
+  id: string | number;
   name: string;
-  grade?: string;
-  institute?: string;
+  grade?: string | number;
+  institute?: string | null;
 }
 
 export default function GuardianCriteriaPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role !== "TEACHER";
+
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
+
+  const [scheduledStartDate, setScheduledStartDate] = useState<string | null>(null);
+  const [scheduledEndDate, setScheduledEndDate] = useState<string | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState<boolean>(false);
   
   const [students, setStudents] = useState<any[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
@@ -63,6 +74,29 @@ export default function GuardianCriteriaPage() {
   // States for the active student form
   const [guardianComments, setGuardianComments] = useState<Record<string, CategoryState>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Fetch Schedule Date Range for Guardian
+  const fetchSchedule = async () => {
+    if (!selectedMonth || !selectedYear) return;
+    try {
+      const res = await getPtmSchedule(selectedMonth, selectedYear, "GUARDIAN");
+      if (res.success && (res.startDate || res.ptmDate)) {
+        const start = res.startDate || res.ptmDate;
+        const end = res.endDate || res.ptmDate || start;
+        setScheduledStartDate(start);
+        setScheduledEndDate(end);
+      } else {
+        setScheduledStartDate(null);
+        setScheduledEndDate(null);
+      }
+    } catch (e) {
+      console.error("Failed to load Guardian schedule:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSchedule();
+  }, [selectedMonth, selectedYear]);
 
   // Initialize defaults and load classes from teacher profile
   useEffect(() => {
@@ -86,9 +120,9 @@ export default function GuardianCriteriaPage() {
     getAssignedClassesForTeacher()
       .then(res => {
         if (res.success && res.data) {
-          setClasses(res.data);
+          setClasses(res.data as any);
           if (res.data.length > 0) {
-            setSelectedClass(res.data[0].id);
+            setSelectedClass(String(res.data[0].id));
           }
         } else {
           setError(res.error || "Failed to load assigned classes.");
@@ -131,7 +165,15 @@ export default function GuardianCriteriaPage() {
 
   // Find active student data
   const activeStudent = students.find(s => s.admissionId === selectedStudentId) || null;
-  const isLocked = activeStudent?.guardian?.locked || false;
+  
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isScheduleOpen = (() => {
+    if (!scheduledStartDate || !scheduledEndDate) return false;
+    return todayStr >= scheduledStartDate && todayStr <= scheduledEndDate;
+  })();
+
+  const isSpecificRecordLocked = activeStudent?.guardian?.locked || false;
+  const isLocked = isSpecificRecordLocked || !isScheduleOpen;
 
   // Initialize form state when selected student changes
   useEffect(() => {
@@ -306,7 +348,7 @@ export default function GuardianCriteriaPage() {
       </div>
 
       {/* Selectors and Filters */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className={`bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm grid grid-cols-1 ${isAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6`}>
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Class Assigned</label>
           <div className="relative">
@@ -360,6 +402,27 @@ export default function GuardianCriteriaPage() {
             <ChevronDown className="absolute right-4 top-4.5 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schedule Date Range</label>
+            <button
+              type="button"
+              onClick={() => setIsDatePickerOpen(true)}
+              className="w-full bg-slate-50 border border-slate-200 hover:border-amber-400 rounded-2xl px-4 py-3.5 text-xs font-black uppercase tracking-wider text-slate-800 hover:bg-white flex items-center justify-between transition-all shadow-sm"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <CalendarIcon size={16} className="text-amber-500 shrink-0" />
+                <span className="truncate">
+                  {scheduledStartDate && scheduledEndDate
+                    ? `${new Date(scheduledStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${new Date(scheduledEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+                    : "Set Date Range"}
+                </span>
+              </div>
+              <span className="text-[10px] text-blue-600 font-bold underline shrink-0">Edit</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Student List Dropdown */}
@@ -412,12 +475,20 @@ export default function GuardianCriteriaPage() {
         <div className="max-w-2xl mx-auto bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 animate-in slide-in-from-bottom-6 duration-300">
           
           {/* Lock State Warning Banner */}
-          {isLocked && (
+          {isSpecificRecordLocked ? (
             <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-xs font-black font-outfit shadow-sm">
               <Lock className="shrink-0 text-amber-600" size={18} />
               This record is submitted & locked. Only Admin/Office users can modify it.
             </div>
-          )}
+          ) : !isScheduleOpen ? (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-xs font-black font-outfit shadow-sm">
+              <Lock className="shrink-0 text-amber-600" size={18} />
+              {scheduledStartDate && scheduledEndDate 
+                ? `Guardian Ratings UI is closed. It is only editable during the scheduled date range: ${new Date(scheduledStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} – ${new Date(scheduledEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}. (Today is ${new Date(todayStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}).` 
+                : `Guardian Ratings UI is closed. No schedule date range has been set yet for ${selectedMonth} ${selectedYear}.`
+              }
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 justify-between">
             <div className="flex items-center gap-3">
@@ -532,6 +603,26 @@ export default function GuardianCriteriaPage() {
           </p>
         </div>
       )}
+
+      {/* Date Range Picker Modal for Schedule */}
+      <DateRangePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        month={selectedMonth}
+        year={selectedYear}
+        initialStartDate={scheduledStartDate}
+        initialEndDate={scheduledEndDate}
+        title="Schedule Guardian Rating Date Range"
+        onSave={async (start, end) => {
+          const res = await savePtmSchedule(selectedMonth, selectedYear, start, start, end, "GUARDIAN");
+          if (res.success) {
+            setScheduledStartDate(start);
+            setScheduledEndDate(end);
+          } else {
+            alert(res.error || "Failed to save date range schedule.");
+          }
+        }}
+      />
     </div>
   );
 }

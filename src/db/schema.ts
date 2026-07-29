@@ -987,6 +987,9 @@ export const scholarshipPtmSchedule = pgTable("scholarship_ptm_schedule", {
   month: text("month").notNull(),
   year: text("year").notNull(),
   ptmDate: text("ptm_date").notNull(),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  type: text("type").notNull().default("PTM"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -862,7 +862,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 <button 
                   onClick={() => handleAction("REVIEWED")}
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 disabled:opacity-30"
+                  className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
                 >
                   <CheckCircle className="h-4 w-4" />
                   Reviewed
