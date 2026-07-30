@@ -40,18 +40,97 @@ export default function Step1LessonDetails({
   const [chapterList, setChapterList] = useState<any[]>([]);
   const [divisionList, setDivisionList] = useState<any[]>([]);
 
-  // Set current preparation date & teacher name immediately on mount
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    let name = session?.user?.name || session?.user?.email || "";
-    if (name && name.includes("@")) {
-      name = name.split("@")[0];
+  const formatLocalDate = (d: Date): string => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const parseLocalDate = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
     }
-    
+    return new Date();
+  };
+
+  // Immediate computing of prepDate and preparedBy defaults
+  const today = formatLocalDate(new Date());
+  let defaultTeacherName = session?.user?.name || session?.user?.email || "";
+  if (defaultTeacherName && defaultTeacherName.includes("@")) {
+    defaultTeacherName = defaultTeacherName.split("@")[0];
+  }
+
+  const displayPrepDate = formData.prepDate || today;
+  const displayPreparedBy = formData.preparedBy || defaultTeacherName;
+
+  // Helper to check if a date is Sunday (0)
+  const isSunday = (dateStr: string) => {
+    if (!dateStr) return false;
+    const d = parseLocalDate(dateStr);
+    return d.getDay() === 0;
+  };
+
+  // Compute min date (tomorrow/next working day) and max date (6th working day excluding Sundays)
+  const getDeliveryDateBounds = (startStr: string) => {
+    const basePrep = parseLocalDate(startStr || today);
+
+    // Delivery date starts from TOMORROW (or next working day)
+    let minDate = new Date(basePrep);
+    minDate.setDate(minDate.getDate() + 1);
+
+    if (minDate.getDay() === 0) { // Sunday
+      minDate.setDate(minDate.getDate() + 1);
+    }
+
+    // Collect exactly 6 working days (excluding Sundays)
+    const workingDays: Date[] = [];
+    let current = new Date(minDate);
+
+    while (workingDays.length < 6) {
+      if (current.getDay() !== 0) { // Not Sunday
+        workingDays.push(new Date(current));
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    const minStr = formatLocalDate(workingDays[0]);
+    const maxStr = formatLocalDate(workingDays[workingDays.length - 1]);
+    return { minStr, maxStr, workingDays };
+  };
+
+  const { minStr: deliveryMinStr, maxStr: deliveryMaxStr } = getDeliveryDateBounds(displayPrepDate);
+
+  const handleDeliveryDateChange = (val: string) => {
+    if (!val) {
+      handleChange("deliveryDate", "");
+      return;
+    }
+
+    if (isSunday(val)) {
+      alert("Sundays are non-working days. Please select a valid working day (Monday - Saturday).");
+      return;
+    }
+
+    if (val < deliveryMinStr || val > deliveryMaxStr) {
+      alert(`Delivery date must be within the next 6 working days (${deliveryMinStr} to ${deliveryMaxStr}).`);
+      return;
+    }
+
+    handleChange("deliveryDate", val);
+  };
+
+  // Set current preparation date & teacher name immediately on mount & when session loads
+  useEffect(() => {
     setFormData((prev: any) => {
       const updates: any = {};
       if (!prev.prepDate) updates.prepDate = today;
-      if (!prev.preparedBy && name) updates.preparedBy = name;
+      if (!prev.preparedBy && defaultTeacherName) updates.preparedBy = defaultTeacherName;
+      if (!prev.deliveryDate || isSunday(prev.deliveryDate) || prev.deliveryDate < deliveryMinStr || prev.deliveryDate > deliveryMaxStr) {
+        updates.deliveryDate = deliveryMinStr;
+      }
       
       if (prev.pages && typeof prev.pages === "string" && !prev.pageFrom) {
         const [pageFrom, pageTo] = prev.pages.split("-");
@@ -62,7 +141,7 @@ export default function Step1LessonDetails({
       if (Object.keys(updates).length === 0) return prev;
       return { ...prev, ...updates };
     });
-  }, [session, setFormData]);
+  }, [session, setFormData, today, defaultTeacherName]);
 
   // Load class options on mount
   useEffect(() => {
@@ -211,6 +290,7 @@ export default function Step1LessonDetails({
     }
   }, [formData.chapterDivisionId, divisionList, setFormData]);
 
+  const isDivisionPreFilled = Boolean(formData.chapterDivisionId || (formData.chapterId && formData.chapterNo));
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
@@ -256,7 +336,7 @@ export default function Step1LessonDetails({
                 name="className"
                 value={formData.className || ""}
                 onChange={(e) => handleChange("className", e.target.value)}
-                disabled={!isEditable}
+                disabled={!isEditable || isDivisionPreFilled}
                 required
               >
                 <option value="">Select class</option>
@@ -277,7 +357,7 @@ export default function Step1LessonDetails({
                 name="subject"
                 value={formData.subject || ""}
                 onChange={(e) => handleChange("subject", e.target.value)}
-                disabled={!isEditable}
+                disabled={!isEditable || isDivisionPreFilled}
                 required
               >
                 <option value="">Select subject</option>
@@ -298,7 +378,7 @@ export default function Step1LessonDetails({
                 name="chapterNo"
                 value={formData.chapterNo || ""}
                 onChange={(e) => handleChange("chapterNo", e.target.value)}
-                disabled={!isEditable || chapterList.length === 0}
+                disabled={!isEditable || isDivisionPreFilled || chapterList.length === 0}
                 required
               >
                 <option value="">
@@ -326,7 +406,7 @@ export default function Step1LessonDetails({
                 value={formData.chapterName || ""}
                 onChange={(e) => handleChange("chapterName", e.target.value)}
                 placeholder="Chapter name will auto-fill"
-                disabled={!!formData.chapterName}
+                disabled={true}
                 required
               />
             </div>
@@ -341,7 +421,7 @@ export default function Step1LessonDetails({
                   name="chapterDivision"
                   value={formData.chapterDivisionId || ""}
                   onChange={(e) => handleChange("chapterDivisionId", e.target.value)}
-                  disabled={!isEditable || divisionList.length === 0}
+                  disabled={!isEditable || isDivisionPreFilled || divisionList.length === 0}
                   required
                 >
                   <option value="">Select division</option>
@@ -406,8 +486,8 @@ export default function Step1LessonDetails({
                 id="prepDate"
                 name="prepDate"
                 type="date"
-                value={formData.prepDate || ""}
-                onChange={(e) => {}}
+                value={displayPrepDate}
+                onChange={(e) => handleChange("prepDate", e.target.value)}
                 disabled={true}
                 required
               />
@@ -421,11 +501,16 @@ export default function Step1LessonDetails({
                 id="deliveryDate"
                 name="deliveryDate"
                 type="date"
+                min={deliveryMinStr}
+                max={deliveryMaxStr}
                 value={formData.deliveryDate || ""}
-                onChange={(e) => handleChange("deliveryDate", e.target.value)}
+                onChange={(e) => handleDeliveryDateChange(e.target.value)}
                 disabled={!isEditable}
                 required
               />
+              <span className="text-[10px] text-slate-500 font-medium block mt-1">
+                Allowed: Next 6 working days ({deliveryMinStr} to {deliveryMaxStr}, Sundays excluded)
+              </span>
             </div>
 
             <div className="field col-4">
@@ -435,7 +520,8 @@ export default function Step1LessonDetails({
               <input
                 id="preparedBy"
                 name="preparedBy"
-                value={formData.preparedBy || ""}
+                value={displayPreparedBy}
+                onChange={(e) => handleChange("preparedBy", e.target.value)}
                 placeholder="Teacher name"
                 disabled={true}
                 required
@@ -465,6 +551,7 @@ export default function Step1LessonDetails({
                 disabled={true}
               />
             </div>
+
 
             <div className="field col-12">
               <label className="required">Finally, choose the Lesson Plan Type</label>

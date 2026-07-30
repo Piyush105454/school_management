@@ -42,7 +42,10 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
         try {
           const parsed = JSON.parse(permissionRecord.permissions as string);
           if (parsed && parsed.items) {
-            const override = parsed.items[pathname];
+            let override = parsed.items[pathname];
+            if (pathname === "/office/academy-management/lesson-plan" && parsed.items["/office/academy-management/my-lesson-plans"]) {
+              override = true;
+            }
             if (override !== undefined) {
               isAllowed = override;
             } else {

@@ -47,7 +47,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -59,7 +59,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: "Forbidden. You cannot delete tasks." }, { status: 403 });
     }
 
-    await db.delete(tasks).where(eq(tasks.id, params.id));
+    const { id: taskId } = await params;
+    await db.delete(tasks).where(eq(tasks.id, taskId));
 
     return NextResponse.json({ success: true });
   } catch (error) {

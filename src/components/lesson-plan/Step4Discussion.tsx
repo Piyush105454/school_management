@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import RichTextEditor from "@/components/common/RichTextEditor";
 
 interface Step4DiscussionProps {
   formData: {
@@ -23,11 +24,18 @@ export default function Step4Discussion({
 
   const isQALesson = formData.lessonType === "Q&A";
 
+  const adjustTextarea = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${Math.max(el.scrollHeight, 100)}px`;
+    }
+  };
+
   return (
     <section className="step-page active" data-step="3">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 4 Â· Discussion & Participation</div>
+          <div className="eyebrow">Step 4 · Discussion & Participation</div>
           <h2>
             {isQALesson
               ? "How will you inspect, support and involve every student during Q&A?"
@@ -39,15 +47,15 @@ export default function Step4Discussion({
               : "Plan one connected discussion instead of several separate question boxes."}
           </p>
         </div>
-        <div className="hero-art">ðŸ’¬</div>
+        <div className="hero-art">💬</div>
       </div>
 
       <div className="connection">
-        <div>â†’</div>
+        <div>✦</div>
         <div>
           <strong>
             {isQALesson
-              ? "Inspection and support must reach every benchâ€”not only the fastest students."
+              ? "Inspection and support must reach every bench—not only the fastest students."
               : "Keep the discussion simple and two-way."}
           </strong>
           <p>
@@ -63,19 +71,17 @@ export default function Step4Discussion({
           <label className="required" htmlFor="discussionPlan">
             {isQALesson ? "Inspection & support plan" : "Discussion plan"}
           </label>
-          <textarea
+          <RichTextEditor
             id="discussionPlan"
-            name="discussionPlan"
             value={formData.discussionPlan || ""}
-            onChange={(e) => handleChange("discussionPlan", e.target.value)}
+            onChange={(val) => handleChange("discussionPlan", val)}
             placeholder={
               isQALesson
                 ? "Plan how you will check all benches, involve quieter students, give short support and save class time. If a concern needs more time, write how you will mark it for Red Zone follow-up and discuss it separately after class."
                 : "Example: ask what happens after step 1; allow student pairs to discuss for 1 minute; call 2 quiet students to share; take 1 question from class."
             }
             disabled={!isEditable}
-            rows={6}
-            required
+            minHeight="150px"
           />
         </div>
 
@@ -87,10 +93,16 @@ export default function Step4Discussion({
             id="quieterStudentSupport"
             name="quieterStudentSupport"
             value={formData.quieterStudentSupport || ""}
-            onChange={(e) => handleChange("quieterStudentSupport", e.target.value)}
+            ref={adjustTextarea}
+            onInput={(e) => adjustTextarea(e.currentTarget)}
+            onChange={(e) => {
+              adjustTextarea(e.currentTarget);
+              handleChange("quieterStudentSupport", e.target.value);
+            }}
             placeholder="Example: give thinking time, begin with an easy question, allow a bench partner discussion, and personally check two students who need support."
             disabled={!isEditable}
-            rows={5}
+            rows={4}
+            style={{ overflow: "hidden", resize: "none" }}
             required
           />
         </div>

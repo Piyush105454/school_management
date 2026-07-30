@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    let query = db.select({
+    let query: any = db.select({
       id: admissionMeta.id,
       firstName: studentBio.firstName,
       lastName: studentBio.lastName,
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     query = query.where(and(...conditions)).limit(20);
 
     const results = await query;
-    return NextResponse.json(results.map(r => ({
+    return NextResponse.json(results.map((r: any) => ({
       id: r.id,
       name: `${r.firstName} ${r.lastName} (${r.admissionNumber})`,
     })));

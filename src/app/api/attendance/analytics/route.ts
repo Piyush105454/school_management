@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Build query - ALWAYS join studentBio to get gender and name
-    let query = db.select({
+    let query: any = db.select({
       classId: classes.id,
       className: classes.name,
       grade: classes.grade,

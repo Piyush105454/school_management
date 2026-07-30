@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { assignTeacherToSubject, assignReviewerToSubject, getTeachers } from "@/features/academy/actions/assignTeacherActions";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Teacher {
@@ -31,11 +31,13 @@ export default function AssignTeacherModal({ isOpen, onClose, subject, role = "t
   const router = useRouter();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [isOpenDropdown, setIsOpenDropdown] = useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -60,8 +62,17 @@ export default function AssignTeacherModal({ isOpen, onClose, subject, role = "t
         setSelectedTeacherId(subject?.assignedTeacherId || "");
       }
       setIsOpenDropdown(false);
+      setSearchTerm("");
     }
   }, [isOpen, subject, role]);
+
+  useEffect(() => {
+    if (isOpenDropdown) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isOpenDropdown]);
 
   const loadTeachers = async () => {
     setIsLoading(true);
@@ -104,6 +115,14 @@ export default function AssignTeacherModal({ isOpen, onClose, subject, role = "t
 
   const selectedTeacher = teachers.find((t) => t.id === selectedTeacherId);
 
+  const filteredTeachers = teachers.filter((teacher) => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    const nameMatch = teacher.name.toLowerCase().includes(term);
+    const specMatch = teacher.specialization ? teacher.specialization.toLowerCase().includes(term) : false;
+    return nameMatch || specMatch;
+  });
+
   return (
     <Modal
       isOpen={isOpen}
@@ -131,13 +150,13 @@ export default function AssignTeacherModal({ isOpen, onClose, subject, role = "t
 
         <div className="space-y-2">
           <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">
-            Select Teacher
+            {role === "reviewer1" || role === "reviewer2" ? "Select Reviewer" : "Select Teacher"}
           </label>
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => !isLoading && setIsOpenDropdown(!isOpenDropdown)}
-              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 text-left flex items-center justify-between disabled:opacity-75 disabled:cursor-not-allowed"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900 text-left flex items-center justify-between disabled:opacity-75 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               <span className="truncate">
@@ -156,30 +175,62 @@ export default function AssignTeacherModal({ isOpen, onClose, subject, role = "t
             </button>
 
             {isOpenDropdown && (
-              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150 py-1">
-                <button
-                  type="button"
-                  className="w-full text-left px-5 py-3 hover:bg-slate-50 cursor-pointer text-slate-900 font-medium transition-colors text-sm"
-                  onClick={() => {
-                    setSelectedTeacherId("");
-                    setIsOpenDropdown(false);
-                  }}
-                >
-                  -- Not Assigned --
-                </button>
-                {teachers.map((teacher) => (
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 max-h-60 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 flex flex-col">
+                {/* Search Bar at Top of Dropdown */}
+                <div className="p-2 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search teacher by name or spec..."
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Dropdown Options List */}
+                <div className="overflow-y-auto max-h-48 py-1">
                   <button
-                    key={teacher.id}
                     type="button"
-                    className="w-full text-left px-5 py-3 hover:bg-slate-50 cursor-pointer text-slate-900 font-medium transition-colors text-sm truncate"
+                    className="w-full text-left px-5 py-2.5 hover:bg-slate-50 cursor-pointer text-slate-500 italic font-medium transition-colors text-xs"
                     onClick={() => {
-                      setSelectedTeacherId(teacher.id);
+                      setSelectedTeacherId("");
                       setIsOpenDropdown(false);
                     }}
                   >
-                    {teacher.name} {teacher.specialization ? `(${teacher.specialization})` : ""}
+                    -- Not Assigned --
                   </button>
-                ))}
+
+                  {filteredTeachers.length === 0 ? (
+                    <div className="px-5 py-4 text-center text-xs text-slate-400 font-medium italic">
+                      No matching teachers found
+                    </div>
+                  ) : (
+                    filteredTeachers.map((teacher) => (
+                      <button
+                        key={teacher.id}
+                        type="button"
+                        className={`w-full text-left px-5 py-3 hover:bg-blue-50/50 cursor-pointer text-slate-900 font-medium transition-colors text-sm truncate flex items-center justify-between ${
+                          selectedTeacherId === teacher.id ? "bg-blue-50 font-bold text-blue-600" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedTeacherId(teacher.id);
+                          setIsOpenDropdown(false);
+                        }}
+                      >
+                        <span>{teacher.name}</span>
+                        {teacher.specialization && (
+                          <span className="text-[10px] text-slate-400 font-normal ml-2 shrink-0">
+                            {teacher.specialization}
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>

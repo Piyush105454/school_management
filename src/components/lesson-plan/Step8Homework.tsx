@@ -22,14 +22,14 @@ export default function Step8Homework({
     <section className="step-page active" data-step="7">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 8 Â· Homework</div>
+          <div className="eyebrow">Step 8 · Homework</div>
           <h2>Does this lesson need practice at home?</h2>
           <p>
             Homework is optional. Give it only when it strengthens learning and can be clearly
             understood by students and parents.
           </p>
         </div>
-        <div className="hero-art">ðŸ </div>
+        <div className="hero-art">📚</div>
       </div>
 
       <div className="card">

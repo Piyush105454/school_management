@@ -110,7 +110,6 @@ const teacherItems = [
   { type: "section", name: "Class Management" },
   { name: "My Classes", href: "/office/academy-management/classes", icon: School },
   { name: "Attendance", href: "/office/academy-management/attendance", icon: CalendarCheck },
-  { name: "Lesson Plans", href: "/office/academy-management/lesson-plan", icon: BookOpen },
   { name: "My Homework Review", href: "/office/academy-management/homework", icon: ClipboardCheck },
   { type: "section", name: "Incident Management" },
   { name: "My Logged Incidents", href: "/teacher/incident-management", icon: AlertCircle },
@@ -353,7 +352,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/academy-management/classes",
         "/office/academy-management/attendance",
         "/office/academy-management/my-lesson-plans",
-        "/office/academy-management/lesson-plan",
         "/office/academy-management/homework",
         "/office/academy-management/lesson-plan/review",
         "/teacher/incident-management",
@@ -397,9 +395,12 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         return { ...item, idx, visible: false }; // will decide below
       }
       const isDefaultBtn = isDefaultForItem(role, item.href || "");
-      const isBtnVisible = permissions?.items?.[item.href || ""] !== undefined
+      let isBtnVisible = permissions?.items?.[item.href || ""] !== undefined
         ? permissions.items[item.href || ""]
         : isDefaultBtn;
+      if (role === "TEACHER" && item.href === "/office/academy-management/lesson-plan") {
+        isBtnVisible = false;
+      }
       return { ...item, idx, visible: isBtnVisible };
     });
 

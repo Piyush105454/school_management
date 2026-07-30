@@ -84,7 +84,8 @@ export async function GET(req: NextRequest) {
             : undefined,
         )
       )
-      .orderBy(desc(scholarshipRecords.createdAt));
+      .orderBy(desc(scholarshipRecords.createdAt))
+      .limit(admissionIdParam ? 1000 : 100);
 
     // Fetch criteria data for all records - now with month/year filtering
     const attendanceMap = new Map();

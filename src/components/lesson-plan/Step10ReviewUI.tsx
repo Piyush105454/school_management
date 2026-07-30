@@ -83,6 +83,28 @@ export default function Step10ReviewUI({
     lessonPlanData.status === "APPROVED" || lessonPlanData.status === "COMPLETED";
   const isCompleted = lessonPlanData.status === "COMPLETED";
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const deliveryDate = lessonPlanData.deliveryDate || lessonPlanData.date || "";
+
+  let effectiveStatus = lessonPlanData.status || "DRAFT";
+  if (deliveryDate && todayStr > deliveryDate) {
+    if (effectiveStatus === "SUBMITTED") effectiveStatus = "OVERDUE_REVIEW";
+    if (effectiveStatus === "REVIEWED") effectiveStatus = "OVERDUE_APPROVE";
+  }
+
+  const renderHtmlContent = (content: string | undefined | null) => {
+    if (!content) return emDash;
+    if (/<[a-z][\s\S]*>/i.test(content)) {
+      return (
+        <div
+          className="prose prose-sm max-w-none text-slate-800 leading-relaxed break-words"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      );
+    }
+    return <div className="whitespace-pre-wrap break-words">{content}</div>;
+  };
+
   const [goodStudents, setGoodStudents] = React.useState<string[]>(
     lessonPlanData.goodStudents || []
   );
@@ -213,10 +235,64 @@ export default function Step10ReviewUI({
       )}
 
       <div className="document-paper">
+        {/* Status Badge Banner */}
+        <div className="status-badge-banner mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-500">Current Status:</span>
+            {effectiveStatus === "DRAFT" && (
+              <span className="px-3.5 py-1 bg-slate-200/80 text-slate-700 border border-slate-300 rounded-full text-xs font-black uppercase tracking-wider">
+                📝 Draft (Saved)
+              </span>
+            )}
+            {effectiveStatus === "SUBMITTED" && (
+              <span className="px-3.5 py-1 bg-blue-100/80 text-blue-700 border border-blue-300 rounded-full text-xs font-black uppercase tracking-wider">
+                ⏳ Pending Specialist Review
+              </span>
+            )}
+            {effectiveStatus === "REVIEWED" && (
+              <span className="px-3.5 py-1 bg-indigo-100/80 text-indigo-700 border border-indigo-300 rounded-full text-xs font-black uppercase tracking-wider">
+                📋 Reviewed · Pending Principal Approval
+              </span>
+            )}
+            {effectiveStatus === "APPROVED" && (
+              <span className="px-3.5 py-1 bg-emerald-100/80 text-emerald-700 border border-emerald-300 rounded-full text-xs font-black uppercase tracking-wider">
+                ✅ Approved · Pending Delivery
+              </span>
+            )}
+            {effectiveStatus === "COMPLETED" && (
+              <span className="px-3.5 py-1 bg-teal-100/80 text-teal-700 border border-teal-300 rounded-full text-xs font-black uppercase tracking-wider">
+                🏆 Completed & Signed Off
+              </span>
+            )}
+            {effectiveStatus === "REJECTED" && (
+              <span className="px-3.5 py-1 bg-rose-100/80 text-rose-700 border border-rose-300 rounded-full text-xs font-black uppercase tracking-wider">
+                ❌ Rejected
+              </span>
+            )}
+            {effectiveStatus === "OVERDUE_REVIEW" && (
+              <span className="px-3.5 py-1 bg-amber-100 text-amber-900 border border-amber-400 rounded-full text-xs font-black uppercase tracking-wider animate-pulse flex items-center gap-1.5 shadow-xs">
+                <span>⚠️</span> Overdue Review (Delivery Date Passed)
+              </span>
+            )}
+            {effectiveStatus === "OVERDUE_APPROVE" && (
+              <span className="px-3.5 py-1 bg-rose-100 text-rose-900 border border-rose-400 rounded-full text-xs font-black uppercase tracking-wider animate-pulse flex items-center gap-1.5 shadow-xs">
+                <span>⚠️</span> Overdue Approval (Delivery Date Passed)
+              </span>
+            )}
+          </div>
+          {deliveryDate && (
+            <span className="text-xs font-bold text-slate-500">
+              Delivery Date: <strong className="text-slate-900">{deliveryDate}</strong>
+            </span>
+          )}
+        </div>
+
         <div className="doc-head">
-          <h3>Dhanpuri Public School</h3>
+          <h3 className="text-lg font-black text-slate-900 m-0">
+            {lessonPlanData.selectedInstitute || "Dhanpuri Public School"}
+          </h3>
           <div className="doc-meta">
-            Lesson Plan Type: {lessonPlanData.lessonType || emDash} {bullet} ID: {lessonPlanData.id || emDash}
+            Lesson Plan Type: <strong>{lessonPlanData.lessonType || emDash}</strong> {bullet} ID: <strong>{lessonPlanData.id || emDash}</strong>
           </div>
         </div>
 
@@ -271,7 +347,7 @@ export default function Step10ReviewUI({
                 <th className="section-cell" rowSpan={2}>Opening Time<br/><span>(5 mins)</span></th>
                 <td className="time-cell">2 mins</td>
                 <th className="label-cell">Energizer Fun Activity</th>
-                <td className="content-cell">{lessonPlanData.energizer || emDash}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.energizer)}</td>
               </tr>
               <tr>
                 <td className="time-cell">3 mins</td>
@@ -294,22 +370,22 @@ export default function Step10ReviewUI({
                 <th className="section-cell" rowSpan={5}>Active Learning<br/><span>(30 mins)</span></th>
                 <td className="time-cell">2 mins</td>
                 <th className="label-cell">Lesson Introduction</th>
-                <td className="content-cell">{lessonPlanData.lessonHook || emDash}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.lessonHook)}</td>
               </tr>
               <tr>
                 <td className="time-cell">12 mins</td>
                 <th className="label-cell">Teaching Notes</th>
-                <td className="content-cell">{(lessonPlanData.teachingNotes || lessonPlanData.teacherOwnNotes) || emDash}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.teachingNotes || lessonPlanData.teacherOwnNotes)}</td>
               </tr>
               <tr>
                 <td className="time-cell">8 mins</td>
                 <th className="label-cell">{lessonPlanData.lessonType === "Q&A" ? "Inspection & Support" : "Lesson Activity"}</th>
-                <td className="content-cell">{lessonPlanData.activityTitle || lessonPlanData.quieterStudentSupport || emDash}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.activityTitle || lessonPlanData.quieterStudentSupport)}</td>
               </tr>
               <tr>
                 <td className="time-cell">5 mins</td>
                 <th className="label-cell">Knowledge Building · Discussion</th>
-                <td className="content-cell">{lessonPlanData.discussionPlan || emDash}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.discussionPlan)}</td>
               </tr>
               <tr>
                 <td className="time-cell">3 mins</td>
@@ -320,12 +396,12 @@ export default function Step10ReviewUI({
                 <th className="section-cell" rowSpan={2}>Closing Time<br/><span>(5 mins)</span></th>
                 <td className="time-cell">2 mins</td>
                 <th className="label-cell">Lesson Closure, Reward & Recognition</th>
-                <td className="content-cell">{lessonPlanData.rewardCriteria || emDash}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.rewardCriteria)}</td>
               </tr>
               <tr>
                 <td className="time-cell">3 mins</td>
                 <th className="label-cell">Homework & Feedback</th>
-                <td className="content-cell">{lessonPlanData.homeworkTask || "No homework assigned."}</td>
+                <td className="content-cell">{renderHtmlContent(lessonPlanData.homeworkTask || "No homework assigned.")}</td>
               </tr>
             </tbody>
           </table>

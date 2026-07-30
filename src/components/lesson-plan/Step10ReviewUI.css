@@ -254,6 +254,33 @@
   background: #f1f5f9;
 }
 
+.doc-head {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+.doc-head h3 {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+  text-align: left !important;
+}
+
+.doc-head .doc-meta {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  margin: 0 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
 /* Preview Paper */
 .preview-paper {
   background: #ffffff;
@@ -562,15 +589,22 @@
   border-radius: 12px;
 }
 
-@media (max-width: 1024px) {
-  .grid-layout,
-  .meta-grid,
-  .post-delivery-grid,
-  .preview-foot {
-    grid-template-columns: 1fr;
-  }
-  .col-6 {
-    grid-column: span 12;
-  }
+/* Link Styling inside Content Cells & Documents */
+.content-cell a,
+.prose a,
+.document-paper a {
+  color: #2563eb !important;
+  text-decoration: underline !important;
+  font-weight: 600 !important;
+  word-break: break-all;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.content-cell a:hover,
+.prose a:hover,
+.document-paper a:hover {
+  color: #1d4ed8 !important;
+  text-decoration: underline !important;
 }
 

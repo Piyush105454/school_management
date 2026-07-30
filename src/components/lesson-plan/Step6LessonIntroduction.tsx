@@ -24,15 +24,15 @@ export default function Step6LessonIntroduction({
     <section className="step-page active" data-step="5">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 6 Â· Lesson Introduction</div>
+          <div className="eyebrow">Step 6 · Lesson Introduction</div>
           <h2>Prepare a clear introduction that brings students into the topic.</h2>
           <p>Use a familiar question, situation, object, image, previous lesson or short story.</p>
         </div>
-        <div className="hero-art">ðŸ’¡</div>
+        <div className="hero-art">🚀</div>
       </div>
 
       <div className="connection">
-        <div>ðŸ’¡</div>
+        <div>✦</div>
         <div>
           <strong>Connect before you instruct.</strong>
           <p>
@@ -52,7 +52,7 @@ export default function Step6LessonIntroduction({
             name="lessonHook"
             value={formData.lessonHook || ""}
             onChange={(e) => handleChange("lessonHook", e.target.value)}
-            placeholder="Write how you will start the lesson in 1â€“2 minutes: a question, a short story, a real example or an object."
+            placeholder="Write how you will start the lesson in 1–2 minutes: a question, a short story, a real example or an object."
             disabled={!isEditable}
             rows={5}
             required

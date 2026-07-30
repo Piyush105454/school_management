@@ -37,11 +37,11 @@ export default function Step5LessonActivity({
     <section className="step-page active" data-step="4">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 5 Â· Lesson Activity</div>
+          <div className="eyebrow">Step 5 · Lesson Activity</div>
           <h2>What will students do with the learning?</h2>
           <p>Choose a simple activity that students can realistically complete in this class.</p>
         </div>
-        <div className="hero-art">ðŸŽ¨</div>
+        <div className="hero-art">🧪</div>
       </div>
 
       <div className="card" style={{ marginBottom: "20px" }}>

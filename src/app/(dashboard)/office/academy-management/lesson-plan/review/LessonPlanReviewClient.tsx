@@ -36,6 +36,18 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     }
   };
   const [plans, setPlans] = useState(initialPlans);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((session) => {
+        if (session?.user?.role === "ADMIN") {
+          setIsAdmin(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const { dbClasses } = useInstitute();
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -635,13 +647,15 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                               Incomplete
                             </span>
                           )}
-                          <button
-                            onClick={() => handleDelete(plan.id)}
-                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                            title="Delete Lesson Plan"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDelete(plan.id)}
+                              className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                              title="Delete Lesson Plan"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -714,6 +728,12 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     lessonType: selectedPlan.type === "QA" ? "Q&A" : (step1.lessonType || step2.lessonType || "Explanation"),
     ...step1,
     ...step2,
+    reviewerRemark: selectedPlan.reviewerRemark || step2.reviewerRemark || step2.specialistFeedback || "",
+    reviewerNote: selectedPlan.reviewerRemark || step2.reviewerNote || step2.specialistFeedback || "",
+    specialistFeedback: selectedPlan.reviewerRemark || step2.specialistFeedback || step2.reviewerNote || "",
+    principalRemark: selectedPlan.principalRemark || step2.principalRemark || step2.finalApprovalFeedback || "",
+    approverNote: selectedPlan.principalRemark || step2.approverNote || step2.finalApprovalFeedback || "",
+    finalApprovalFeedback: selectedPlan.principalRemark || step2.finalApprovalFeedback || step2.approverNote || "",
   };
 
   return (
@@ -829,57 +849,91 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                 </div>
               )}
               {(() => {
-                const canTakeAction = ((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && selectedPlan.status === "REVIEWED"));
+                const todayStr = new Date().toISOString().split("T")[0];
+                const selectedDeliveryDate = selectedPlan?.deliveryDate || selectedPlan?.date || (selectedPlan?.step1Data ? (typeof selectedPlan.step1Data === 'string' ? JSON.parse(selectedPlan.step1Data).deliveryDate : selectedPlan.step1Data.deliveryDate) : "");
+
+                const isReviewOverdue = selectedPlan?.status === "SUBMITTED" && selectedDeliveryDate && todayStr > selectedDeliveryDate;
+                const isApproveOverdue = selectedPlan?.status === "REVIEWED" && selectedDeliveryDate && todayStr > selectedDeliveryDate;
+                const isOverdue = isReviewOverdue || isApproveOverdue;
+
+                const canTakeAction = !isOverdue && ((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && selectedPlan.status === "REVIEWED"));
+
                 return (
-                  <textarea 
-                    value={remark}
-                    onChange={(e) => setRemark(e.target.value)}
-                    placeholder={canTakeAction ? "Enter feedback for the teacher (Required for rejection)..." : ""}
-                    readOnly={!canTakeAction}
-                    ref={adjustHeight}
-                    onInput={(e) => adjustHeight(e.currentTarget)}
-                    className={`w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none overflow-hidden ${!canTakeAction ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  />
+                  <>
+                    {isReviewOverdue && (
+                      <div className="flex items-center gap-3 p-4 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-2xl font-bold text-xs mb-4">
+                        <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+                        <span>Overdue Review Restriction: The delivery date ({selectedDeliveryDate}) has passed. Specialist review cannot be submitted after the delivery date.</span>
+                      </div>
+                    )}
+                    {isApproveOverdue && (
+                      <div className="flex items-center gap-3 p-4 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-2xl font-bold text-xs mb-4">
+                        <AlertTriangle className="h-5 w-5 text-purple-400 shrink-0" />
+                        <span>Overdue Approval Restriction: The delivery date ({selectedDeliveryDate}) has passed. Principal approval cannot be issued after the delivery date.</span>
+                      </div>
+                    )}
+                    <textarea 
+                      value={remark}
+                      onChange={(e) => setRemark(e.target.value)}
+                      placeholder={canTakeAction ? "Enter feedback for the teacher (Required for rejection)..." : "Actions restricted for this lesson plan..."}
+                      readOnly={!canTakeAction}
+                      ref={adjustHeight}
+                      onInput={(e) => adjustHeight(e.currentTarget)}
+                      className={`w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-medium outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none overflow-hidden ${!canTakeAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    />
+                  </>
                 );
               })()}
             </div>
 
             <div className="flex items-center justify-end gap-4">
-              {/* Show Reject for Specialist (only on SUBMITTED) or Approver (only on REVIEWED) */}
-              {((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && selectedPlan.status === "REVIEWED")) && (
-                <button 
-                  onClick={() => handleAction("REJECTED")}
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 px-8 py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all disabled:opacity-30 shadow-lg shadow-rose-500/10"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject & Send Back
-                </button>
-              )}
+              {(() => {
+                const todayStr = new Date().toISOString().split("T")[0];
+                const selectedDeliveryDate = selectedPlan?.deliveryDate || selectedPlan?.date || (selectedPlan?.step1Data ? (typeof selectedPlan.step1Data === 'string' ? JSON.parse(selectedPlan.step1Data).deliveryDate : selectedPlan.step1Data.deliveryDate) : "");
+                const isOverdue = selectedDeliveryDate && todayStr > selectedDeliveryDate;
 
-              {/* Show Validate only for Specialists (not approvers) on SUBMITTED */}
-              {isTeacher && !isApprover && selectedPlan.status === "SUBMITTED" && (
-                <button 
-                  onClick={() => handleAction("REVIEWED")}
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Reviewed
-                </button>
-              )}
+                if (isOverdue) return null;
 
-              {/* Show Approve only for Approvers on REVIEWED */}
-              {isApprover && selectedPlan.status === "REVIEWED" && (
-                <button 
-                  onClick={() => handleAction("APPROVED")}
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Approve Plan
-                </button>
-              )}
+                return (
+                  <>
+                    {/* Show Reject for Specialist (only on SUBMITTED) or Approver (only on REVIEWED) */}
+                    {((isTeacher && !isApprover && selectedPlan.status === "SUBMITTED") || (isApprover && selectedPlan.status === "REVIEWED")) && (
+                      <button 
+                        onClick={() => handleAction("REJECTED")}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-8 py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all disabled:opacity-30 shadow-lg shadow-rose-500/10"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Reject & Send Back
+                      </button>
+                    )}
+
+                    {/* Show Validate only for Specialists (not approvers) on SUBMITTED */}
+                    {isTeacher && !isApprover && selectedPlan.status === "SUBMITTED" && (
+                      <button 
+                        onClick={() => handleAction("REVIEWED")}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        Reviewed
+                      </button>
+                    )}
+
+                    {/* Show Approve only for Approvers on REVIEWED */}
+                    {isApprover && selectedPlan.status === "REVIEWED" && (
+                      <button 
+                        onClick={() => handleAction("APPROVED")}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 disabled:opacity-30"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        Approve Lesson Plan
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

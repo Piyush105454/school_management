@@ -25,18 +25,18 @@ export default function Step7LearningIndicators({
     <section className="step-page active" data-step="6">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 7 Â· Learning Indicators</div>
+          <div className="eyebrow">Step 7 · Learning Indicators</div>
           <h2>How will you check if students learned?</h2>
           <p>
-            Write 2â€“3 visible indicators. Each one should help you check students during or
+            Write 2–3 visible indicators. Each one should help you check students during or
             immediately after the lesson.
           </p>
         </div>
-        <div className="hero-art">ðŸ“Š</div>
+        <div className="hero-art">📊</div>
       </div>
 
       <div className="connection">
-        <div>âœ“</div>
+        <div>✓</div>
         <div>
           <strong>Think about what you can actually see, hear or check in class.</strong>
           <p>

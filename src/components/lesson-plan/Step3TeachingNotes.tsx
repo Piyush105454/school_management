@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import RichTextEditor from "@/components/common/RichTextEditor";
 
 interface Step3TeachingNotesProps {
   formData: {
@@ -23,11 +24,18 @@ export default function Step3TeachingNotes({
 
   const isQALesson = formData.lessonType === "Q&A";
 
+  const adjustTextarea = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${Math.max(el.scrollHeight, 80)}px`;
+    }
+  };
+
   return (
     <section className="step-page active" data-step="2">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 3 Â· Teaching Notes</div>
+          <div className="eyebrow">Step 3 · Teaching Notes</div>
           <h2>
             {isQALesson
               ? "Write the questions, answers and teaching flow you will use."
@@ -39,11 +47,11 @@ export default function Step3TeachingNotes({
               : "Keep it simple. Write in the same order in which you will teach."}
           </p>
         </div>
-        <div className="hero-art">ðŸ“</div>
+        <div className="hero-art">📝</div>
       </div>
 
       <div className="connection">
-        <div>âœ¦</div>
+        <div>✦</div>
         <div>
           <strong>Easy way to write:</strong>
           <p>
@@ -58,22 +66,20 @@ export default function Step3TeachingNotes({
         <div className="field">
           <label className="required" htmlFor="teacherOwnNotes">
             {isQALesson
-              ? "Teacherâ€™s own Q&A teaching notes"
-              : "Teacherâ€™s own teaching notes"}
+              ? "Teacher's own Q&A teaching notes"
+              : "Teacher's own teaching notes"}
           </label>
-          <textarea
+          <RichTextEditor
             id="teacherOwnNotes"
-            name="teacherOwnNotes"
             value={formData.teacherOwnNotes || ""}
-            onChange={(e) => handleChange("teacherOwnNotes", e.target.value)}
+            onChange={(val) => handleChange("teacherOwnNotes", val)}
             placeholder={
               isQALesson
-                ? "Write your complete Q&A teaching flow here:\n\n1. Read / ask the first questionâ€¦\n2. Let students answerâ€¦\n3. Explain the correct answerâ€¦\n4. Continue with the next questionâ€¦"
-                : "Write your teaching flow here. Short points or numbering are enough:\n\n1. First I will explainâ€¦\n2. Then I will ask / solveâ€¦\n3. Students will respondâ€¦\n4. Finally I will summariseâ€¦"
+                ? "Write your complete Q&A teaching flow here:\n\n1. Read / ask the first question...\n2. Let students answer...\n3. Explain the correct answer...\n4. Continue with the next question..."
+                : "Write your teaching flow here. Short points or numbering are enough:\n\n1. First I will explain...\n2. Then I will ask / solve...\n3. Students will respond...\n4. Finally I will summarise..."
             }
             disabled={!isEditable}
-            rows={10}
-            required
+            minHeight="180px"
           />
         </div>
 
@@ -83,10 +89,16 @@ export default function Step3TeachingNotes({
             id="teachingReferences"
             name="teachingReferences"
             value={formData.teachingReferences || ""}
-            onChange={(e) => handleChange("teachingReferences", e.target.value)}
+            ref={adjustTextarea}
+            onInput={(e) => adjustTextarea(e.currentTarget)}
+            onChange={(e) => {
+              adjustTextarea(e.currentTarget);
+              handleChange("teachingReferences", e.target.value);
+            }}
             placeholder="Textbook page, notebook exercise, chart or board diagram reference."
             disabled={!isEditable}
             rows={3}
+            style={{ overflow: "hidden", resize: "none" }}
           />
         </div>
       </div>

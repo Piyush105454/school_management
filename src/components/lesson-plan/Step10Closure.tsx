@@ -33,18 +33,18 @@ export default function Step10Closure({
     <section className="step-page active" data-step="9">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 10 Â· Closure & Reward</div>
+          <div className="eyebrow">Step 10 · Closure & Reward</div>
           <h2>How will you close the lesson and recognise effort?</h2>
           <p>
             The lesson summary, appreciation and closure guidance are already included. Plan only
             the reward or recognition.
           </p>
         </div>
-        <div className="hero-art">ðŸ†</div>
+        <div className="hero-art">🏆</div>
       </div>
 
       <div className="connection">
-        <div>âœ“</div>
+        <div>✓</div>
         <div>
           <strong>Recognition motivates when it is specific and fair.</strong>
           <p>

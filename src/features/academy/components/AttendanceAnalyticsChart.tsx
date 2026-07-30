@@ -154,10 +154,10 @@ export default function AttendanceAnalyticsChart({ data, months, year, genderFil
                 {isCompare ? (
                   <>
                     <Bar dataKey="malePct" name="Male" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={isStudentView ? 15 : 20}>
-                       <LabelList dataKey="malePct" position="top" fill="#475569" fontSize="9" fontWeight="bold" formatter={(val: number) => val > 0 ? `${val}%` : ''} />
+                       <LabelList dataKey="malePct" position="top" fill="#475569" fontSize="9" fontWeight="bold" formatter={(val: any) => val > 0 ? `${val}%` : ''} />
                     </Bar>
                     <Bar dataKey="femalePct" name="Female" fill="#ec4899" radius={[4, 4, 0, 0]} maxBarSize={isStudentView ? 15 : 20}>
-                      <LabelList dataKey="femalePct" position="top" fill="#475569" fontSize="9" fontWeight="bold" formatter={(val: number) => val > 0 ? `${val}%` : ''} />
+                      <LabelList dataKey="femalePct" position="top" fill="#475569" fontSize="9" fontWeight="bold" formatter={(val: any) => val > 0 ? `${val}%` : ''} />
                     </Bar>
                   </>
                 ) : (

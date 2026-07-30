@@ -44,15 +44,15 @@ export default function Step2Objective({
     <section className="step-page active" data-step="1">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 2 Â· Objective</div>
+          <div className="eyebrow">Step 2 · Objective</div>
           <h2>What should students be able to do by the end?</h2>
           <p>Write one clear and realistic result for this lesson.</p>
         </div>
-        <div className="hero-art">ðŸŽ¯</div>
+        <div className="hero-art">🎯</div>
       </div>
 
       <div className="connection">
-        <div>â†’</div>
+        <div>✦</div>
         <div>
           <strong>One lesson, one clear direction.</strong>
           <p>Choose an action word and complete the sentence in your own words.</p>

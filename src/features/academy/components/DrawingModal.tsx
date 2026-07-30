@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { X, Save, Eraser, Trash2 } from "lucide-react";
+import "@excalidraw/excalidraw/index.css";
 
 // Dynamically import Excalidraw to prevent SSR issues
 const Excalidraw = dynamic(

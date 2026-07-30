@@ -76,6 +76,12 @@ export default async function LessonPlanPage({
           deliveryDate: step1.deliveryDate || plan.date,
           ...step1,
           ...step2,
+          reviewerRemark: plan.reviewerRemark || step2.reviewerRemark || step2.specialistFeedback || "",
+          reviewerNote: plan.reviewerRemark || step2.reviewerNote || step2.specialistFeedback || "",
+          specialistFeedback: plan.reviewerRemark || step2.specialistFeedback || step2.reviewerNote || "",
+          principalRemark: plan.principalRemark || step2.principalRemark || step2.finalApprovalFeedback || "",
+          approverNote: plan.principalRemark || step2.approverNote || step2.finalApprovalFeedback || "",
+          finalApprovalFeedback: plan.principalRemark || step2.finalApprovalFeedback || step2.approverNote || "",
           status: plan.status,
           date: plan.date,
         };

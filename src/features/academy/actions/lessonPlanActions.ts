@@ -322,10 +322,22 @@ export async function saveLessonPlan(data: {
 
 import { getTeacherCommitteePermissions } from "./committeeActions";
 
+let teachersCache: { data: any[]; timestamp: number } | null = null;
+
+async function getCachedTeachers() {
+  const now = Date.now();
+  if (teachersCache && now - teachersCache.timestamp < 30000) {
+    return teachersCache.data;
+  }
+  const teachersList = await db.query.teachers.findMany();
+  teachersCache = { data: teachersList, timestamp: now };
+  return teachersList;
+}
+
 export async function getLessonPlansForReview(specialization?: string, isTeacher: boolean = false, teacherId?: string) {
   try {
     const plans = await db.query.lessonPlans.findMany({
-      where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined, // Only filter drafts out for teachers
+      where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined,
       columns: {
         step1Data: false,
         step2Data: false,
@@ -346,7 +358,7 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
       orderBy: (lp, { desc }) => [desc(lp.updatedAt)],
     });
 
-    const allTeachers = await db.query.teachers.findMany();
+    const allTeachers = await getCachedTeachers();
     const plansWithProfiles = plans.map(p => {
       const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
       const defaultPrincipal = allTeachers.find(t =>
@@ -496,7 +508,7 @@ export async function getLessonPlanByDateAndSubject(
         }
       }
 
-      const allTeachers = await db.query.teachers.findMany();
+      const allTeachers = await getCachedTeachers();
       const specialist = existing.subject?.reviewerId1
         ? allTeachers.find(t => t.id === existing.subject?.reviewerId1)
         : existing.subject?.reviewerId2
@@ -566,7 +578,7 @@ export async function getLessonPlanById(id: string) {
         }
       }
 
-      const allTeachers = await db.query.teachers.findMany();
+      const allTeachers = await getCachedTeachers();
       const specialist = existing.subject?.reviewerId1
         ? allTeachers.find(t => t.id === existing.subject?.reviewerId1)
         : existing.subject?.reviewerId2
@@ -628,7 +640,7 @@ export async function getMyLessonPlans(teacherId: string) {
       orderBy: (lp, { desc }) => [desc(lp.date)],
     });
 
-    const allTeachers = await db.query.teachers.findMany();
+    const allTeachers = await getCachedTeachers();
     const plansWithProfiles = plans.map(p => {
       const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
       const defaultPrincipal = allTeachers.find(t =>

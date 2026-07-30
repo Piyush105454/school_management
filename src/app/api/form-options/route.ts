@@ -55,9 +55,6 @@ export async function GET(req: Request) {
       
       const classStudents = await db.query.students.findMany({
         where: eq(students.classId, parseInt(classId)),
-        with: {
-          profile: true
-        }
       });
       return NextResponse.json({ students: classStudents });
     }
