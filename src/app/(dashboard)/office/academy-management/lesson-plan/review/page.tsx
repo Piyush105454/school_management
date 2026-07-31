@@ -40,6 +40,8 @@ export default async function LessonPlanReviewPage() {
   }
 
   const res = await getLessonPlansForReview(specialization, isTeacher, teacherId);
+  const userRole = session?.user?.role;
+  const isAdmin = userRole === "ADMIN" || userRole === "OFFICE";
   
   return (
     <LessonPlanReviewClient 
@@ -47,6 +49,7 @@ export default async function LessonPlanReviewPage() {
       reviewerId={session?.user?.id || "SYSTEM"}
       isTeacher={isTeacher}
       isApprover={isApprover}
+      isAdmin={isAdmin}
     />
   );
 }

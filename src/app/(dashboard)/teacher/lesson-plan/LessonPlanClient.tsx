@@ -72,7 +72,8 @@ export default function LessonPlanClient({
     }
 
     if (urlPlanId) {
-      fetch(`/api/lesson-plan?id=${encodeURIComponent(urlPlanId)}`)
+      setLoading(true);
+      fetch(`/api/lesson-plan?id=${encodeURIComponent(urlPlanId)}&t=${Date.now()}`)
         .then((res) => res.json())
         .then((res) => {
           if (res.success && res.data) {

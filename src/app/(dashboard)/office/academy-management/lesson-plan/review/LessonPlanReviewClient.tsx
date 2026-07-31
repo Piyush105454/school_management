@@ -20,7 +20,8 @@ import {
   Trash2,
   ChevronLeft,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  RotateCcw
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 import { useInstitute } from "@/providers/InstituteProvider";
@@ -29,7 +30,19 @@ import "@/components/lesson-plan/AllStepsStyles.css";
 import "katex/dist/katex.min.css";
 import "react-quill-new/dist/quill.snow.css";
 
-export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTeacher = false, isApprover = false }: { initialPlans: any[], reviewerId: string, isTeacher?: boolean, isApprover?: boolean }) {
+export default function LessonPlanReviewClient({ 
+  initialPlans, 
+  reviewerId, 
+  isTeacher = false, 
+  isApprover = false,
+  isAdmin = false 
+}: { 
+  initialPlans: any[], 
+  reviewerId: string, 
+  isTeacher?: boolean, 
+  isApprover?: boolean,
+  isAdmin?: boolean 
+}) {
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
     if (el) {
       el.style.height = "auto";
@@ -37,18 +50,6 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     }
   };
   const [plans, setPlans] = useState(initialPlans);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/session")
-      .then((res) => res.json())
-      .then((session) => {
-        if (session?.user?.role === "ADMIN") {
-          setIsAdmin(true);
-        }
-      })
-      .catch(() => {});
-  }, []);
   const [searchTerm, setSearchTerm] = useState("");
   const { dbClasses } = useInstitute();
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -230,6 +231,44 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       }
     } catch (error: any) {
       alert("Error deleting lesson plan: " + error.message);
+    }
+  };
+
+  const handleUndoStatus = async (plan: any) => {
+    let targetStatus: 'DRAFT' | 'SUBMITTED' | 'REVIEWED' | 'APPROVED' | 'COMPLETED' | null = null;
+    if (plan.status === 'COMPLETED') targetStatus = 'APPROVED';
+    else if (plan.status === 'APPROVED') targetStatus = 'REVIEWED';
+    else if (plan.status === 'REVIEWED') targetStatus = 'SUBMITTED';
+    else if (plan.status === 'SUBMITTED') targetStatus = 'DRAFT';
+
+    if (!targetStatus) {
+      alert("This lesson plan is already in DRAFT status.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to UNDO and revert this lesson plan status from "${plan.status}" back to "${targetStatus}"?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await updateLessonPlanStatus(
+        plan.id, 
+        targetStatus as any, 
+        plan.status === 'COMPLETED' ? plan.principalRemark || "" : plan.reviewerRemark || "", 
+        plan.reviewerId || "", 
+        targetStatus === 'APPROVED' || targetStatus === 'REVIEWED'
+      );
+      if (res.success) {
+        setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, status: targetStatus } : p));
+        alert(`Status reverted to ${targetStatus} successfully!`);
+      } else {
+        alert("Failed to undo status: " + res.error);
+      }
+    } catch (e: any) {
+      alert("Error reverting status: " + e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -621,26 +660,34 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                           <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-700">
                               {(() => {
+                                const hasBeenReviewed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(plan.status);
+                                if (hasBeenReviewed) {
+                                  if (plan.reviewerProfile?.name) {
+                                    return plan.reviewerProfile.name;
+                                  }
+                                  if (plan.reviewerId) {
+                                    if (plan.subject?.reviewer1 && (plan.subject.reviewer1.userId === plan.reviewerId || plan.subject.reviewer1.id === plan.reviewerId)) {
+                                      return plan.subject.reviewer1.name;
+                                    }
+                                    if (plan.subject?.reviewer2 && (plan.subject.reviewer2.userId === plan.reviewerId || plan.subject.reviewer2.id === plan.reviewerId)) {
+                                      return plan.subject.reviewer2.name;
+                                    }
+                                  }
+                                }
+
                                 const reviewerNames = [];
-                                // Try to get reviewer names from subject.reviewer1 and subject.reviewer2
                                 if (plan.subject?.reviewer1?.name) {
                                   reviewerNames.push(plan.subject.reviewer1.name);
                                 }
                                 if (plan.subject?.reviewer2?.name) {
                                   reviewerNames.push(plan.subject.reviewer2.name);
                                 }
-                                
-                                // If we have reviewer names, display them
                                 if (reviewerNames.length > 0) {
                                   return reviewerNames.join(" | ");
                                 }
-                                
-                                // Fallback to specialistProfile if available
                                 if (plan.specialistProfile?.name) {
                                   return plan.specialistProfile.name;
                                 }
-                                
-                                // Default fallback
                                 return "Reviewer";
                               })()}
                             </p>
@@ -656,7 +703,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         {plan.status === "APPROVED" || plan.status === "COMPLETED" ? (
                           <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-700">
-                              {plan.principalProfile?.name || plan.reviewerProfile?.name || "Principal"}
+                              {plan.principalProfile?.name || "Pending Approval"}
                             </p>
                             <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider">Approved</span>
                           </div>
@@ -684,13 +731,22 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                             </span>
                           )}
                           {isAdmin && (
-                            <button
-                              onClick={() => handleDelete(plan.id)}
-                              className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                              title="Delete Lesson Plan"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleUndoStatus(plan)}
+                                className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                title="Undo / Revert Status"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(plan.id)}
+                                className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                title="Delete Lesson Plan"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -735,8 +791,19 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
 
   // Show real reviewer if plan has been reviewed, else show both assigned reviewers as default
   const getReviewerNames = () => {
-    if (selectedPlan.reviewerProfile?.name) {
-      return selectedPlan.reviewerProfile.name;
+    const hasBeenReviewed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(selectedPlan.status);
+    if (hasBeenReviewed) {
+      if (selectedPlan.reviewerProfile?.name) {
+        return selectedPlan.reviewerProfile.name;
+      }
+      if (selectedPlan.reviewerId) {
+        if (selectedPlan.subject?.reviewer1 && (selectedPlan.subject.reviewer1.userId === selectedPlan.reviewerId || selectedPlan.subject.reviewer1.id === selectedPlan.reviewerId)) {
+          return selectedPlan.subject.reviewer1.name;
+        }
+        if (selectedPlan.subject?.reviewer2 && (selectedPlan.subject.reviewer2.userId === selectedPlan.reviewerId || selectedPlan.subject.reviewer2.id === selectedPlan.reviewerId)) {
+          return selectedPlan.subject.reviewer2.name;
+        }
+      }
     }
     // Default: show both assigned reviewers so teacher knows who will review
     const assigned = [];
@@ -757,7 +824,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     deliveryDate: step1.deliveryDate || step2.deliveryDate || selectedPlan.date || "—",
     preparedBy: step1.preparedBy || step2.preparedBy || selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "—",
     reviewerName: getReviewerNames(),
-    approverName: (selectedPlan as any).principalProfile?.name || (selectedPlan.status === "APPROVED" ? step1.approverName || step2.approverName || "Academic Committee" : "Academic Committee"),
+    approverName: (selectedPlan as any).principalProfile?.name || "Pending Approval",
     lessonType: selectedPlan.type === "QA" ? "Q&A" : (step1.lessonType || step2.lessonType || "Explanation"),
     ...step1,
     ...step2,
@@ -849,6 +916,21 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               {(() => {
                 const principalName = selectedPlan.principalProfile?.name || "Principal";
                 const reviewerNames = (() => {
+                  const hasBeenReviewed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(selectedPlan.status);
+                  if (hasBeenReviewed) {
+                    if (selectedPlan.reviewerProfile?.name) {
+                      return selectedPlan.reviewerProfile.name;
+                    }
+                    if (selectedPlan.reviewerId) {
+                      if (selectedPlan.subject?.reviewer1 && (selectedPlan.subject.reviewer1.userId === selectedPlan.reviewerId || selectedPlan.subject.reviewer1.id === selectedPlan.reviewerId)) {
+                        return selectedPlan.subject.reviewer1.name;
+                      }
+                      if (selectedPlan.subject?.reviewer2 && (selectedPlan.subject.reviewer2.userId === selectedPlan.reviewerId || selectedPlan.subject.reviewer2.id === selectedPlan.reviewerId)) {
+                        return selectedPlan.subject.reviewer2.name;
+                      }
+                    }
+                  }
+
                   const names = [];
                   if (selectedPlan.subject?.reviewer1) {
                     const r1Name = selectedPlan.subject.reviewer1.name || selectedPlan.subject.reviewer1.id;
@@ -938,8 +1020,20 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         disabled={loading}
                         className="flex items-center justify-center gap-2 px-8 py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all disabled:opacity-30 shadow-lg shadow-rose-500/10"
                       >
-                        <XCircle className="h-4 w-4" />
-                        Reject & Send Back
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4" />
+                            Reject & Send Back
+                          </>
+                        )}
                       </button>
                     )}
 
@@ -950,8 +1044,20 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         disabled={loading}
                         className="flex items-center justify-center gap-2 px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 disabled:opacity-30"
                       >
-                        <CheckCircle className="h-4 w-4" />
-                        Reviewed
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Reviewing...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            Reviewed
+                          </>
+                        )}
                       </button>
                     )}
 
@@ -962,8 +1068,20 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                         disabled={loading}
                         className="flex items-center justify-center gap-2 px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 disabled:opacity-30"
                       >
-                        <CheckCircle className="h-4 w-4" />
-                        Approve Lesson Plan
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Approving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            Approve Lesson Plan
+                          </>
+                        )}
                       </button>
                     )}
                   </>

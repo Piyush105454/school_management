@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import { db } from "@/db";
-import { lessonPlans, classes, subjects } from "@/db/schema";
+import { lessonPlans, classes, subjects, teachers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -262,21 +263,28 @@ export async function GET(request: NextRequest) {
         lessonType: plan.type === "QA" ? "Q&A" : (step1.lessonType || "Explanation"),
         preparedBy: step1.preparedBy || plan.teacherProfile?.name || "",
         // After review: real reviewer. Before: both assigned reviewers
-        reviewerName: (plan as any).reviewerProfile?.name || 
-          [plan.subject?.reviewer1?.name, plan.subject?.reviewer2?.name]
-            .filter(Boolean).join(" | ") || step1.reviewerName || "Specialist",
-        // After approval: real approver. Before: "Academic Committee"
-        approverName: (() => {
-          if ((plan as any).approverId) {
-            // Look up approver from subject reviewers (they share userId)
-            const r1 = plan.subject?.reviewer1;
-            const r2 = plan.subject?.reviewer2;
-            if (r1 && (r1 as any).userId === (plan as any).approverId) return r1.name;
-            if (r2 && (r2 as any).userId === (plan as any).approverId) return r2.name;
-            // fallback to reviewerProfile if it is the approver
-            if ((plan as any).reviewerProfile?.userId === (plan as any).approverId) return (plan as any).reviewerProfile.name;
+        reviewerName: await (async () => {
+          const hasBeenReviewed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(plan.status);
+          if (hasBeenReviewed && plan.reviewerId) {
+            const reviewerTeacher = await db.query.teachers.findFirst({
+              where: eq(teachers.userId, plan.reviewerId)
+            });
+            if (reviewerTeacher) return reviewerTeacher.name;
           }
-          return "Academic Committee";
+          const assigned = [];
+          if (plan.subject?.reviewer1?.name) assigned.push(plan.subject.reviewer1.name);
+          if (plan.subject?.reviewer2?.name) assigned.push(plan.subject.reviewer2.name);
+          return assigned.length > 0 ? assigned.join(" | ") : step1.reviewerName || "Specialist";
+        })(),
+        // After approval: real approver. Before: "Pending Approval"
+        approverName: await (async () => {
+          if ((plan as any).approverId) {
+            const approverTeacher = await db.query.teachers.findFirst({
+              where: eq(teachers.userId, (plan as any).approverId)
+            });
+            if (approverTeacher) return approverTeacher.name;
+          }
+          return "Pending Approval";
         })(),
         prepDate: step1.prepDate || plan.date,
         deliveryDate: step1.deliveryDate || plan.date,
@@ -304,6 +312,8 @@ export async function GET(request: NextRequest) {
         createdAt: plan.createdAt,
         updatedAt: plan.updatedAt,
         date: plan.date,
+        reviewerId: plan.reviewerId,
+        approverId: plan.approverId,
       };
 
       console.log("API returning formData:", JSON.stringify(formData, null, 2));

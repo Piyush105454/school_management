@@ -23,7 +23,7 @@ export default function LessonPlanReviewPage() {
 
         setHasId(true);
         console.log(`Fetching lesson plan with id: ${id}`);
-        const response = await fetch(`/api/lesson-plan?id=${id}`);
+        const response = await fetch(`/api/lesson-plan?id=${id}&t=${Date.now()}`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

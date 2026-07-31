@@ -122,9 +122,10 @@ export async function saveLessonPlan(data: {
       const existing = await db.query.lessonPlans.findFirst({ where: eq(lessonPlans.id, data.id) });
       const existingStep2 = parseStep2(existing?.step2Data);
 
-      // Merge: only update the current mode's sub-object, preserve the other mode's data
+      // Merge: update sub-objects and root properties with new data
       const mergedStep2 = {
         ...existingStep2,
+        ...data.step2Data,
         sharedData: { ...(existingStep2.sharedData || {}), ...(data.step2Data.sharedData || {}) },
         explanationData: data.type === "EXPLANATION" || data.type === "PREPRIMARY"
           ? { ...(existingStep2.explanationData || {}), ...(data.step2Data.explanationData || {}) }
@@ -357,16 +358,15 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
     const allTeachers = await getCachedTeachers();
     const plansWithProfiles = plans.map(p => {
       const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
-      const isReviewerIdPrincipal = p.reviewerProfile?.assignedRole === 'PRINCIPAL';
       // Resolve approver manually: match teacher.userId === plan.approverId
       const approverProfile = (p as any).approverId
         ? allTeachers.find(t => t.userId === (p as any).approverId) || null
         : null;
       return { 
         ...p, 
-        reviewerProfile: isReviewerIdPrincipal ? null : p.reviewerProfile,
+        reviewerProfile: p.reviewerProfile,
         specialistProfile: specialist || null,
-        principalProfile: approverProfile || (isReviewerIdPrincipal ? p.reviewerProfile : null)
+        principalProfile: approverProfile
       };
     });
 
@@ -462,7 +462,12 @@ export async function getLessonPlanByDateAndSubject(
         ),
         with: {
           class: true,
-          subject: true,
+          subject: {
+            with: {
+              reviewer1: true,
+              reviewer2: true,
+            }
+          },
           teacherProfile: true,
           teacherUser: true,
           reviewerProfile: true,
@@ -548,7 +553,12 @@ export async function getLessonPlanById(id: string) {
         where: eq(lessonPlans.id, id),
         with: {
           class: true,
-          subject: true,
+          subject: {
+            with: {
+              reviewer1: true,
+              reviewer2: true,
+            }
+          },
           teacherProfile: true,
           teacherUser: true,
           reviewerProfile: true,
@@ -594,14 +604,13 @@ export async function getLessonPlanById(id: string) {
       const approverProfile = (existing as any).approverId
         ? allTeachers.find(t => t.userId === (existing as any).approverId) || null
         : null;
-      const isReviewerIdPrincipal = existing.reviewerProfile?.assignedRole === 'PRINCIPAL';
       return { 
         success: true, 
         data: { 
           ...existing, 
-          reviewerProfile: isReviewerIdPrincipal ? null : existing.reviewerProfile,
+          reviewerProfile: existing.reviewerProfile,
           specialistProfile: specialist || null, 
-          principalProfile: approverProfile || (isReviewerIdPrincipal ? existing.reviewerProfile : null)
+          principalProfile: approverProfile
         } 
       };
     }
