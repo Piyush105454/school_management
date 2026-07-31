@@ -284,7 +284,7 @@ export default function LessonPlanClient({
       const result = await res.json();
       if (res.ok && result.success) {
         setFormData((prev: any) => ({ ...prev, ...postDeliveryData, status: "COMPLETED" }));
-        alert("Lesson Plan Post-Delivery Record submitted and signed off successfully!");
+        return true;
       } else {
         alert(`Error saving post-delivery record: ${result.error || "Unknown error"}`);
       }

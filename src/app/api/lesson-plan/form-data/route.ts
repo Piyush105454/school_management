@@ -71,13 +71,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (classRecord) {
-      // Find approver for this institute
-      const approver = await db.query.teachers.findFirst({
-        where: eq(teachers.institute, classRecord.institute || ""),
-      });
-      if (approver?.name) {
-        response.approverName = approver.name;
-      }
+      // Approver defaults to "Academic Committee" — the real approver's name
+      // is shown only after they actually approve the lesson plan.
+      response.approverName = "Academic Committee";
 
       // Collect subject names for dropdown
       response.subjects = (classRecord.subjects || [])

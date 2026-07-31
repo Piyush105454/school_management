@@ -83,7 +83,7 @@ export default async function LessonPlanPage({
           lessonType: plan.type === "QA" ? "Q&A" : (step1.lessonType || "Explanation"),
           preparedBy: step1.preparedBy || plan.teacherProfile?.name || "",
           reviewerName: step1.reviewerName || "",
-          approverName: step1.approverName || "",
+          approverName: step1.approverName || "Academic Committee",
           prepDate: step1.prepDate || plan.date,
           deliveryDate: step1.deliveryDate || plan.date,
           ...step1,

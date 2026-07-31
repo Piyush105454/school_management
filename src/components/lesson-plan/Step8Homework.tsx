@@ -108,7 +108,16 @@ export default function Step8Homework({
                 name="homeworkDue"
                 type="date"
                 value={formData.homeworkDue || ""}
-
+                min={(() => {
+                  const del = (formData as any).deliveryDate || (formData as any).prepDate || new Date().toISOString().split("T")[0];
+                  return del;
+                })()}
+                max={(() => {
+                  const del = (formData as any).deliveryDate || (formData as any).prepDate || new Date().toISOString().split("T")[0];
+                  const d = new Date(del);
+                  d.setDate(d.getDate() + 6);
+                  return d.toISOString().split("T")[0];
+                })()}
                 onChange={(e) =>
                   setFormData((prev: any) => ({
                     ...prev,

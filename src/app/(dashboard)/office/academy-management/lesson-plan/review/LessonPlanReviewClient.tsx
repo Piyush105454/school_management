@@ -19,7 +19,8 @@ import {
   Loader2,
   Trash2,
   ChevronLeft,
-  Clock
+  Clock,
+  AlertTriangle
 } from "lucide-react";
 import { updateLessonPlanStatus, deleteLessonPlan } from "@/features/academy/actions/lessonPlanActions";
 import { useInstitute } from "@/providers/InstituteProvider";
@@ -54,12 +55,15 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
   const [remark, setRemark] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'REVIEWED' | 'APPROVED' | 'SIGNOFF' | 'REJECTED' | 'DRAFT' | 'ALL'>('PENDING');
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'REVIEWED' | 'APPROVED' | 'SIGNOFF' | 'REJECTED' | 'DRAFT' | 'ALL'>(
+    isApprover ? 'REVIEWED' : 'PENDING'
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
   const [filterDateRange, setFilterDateRange] = useState("ALL");
   const [customDate, setCustomDate] = useState("");
+  const [classListStudents, setClassListStudents] = useState<any[]>([]);
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -86,6 +90,20 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
       if (res.success && res.data) {
         setSelectedPlan({ ...plan, ...res.data });
         setRemark(isApprover ? (res.data.principalRemark || "") : (res.data.reviewerRemark || ""));
+        
+        // Fetch class students for student lists
+        const className = res.data.class?.name || res.data.className;
+        if (className) {
+          fetch(`/api/lesson-plan/form-data?className=${encodeURIComponent(className)}`)
+            .then((sRes) => sRes.json())
+            .then((data) => {
+              if (data.students && Array.isArray(data.students)) {
+                setClassListStudents(data.students);
+              }
+            })
+            .catch((err) => console.error("Failed to load class students in review:", err));
+        }
+        
         setActiveStep(1);
       } else {
         alert("Failed to load full lesson plan details.");
@@ -261,8 +279,26 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
         ? `${merged.rewardType}${merged.rewardCriteria ? ` - ${merged.rewardCriteria}` : ""}`
         : (merged.closure || "");
 
+      const goodStudents = (() => {
+        if (merged.goodStudents && Array.isArray(merged.goodStudents)) return merged.goodStudents;
+        if (typeof merged.studentPerformanceGood === 'string') {
+          return merged.studentPerformanceGood.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+        return Array.isArray(merged.studentPerformanceGood) ? merged.studentPerformanceGood : [];
+      })();
+
+      const needsSupportStudents = (() => {
+        if (merged.needsSupportStudents && Array.isArray(merged.needsSupportStudents)) return merged.needsSupportStudents;
+        if (typeof merged.studentPerformanceBad === 'string') {
+          return merged.studentPerformanceBad.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+        return Array.isArray(merged.studentPerformanceBad) ? merged.studentPerformanceBad : [];
+      })();
+
       return {
         ...merged,
+        goodStudents,
+        needsSupportStudents,
         openingTimeEnergizer: merged.openingTimeEnergizer || merged.energizer || "-",
         openingTimeRoadmap: merged.openingTimeRoadmap || objectiveText || "-",
         learningIndicators: indicators || "-",
@@ -640,7 +676,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
                               onClick={() => selectPlanForReview(plan)}
                               className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-colors active:scale-95 shadow-sm"
                             >
-                              Review Plan
+                              {isApprover ? "Approve Plan" : "Review Plan"}
                             </button>
                           ) : (
                             <span className="px-4 py-1.5 text-slate-400 text-[10px] font-black uppercase tracking-widest italic">
@@ -697,19 +733,16 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
   const step1 = getStep1Data();
   const step2 = getStep2Data();
 
-  // Build reviewer names from subject.reviewer1 and subject.reviewer2
+  // Show real reviewer if plan has been reviewed, else show both assigned reviewers as default
   const getReviewerNames = () => {
-    const reviewerNames = [];
-    if (selectedPlan.subject?.reviewer1?.name) {
-      reviewerNames.push(selectedPlan.subject.reviewer1.name);
+    if (selectedPlan.reviewerProfile?.name) {
+      return selectedPlan.reviewerProfile.name;
     }
-    if (selectedPlan.subject?.reviewer2?.name) {
-      reviewerNames.push(selectedPlan.subject.reviewer2.name);
-    }
-    if (reviewerNames.length > 0) {
-      return reviewerNames.join(" | ");
-    }
-    return step1.reviewerName || step2.reviewerName || selectedPlan.reviewerProfile?.name || "—";
+    // Default: show both assigned reviewers so teacher knows who will review
+    const assigned = [];
+    if (selectedPlan.subject?.reviewer1?.name) assigned.push(selectedPlan.subject.reviewer1.name);
+    if (selectedPlan.subject?.reviewer2?.name) assigned.push(selectedPlan.subject.reviewer2.name);
+    return assigned.length > 0 ? assigned.join(" | ") : step1.reviewerName || step2.reviewerName || "Specialist";
   };
 
   const fullPlanData = {
@@ -724,7 +757,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     deliveryDate: step1.deliveryDate || step2.deliveryDate || selectedPlan.date || "—",
     preparedBy: step1.preparedBy || step2.preparedBy || selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "—",
     reviewerName: getReviewerNames(),
-    approverName: step1.approverName || step2.approverName || (selectedPlan as any).principalProfile?.name || "—",
+    approverName: (selectedPlan as any).principalProfile?.name || (selectedPlan.status === "APPROVED" ? step1.approverName || step2.approverName || "Academic Committee" : "Academic Committee"),
     lessonType: selectedPlan.type === "QA" ? "Q&A" : (step1.lessonType || step2.lessonType || "Explanation"),
     ...step1,
     ...step2,
@@ -734,11 +767,12 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
     principalRemark: selectedPlan.principalRemark || step2.principalRemark || step2.finalApprovalFeedback || "",
     approverNote: selectedPlan.principalRemark || step2.approverNote || step2.finalApprovalFeedback || "",
     finalApprovalFeedback: selectedPlan.principalRemark || step2.finalApprovalFeedback || step2.approverNote || "",
+    status: selectedPlan.status,
   };
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button 
@@ -794,6 +828,7 @@ export default function LessonPlanReviewClient({ initialPlans, reviewerId, isTea
               setOwnershipConfirmed={() => {}}
               submissionNote={""}
               setSubmissionNote={() => {}}
+              classListStudents={classListStudents}
             />
           </div>
 

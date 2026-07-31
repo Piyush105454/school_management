@@ -115,12 +115,24 @@ export default function Step10ReviewUI({
     lessonPlanData.teacherObservation || ""
   );
 
+  // ✅ FIX: Re-sync state when lessonPlanData loads async
+  // React.useState only initialises once on mount, so if data arrives later it is ignored.
+  React.useEffect(() => {
+    if (lessonPlanData.goodStudents?.length) setGoodStudents(lessonPlanData.goodStudents);
+    if (lessonPlanData.needsSupportStudents?.length) setNeedsSupportStudents(lessonPlanData.needsSupportStudents);
+    if (lessonPlanData.teacherObservation) setTeacherObservation(lessonPlanData.teacherObservation);
+  }, [lessonPlanData.id]);
+
   const [confirmStep, setConfirmStep] = React.useState<number>(0);
   const [isSubmittingSignoff, setIsSubmittingSignoff] = React.useState<boolean>(false);
+  const [showCelebration, setShowCelebration] = React.useState<boolean>(false);
 
   const averageStudents = classListStudents.filter(
     (st) => !goodStudents.includes(st.name) && !needsSupportStudents.includes(st.name)
   );
+  // Filter lists so selected students don't appear in the other category
+  const eligibleForGood = classListStudents.filter((st) => !needsSupportStudents.includes(st.name));
+  const eligibleForNeedsSupport = classListStudents.filter((st) => !goodStudents.includes(st.name));
 
   const toggleStudent = (name: string, category: "GOOD" | "NEEDS_SUPPORT") => {
     if (isCompleted) return;
@@ -149,6 +161,7 @@ export default function Step10ReviewUI({
         status: "COMPLETED",
       });
       setConfirmStep(0);
+      setShowCelebration(true); // Show congrats modal!
     } catch (e: any) {
       alert(`Error completing sign-off: ${e.message || "Unknown error"}`);
     } finally {
@@ -245,8 +258,8 @@ export default function Step10ReviewUI({
               </span>
             )}
             {effectiveStatus === "SUBMITTED" && (
-              <span className="px-3.5 py-1 bg-blue-100/80 text-blue-700 border border-blue-300 rounded-full text-xs font-black uppercase tracking-wider">
-                ⏳ Pending Specialist Review
+              <span className="px-3.5 py-1 bg-blue-100 text-blue-700 border border-blue-300 rounded-full text-xs font-black uppercase tracking-wider">
+                ⏳ Pending Review
               </span>
             )}
             {effectiveStatus === "REVIEWED" && (
@@ -255,13 +268,13 @@ export default function Step10ReviewUI({
               </span>
             )}
             {effectiveStatus === "APPROVED" && (
-              <span className="px-3.5 py-1 bg-emerald-100/80 text-emerald-700 border border-emerald-300 rounded-full text-xs font-black uppercase tracking-wider">
-                ✅ Approved · Pending Delivery
+              <span className="px-3.5 py-1 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full text-xs font-black uppercase tracking-wider">
+                ✅ Approved
               </span>
             )}
             {effectiveStatus === "COMPLETED" && (
-              <span className="px-3.5 py-1 bg-teal-100/80 text-teal-700 border border-teal-300 rounded-full text-xs font-black uppercase tracking-wider">
-                🏆 Completed & Signed Off
+              <span className="px-3.5 py-1 bg-pink-100 text-pink-700 border border-pink-300 rounded-full text-xs font-black uppercase tracking-wider">
+                🏆 Signed Off
               </span>
             )}
             {effectiveStatus === "REJECTED" && (
@@ -432,115 +445,124 @@ export default function Step10ReviewUI({
           </div>
 
           <div className="post-delivery-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-            {/* Card 1: Good */}
-            <div className="delivery-box bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
-              <div>
-                <b className="text-sm font-bold text-slate-800 block mb-1">Good (Notable Performance)</b>
-                <p className="text-xs text-slate-500 mb-3">
-                  {isCompleted ? "Students who performed notably well:" : "Select students who performed notably well:"}
-                </p>
-                {isApprovedOrCompleted ? (
-                  <div className="student-select-box min-h-[120px]">
-                    {classListStudents.length > 0 ? (
-                      classListStudents.map((st) => (
-                        <label key={st.id} className="student-check-item">
-                          <input
-                            type="checkbox"
-                            checked={goodStudents.includes(st.name)}
-                            disabled={isCompleted}
-                            onChange={() => !isCompleted && toggleStudent(st.name, "GOOD")}
-                            className="accent-blue-600 rounded disabled:opacity-60"
-                          />
-                          <span>{st.name}</span>
-                        </label>
-                      ))
-                    ) : (
-                      <div className="text-xs text-slate-400 p-2 italic">No students loaded.</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="future-field">Student names will load when plan is approved.</div>
+
+            {/* Card 1: Good — green theme */}
+            <div className="delivery-box bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🌟</span>
+                <b className="text-sm font-bold text-emerald-800">Good</b>
+                {goodStudents.length > 0 && (
+                  <span className="ml-auto text-xs font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">{goodStudents.length}</span>
                 )}
               </div>
-            </div>
-
-            {/* Card 2: Needs Support */}
-            <div className="delivery-box bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
-              <div>
-                <b className="text-sm font-bold text-slate-800 block mb-1">Needs Support</b>
-                <p className="text-xs text-slate-500 mb-3">
-                  {isCompleted ? "Students who require further support:" : "Select students who require further support:"}
-                </p>
-                {isApprovedOrCompleted ? (
-                  <div className="student-select-box min-h-[120px]">
-                    {classListStudents.length > 0 ? (
-                      classListStudents.map((st) => (
-                        <label key={st.id} className="student-check-item">
-                          <input
-                            type="checkbox"
-                            checked={needsSupportStudents.includes(st.name)}
-                            disabled={isCompleted}
-                            onChange={() => !isCompleted && toggleStudent(st.name, "NEEDS_SUPPORT")}
-                            className="accent-blue-600 rounded disabled:opacity-60"
-                          />
-                          <span>{st.name}</span>
-                        </label>
-                      ))
-                    ) : (
-                      <div className="text-xs text-slate-400 p-2 italic">No students loaded.</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="future-field">Student names will load when plan is approved.</div>
-                )}
-              </div>
-            </div>
-
-            {/* Card 3: Average Students */}
-            <div className="delivery-box bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <b className="text-sm font-bold text-slate-800">Average ({averageStudents.length})</b>
-                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Auto</span>
+              <p className="text-xs text-emerald-700 mb-3 font-medium">Notable performance — select students:</p>
+              {isApprovedOrCompleted ? (
+                <div className="student-select-box min-h-[120px] bg-white/70 rounded-xl border border-emerald-200 p-2 flex flex-col gap-1">
+                  {eligibleForGood.length > 0 ? (
+                    eligibleForGood.map((st) => (
+                      <label key={st.id} className="flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer hover:bg-emerald-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={goodStudents.includes(st.name)}
+                          disabled={isCompleted}
+                          onChange={() => !isCompleted && toggleStudent(st.name, "GOOD")}
+                          className="accent-emerald-600 rounded disabled:opacity-60 w-4 h-4 shrink-0"
+                        />
+                        <span className={`text-xs font-semibold ${goodStudents.includes(st.name) ? "text-emerald-800" : "text-slate-600"}`}>{st.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-xs text-slate-400 p-2 italic">No students available.</div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500 mb-3">Students not in Good or Needs Support:</p>
-                {isApprovedOrCompleted ? (
-                  <div className="avg-chip-container min-h-[120px]">
-                    {averageStudents.length > 0 ? (
-                      averageStudents.map((st) => (
-                        <span key={st.id} className="avg-chip">
-                          {st.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">None</span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="future-field mb-3">Auto-filled based on selected categories.</div>
-                )}
-              </div>
+              ) : (
+                <div className="future-field bg-emerald-100/50 text-emerald-700 border border-emerald-200">Student names will load when plan is approved.</div>
+              )}
             </div>
 
-            {/* Card 4: Teacher Observation */}
-            <div className="delivery-box bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
-              <div>
-                <b className="text-sm font-bold text-slate-800 block mb-1">Teacher Observation *</b>
-                <p className="text-xs text-slate-500 mb-3">
-                  {isCompleted ? "Final classroom observation notes:" : "Record delivery observation before final sign-off:"}
-                </p>
-                {isApprovedOrCompleted ? (
-                  <textarea
-                    value={teacherObservation}
-                    readOnly={isCompleted}
-                    onChange={(e) => !isCompleted && setTeacherObservation(e.target.value)}
-                    placeholder="Record key observations..."
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-xs h-28 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800 disabled:bg-slate-50"
-                  />
-                ) : (
-                  <div className="future-field">Observation will be recorded after delivery.</div>
+            {/* Card 2: Needs Support — red theme */}
+            <div className="delivery-box bg-rose-50 border-2 border-rose-200 rounded-2xl p-4 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🆘</span>
+                <b className="text-sm font-bold text-rose-800">Needs Support</b>
+                {needsSupportStudents.length > 0 && (
+                  <span className="ml-auto text-xs font-bold bg-rose-600 text-white px-2 py-0.5 rounded-full">{needsSupportStudents.length}</span>
                 )}
               </div>
+              <p className="text-xs text-rose-700 mb-3 font-medium">Requires further support — select students:</p>
+              {isApprovedOrCompleted ? (
+                <div className="student-select-box min-h-[120px] bg-white/70 rounded-xl border border-rose-200 p-2 flex flex-col gap-1">
+                  {eligibleForNeedsSupport.length > 0 ? (
+                    eligibleForNeedsSupport.map((st) => (
+                      <label key={st.id} className="flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer hover:bg-rose-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={needsSupportStudents.includes(st.name)}
+                          disabled={isCompleted}
+                          onChange={() => !isCompleted && toggleStudent(st.name, "NEEDS_SUPPORT")}
+                          className="accent-rose-600 rounded disabled:opacity-60 w-4 h-4 shrink-0"
+                        />
+                        <span className={`text-xs font-semibold ${needsSupportStudents.includes(st.name) ? "text-rose-800" : "text-slate-600"}`}>{st.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-xs text-slate-400 p-2 italic">No students available.</div>
+                  )}
+                </div>
+              ) : (
+                <div className="future-field bg-rose-100/50 text-rose-700 border border-rose-200">Student names will load when plan is approved.</div>
+              )}
+            </div>
+
+            {/* Card 3: Average — amber/yellow theme, auto */}
+            <div className="delivery-box bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">📊</span>
+                <b className="text-sm font-bold text-amber-800">Average</b>
+                <span className="ml-auto text-xs font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">{averageStudents.length}</span>
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Auto</span>
+              </div>
+              <p className="text-xs text-amber-700 mb-3 font-medium">All remaining students (not in Good or Needs Support):</p>
+              {isApprovedOrCompleted ? (
+                <div className="avg-chip-container min-h-[120px] bg-white/70 rounded-xl border border-amber-200 p-2 flex flex-wrap content-start gap-1.5">
+                  {averageStudents.length > 0 ? (
+                    averageStudents.map((st) => (
+                      <span key={st.id} className="inline-flex items-center text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-full">
+                        {st.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-slate-400 italic p-1">All students categorised</span>
+                  )}
+                </div>
+              ) : (
+                <div className="future-field bg-amber-100/50 text-amber-700 border border-amber-200">Auto-filled based on selected categories.</div>
+              )}
+            </div>
+
+            {/* Card 4: Teacher Observation — blue theme */}
+            <div className="delivery-box bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">📝</span>
+                <b className="text-sm font-bold text-blue-800">Teacher Observation</b>
+                {!teacherObservation && isApprovedOrCompleted && !isCompleted && (
+                  <span className="ml-auto text-[10px] font-bold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">Required</span>
+                )}
+              </div>
+              <p className="text-xs text-blue-700 mb-3 font-medium">
+                {isCompleted ? "Final classroom observation notes:" : "Record delivery observation before final sign-off:"}
+              </p>
+              {isApprovedOrCompleted ? (
+                <textarea
+                  value={teacherObservation}
+                  readOnly={isCompleted}
+                  onChange={(e) => !isCompleted && setTeacherObservation(e.target.value)}
+                  placeholder="Record key observations about the lesson delivery, student engagement, and learning outcomes..."
+                  className="flex-1 w-full border border-blue-300 rounded-xl p-2.5 text-xs min-h-[120px] outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800 bg-white/80 disabled:bg-slate-50 resize-none"
+                />
+              ) : (
+                <div className="future-field bg-blue-100/50 text-blue-700 border border-blue-200">Observation will be recorded after delivery.</div>
+              )}
             </div>
           </div>
 
@@ -620,6 +642,42 @@ export default function Step10ReviewUI({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 🎉 Celebration / Congratulations Modal */}
+      {showCelebration && (
+        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-100 text-center relative overflow-hidden flex flex-col items-center">
+            {/* Background Confetti Pattern */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none select-none text-[32px] flex flex-wrap gap-4 p-4">
+              🎉 🌟 ✨ 🏆 🧑‍🏫 🎨 📝 📖 🍎 ⭐ 🚀 ⚡
+            </div>
+
+            {/* Main Trophy / Confetti Graphic */}
+            <div className="w-20 h-20 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-4xl mb-5 shadow-inner animate-bounce">
+              🏆
+            </div>
+
+            <h3 className="text-2xl font-black text-slate-900 mb-2">
+              Congratulations, Teacher! 🎉
+            </h3>
+            <p className="text-sm font-semibold text-slate-500 mb-6 max-w-xs leading-relaxed">
+              Your lesson plan is officially <strong>Signed Off & Completed</strong>! You are ready to deliver this awesome lesson in your classroom. 🌟
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowCelebration(false);
+                // Reload the page to reflect signed-off status in UI
+                window.location.reload();
+              }}
+              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+            >
+              Awesome, Let's Go! 🚀
+            </button>
           </div>
         </div>
       )}

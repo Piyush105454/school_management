@@ -335,43 +335,43 @@ function ReviewReadOnly({ formData }: any) {
 
       {/* Details Table - Main Content */}
       <div className="overflow-x-auto border-2 border-slate-300 rounded">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
           <tbody>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900 w-1/3">Class</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800">{display(formData?.className || formData?.class?.name)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 break-words">{display(formData?.className || formData?.class?.name)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Subject</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800">{display(formData?.subject || formData?.subject?.name)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 break-words">{display(formData?.subject || formData?.subject?.name)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Objective</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800">{display(formData?.objectiveText)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 break-words">{display(formData?.objectiveText)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Teaching Notes</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap max-w-xl">{display(formData?.teacherOwnNotes)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap break-words max-w-xl">{display(formData?.teacherOwnNotes)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Discussion & Participation</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap max-w-xl">{display(formData?.discussionPlan)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap break-words max-w-xl">{display(formData?.discussionPlan)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Lesson Activity</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap max-w-xl">{display(formData?.activityDescription)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap break-words max-w-xl">{display(formData?.activityDescription)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Lesson Introduction</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap max-w-xl">{display(formData?.lessonIntroduction)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap break-words max-w-xl">{display(formData?.lessonIntroduction)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Learning Indicators</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap max-w-xl">{display(formData?.learningIndicators)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 whitespace-pre-wrap break-words max-w-xl">{display(formData?.learningIndicators)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Homework</td>
-              <td className="border border-slate-300 bg-white p-3 text-slate-800">{display(formData?.homeworkGiven)}</td>
+              <td className="border border-slate-300 bg-white p-3 text-slate-800 break-words">{display(formData?.homeworkGiven)}</td>
             </tr>
             <tr>
               <td className="border border-slate-300 bg-slate-100 p-3 font-bold text-slate-900">Energizer</td>

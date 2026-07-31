@@ -446,6 +446,7 @@ export const lessonPlans = pgTable("lesson_plans", {
   reviewerId: uuid("reviewer_id").references(() => users.id),
   reviewerRemark: text("reviewer_remark"),
   principalRemark: text("principal_remark"),
+  approverId: uuid("approver_id").references(() => users.id), // user who actually approved this plan
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   internalId: serial("internal_id").unique(),
@@ -468,6 +469,8 @@ export const lessonPlansRelations = relations(lessonPlans, ({ one }) => ({
     fields: [lessonPlans.reviewerId],
     references: [teachers.userId],
   }),
+  // Note: approverProfile is resolved manually via getCachedTeachers() to avoid
+  // Drizzle multi-relation conflicts on the same table.
   class: one(classes, {
     fields: [lessonPlans.classId],
     references: [classes.id],

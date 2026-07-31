@@ -16,6 +16,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { id, status, ...formData } = body;
 
+    // Map arrays to comma-separated strings for backwards compatibility with DB schemas
+    if (formData.goodStudents && Array.isArray(formData.goodStudents)) {
+      formData.studentPerformanceGood = formData.goodStudents.join(", ");
+    }
+    if (formData.needsSupportStudents && Array.isArray(formData.needsSupportStudents)) {
+      formData.studentPerformanceBad = formData.needsSupportStudents.join(", ");
+    }
+
     const teacherId = session.user.id;
 
     // Convert className to classId by looking up in database
@@ -181,6 +189,7 @@ export async function GET(request: NextRequest) {
           },
           chapterDivision: true,
           teacherProfile: true,
+          reviewerProfile: true,
         }
       });
 
@@ -252,10 +261,39 @@ export async function GET(request: NextRequest) {
         pageTo: step1.pageTo || "",
         lessonType: plan.type === "QA" ? "Q&A" : (step1.lessonType || "Explanation"),
         preparedBy: step1.preparedBy || plan.teacherProfile?.name || "",
-        reviewerName: step1.reviewerName || "",
-        approverName: step1.approverName || "",
+        // After review: real reviewer. Before: both assigned reviewers
+        reviewerName: (plan as any).reviewerProfile?.name || 
+          [plan.subject?.reviewer1?.name, plan.subject?.reviewer2?.name]
+            .filter(Boolean).join(" | ") || step1.reviewerName || "Specialist",
+        // After approval: real approver. Before: "Academic Committee"
+        approverName: (() => {
+          if ((plan as any).approverId) {
+            // Look up approver from subject reviewers (they share userId)
+            const r1 = plan.subject?.reviewer1;
+            const r2 = plan.subject?.reviewer2;
+            if (r1 && (r1 as any).userId === (plan as any).approverId) return r1.name;
+            if (r2 && (r2 as any).userId === (plan as any).approverId) return r2.name;
+            // fallback to reviewerProfile if it is the approver
+            if ((plan as any).reviewerProfile?.userId === (plan as any).approverId) return (plan as any).reviewerProfile.name;
+          }
+          return "Academic Committee";
+        })(),
         prepDate: step1.prepDate || plan.date,
         deliveryDate: step1.deliveryDate || plan.date,
+        goodStudents: (() => {
+          if (step2.goodStudents && Array.isArray(step2.goodStudents)) return step2.goodStudents;
+          if (typeof step2.studentPerformanceGood === 'string') {
+            return step2.studentPerformanceGood.split(',').map((s: string) => s.trim()).filter(Boolean);
+          }
+          return Array.isArray(step2.studentPerformanceGood) ? step2.studentPerformanceGood : [];
+        })(),
+        needsSupportStudents: (() => {
+          if (step2.needsSupportStudents && Array.isArray(step2.needsSupportStudents)) return step2.needsSupportStudents;
+          if (typeof step2.studentPerformanceBad === 'string') {
+            return step2.studentPerformanceBad.split(',').map((s: string) => s.trim()).filter(Boolean);
+          }
+          return Array.isArray(step2.studentPerformanceBad) ? step2.studentPerformanceBad : [];
+        })(),
         ...step1,
         ...step2,
         reviewerNote: plan.reviewerRemark || step2.reviewerNote || step2.specialistFeedback || "",

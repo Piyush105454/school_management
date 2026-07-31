@@ -85,7 +85,7 @@ export default function Step5LessonActivity({
             name="activitySteps"
             value={formData.activitySteps || ""}
             onChange={(e) => handleChange("activitySteps", e.target.value)}
-            placeholder="Write 2â€“4 quick steps for how students will perform the activity."
+            placeholder="Write 2 4 quick steps for how students will perform the activity."
             disabled={!isEditable}
             rows={5}
             required

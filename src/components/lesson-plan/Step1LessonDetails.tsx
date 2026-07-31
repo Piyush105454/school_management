@@ -185,10 +185,15 @@ export default function Step1LessonDetails({
           setSubjectList(DEFAULT_SUBJECTS);
         }
 
-        if (data.approverName && data.approverName !== "NA") {
+        if (data.approverName) {
           setFormData((prev: any) => ({
             ...prev,
             approverName: data.approverName,
+          }));
+        } else {
+          setFormData((prev: any) => ({
+            ...prev,
+            approverName: prev.approverName || "Academic Committee",
           }));
         }
 
@@ -545,9 +550,9 @@ export default function Step1LessonDetails({
               <input
                 id="approverName"
                 name="approverName"
-                value={formData.approverName || ""}
+              value={formData.approverName || "Academic Committee"}
                 onChange={(e) => {}}
-                placeholder="Approver name"
+                placeholder="Academic Committee"
                 disabled={true}
               />
             </div>

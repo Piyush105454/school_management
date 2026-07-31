@@ -143,18 +143,20 @@ export default function SubjectManagement({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <button
-          onClick={() => {
-            setFormData({ name: "", bookName: "", medium: "English/Hindi" });
-            setIsModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-xs uppercase tracking-wider"
-        >
-          <Plus size={16} />
-          Add Subject
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              setFormData({ name: "", bookName: "", medium: "English/Hindi" });
+              setIsModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-xs uppercase tracking-wider"
+          >
+            <Plus size={16} />
+            Add Subject
+          </button>
+        </div>
+      )}
 
       {initialSubjects.length === 0 ? (
         <div className="bg-white border border-slate-200 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center gap-4 min-h-[300px] shadow-sm">

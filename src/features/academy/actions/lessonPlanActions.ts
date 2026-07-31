@@ -338,10 +338,6 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
   try {
     const plans = await db.query.lessonPlans.findMany({
       where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined,
-      columns: {
-        step1Data: false,
-        step2Data: false,
-      },
       with: {
         class: true,
         subject: {
@@ -361,16 +357,16 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
     const allTeachers = await getCachedTeachers();
     const plansWithProfiles = plans.map(p => {
       const specialist = p.subject?.reviewer1 || p.subject?.reviewer2 || null;
-      const defaultPrincipal = allTeachers.find(t =>
-        t.assignedRole === 'PRINCIPAL' &&
-        t.institute === p.class?.institute
-      );
       const isReviewerIdPrincipal = p.reviewerProfile?.assignedRole === 'PRINCIPAL';
+      // Resolve approver manually: match teacher.userId === plan.approverId
+      const approverProfile = (p as any).approverId
+        ? allTeachers.find(t => t.userId === (p as any).approverId) || null
+        : null;
       return { 
         ...p, 
         reviewerProfile: isReviewerIdPrincipal ? null : p.reviewerProfile,
-        specialistProfile: specialist || null, 
-        principalProfile: isReviewerIdPrincipal ? p.reviewerProfile : (defaultPrincipal || null) 
+        specialistProfile: specialist || null,
+        principalProfile: approverProfile || (isReviewerIdPrincipal ? p.reviewerProfile : null)
       };
     });
 
@@ -410,12 +406,22 @@ export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'R
     await db.update(lessonPlans)
       .set({
         status,
-        ...(isPrincipal ? { principalRemark: remark } : { reviewerRemark: remark, reviewerId }),
+        ...(isPrincipal 
+          ? { principalRemark: remark, approverId: reviewerId }  // save who approved
+          : { reviewerRemark: remark, reviewerId }
+        ),
         updatedAt: new Date()
       })
       .where(eq(lessonPlans.id, id));
 
-    revalidatePath('/office/academy-management/lesson-plan/review');
+    // Run path revalidation asynchronously in the background so it doesn't block the API response
+    setTimeout(() => {
+      try {
+        revalidatePath('/office/academy-management/lesson-plan/review');
+      } catch (err) {
+        console.error("Async revalidation failed:", err);
+      }
+    }, 0);
     return { success: true };
   } catch (error: any) {
     console.error('updateLessonPlanStatus error:', error);
@@ -514,10 +520,10 @@ export async function getLessonPlanByDateAndSubject(
         : existing.subject?.reviewerId2
         ? allTeachers.find(t => t.id === existing.subject?.reviewerId2)
         : null;
-      const defaultPrincipal = allTeachers.find(t =>
-        t.assignedRole === 'PRINCIPAL' &&
-        t.institute === existing.class?.institute
-      );
+      // Resolve approver manually
+      const approverProfile = (existing as any).approverId
+        ? allTeachers.find(t => t.userId === (existing as any).approverId) || null
+        : null;
       const isReviewerIdPrincipal = existing.reviewerProfile?.assignedRole === 'PRINCIPAL';
       return { 
         success: true, 
@@ -525,7 +531,7 @@ export async function getLessonPlanByDateAndSubject(
           ...existing, 
           reviewerProfile: isReviewerIdPrincipal ? null : existing.reviewerProfile,
           specialistProfile: specialist || null, 
-          principalProfile: isReviewerIdPrincipal ? existing.reviewerProfile : (defaultPrincipal || null)
+          principalProfile: approverProfile || (isReviewerIdPrincipal ? existing.reviewerProfile : null)
         } 
       };
     }
@@ -584,10 +590,10 @@ export async function getLessonPlanById(id: string) {
         : existing.subject?.reviewerId2
         ? allTeachers.find(t => t.id === existing.subject?.reviewerId2)
         : null;
-      const defaultPrincipal = allTeachers.find(t =>
-        t.assignedRole === 'PRINCIPAL' &&
-        t.institute === existing.class?.institute
-      );
+      // Resolve approver manually
+      const approverProfile = (existing as any).approverId
+        ? allTeachers.find(t => t.userId === (existing as any).approverId) || null
+        : null;
       const isReviewerIdPrincipal = existing.reviewerProfile?.assignedRole === 'PRINCIPAL';
       return { 
         success: true, 
@@ -595,7 +601,7 @@ export async function getLessonPlanById(id: string) {
           ...existing, 
           reviewerProfile: isReviewerIdPrincipal ? null : existing.reviewerProfile,
           specialistProfile: specialist || null, 
-          principalProfile: isReviewerIdPrincipal ? existing.reviewerProfile : (defaultPrincipal || null)
+          principalProfile: approverProfile || (isReviewerIdPrincipal ? existing.reviewerProfile : null)
         } 
       };
     }
