@@ -82,35 +82,61 @@ export async function getStudentsWithCriteria(classId: string, month: string, ye
       return { success: true, data: [] };
     }
 
-    // 2. Fetch ALL PTM records in ONE query (instead of per student)
-    const ptmRecords = await db
-      .select()
-      .from(scholarshipPtm)
-      .where(and(
-        inArray(scholarshipPtm.admissionId, admissionIds),
-        eq(scholarshipPtm.month, month),
-        eq(scholarshipPtm.year, year)
-      ));
+    // 2. Fetch ALL PTM records in ONE query
+    let ptmRecords: any[] = [];
+    try {
+      ptmRecords = await db
+        .select()
+        .from(scholarshipPtm)
+        .where(and(
+          inArray(scholarshipPtm.admissionId, admissionIds),
+          eq(scholarshipPtm.month, month),
+          eq(scholarshipPtm.year, String(year))
+        ));
+    } catch (e) {
+      console.error("Error fetching ptmRecords:", e);
+    }
 
     // 3. Fetch ALL Guardian records in ONE query
-    const guardianRecords = await db
-      .select()
-      .from(scholarshipGuardian)
-      .where(and(
-        inArray(scholarshipGuardian.admissionId, admissionIds),
-        eq(scholarshipGuardian.month, month),
-        eq(scholarshipGuardian.year, year)
-      ));
+    let guardianRecords: any[] = [];
+    try {
+      guardianRecords = await db
+        .select()
+        .from(scholarshipGuardian)
+        .where(and(
+          inArray(scholarshipGuardian.admissionId, admissionIds),
+          eq(scholarshipGuardian.month, month),
+          eq(scholarshipGuardian.year, String(year))
+        ));
+    } catch (e) {
+      console.error("Error fetching guardianRecords:", e);
+    }
 
-    // 4. Fetch ALL Scholarship records in ONE query
-    const scholarshipRecordsList = await db
-      .select()
-      .from(scholarshipRecords)
-      .where(and(
-        inArray(scholarshipRecords.admissionId, admissionIds),
-        eq(scholarshipRecords.month, month),
-        eq(scholarshipRecords.year, year)
-      ));
+    // 4. Fetch ALL Scholarship records in ONE query (select only required fields for safe execution)
+    let scholarshipRecordsList: any[] = [];
+    try {
+      scholarshipRecordsList = await db
+        .select({
+          id: scholarshipRecords.id,
+          admissionId: scholarshipRecords.admissionId,
+          month: scholarshipRecords.month,
+          year: scholarshipRecords.year,
+          ptmAmount: scholarshipRecords.ptmAmount,
+          guardianAmount: scholarshipRecords.guardianAmount,
+          totalAmount: scholarshipRecords.totalAmount,
+          status: scholarshipRecords.status,
+          locked: scholarshipRecords.locked,
+          updatedAt: scholarshipRecords.updatedAt,
+        })
+        .from(scholarshipRecords)
+        .where(and(
+          inArray(scholarshipRecords.admissionId, admissionIds),
+          eq(scholarshipRecords.month, month),
+          eq(scholarshipRecords.year, String(year))
+        ));
+    } catch (e) {
+      console.error("Error fetching scholarshipRecordsList:", e);
+    }
 
     // Create maps for O(1) lookups
     const ptmMap = new Map(ptmRecords.map(r => [r.admissionId, r]));

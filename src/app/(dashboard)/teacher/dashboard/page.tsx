@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -171,12 +171,14 @@ export default async function TeacherDashboardPage(props: {
                             <CalendarCheck className="text-green-600" size={20} />
                             Daily Attendance Summary
                         </h2>
-                        <AttendanceGridCard 
-                            classesList={dbClasses}
-                            attendanceRecords={dbAttendance}
-                            schoolName={teacherProfile?.institute || "Dhanpuri Public School"}
-                            dateStr={targetDateStr}
-                        />
+                        <Suspense fallback={<div className="flex items-center justify-center h-32 text-slate-400 text-sm font-semibold">Loading attendance...</div>}>
+                            <AttendanceGridCard 
+                                classesList={dbClasses}
+                                attendanceRecords={dbAttendance}
+                                schoolName={teacherProfile?.institute || "Dhanpuri Public School"}
+                                dateStr={targetDateStr}
+                            />
+                        </Suspense>
                     </div>
 
                     {/* Quick Actions */}

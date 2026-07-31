@@ -339,7 +339,7 @@ export const scholarshipRecords = pgTable("scholarship_records", {
   locked: boolean("locked").default(false).notNull(),
   approvedBy: text("approved_by"),
   approvedAt: timestamp("approved_at"),
-  paidOnline: integer("paid_online").default(0).notNull(),
+  // paidOnline: integer("paid_online").default(0).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

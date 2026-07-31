@@ -19,7 +19,29 @@ export async function GET(
 
     // Fetch the scholarship record with related data
     const record = await db
-      .select()
+      .select({
+        id: scholarshipRecords.id,
+        admissionId: scholarshipRecords.admissionId,
+        month: scholarshipRecords.month,
+        year: scholarshipRecords.year,
+        attendanceAmount: scholarshipRecords.attendanceAmount,
+        homeworkAmount: scholarshipRecords.homeworkAmount,
+        guardianAmount: scholarshipRecords.guardianAmount,
+        ptmAmount: scholarshipRecords.ptmAmount,
+        totalAmount: scholarshipRecords.totalAmount,
+        schoolFee: scholarshipRecords.schoolFee,
+        pendingAmount: scholarshipRecords.pendingAmount,
+        adjustmentAmount: scholarshipRecords.adjustmentAmount,
+        discountAmount: scholarshipRecords.discountAmount,
+        additionalChargeAmount: scholarshipRecords.additionalChargeAmount,
+        adjustmentNote: scholarshipRecords.adjustmentNote,
+        status: scholarshipRecords.status,
+        locked: scholarshipRecords.locked,
+        approvedBy: scholarshipRecords.approvedBy,
+        approvedAt: scholarshipRecords.approvedAt,
+        createdAt: scholarshipRecords.createdAt,
+        updatedAt: scholarshipRecords.updatedAt,
+      })
       .from(scholarshipRecords)
       .where(eq(scholarshipRecords.id, recordId))
       .limit(1);

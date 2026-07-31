@@ -52,7 +52,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
   const calculatedGuardianRating = (() => {
     const vals = Object.values(guardianComments).map(c => c.rating || 0).filter(v => v > 0);
-    if (vals.length === 0) return 0;
+    if (vals.length === 0) return data?.guardian?.rating || 0;
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   })();
 
@@ -231,7 +231,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       guardianCategories.forEach((_, idx) => {
         const key = `cat_${idx}`;
         if (!parsedComments[key]) {
-          parsedComments[key] = { rating: 5, comment: "" };
+          parsedComments[key] = { rating: kpiRes.data.guardian?.rating || 5, comment: "" };
         } else if ((parsedComments[key] as any).checked !== undefined && parsedComments[key].rating === undefined) {
           parsedComments[key].rating = (parsedComments[key] as any).checked ? 5 : 1;
         }
@@ -507,8 +507,13 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       {!selectedMonth ? (
         // --- Monthly Overview View ---
         loadingOverview ? (
-          <p>Loading monthly overview...</p>
-        ) : monthlyOverview.length > 0 ? (
+          <div className="flex h-[200px] items-center justify-center bg-white border border-slate-100 rounded-3xl p-10 shadow-sm w-full">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="animate-spin text-blue-600 h-8 w-8" />
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Loading monthly overview...</span>
+            </div>
+          </div>
+        ) : (
           <>
             <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-sm text-slate-700">
@@ -524,86 +529,101 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {monthlyOverview.map((item) => (
-                    <tr key={item.month} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 font-medium text-slate-900">{item.month}</td>
-                      <td className="px-6 py-4">{item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A"}</td>
-                      <td className="px-6 py-4">{item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A"}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5">
-                          {item.guardian?.locked && <span title="Locked" className="text-slate-400 text-xs">🔒</span>}
-                          <span>
-                            {(() => {
-                              if (!item.guardian || !item.guardian.comments) return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
-                              try {
-                                const parsed = JSON.parse(item.guardian.comments);
-                                const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
-                                if (vals.length > 0) {
-                                  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-                                  return `${avg.toFixed(1)}/5`;
-                                }
-                              } catch {}
-                              return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
-                            })()}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 animate-in fade-in-50">
-                        <div className="flex items-center gap-1.5">
-                          {item.ptm?.locked && <span title="Locked" className="text-slate-400 text-xs">🔒</span>}
-                          {item.ptm ? (
-                            item.ptm.attended ? (
-                              <div className="flex flex-col">
-                                <span className="text-green-600 font-bold">Yes</span>
-                                {item.ptm.attendee && (
-                                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                                    {item.ptm.attendee === "Guardian" 
-                                      ? `${item.ptm.guardianRelation || "Guardian"}: ${item.ptm.guardianName || "N/A"}`
-                                      : item.ptm.attendee}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-red-500 font-bold">No</span>
-                            )
-                          ) : "N/A"}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-blue-600">₹{item.record?.totalAmount ?? 0}</span>
-                          {item.record?.adjustmentAmount && item.record.adjustmentAmount !== 0 ? (
-                            <span 
-                              className={`text-[10px] font-black w-fit px-1.5 py-0.5 rounded mt-0.5 ${
-                                item.record.adjustmentAmount < 0 
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
-                                  : "bg-amber-50 text-amber-700 border border-amber-100"
-                              }`} 
-                              title={item.record.adjustmentNote || "No note provided"}
-                            >
-                              Adj: {item.record.adjustmentAmount < 0 ? "-" : "+"}₹{Math.abs(item.record.adjustmentAmount)}
+                  {(() => {
+                    const ACADEMIC_MONTHS = [
+                      "April", "May", "June", "July", "August", "September", 
+                      "October", "November", "December", "January", "February", "March"
+                    ];
+                    const fullList = ACADEMIC_MONTHS.map(monthName => {
+                      const found = monthlyOverview.find(m => m.month.toLowerCase() === monthName.toLowerCase());
+                      return found || {
+                        month: monthName,
+                        attendance: null,
+                        homework: null,
+                        guardian: null,
+                        ptm: null,
+                        record: null,
+                        financials: null
+                      };
+                    });
+
+                    return fullList.map((item) => (
+                      <tr key={item.month} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 font-medium text-slate-900">{item.month}</td>
+                        <td className="px-6 py-4">{item.attendance?.percentage !== null && item.attendance?.percentage !== undefined ? `${item.attendance.percentage.toFixed(1)}%` : "N/A"}</td>
+                        <td className="px-6 py-4">{item.homework?.percentage !== null && item.homework?.percentage !== undefined ? `${item.homework.percentage.toFixed(1)}%` : "N/A"}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5">
+                            {item.guardian?.locked && <span title="Locked" className="text-slate-400 text-xs">🔒</span>}
+                            <span>
+                              {(() => {
+                                if (!item.guardian || !item.guardian.comments) return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
+                                try {
+                                  const parsed = JSON.parse(item.guardian.comments);
+                                  const vals = Object.values(parsed).map((c: any) => c.rating || 0).filter(v => v > 0);
+                                  if (vals.length > 0) {
+                                    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                                    return `${avg.toFixed(1)}/5`;
+                                  }
+                                } catch {}
+                                return item.guardian?.rating !== null && item.guardian?.rating !== undefined ? `${item.guardian.rating}/5` : "N/A";
+                              })()}
                             </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button 
-                          onClick={() => setSelectedMonth(item.month)}
-                          className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700"
-                        >
-                          Fill Score
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 animate-in fade-in-50">
+                          <div className="flex items-center gap-1.5">
+                            {item.ptm?.locked && <span title="Locked" className="text-slate-400 text-xs">🔒</span>}
+                            {item.ptm ? (
+                              item.ptm.attended ? (
+                                <div className="flex flex-col">
+                                  <span className="text-green-600 font-bold">Yes</span>
+                                  {item.ptm.attendee && (
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                                      {item.ptm.attendee === "Guardian" 
+                                        ? `${item.ptm.guardianRelation || "Guardian"}: ${item.ptm.guardianName || "N/A"}`
+                                        : item.ptm.attendee}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-red-500 font-bold">No</span>
+                              )
+                            ) : "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-blue-600">₹{item.record?.totalAmount ?? 0}</span>
+                            {item.record?.adjustmentAmount && item.record.adjustmentAmount !== 0 ? (
+                              <span 
+                                className={`text-[10px] font-black w-fit px-1.5 py-0.5 rounded mt-0.5 ${
+                                  item.record.adjustmentAmount < 0 
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                                }`} 
+                                title={item.record.adjustmentNote || "No note provided"}
+                              >
+                                Adj: {item.record.adjustmentAmount < 0 ? "-" : "+"}₹{Math.abs(item.record.adjustmentAmount)}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button 
+                            onClick={() => setSelectedMonth(item.month)}
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700 shadow-sm transition-all active:scale-95"
+                          >
+                            Fill Score
+                          </button>
+                        </td>
+                      </tr>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
           </>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-slate-500 text-center py-10">No data found for this year.</p>
-          </div>
         )
       ) : (
         // --- Edit Form View ---

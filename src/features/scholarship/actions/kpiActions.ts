@@ -210,8 +210,13 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     }
 
     // 6. Save/Update Scholarship Record
+    const yearPattern = `%${year}%`;
     const existingRecord = await db.query.scholarshipRecords.findFirst({
-      where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)),
+      where: and(
+        eq(scholarshipRecords.admissionId, admissionId),
+        sql`LOWER(${scholarshipRecords.month}) = LOWER(${month})`,
+        sql`${scholarshipRecords.year} LIKE ${yearPattern}`
+      ),
     });
 
     const recordData: any = {
@@ -254,11 +259,36 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
 
 export async function getStudentKpiData(admissionId: string, month: string, year: string) {
   try {
-    const attendance = await db.query.scholarshipAttendance.findFirst({ where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.month, month), eq(scholarshipAttendance.year, year)) });
-    const homework = await db.query.scholarshipHomework.findFirst({ where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.month, month), eq(scholarshipHomework.year, year)) });
-    const guardian = await db.query.scholarshipGuardian.findFirst({ where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.month, month), eq(scholarshipGuardian.year, year)) });
-    const ptm = await db.query.scholarshipPtm.findFirst({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.month, month), eq(scholarshipPtm.year, year)) });
-    const record = await db.query.scholarshipRecords.findFirst({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.month, month), eq(scholarshipRecords.year, year)) });
+    const attendance = await db.query.scholarshipAttendance.findFirst({ 
+      where: and(
+        eq(scholarshipAttendance.admissionId, admissionId), 
+        sql`LOWER(${scholarshipAttendance.month}) = LOWER(${month})`
+      ) 
+    });
+    const homework = await db.query.scholarshipHomework.findFirst({ 
+      where: and(
+        eq(scholarshipHomework.admissionId, admissionId), 
+        sql`LOWER(${scholarshipHomework.month}) = LOWER(${month})`
+      ) 
+    });
+    const guardian = await db.query.scholarshipGuardian.findFirst({ 
+      where: and(
+        eq(scholarshipGuardian.admissionId, admissionId), 
+        sql`LOWER(${scholarshipGuardian.month}) = LOWER(${month})`
+      ) 
+    });
+    const ptm = await db.query.scholarshipPtm.findFirst({ 
+      where: and(
+        eq(scholarshipPtm.admissionId, admissionId), 
+        sql`LOWER(${scholarshipPtm.month}) = LOWER(${month})`
+      ) 
+    });
+    const record = await db.query.scholarshipRecords.findFirst({ 
+      where: and(
+        eq(scholarshipRecords.admissionId, admissionId), 
+        sql`LOWER(${scholarshipRecords.month}) = LOWER(${month})`
+      ) 
+    });
 
     // Fetch Criteria (Override first, then global)
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
@@ -302,8 +332,7 @@ export async function getStudentKpiData(admissionId: string, month: string, year
         .where(and(
           eq(studentAttendance.studentId, student.id),
           student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
-          eq(studentAttendance.month, month),
-          eq(studentAttendance.year, parseInt(year))
+          sql`LOWER(${studentAttendance.month}) = LOWER(${month})`
         ));
 
         const total = Number(stats[0]?.total || 0);
@@ -340,7 +369,7 @@ export async function getStudentKpiData(admissionId: string, month: string, year
             .from(lessonPlans)
             .where(and(
               eq(lessonPlans.classId, student.classId as number),
-              sql`${lessonPlans.date} LIKE ${`${year}-${monthStr}%`}`
+              sql`${lessonPlans.date} LIKE ${`%-${monthStr}-%`}`
             ));
 
           // Total completed homeworks by this student in this month
@@ -351,7 +380,7 @@ export async function getStudentKpiData(admissionId: string, month: string, year
               eq(homeworkSubmissions.studentId, student.id),
               eq(homeworkSubmissions.status, "COMPLETED"),
               eq(lessonPlans.classId, student.classId as number),
-              sql`${lessonPlans.date} LIKE ${`${year}-${monthStr}%`}`
+              sql`${lessonPlans.date} LIKE ${`%-${monthStr}-%`}`
             ));
 
           const totalGiven = Number(totalAssignedResult[0]?.count || 0);
@@ -366,17 +395,50 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       }
     }
 
+    // Fallback constructed objects if record exists but sub-tables are missing
+    const effectivePtm = ptm || (record ? { 
+      attended: record.ptmAmount > 0, 
+      locked: record.locked,
+      attendee: record.ptmAmount > 0 ? "Parent" : null
+    } : null);
+
+    const effectiveGuardian = guardian || (record ? { 
+      rating: record.guardianAmount > 0 ? 5 : 0, 
+      comments: null, 
+      locked: record.locked 
+    } : null);
+
+    const effectiveAttendance = (realAttendance && realAttendance.totalDays > 0) 
+      ? realAttendance 
+      : (attendance || (record ? { 
+          totalDays: 30, 
+          presentDays: record.attendanceAmount > 0 ? 30 : 0, 
+          absentDays: 0,
+          mlDays: 0,
+          halfDays: 0,
+          leaveDays: 0,
+          percentage: record.attendanceAmount > 0 ? 100 : 0 
+        } : null));
+
+    const effectiveHomework = (realHomework && realHomework.totalGiven > 0) 
+      ? realHomework 
+      : (homework || (record ? { 
+          totalGiven: 10, 
+          totalDone: record.homeworkAmount > 0 ? 10 : 0, 
+          percentage: record.homeworkAmount > 0 ? 100 : 0 
+        } : null));
+
     return { 
       success: true, 
       data: { 
-        attendance: (realAttendance && realAttendance.totalDays > 0) ? realAttendance : (attendance || null), 
-        homework: (realHomework && realHomework.totalGiven > 0) ? realHomework : (homework || null), 
-        guardian: guardian || null, 
-        ptm: ptm || null, 
+        attendance: effectiveAttendance, 
+        homework: effectiveHomework, 
+        guardian: effectiveGuardian, 
+        ptm: effectivePtm, 
         record: record || null,
         criteria: criteria || null,
-        calculatedAttendance: realAttendance, // Always provide for pre-filling
-        calculatedHomework: realHomework       // Always provide for pre-filling
+        calculatedAttendance: realAttendance,
+        calculatedHomework: realHomework
       } 
     };
   } catch (error: any) {
@@ -386,11 +448,21 @@ export async function getStudentKpiData(admissionId: string, month: string, year
 
 export async function getStudentMonthlyOverview(admissionId: string, year: string) {
   try {
-    const attendance = await db.query.scholarshipAttendance.findMany({ where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.year, year)) });
-    const homework = await db.query.scholarshipHomework.findMany({ where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.year, year)) });
-    const guardian = await db.query.scholarshipGuardian.findMany({ where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.year, year)) });
-    const ptm = await db.query.scholarshipPtm.findMany({ where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.year, year)) });
-    const records = await db.query.scholarshipRecords.findMany({ where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.year, year)) });
+    const attendance = await db.query.scholarshipAttendance.findMany({ 
+      where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.year, year))
+    });
+    const homework = await db.query.scholarshipHomework.findMany({ 
+      where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.year, year))
+    });
+    const guardian = await db.query.scholarshipGuardian.findMany({ 
+      where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.year, year))
+    });
+    const ptm = await db.query.scholarshipPtm.findMany({ 
+      where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.year, year))
+    });
+    const records = await db.query.scholarshipRecords.findMany({ 
+      where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.year, year))
+    });
 
     // Fetch real attendance map from studentAttendance table
     const meta = await db.query.admissionMeta.findFirst({
@@ -398,7 +470,7 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
       columns: { entryNumber: true }
     });
 
-    const realAttendanceMap: Record<string, { totalDays: number; presentDays: number; absentDays: number; mlDays: number; halfDays: number; leaveDays: number; percentage: number }> = {};
+    const realAttendanceMap: Record<string, any> = {};
     if (meta?.entryNumber) {
       const student = await db.query.students.findFirst({
         where: eq(students.studentId, meta.entryNumber)
@@ -416,8 +488,7 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
         .from(studentAttendance)
         .where(and(
           eq(studentAttendance.studentId, student.id),
-          student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
-          eq(studentAttendance.year, parseInt(year))
+          student.classId ? eq(studentAttendance.classId, student.classId) : undefined
         ))
         .groupBy(studentAttendance.month);
 
@@ -458,14 +529,19 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
 
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const overview = months.map(month => {
-      const savedAtt = attendance.find(a => a.month === month);
-      const realAtt = realAttendanceMap[month];
-      const att = (realAtt && realAtt.totalDays > 0) ? { ...realAtt, month, year } : (savedAtt || null);
+      const monthLower = month.toLowerCase().trim();
+      const savedAtt = attendance.find(a => a.month?.toLowerCase().trim() === monthLower);
+      const realAtt = realAttendanceMap[month] || realAttendanceMap[month.toLowerCase()] || realAttendanceMap[month.substring(0, 3)];
 
-      const hw = homework.find(h => h.month === month);
-      const gd = guardian.find(g => g.month === month);
-      const pt = ptm.find(p => p.month === month);
-      const rec = records.find(r => r.month === month);
+      const hw = homework.find(h => h.month?.toLowerCase().trim() === monthLower);
+      const gd = guardian.find(g => g.month?.toLowerCase().trim() === monthLower);
+      const pt = ptm.find(p => p.month?.toLowerCase().trim() === monthLower);
+      const rec = records.find(r => r.month?.toLowerCase().trim() === monthLower);
+
+      const effectivePt = pt || (rec ? { attended: rec.ptmAmount > 0, locked: rec.locked, attendee: rec.ptmAmount > 0 ? "Parent" : null } : null);
+      const effectiveGd = gd || (rec ? { rating: rec.guardianAmount > 0 ? 5 : 0, locked: rec.locked } : null);
+      const effectiveAtt = (realAtt && realAtt.totalDays > 0) ? { ...realAtt, month, year } : (savedAtt || (rec ? { percentage: rec.attendanceAmount > 0 ? 100 : 0 } : null));
+      const effectiveHw = hw || (rec ? { percentage: rec.homeworkAmount > 0 ? 100 : 0 } : null);
 
       const scholarshipEarned = rec?.totalAmount ?? 0;
       const waiverGiven = rec?.discountAmount ?? 0;
@@ -475,10 +551,10 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
 
       return {
         month,
-        attendance: att || null,
-        homework: hw || null,
-        guardian: gd || null,
-        ptm: pt || null,
+        attendance: effectiveAtt,
+        homework: effectiveHw,
+        guardian: effectiveGd,
+        ptm: effectivePt,
         record: rec || null,
         financials: rec ? {
           totalSchoolFee,

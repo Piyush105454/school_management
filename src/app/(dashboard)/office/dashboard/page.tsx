@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { inquiries, studentProfiles, admissionMeta, studentAttendance, classes } from "@/db/schema";
 import { count, eq, and, sql, inArray } from "drizzle-orm";
 import { protectRoute } from "@/lib/roleGuard";
+import { Suspense } from "react";
 import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
 
 export default async function OfficeDashboard(props: {
@@ -118,12 +119,14 @@ export default async function OfficeDashboard(props: {
 
         {/* Daily Attendance Spreadsheet Summary Card */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-start">
-          <AttendanceGridCard 
-            classesList={dbClasses}
-            attendanceRecords={dbAttendance}
-            schoolName={selectedInstitute && selectedInstitute !== "ALL" ? selectedInstitute : "All Institutes"}
-            dateStr={targetDateStr}
-          />
+          <Suspense fallback={<div className="flex items-center justify-center h-32 text-slate-400 text-sm font-semibold">Loading attendance...</div>}>
+            <AttendanceGridCard 
+              classesList={dbClasses}
+              attendanceRecords={dbAttendance}
+              schoolName={selectedInstitute && selectedInstitute !== "ALL" ? selectedInstitute : "All Institutes"}
+              dateStr={targetDateStr}
+            />
+          </Suspense>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-6">
