@@ -20,8 +20,10 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
     redirect("/");
   }
 
-  const userRole = session.user?.role as UserRole;
+  const userRole = (session.user?.role || "").toUpperCase().trim() as UserRole;
   const userId = session.user?.id;
+
+  const cleanPathname = pathname ? pathname.split("?")[0].replace(/\/$/, "") : "";
 
   let isAllowed = 
     allowedRoles.includes(userRole) || 
@@ -42,8 +44,11 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
         try {
           const parsed = JSON.parse(permissionRecord.permissions as string);
           if (parsed && parsed.items) {
-            let override = parsed.items[pathname];
-            if (pathname === "/office/academy-management/lesson-plan" && parsed.items["/office/academy-management/my-lesson-plans"]) {
+            let override = parsed.items[cleanPathname] !== undefined ? parsed.items[cleanPathname] : parsed.items[pathname];
+            if (cleanPathname === "/office/academy-management/lesson-plan" && parsed.items["/office/academy-management/my-lesson-plans"]) {
+              override = true;
+            }
+            if (cleanPathname === "/office/scholarship/reports/students" && userRole === "TEACHER") {
               override = true;
             }
             if (override !== undefined) {
@@ -52,7 +57,7 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
               // Check parent prefix paths (deepest matching path first)
               const matchingKey = Object.keys(parsed.items)
                 .sort((a, b) => b.length - a.length)
-                .find(itemPath => pathname.startsWith(itemPath + "/"));
+                .find(itemPath => cleanPathname.startsWith(itemPath + "/"));
               if (matchingKey !== undefined) {
                 isAllowed = parsed.items[matchingKey];
               }
@@ -68,6 +73,8 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
     }
   }
 
+  console.log(`[protectRoute Debug] userRole=${userRole}, pathname=${pathname}, isAllowed=${isAllowed}`);
+
   if (!isAllowed) {
     // Redirect to appropriate dashboard based on role
     const dashboardMap: Record<UserRole, string> = {
@@ -78,6 +85,7 @@ export async function protectRoute(allowedRoles: UserRole[], pathname?: string) 
       ADMIN: "/office/dashboard",
     };
 
+    console.log(`[protectRoute] BLOCKED! Redirecting ${userRole} from ${pathname} to ${dashboardMap[userRole]}`);
     redirect(dashboardMap[userRole] || "/");
   }
 

@@ -33,6 +33,7 @@ export default async function HomeworkManagementPage() {
     subjectName: subjects.name,
     classId: classes.id,
     subjectId: subjects.id,
+    classInstitute: classes.institute,
     homeworkPreview: lessonPlans.step1Data, // We'll parse this
     submissionCount: sql<number>`count(${homeworkSubmissions.id})`.mapWith(Number),
     pendingCount: sql<number>`count(CASE WHEN ${homeworkSubmissions.status} = 'PENDING' THEN 1 END)`.mapWith(Number),
@@ -44,7 +45,7 @@ export default async function HomeworkManagementPage() {
   .where(
     teacherProfile ? eq(lessonPlans.teacherId, session.user.id) : undefined
   )
-  .groupBy(lessonPlans.id, classes.name, subjects.name, classes.id, subjects.id)
+  .groupBy(lessonPlans.id, classes.name, subjects.name, classes.id, subjects.id, classes.institute)
   .orderBy(desc(lessonPlans.date));
 
   // Parse step1Data for preview
@@ -57,12 +58,13 @@ export default async function HomeworkManagementPage() {
     
     return {
         ...p,
+        institute: p.classInstitute,
         date: (p.date as any) instanceof Date ? (p.date as any).toISOString() : String(p.date),
         homeworkPreview: hw
     };
   });
 
-  const allClasses = await db.select({ id: classes.id, name: classes.name }).from(classes);
+  const allClasses = await db.select({ id: classes.id, name: classes.name, institute: classes.institute }).from(classes);
   const allSubjects = await db.select({ id: subjects.id, name: subjects.name }).from(subjects);
 
   return (

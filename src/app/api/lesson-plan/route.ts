@@ -262,32 +262,11 @@ export async function GET(request: NextRequest) {
         pageTo: step1.pageTo || "",
         lessonType: plan.type === "QA" ? "Q&A" : (step1.lessonType || "Explanation"),
         preparedBy: step1.preparedBy || plan.teacherProfile?.name || "",
-        // After review: real reviewer. Before: both assigned reviewers
-        reviewerName: await (async () => {
-          const hasBeenReviewed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(plan.status);
-          if (hasBeenReviewed && plan.reviewerId) {
-            const reviewerTeacher = await db.query.teachers.findFirst({
-              where: eq(teachers.userId, plan.reviewerId)
-            });
-            if (reviewerTeacher) return reviewerTeacher.name;
-          }
-          const assigned = [];
-          if (plan.subject?.reviewer1?.name) assigned.push(plan.subject.reviewer1.name);
-          if (plan.subject?.reviewer2?.name) assigned.push(plan.subject.reviewer2.name);
-          return assigned.length > 0 ? assigned.join(" | ") : step1.reviewerName || "Specialist";
-        })(),
-        // After approval: real approver. Before: "Pending Approval"
-        approverName: await (async () => {
-          if ((plan as any).approverId) {
-            const approverTeacher = await db.query.teachers.findFirst({
-              where: eq(teachers.userId, (plan as any).approverId)
-            });
-            if (approverTeacher) return approverTeacher.name;
-          }
-          return "Pending Approval";
-        })(),
-        prepDate: step1.prepDate || plan.date,
-        deliveryDate: step1.deliveryDate || plan.date,
+        ...step1,
+        ...step2,
+        reviewerNote: plan.reviewerRemark || step2.reviewerNote || step2.specialistFeedback || "",
+        specialistFeedback: plan.reviewerRemark || step2.specialistFeedback || step2.reviewerNote || "",
+        approverNote: plan.principalRemark || step2.approverNote || step2.finalApprovalFeedback || "",
         goodStudents: (() => {
           if (step2.goodStudents && Array.isArray(step2.goodStudents)) return step2.goodStudents;
           if (typeof step2.studentPerformanceGood === 'string') {
@@ -302,12 +281,28 @@ export async function GET(request: NextRequest) {
           }
           return Array.isArray(step2.studentPerformanceBad) ? step2.studentPerformanceBad : [];
         })(),
-        ...step1,
-        ...step2,
-        reviewerNote: plan.reviewerRemark || step2.reviewerNote || step2.specialistFeedback || "",
-        specialistFeedback: plan.reviewerRemark || step2.specialistFeedback || step2.reviewerNote || "",
-        approverNote: plan.principalRemark || step2.approverNote || step2.finalApprovalFeedback || "",
-        finalApprovalFeedback: plan.principalRemark || step2.finalApprovalFeedback || step2.approverNote || "",
+        reviewerName: await (async () => {
+          const hasBeenReviewed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(plan.status);
+          if (hasBeenReviewed && plan.reviewerId) {
+            const reviewerTeacher = await db.query.teachers.findFirst({
+              where: eq(teachers.userId, plan.reviewerId)
+            });
+            if (reviewerTeacher) return reviewerTeacher.name;
+          }
+          const assigned = [];
+          if (plan.subject?.reviewer1?.name) assigned.push(plan.subject.reviewer1.name);
+          if (plan.subject?.reviewer2?.name) assigned.push(plan.subject.reviewer2.name);
+          return assigned.length > 0 ? assigned.join(" | ") : step1.reviewerName || "Specialist";
+        })(),
+        approverName: await (async () => {
+          if ((plan as any).approverId) {
+            const approverTeacher = await db.query.teachers.findFirst({
+              where: eq(teachers.userId, (plan as any).approverId)
+            });
+            if (approverTeacher) return approverTeacher.name;
+          }
+          return "Pending Approval";
+        })(),
         status: plan.status,
         createdAt: plan.createdAt,
         updatedAt: plan.updatedAt,

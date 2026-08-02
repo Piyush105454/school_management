@@ -7,7 +7,19 @@ import { eq } from "drizzle-orm";
 export default async function LessonPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string; edit?: string }>;
+  searchParams: Promise<{
+    id?: string;
+    edit?: string;
+    class?: string;
+    subject?: string;
+    chapterId?: string;
+    chapterName?: string;
+    pages?: string;
+    divisionId?: string;
+    divisionNo?: string;
+    unitName?: string;
+    institute?: string;
+  }>;
 }) {
   await protectRoute(["TEACHER", "OFFICE", "PRINCIPAL"], "/teacher/lesson-plan");
 
@@ -124,6 +136,43 @@ export default async function LessonPlanPage({
     }
   }
 
-  return <LessonPlanClient existingData={existingData} />;
+  const classParam = params.class ? decodeURIComponent(params.class) : undefined;
+  const subjectParam = params.subject ? decodeURIComponent(params.subject) : undefined;
+  const chapterIdParam = params.chapterId ? parseInt(params.chapterId) : undefined;
+  const chapterNameParam = params.chapterName ? decodeURIComponent(params.chapterName) : undefined;
+  const pagesParam = params.pages ? decodeURIComponent(params.pages) : undefined;
+  const divisionIdParam = params.divisionId ? parseInt(params.divisionId) : undefined;
+  const divisionNoParam = params.divisionNo ? parseInt(params.divisionNo) : undefined;
+  const unitNameParam = params.unitName ? decodeURIComponent(params.unitName) : undefined;
+  const selectedInstitute = params.institute ? decodeURIComponent(params.institute) : "Dhanpuri Public School";
+
+  let pageFromParam = undefined;
+  let pageToParam = undefined;
+  if (pagesParam && pagesParam.includes("-")) {
+    const parts = pagesParam.split("-");
+    pageFromParam = parts[0].trim();
+    pageToParam = parts[1].trim();
+  }
+
+  const initialFormData = {
+    ...(classParam && { className: classParam }),
+    ...(subjectParam && { subject: subjectParam }),
+    ...(chapterIdParam && { chapterId: chapterIdParam }),
+    ...(chapterNameParam && { chapterName: chapterNameParam }),
+    ...(divisionIdParam && { chapterDivisionId: divisionIdParam }),
+    ...(divisionNoParam && { divisionNo: divisionNoParam }),
+    ...(unitNameParam && { unitName: unitNameParam }),
+    ...(pagesParam && { pages: pagesParam }),
+    ...(pageFromParam && { pageFrom: pageFromParam }),
+    ...(pageToParam && { pageTo: pageToParam }),
+  };
+
+  return (
+    <LessonPlanClient
+      selectedInstitute={selectedInstitute}
+      initialFormData={initialFormData}
+      existingData={existingData}
+    />
+  );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import RichTextEditor from "@/components/common/RichTextEditor";
 
 interface Step6LessonIntroductionProps {
   formData: {
@@ -47,15 +48,13 @@ export default function Step6LessonIntroduction({
           <label className="required" htmlFor="lessonHook">
             Lesson introduction / hook
           </label>
-          <textarea
+          <RichTextEditor
             id="lessonHook"
-            name="lessonHook"
             value={formData.lessonHook || ""}
-            onChange={(e) => handleChange("lessonHook", e.target.value)}
+            onChange={(val) => handleChange("lessonHook", val)}
             placeholder="Write how you will start the lesson in 1–2 minutes: a question, a short story, a real example or an object."
             disabled={!isEditable}
-            rows={5}
-            required
+            minHeight="140px"
           />
         </div>
 

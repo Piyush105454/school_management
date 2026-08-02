@@ -62,7 +62,6 @@ const officeItems = [
   { type: "section", name: "Scholarship" },
   { name: "Award Scholarship", href: "/office/scholarship/award", icon: Award },
   { name: "Student Scholarships", href: "/office/scholarship/students", icon: GraduationCap },
-  { name: "Monthly Reports", href: "/office/scholarship/reports", icon: FileText },
   { name: "Criteria Settings", href: "/office/scholarship/settings", icon: Settings },
   { type: "section", name: "Academy Management" },
   { name: "Attendance Management", href: "/office/academy-management/attendance", icon: CalendarCheck },
@@ -208,7 +207,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     // Reports Category
     { type: "section", name: "Reports" },
     { href: "/office/scholarship/reports/students", icon: FileText, roleNames: { OFFICE: "Student Reports", PRINCIPAL: "Student Reports", TEACHER: "Student Reports" } },
-    { href: "/office/scholarship/reports", icon: FileText, roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports" } },
 
     // Task Management Category
     { type: "section", name: "Task Management" },

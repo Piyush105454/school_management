@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { db } from "@/db";
 import { inquiries, studentProfiles, admissionMeta, studentAttendance, classes } from "@/db/schema";
-import { count, eq, and, sql, inArray } from "drizzle-orm";
+import { count, eq, and, sql, inArray, gte, lte } from "drizzle-orm";
 import { protectRoute } from "@/lib/roleGuard";
 import { Suspense } from "react";
 import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
@@ -65,6 +65,12 @@ export default async function OfficeDashboard(props: {
       .where(classInstituteFilter)
       .orderBy(classes.grade);
 
+    const startOfDay = new Date(targetDateStr);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDateStr);
+    endOfDay.setHours(23, 59, 59, 999);
+
     dbAttendance = await db.select({
       classId: studentAttendance.classId,
       status: studentAttendance.status
@@ -73,7 +79,8 @@ export default async function OfficeDashboard(props: {
     .innerJoin(classes, eq(studentAttendance.classId, classes.id))
     .where(
       and(
-        sql`DATE(${studentAttendance.date}) = ${targetDateStr}`,
+        gte(studentAttendance.date, startOfDay),
+        lte(studentAttendance.date, endOfDay),
         classInstituteFilter
       )
     );

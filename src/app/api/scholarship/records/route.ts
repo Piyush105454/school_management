@@ -76,7 +76,10 @@ export async function GET(req: NextRequest) {
             ? inArray(classes.name, classesParam.split(","))
             : undefined,
           statusesParam && statusesParam !== "ALL"
-            ? inArray(scholarshipRecords.status as any, statusesParam.split(","))
+            ? inArray(
+                scholarshipRecords.status as any,
+                statusesParam.split(",").flatMap(s => s === "SCHOLARSHIP FULL AWARDED" ? ["APPROVED", "SCHOLARSHIP FULL AWARDED"] : [s])
+              )
             : undefined,
           yearParam ? eq(scholarshipRecords.year, yearParam) : undefined,
           institute && institute !== "ALL"
@@ -209,9 +212,9 @@ export async function GET(req: NextRequest) {
       const paidOnline = record.status === "PAID" ? (totalSchoolFee - pendingDue) : 0;
       
       // Determine final status
-      let displayStatus = record.status;
-      if (record.status === "PENDING" && pendingDue === 0) {
-        displayStatus = "APPROVED";
+      let displayStatus: string = record.status;
+      if (record.status === "APPROVED" || (record.status as string) === "SCHOLARSHIP FULL AWARDED" || (record.status === "PENDING" && pendingDue === 0)) {
+        displayStatus = "SCHOLARSHIP FULL AWARDED";
       }
 
       return {

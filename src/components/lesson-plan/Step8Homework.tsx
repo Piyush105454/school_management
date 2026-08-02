@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import RichTextEditor from "@/components/common/RichTextEditor";
 
 interface Step8HomeworkProps {
   formData: {
@@ -85,18 +86,18 @@ export default function Step8Homework({
               <label className="required" htmlFor="homeworkTask">
                 Homework task
               </label>
-              <textarea
+              <RichTextEditor
                 id="homeworkTask"
-                name="homeworkTask"
                 value={formData.homeworkTask || ""}
-                onChange={(e) =>
+                onChange={(val) =>
                   setFormData((prev: any) => ({
                     ...prev,
-                    homeworkTask: e.target.value,
+                    homeworkTask: val,
                   }))
                 }
                 placeholder="Write exactly what students must do at home."
                 disabled={!isEditable}
+                minHeight="140px"
               />
             </div>
           </div>

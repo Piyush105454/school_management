@@ -214,10 +214,11 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
         discNote = existingNote;
       }
 
-      setPtmAttended(kpiRes.data.ptm?.attended || false);
-      setAttendee(kpiRes.data.ptm?.attendee || "");
-      setGuardianName(kpiRes.data.ptm?.guardianName || "");
-      setGuardianRelation(kpiRes.data.ptm?.guardianRelation || "");
+      const recordObj = kpiRes.data.record;
+      setPtmAttended(kpiRes.data.ptm?.attended ?? (recordObj ? recordObj.ptmAmount > 0 : false));
+      setAttendee((kpiRes.data.ptm as any)?.attendee || (recordObj?.ptmAmount > 0 ? "Parent" : ""));
+      setGuardianName((kpiRes.data.ptm as any)?.guardianName || "");
+      setGuardianRelation((kpiRes.data.ptm as any)?.guardianRelation || "");
       
       let parsedComments: Record<string, CategoryState> = {};
       const commentsJson = kpiRes.data.guardian?.comments;
@@ -231,7 +232,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       guardianCategories.forEach((_, idx) => {
         const key = `cat_${idx}`;
         if (!parsedComments[key]) {
-          parsedComments[key] = { rating: kpiRes.data.guardian?.rating || 5, comment: "" };
+          const defaultRating = kpiRes.data.guardian?.rating ?? (recordObj ? (recordObj.guardianAmount > 0 ? 5 : 0) : 5);
+          parsedComments[key] = { rating: defaultRating, comment: "" };
         } else if ((parsedComments[key] as any).checked !== undefined && parsedComments[key].rating === undefined) {
           parsedComments[key].rating = (parsedComments[key] as any).checked ? 5 : 1;
         }
@@ -239,7 +241,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
       setGuardianComments(parsedComments);
 
       let parsedImages: string[] = [];
-      const imagesJson = kpiRes.data.ptm?.parentImages;
+      const imagesJson = (kpiRes.data.ptm as any)?.parentImages;
       if (imagesJson) {
         try {
           parsedImages = JSON.parse(imagesJson);
@@ -251,18 +253,18 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
       reset({
         attendance: {
-          totalDays: kpiRes.data.attendance?.totalDays || kpiRes.data.calculatedAttendance?.totalDays || 0,
-          presentDays: kpiRes.data.attendance?.presentDays || kpiRes.data.calculatedAttendance?.presentDays || 0,
+          totalDays: kpiRes.data.attendance?.totalDays ?? kpiRes.data.calculatedAttendance?.totalDays ?? (recordObj ? (recordObj.attendanceAmount > 0 ? 30 : 0) : 0),
+          presentDays: kpiRes.data.attendance?.presentDays ?? kpiRes.data.calculatedAttendance?.presentDays ?? (recordObj ? (recordObj.attendanceAmount > 0 ? 30 : 0) : 0),
         },
         homework: {
-          totalGiven: kpiRes.data.homework?.totalGiven ?? kpiRes.data.calculatedHomework?.totalGiven ?? 0,
-          totalDone: kpiRes.data.homework?.totalDone ?? kpiRes.data.calculatedHomework?.totalDone ?? 0,
+          totalGiven: kpiRes.data.homework?.totalGiven ?? kpiRes.data.calculatedHomework?.totalGiven ?? (recordObj ? (recordObj.homeworkAmount > 0 ? 10 : 0) : 0),
+          totalDone: kpiRes.data.homework?.totalDone ?? kpiRes.data.calculatedHomework?.totalDone ?? (recordObj ? (recordObj.homeworkAmount > 0 ? 10 : 0) : 0),
         },
         guardian: {
-          rating: kpiRes.data.guardian?.rating || 0,
+          rating: kpiRes.data.guardian?.rating ?? (recordObj ? (recordObj.guardianAmount > 0 ? 5 : 0) : 0),
         },
         ptm: {
-          attended: kpiRes.data.ptm?.attended || false,
+          attended: kpiRes.data.ptm?.attended ?? (recordObj ? recordObj.ptmAmount > 0 : false),
         },
         adjustment: {
           type: loadedType,
@@ -273,6 +275,9 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
           note: existingNote
         }
       });
+    } else {
+      console.error("[StudentProfile] getStudentKpiData failed:", kpiRes?.error);
+      setMessage(`⚠️ Error loading data: ${kpiRes?.error || "Unknown error. Check console."}`);
     }
     
     if (overviewRes.success) {

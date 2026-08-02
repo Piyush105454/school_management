@@ -15,7 +15,7 @@ import {
 import { protectRoute } from "@/lib/roleGuard";
 import { db } from "@/db";
 import { teachers, timetable, holidays, classes, studentAttendance } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, gte, lte } from "drizzle-orm";
 import AttendanceGridCard from "@/components/dashboard/AttendanceGridCard";
 
 export default async function TeacherDashboardPage(props: {
@@ -53,34 +53,46 @@ export default async function TeacherDashboardPage(props: {
     let dbClasses: any[] = [];
     let dbAttendance: any[] = [];
 
+    let dbError = "";
     if (teacherProfile) {
-        const teacherInstitute = teacherProfile.institute;
-        const instituteFilter = teacherInstitute ? eq(classes.institute, teacherInstitute) : undefined;
-        const targetDate = new Date(targetDateStr);
+        try {
+            const teacherInstitute = teacherProfile.institute;
+            const instituteFilter = teacherInstitute ? eq(classes.institute, teacherInstitute) : undefined;
+            
+            const startOfDay = new Date(targetDateStr);
+            startOfDay.setHours(0, 0, 0, 0);
 
-        const [scheduleRes, classesRes, attendanceRes] = await Promise.all([
-            db.query.timetable.findMany({
-                where: eq(timetable.teacherId, teacherProfile.id),
-                with: { subject: true }
-            }),
-            db.select().from(classes).where(instituteFilter).orderBy(classes.grade),
-            db.select({
-                classId: studentAttendance.classId,
-                status: studentAttendance.status
-            })
-            .from(studentAttendance)
-            .innerJoin(classes, eq(studentAttendance.classId, classes.id))
-            .where(
-                and(
-                    sql`DATE(${studentAttendance.date}) = ${targetDateStr}`,
-                    instituteFilter
+            const endOfDay = new Date(targetDateStr);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const [scheduleRes, classesRes, attendanceRes] = await Promise.all([
+                db.query.timetable.findMany({
+                    where: eq(timetable.teacherId, teacherProfile.id),
+                    with: { subject: true }
+                }),
+                db.select().from(classes).where(instituteFilter).orderBy(classes.grade),
+                db.select({
+                    classId: studentAttendance.classId,
+                    status: studentAttendance.status
+                })
+                .from(studentAttendance)
+                .innerJoin(classes, eq(studentAttendance.classId, classes.id))
+                .where(
+                    and(
+                        gte(studentAttendance.date, startOfDay),
+                        lte(studentAttendance.date, endOfDay),
+                        instituteFilter
+                    )
                 )
-            )
-        ]);
+            ]);
 
-        teacherSchedule = scheduleRes;
-        dbClasses = classesRes;
-        dbAttendance = attendanceRes;
+            teacherSchedule = scheduleRes;
+            dbClasses = classesRes;
+            dbAttendance = attendanceRes;
+        } catch (e: any) {
+            console.error("Database query failed inside teacher dashboard:", e);
+            dbError = e.message;
+        }
     }
 
     // Determine current day of week (and show Monday's schedule if it's Sunday)
@@ -105,6 +117,12 @@ export default async function TeacherDashboardPage(props: {
                 <h1 className="text-3xl md:text-4xl font-black text-slate-900 font-outfit uppercase tracking-tight">Teacher Dashboard</h1>
                 <p className="text-sm text-slate-500 font-medium">Welcome back! Here's an overview of your classes and activities.</p>
             </div>
+
+            {dbError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 rounded-3xl p-6 text-xs font-semibold shadow-sm">
+                    ⚠️ Error loading database summary: {dbError}. Please refresh the page.
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, idx) => (

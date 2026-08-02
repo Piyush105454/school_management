@@ -123,23 +123,52 @@ export default function LessonPlanClient({
     return requiredFields[stepId] || [];
   };
 
+  const getFieldValueWithFallback = (field: string) => {
+    let value = formData[field];
+    if (!value && field === "teacherOwnNotes") value = formData.teachingNotes;
+    if (!value && field === "activitySteps") value = formData.activityDescription;
+    if (!value && field === "prepDate") value = new Date().toISOString().split("T")[0];
+    if (!value && field === "preparedBy") {
+      const name = (session?.user as any)?.name || (session?.user as any)?.email;
+      if (name) value = name.includes("@") ? name.split("@")[0] : name;
+    }
+    if (!value && field === "lessonType") value = "Explanation";
+    if (!value && field === "pageFrom" && formData.pages && typeof formData.pages === "string") {
+      value = formData.pages.split("-")[0]?.trim();
+    }
+    if (!value && field === "pageTo" && formData.pages && typeof formData.pages === "string") {
+      value = formData.pages.split("-")[1]?.trim();
+    }
+    return value;
+  };
+
   const isStepValid = (stepId: number): boolean => {
     const requiredFields = getRequiredFieldsForStep(stepId);
     return requiredFields.every((field) => {
-      let value = formData[field];
-      if (!value && field === "teacherOwnNotes") value = formData.teachingNotes;
-      if (!value && field === "activitySteps") value = formData.activityDescription;
+      const value = getFieldValueWithFallback(String(field));
       return value !== null && value !== undefined && String(value).trim() !== "";
     });
   };
 
-
   const handleNext = () => {
+    const requiredFields = getRequiredFieldsForStep(currentStep);
+    const updates: any = {};
+    requiredFields.forEach((field) => {
+      const fallbackVal = getFieldValueWithFallback(String(field));
+      if ((formData[field] === undefined || formData[field] === null || formData[field] === "") && fallbackVal) {
+        updates[field] = fallbackVal;
+      }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      setFormData((prev: any) => ({ ...prev, ...updates }));
+    }
+
     if (!isStepValid(currentStep)) {
-      const requiredFields = getRequiredFieldsForStep(currentStep);
-      const missingFields = requiredFields.filter(
-        (field) => !formData[field]
-      );
+      const missingFields = requiredFields.filter((field) => {
+        const val = updates[field] || getFieldValueWithFallback(String(field));
+        return val === null || val === undefined || String(val).trim() === "";
+      });
       alert(`Please fill in the required fields: ${missingFields.join(", ")}`);
       return;
     }
@@ -192,7 +221,9 @@ export default function LessonPlanClient({
       return;
     }
 
-    if (!confirm("Submit this lesson plan for review?")) return;
+    if (!window.confirm("Are you sure you want to mark this lesson plan as READY FOR REVIEWER and submit it?")) {
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/lesson-plan", {
@@ -217,19 +248,19 @@ export default function LessonPlanClient({
             
             // Redirect based on user role
             if (session?.user?.role === "TEACHER") {
-              // Teachers go to their lesson plan page
-              window.location.href = `/teacher/lesson-plan?id=${result.data.id}`;
+              // Teachers go to My Lesson Plans UI
+              window.location.href = `/office/academy-management/my-lesson-plans`;
             } else if (session?.user?.role === "PRINCIPAL" || session?.user?.role === "OFFICE" || session?.user?.role === "ADMIN") {
               // Admin/Office/Principal go to lesson plan review page
               window.location.href = `/office/academy-management/lesson-plan/review?id=${result.data.id}`;
             } else {
               // Fallback
-              window.location.href = `/teacher/lesson-plan?id=${result.data.id}`;
+              window.location.href = `/office/academy-management/my-lesson-plans`;
             }
           } catch (sessionError) {
             console.error("Failed to get session:", sessionError);
-            // Fallback to teacher page
-            window.location.href = `/teacher/lesson-plan?id=${result.data.id}`;
+            // Fallback to My Lesson Plans page
+            window.location.href = `/office/academy-management/my-lesson-plans`;
           }
         }
       } else {
@@ -240,6 +271,33 @@ export default function LessonPlanClient({
       alert(`Submission error: ${e.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    try {
+      const res = await fetch("/api/lesson-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          status: "DRAFT",
+        }),
+      });
+      const result = await res.json();
+      if (res.ok && result.success && result.data?.id) {
+        setFormData((prev: any) => ({ ...prev, id: result.data.id, status: "DRAFT" }));
+        alert(`Draft saved successfully!\nYou can find and edit this draft anytime in My Lesson Plans.`);
+      } else {
+        alert(`Failed to save draft: ${result.error || "Unknown error"}`);
+      }
+    } catch (e: any) {
+      alert(`Error saving draft: ${e.message}`);
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -285,7 +343,7 @@ export default function LessonPlanClient({
       const result = await res.json();
       if (res.ok && result.success) {
         setFormData((prev: any) => ({ ...prev, ...postDeliveryData, status: "COMPLETED" }));
-        return true;
+        return;
       } else {
         alert(`Error saving post-delivery record: ${result.error || "Unknown error"}`);
       }
@@ -365,9 +423,21 @@ export default function LessonPlanClient({
                       {getStepLabel(currentStep)}
                     </h2>
                   </div>
-                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-full border border-blue-200 shadow-xs">
-                    {progress}% Complete
-                  </span>
+                  <div className="flex items-center gap-2.5">
+                    {!isSubmittedPlan && (
+                      <button
+                        onClick={handleSaveDraft}
+                        disabled={savingDraft || loading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all shadow-xs"
+                      >
+                        {savingDraft ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                        Save Draft
+                      </button>
+                    )}
+                    <span className="text-xs font-extrabold text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-full border border-blue-200 shadow-xs">
+                      {progress}% Complete
+                    </span>
+                  </div>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                   <div
@@ -477,6 +547,15 @@ export default function LessonPlanClient({
                   </button>
 
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft || loading}
+                      className="flex items-center gap-2 px-5 py-2.5 h-11 text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all shadow-xs"
+                    >
+                      {savingDraft ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                      Save Draft
+                    </button>
+
                     {currentStep === 10 ? (
                       <button
                         onClick={handleSubmit}

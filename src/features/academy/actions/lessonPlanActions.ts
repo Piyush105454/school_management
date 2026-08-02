@@ -401,17 +401,31 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
   }
 }
 
-export async function updateLessonPlanStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'REVIEWED' | 'COMPLETED', remark: string, reviewerId: string, isPrincipal: boolean = false) {
+export async function updateLessonPlanStatus(
+  id: string,
+  status: 'APPROVED' | 'REJECTED' | 'REVIEWED' | 'COMPLETED' | 'SUBMITTED' | 'DRAFT',
+  remark: string,
+  reviewerId?: string | null,
+  isPrincipal: boolean = false
+) {
   try {
+    const validId = (reviewerId && typeof reviewerId === "string" && reviewerId.trim() !== "") ? reviewerId.trim() : null;
+
+    const updateFields: any = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    if (isPrincipal) {
+      if (remark !== undefined) updateFields.principalRemark = remark;
+      if (validId) updateFields.approverId = validId;
+    } else {
+      if (remark !== undefined) updateFields.reviewerRemark = remark;
+      if (validId) updateFields.reviewerId = validId;
+    }
+
     await db.update(lessonPlans)
-      .set({
-        status,
-        ...(isPrincipal 
-          ? { principalRemark: remark, approverId: reviewerId }  // save who approved
-          : { reviewerRemark: remark, reviewerId }
-        ),
-        updatedAt: new Date()
-      })
+      .set(updateFields)
       .where(eq(lessonPlans.id, id));
 
     // Run path revalidation asynchronously in the background so it doesn't block the API response

@@ -163,6 +163,14 @@ export default async function LessonPlanPage({
         })
       : [];
 
+  let pageFromParam = undefined;
+  let pageToParam = undefined;
+  if (pagesParam && pagesParam.includes("-")) {
+    const parts = pagesParam.split("-");
+    pageFromParam = parts[0].trim();
+    pageToParam = parts[1].trim();
+  }
+
   // Build initial form data from URL parameters if creating new lesson plan
   const initialFormData = {
     ...(classParam && { className: classParam }),
@@ -173,6 +181,8 @@ export default async function LessonPlanPage({
     ...(divisionNoParam && { divisionNo: divisionNoParam }),
     ...(unitNameParam && { unitName: unitNameParam }),
     ...(pagesParam && { pages: pagesParam }),
+    ...(pageFromParam && { pageFrom: pageFromParam }),
+    ...(pageToParam && { pageTo: pageToParam }),
   };
 
   return (

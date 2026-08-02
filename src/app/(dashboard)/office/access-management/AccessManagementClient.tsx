@@ -34,7 +34,6 @@ const MASTER_STRUCTURE = [
   // Reports Category
   { type: "section", name: "Reports" },
   { href: "/office/scholarship/reports/students", roleNames: { OFFICE: "Student Reports", PRINCIPAL: "Student Reports", TEACHER: "Student Reports" } },
-  { href: "/office/scholarship/reports", roleNames: { OFFICE: "Monthly Reports", PRINCIPAL: "Monthly Reports", TEACHER: "Monthly Reports" } },
 
   // Academy Management Category
   { type: "section", name: "Academy Management" },

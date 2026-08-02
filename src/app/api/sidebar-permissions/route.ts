@@ -83,6 +83,14 @@ export async function POST(req: NextRequest) {
 
     // Handle batch operations or single user save
     if (userId === "ALL_TEACHERS") {
+      const teacherUsers = await db
+        .select({ userId: users.id })
+        .from(users)
+        .where(eq(users.role, "TEACHER"));
+      for (const t of teacherUsers) {
+        if (t.userId) await saveForUser(t.userId);
+      }
+
       const teacherList = await db
         .select({ userId: teachers.userId })
         .from(teachers)

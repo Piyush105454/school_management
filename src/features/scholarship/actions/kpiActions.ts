@@ -9,9 +9,34 @@ import {
   scholarshipRecords, 
   scholarshipCriteriaSettings 
 } from "@/db/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, or, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { studentAttendance, students, admissionMeta, lessonPlans, homeworkSubmissions } from "@/db/schema";
+
+async function resolveCandidateAdmissionIds(admissionId: string): Promise<string[]> {
+  // scholarshipRecords.admissionId is a UUID FK -> admissionMeta.id
+  // We must always return the actual admissionMeta UUID.
+  // If admissionId is already a UUID, we use it directly.
+  // If admissionId is a scholar/entry/admission number (text), resolve the UUID.
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(admissionId);
+  if (isUUID) {
+    return [admissionId];
+  }
+  try {
+    const meta = await db.query.admissionMeta.findFirst({
+      where: or(
+        eq(admissionMeta.scholarNumber, admissionId),
+        eq(admissionMeta.entryNumber, admissionId),
+        eq(admissionMeta.admissionNumber, admissionId)
+      ),
+      columns: { id: true }
+    });
+    if (meta?.id) return [meta.id];
+  } catch (e) {
+    console.error("Error resolving candidate admission IDs:", e);
+  }
+  return [admissionId];
+}
 
 export async function saveKpiData(admissionId: string, month: string, year: string, data: {
   attendance: { totalDays: number; presentDays: number };
@@ -259,34 +284,48 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
 
 export async function getStudentKpiData(admissionId: string, month: string, year: string) {
   try {
+    const validAdmissionIds = await resolveCandidateAdmissionIds(admissionId);
+    const yearPattern = `%${year}%`;
+    const monthLower = month.toLowerCase().trim();
+    const monthShort = monthLower.substring(0, 3);
+
     const attendance = await db.query.scholarshipAttendance.findFirst({ 
       where: and(
-        eq(scholarshipAttendance.admissionId, admissionId), 
-        sql`LOWER(${scholarshipAttendance.month}) = LOWER(${month})`
+        inArray(scholarshipAttendance.admissionId, validAdmissionIds), 
+        sql`(LOWER(${scholarshipAttendance.month}) = ${monthLower} OR LOWER(${scholarshipAttendance.month}) LIKE ${`%${monthShort}%`})`,
+        sql`(${scholarshipAttendance.year} IS NULL OR ${scholarshipAttendance.year} = ${year} OR ${scholarshipAttendance.year} LIKE ${yearPattern})`
       ) 
     });
+
     const homework = await db.query.scholarshipHomework.findFirst({ 
       where: and(
-        eq(scholarshipHomework.admissionId, admissionId), 
-        sql`LOWER(${scholarshipHomework.month}) = LOWER(${month})`
+        inArray(scholarshipHomework.admissionId, validAdmissionIds), 
+        sql`(LOWER(${scholarshipHomework.month}) = ${monthLower} OR LOWER(${scholarshipHomework.month}) LIKE ${`%${monthShort}%`})`,
+        sql`(${scholarshipHomework.year} IS NULL OR ${scholarshipHomework.year} = ${year} OR ${scholarshipHomework.year} LIKE ${yearPattern})`
       ) 
     });
+
     const guardian = await db.query.scholarshipGuardian.findFirst({ 
       where: and(
-        eq(scholarshipGuardian.admissionId, admissionId), 
-        sql`LOWER(${scholarshipGuardian.month}) = LOWER(${month})`
+        inArray(scholarshipGuardian.admissionId, validAdmissionIds), 
+        sql`(LOWER(${scholarshipGuardian.month}) = ${monthLower} OR LOWER(${scholarshipGuardian.month}) LIKE ${`%${monthShort}%`})`,
+        sql`(${scholarshipGuardian.year} IS NULL OR ${scholarshipGuardian.year} = ${year} OR ${scholarshipGuardian.year} LIKE ${yearPattern})`
       ) 
     });
+
     const ptm = await db.query.scholarshipPtm.findFirst({ 
       where: and(
-        eq(scholarshipPtm.admissionId, admissionId), 
-        sql`LOWER(${scholarshipPtm.month}) = LOWER(${month})`
+        inArray(scholarshipPtm.admissionId, validAdmissionIds), 
+        sql`(LOWER(${scholarshipPtm.month}) = ${monthLower} OR LOWER(${scholarshipPtm.month}) LIKE ${`%${monthShort}%`})`,
+        sql`(${scholarshipPtm.year} IS NULL OR ${scholarshipPtm.year} = ${year} OR ${scholarshipPtm.year} LIKE ${yearPattern})`
       ) 
     });
+
     const record = await db.query.scholarshipRecords.findFirst({ 
       where: and(
-        eq(scholarshipRecords.admissionId, admissionId), 
-        sql`LOWER(${scholarshipRecords.month}) = LOWER(${month})`
+        inArray(scholarshipRecords.admissionId, validAdmissionIds), 
+        sql`(LOWER(${scholarshipRecords.month}) = ${monthLower} OR LOWER(${scholarshipRecords.month}) LIKE ${`%${monthShort}%`})`,
+        sql`(${scholarshipRecords.year} IS NULL OR ${scholarshipRecords.year} = ${year} OR ${scholarshipRecords.year} LIKE ${yearPattern})`
       ) 
     });
 
@@ -294,7 +333,7 @@ export async function getStudentKpiData(admissionId: string, month: string, year
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
       where: and(
         eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
-        eq(scholarshipCriteriaSettings.admissionId, admissionId)
+        inArray(scholarshipCriteriaSettings.admissionId, validAdmissionIds)
       ),
     });
 
@@ -309,7 +348,7 @@ export async function getStudentKpiData(admissionId: string, month: string, year
 
     // --- NEW: Fetch Real Academy Attendance Data ---
     const meta = await db.query.admissionMeta.findFirst({
-      where: eq(admissionMeta.id, admissionId),
+      where: inArray(admissionMeta.id, validAdmissionIds),
       columns: { entryNumber: true }
     });
 
@@ -408,24 +447,26 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       locked: record.locked 
     } : null);
 
+    // For attendance: prefer real academy data, then sub-table, then record fallback
+    // Note: attendanceAmount is in rupees (e.g. 750), NOT a percentage
     const effectiveAttendance = (realAttendance && realAttendance.totalDays > 0) 
       ? realAttendance 
       : (attendance || (record ? { 
-          totalDays: 30, 
-          presentDays: record.attendanceAmount > 0 ? 30 : 0, 
+          totalDays: 0, 
+          presentDays: 0,
           absentDays: 0,
           mlDays: 0,
           halfDays: 0,
           leaveDays: 0,
-          percentage: record.attendanceAmount > 0 ? 100 : 0 
+          percentage: 0  // No real data available - user must fill in manually
         } : null));
 
     const effectiveHomework = (realHomework && realHomework.totalGiven > 0) 
       ? realHomework 
       : (homework || (record ? { 
-          totalGiven: 10, 
-          totalDone: record.homeworkAmount > 0 ? 10 : 0, 
-          percentage: record.homeworkAmount > 0 ? 100 : 0 
+          totalGiven: 0, 
+          totalDone: 0, 
+          percentage: 0  // No real data - user must fill manually
         } : null));
 
     return { 
@@ -442,26 +483,45 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       } 
     };
   } catch (error: any) {
+    console.error("[getStudentKpiData] error:", error);
     return { success: false, error: error.message };
   }
 }
 
 export async function getStudentMonthlyOverview(admissionId: string, year: string) {
   try {
+    const validAdmissionIds = await resolveCandidateAdmissionIds(admissionId);
+    const yearPattern = `%${year}%`;
+
     const attendance = await db.query.scholarshipAttendance.findMany({ 
-      where: and(eq(scholarshipAttendance.admissionId, admissionId), eq(scholarshipAttendance.year, year))
+      where: and(
+        inArray(scholarshipAttendance.admissionId, validAdmissionIds),
+        sql`(${scholarshipAttendance.year} IS NULL OR ${scholarshipAttendance.year} = ${year} OR ${scholarshipAttendance.year} LIKE ${yearPattern})`
+      )
     });
     const homework = await db.query.scholarshipHomework.findMany({ 
-      where: and(eq(scholarshipHomework.admissionId, admissionId), eq(scholarshipHomework.year, year))
+      where: and(
+        inArray(scholarshipHomework.admissionId, validAdmissionIds),
+        sql`(${scholarshipHomework.year} IS NULL OR ${scholarshipHomework.year} = ${year} OR ${scholarshipHomework.year} LIKE ${yearPattern})`
+      )
     });
     const guardian = await db.query.scholarshipGuardian.findMany({ 
-      where: and(eq(scholarshipGuardian.admissionId, admissionId), eq(scholarshipGuardian.year, year))
+      where: and(
+        inArray(scholarshipGuardian.admissionId, validAdmissionIds),
+        sql`(${scholarshipGuardian.year} IS NULL OR ${scholarshipGuardian.year} = ${year} OR ${scholarshipGuardian.year} LIKE ${yearPattern})`
+      )
     });
     const ptm = await db.query.scholarshipPtm.findMany({ 
-      where: and(eq(scholarshipPtm.admissionId, admissionId), eq(scholarshipPtm.year, year))
+      where: and(
+        inArray(scholarshipPtm.admissionId, validAdmissionIds),
+        sql`(${scholarshipPtm.year} IS NULL OR ${scholarshipPtm.year} = ${year} OR ${scholarshipPtm.year} LIKE ${yearPattern})`
+      )
     });
     const records = await db.query.scholarshipRecords.findMany({ 
-      where: and(eq(scholarshipRecords.admissionId, admissionId), eq(scholarshipRecords.year, year))
+      where: and(
+        inArray(scholarshipRecords.admissionId, validAdmissionIds),
+        sql`(${scholarshipRecords.year} IS NULL OR ${scholarshipRecords.year} = ${year} OR ${scholarshipRecords.year} LIKE ${yearPattern})`
+      )
     });
 
     // Fetch real attendance map from studentAttendance table
@@ -530,13 +590,20 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const overview = months.map(month => {
       const monthLower = month.toLowerCase().trim();
-      const savedAtt = attendance.find(a => a.month?.toLowerCase().trim() === monthLower);
+      
+      const isMonthMatch = (storedMonth?: string | null) => {
+        if (!storedMonth) return false;
+        const m = storedMonth.toLowerCase().trim();
+        return m === monthLower || m.startsWith(monthLower) || monthLower.startsWith(m);
+      };
+
+      const savedAtt = attendance.find(a => isMonthMatch(a.month));
       const realAtt = realAttendanceMap[month] || realAttendanceMap[month.toLowerCase()] || realAttendanceMap[month.substring(0, 3)];
 
-      const hw = homework.find(h => h.month?.toLowerCase().trim() === monthLower);
-      const gd = guardian.find(g => g.month?.toLowerCase().trim() === monthLower);
-      const pt = ptm.find(p => p.month?.toLowerCase().trim() === monthLower);
-      const rec = records.find(r => r.month?.toLowerCase().trim() === monthLower);
+      const hw = homework.find(h => isMonthMatch(h.month));
+      const gd = guardian.find(g => isMonthMatch(g.month));
+      const pt = ptm.find(p => isMonthMatch(p.month));
+      const rec = records.find(r => isMonthMatch(r.month));
 
       const effectivePt = pt || (rec ? { attended: rec.ptmAmount > 0, locked: rec.locked, attendee: rec.ptmAmount > 0 ? "Parent" : null } : null);
       const effectiveGd = gd || (rec ? { rating: rec.guardianAmount > 0 ? 5 : 0, locked: rec.locked } : null);

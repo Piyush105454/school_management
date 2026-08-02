@@ -105,6 +105,152 @@ export default function Step10ReviewUI({
     return <div className="whitespace-pre-wrap break-words">{content}</div>;
   };
 
+  const renderTeachingNotesContent = (data: LessonPlanData) => {
+    const notes = data.teacherOwnNotes || data.teachingNotes;
+    const ref = data.teachingReferences || data.references;
+
+    if (!notes && !ref) return emDash;
+
+    return (
+      <div className="space-y-1.5 text-sm text-slate-800 font-normal">
+        {notes && <div>{renderHtmlContent(notes)}</div>}
+        {ref && (
+          <div className={notes ? "mt-1.5 pt-1.5 border-t border-slate-100" : ""}>
+            <span className="font-semibold text-slate-900">References / Resources: </span>
+            <span className="text-slate-700">{ref}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderLessonIntroContent = (data: LessonPlanData) => {
+    const hook = data.lessonHook || data.lessonIntroObjective || data.lessonIntroduction;
+    const connection = data.introConnection;
+
+    if (!hook && !connection) return emDash;
+
+    return (
+      <div className="space-y-1.5 text-sm text-slate-800 font-normal">
+        {hook && <div>{renderHtmlContent(hook)}</div>}
+        {connection && (
+          <div className={hook ? "mt-1.5 pt-1.5 border-t border-slate-100" : ""}>
+            <span className="font-semibold text-slate-900">Connection to prior learning: </span>
+            <span className="text-slate-700">{connection}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderLessonActivityContent = (data: LessonPlanData) => {
+    const isQA = data.lessonType === "Q&A";
+
+    if (isQA) {
+      const discussion = data.discussionPlan;
+      const quieter = data.quieterStudentSupport;
+      const steps = data.activitySteps || data.lessonActivity;
+
+      if (!discussion && !quieter && !steps) return emDash;
+
+      return (
+        <div className="space-y-1.5 text-sm text-slate-800 font-normal">
+          {discussion && (
+            <div>
+              <span className="font-semibold text-slate-900">Inspection & Support Plan: </span>
+              {renderHtmlContent(discussion)}
+            </div>
+          )}
+          {quieter && (
+            <div className={discussion ? "mt-1.5 pt-1.5 border-t border-slate-100" : ""}>
+              <span className="font-semibold text-slate-900">Involving Quieter / Struggling Students: </span>
+              <span className="text-slate-700">{quieter}</span>
+            </div>
+          )}
+          {steps && !discussion && (
+            <div className={discussion || quieter ? "mt-1.5 pt-1.5 border-t border-slate-100" : ""}>
+              <span className="font-semibold text-slate-900">Inspection Steps: </span>
+              {renderHtmlContent(steps)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Explanation Mode (Step 5 - Lesson Activity)
+    const title = data.activityTitle;
+    const mode = data.activityMode;
+    const steps = data.activitySteps || data.lessonActivity || data.activityDescription;
+    const materials = data.materials;
+    const role = data.teacherRole;
+    const success = data.activitySuccess;
+
+    if (!title && !steps && !materials && !role && !success) return emDash;
+
+    return (
+      <div className="space-y-1.5 text-sm text-slate-800 font-normal">
+        {(title || mode) && (
+          <div className="text-slate-900 text-sm flex items-center flex-wrap gap-2 mb-1">
+            <span className="font-semibold">{title || "Lesson Activity"}</span>
+            {mode && (
+              <span className="px-1.5 py-0.5 text-xs text-slate-600 bg-slate-100 rounded border border-slate-200">
+                Mode: {mode}
+              </span>
+            )}
+          </div>
+        )}
+        {steps && (
+          <div className="mb-1">
+            <span className="font-semibold text-slate-900">Activity Steps: </span>
+            {renderHtmlContent(steps)}
+          </div>
+        )}
+        {materials && (
+          <div className="text-xs text-slate-700 mb-1">
+            <span className="font-semibold text-slate-900">Materials Required: </span>
+            <span>{materials}</span>
+          </div>
+        )}
+        {role && (
+          <div className="text-xs text-slate-700 mb-1">
+            <span className="font-semibold text-slate-900">Teacher's Role: </span>
+            <span>{role}</span>
+          </div>
+        )}
+        {success && (
+          <div className="text-xs text-slate-700 mb-1">
+            <span className="font-semibold text-slate-900">Success Check: </span>
+            <span>{success}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDiscussionContent = (data: LessonPlanData) => {
+    const plan = data.discussionPlan || data.knowledgeBuilding;
+    const quieter = data.quieterStudentSupport;
+
+    if (!plan && !quieter) return emDash;
+
+    return (
+      <div className="space-y-1.5 text-sm text-slate-800 font-normal">
+        {plan && (
+          <div>
+            <span className="font-semibold text-slate-900">Discussion Plan: </span>
+            {renderHtmlContent(plan)}
+          </div>
+        )}
+        {quieter && (
+          <div className={plan ? "mt-1.5 pt-1.5 border-t border-slate-100" : ""}>
+            <span className="font-semibold text-slate-900">Involving Quieter / Struggling Students: </span>
+            <span className="text-slate-700">{quieter}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const [goodStudents, setGoodStudents] = React.useState<string[]>(
     lessonPlanData.goodStudents || []
   );
@@ -403,22 +549,22 @@ export default function Step10ReviewUI({
                 <th className="section-cell" rowSpan={5}>Active Learning<br/><span>(30 mins)</span></th>
                 <td className="time-cell">2 mins</td>
                 <th className="label-cell">Lesson Introduction</th>
-                <td className="content-cell">{renderHtmlContent(lessonPlanData.lessonHook)}</td>
+                <td className="content-cell">{renderLessonIntroContent(lessonPlanData)}</td>
               </tr>
               <tr>
                 <td className="time-cell">12 mins</td>
                 <th className="label-cell">Teaching Notes</th>
-                <td className="content-cell">{renderHtmlContent(lessonPlanData.teachingNotes || lessonPlanData.teacherOwnNotes)}</td>
+                <td className="content-cell">{renderTeachingNotesContent(lessonPlanData)}</td>
               </tr>
               <tr>
                 <td className="time-cell">8 mins</td>
                 <th className="label-cell">{lessonPlanData.lessonType === "Q&A" ? "Inspection & Support" : "Lesson Activity"}</th>
-                <td className="content-cell">{renderHtmlContent(lessonPlanData.activityTitle || lessonPlanData.quieterStudentSupport)}</td>
+                <td className="content-cell">{renderLessonActivityContent(lessonPlanData)}</td>
               </tr>
               <tr>
                 <td className="time-cell">5 mins</td>
                 <th className="label-cell">Knowledge Building · Discussion</th>
-                <td className="content-cell">{renderHtmlContent(lessonPlanData.discussionPlan)}</td>
+                <td className="content-cell">{renderDiscussionContent(lessonPlanData)}</td>
               </tr>
               <tr>
                 <td className="time-cell">3 mins</td>
@@ -675,16 +821,24 @@ export default function Step10ReviewUI({
               🎉 🌟 ✨ 🏆 🧑‍🏫 🎨 📝 📖 🍎 ⭐ 🚀 ⚡
             </div>
 
-            {/* Main Trophy / Confetti Graphic */}
-            <div className="w-20 h-20 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-4xl mb-5 shadow-inner animate-bounce">
-              🏆
+            {/* Main Trophy / Reward Graphic */}
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mb-5 shadow-inner animate-bounce border-2 border-emerald-200">
+              🪙
             </div>
 
             <h3 className="text-2xl font-black text-slate-900 mb-2">
               Congratulations, Teacher! 🎉
             </h3>
+
+            <div className="my-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center gap-2 text-amber-900 shadow-sm">
+              <span className="text-2xl">💰</span>
+              <span className="text-base font-extrabold text-amber-800">
+                You have earned <span className="text-emerald-700 font-black text-lg">₹10</span> Reward! 🎁
+              </span>
+            </div>
+
             <p className="text-sm font-semibold text-slate-500 mb-6 max-w-xs leading-relaxed">
-              Your lesson plan is officially <strong>Signed Off & Completed</strong>! You are ready to deliver this awesome lesson in your classroom. 🌟
+              Your lesson plan is officially <strong>Signed Off & Completed</strong>!
             </p>
 
             <button

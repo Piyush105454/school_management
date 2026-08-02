@@ -177,7 +177,7 @@ export default function RecordsClient() {
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ];
-  const statuses = ["PENDING", "SCHOLARSHIP FULL AWARDED", "APPROVED", "PAID"];
+  const statuses = ["PENDING", "SCHOLARSHIP FULL AWARDED", "PAID"];
 
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -226,7 +226,12 @@ export default function RecordsClient() {
     // Apply dropdown filters client-side (matches what user sees on screen)
     if (filters.month) result = result.filter(r => r.month === filters.month);
     if (filters.class) result = result.filter(r => r.className === filters.class);
-    if (filters.status) result = result.filter(r => r.status === filters.status);
+    if (filters.status) {
+      result = result.filter(r => {
+        const displayStatus = (r.status === "APPROVED" || r.status === "SCHOLARSHIP FULL AWARDED") ? "SCHOLARSHIP FULL AWARDED" : r.status;
+        return displayStatus === filters.status;
+      });
+    }
 
     // Apply search query
     if (searchQuery) {
@@ -510,13 +515,11 @@ export default function RecordsClient() {
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
                         r.status === "PAID"
                           ? "bg-emerald-100 text-emerald-700"
-                          : r.status === "SCHOLARSHIP FULL AWARDED"
+                          : (r.status === "SCHOLARSHIP FULL AWARDED" || r.status === "APPROVED")
                           ? "bg-green-100 text-green-700"
-                          : r.status === "APPROVED"
-                          ? "bg-blue-100 text-blue-700"
                           : "bg-amber-100 text-amber-700"
                       }`}>
-                        {r.status}
+                        {r.status === "APPROVED" ? "SCHOLARSHIP FULL AWARDED" : r.status}
                       </span>
                     </td>
                   </tr>

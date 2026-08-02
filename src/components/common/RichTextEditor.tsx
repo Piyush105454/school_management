@@ -312,7 +312,7 @@ export default function RichTextEditor({
     editor.setSelection(range.index + 1, 0);
     // Apply default style via DOM after short delay
     setTimeout(() => {
-      const imgs = editor.root.querySelectorAll<HTMLImageElement>("img");
+      const imgs = editor.root.querySelectorAll("img") as NodeListOf<HTMLImageElement>;
       const last = imgs[imgs.length - 1];
       if (last) {
         last.style.maxWidth = "100%";
@@ -432,7 +432,7 @@ export default function RichTextEditor({
       `}</style>
 
       <ReactQuill
-        ref={quillRef}
+        {...({ ref: quillRef } as any)}
         theme="snow"
         value={value || ""}
         onChange={onChange}

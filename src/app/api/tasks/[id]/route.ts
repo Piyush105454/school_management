@@ -16,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const { id: taskId } = await params;
     const body = await req.json();
-    const { status, comments } = body;
+    const { status, comments, message, priority } = body;
 
     const existingTask = await db.query.tasks.findFirst({
       where: eq(tasks.id, taskId)
@@ -35,7 +35,31 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const updates: any = {};
     if (status !== undefined) updates.status = status;
-    if (comments !== undefined) updates.comments = comments;
+    if (priority !== undefined) updates.priority = priority;
+    
+    if (comments !== undefined) {
+      updates.comments = comments;
+    } else if (message !== undefined && message.trim().length > 0) {
+      let currentComments = [];
+      try {
+        if (existingTask.comments) {
+          currentComments = JSON.parse(existingTask.comments);
+        }
+      } catch (e) {
+        if (existingTask.comments) {
+          currentComments = [{ senderName: "System", message: existingTask.comments, timestamp: new Date().toISOString() }];
+        }
+      }
+      currentComments.push({
+        senderId: session.user.id,
+        senderName: (session.user.email || "user").split("@")[0],
+        senderRole: session.user.role,
+        message: message.trim(),
+        timestamp: new Date().toISOString()
+      });
+      updates.comments = JSON.stringify(currentComments);
+    }
+    
     updates.updatedAt = new Date();
 
     await db.update(tasks).set(updates).where(eq(tasks.id, taskId));

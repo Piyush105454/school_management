@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import RichTextEditor from "@/components/common/RichTextEditor";
 
 interface Step5LessonActivityProps {
   formData: {
@@ -80,15 +81,13 @@ export default function Step5LessonActivity({
           <label className="required" htmlFor="activitySteps">
             Activity steps
           </label>
-          <textarea
+          <RichTextEditor
             id="activitySteps"
-            name="activitySteps"
             value={formData.activitySteps || ""}
-            onChange={(e) => handleChange("activitySteps", e.target.value)}
-            placeholder="Write 2 4 quick steps for how students will perform the activity."
+            onChange={(val) => handleChange("activitySteps", val)}
+            placeholder="Write 2-4 quick steps for how students will perform the activity."
             disabled={!isEditable}
-            rows={5}
-            required
+            minHeight="140px"
           />
         </div>
       </div>
@@ -111,7 +110,7 @@ export default function Step5LessonActivity({
 
         <div className="card col-4">
           <div className="field">
-            <label htmlFor="teacherRole">Teacherâ€™s role</label>
+            <label htmlFor="teacherRole">Teachers role</label>
             <textarea
               id="teacherRole"
               name="teacherRole"

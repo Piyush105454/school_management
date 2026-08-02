@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useInstitute } from "@/providers/InstituteProvider";
 import { getDetailedStudentReports } from "@/features/scholarship/actions/reportActions";
 import { 
@@ -26,6 +27,7 @@ interface StudentReportsClientProps {
 
 export default function StudentReportsClient({ classesList, limitToClasses }: StudentReportsClientProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const { selectedInstitute, dbClasses } = useInstitute();
 
@@ -43,7 +45,7 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
   const [year, setYear] = useState(searchParams.get("year") || currentYearStr);
   const [selectedClass, setSelectedClass] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("SCHOLARSHIP");
+  const [activeTab, setActiveTab] = useState("ATTENDANCE");
   const [studentsData, setStudentsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +166,7 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5 print:hidden">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push("/office/scholarship/reports")}
+            onClick={() => router.push(session?.user?.role === "TEACHER" ? "/teacher/dashboard" : "/office/scholarship/reports")}
             className="h-10 w-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-all shadow-sm"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -295,17 +297,6 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
       {/* Tabs Section */}
       <div className="flex items-center gap-6 border-b border-slate-200 overflow-x-auto no-scrollbar print:hidden mt-2">
         <button 
-          onClick={() => setActiveTab('SCHOLARSHIP')}
-          className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
-            activeTab === 'SCHOLARSHIP' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          Scholarship Report
-          {activeTab === 'SCHOLARSHIP' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
-          )}
-        </button>
-        <button 
           onClick={() => setActiveTab('ATTENDANCE')}
           className={`pb-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all relative ${
             activeTab === 'ATTENDANCE' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
@@ -328,215 +319,6 @@ export default function StudentReportsClient({ classesList, limitToClasses }: St
           )}
         </button>
       </div>
-
-      {activeTab === 'SCHOLARSHIP' && (
-        <>
-          {/* KPI Stats summary blocks */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex items-center gap-4">
-          <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-500 shadow-inner">
-            <Users className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">{totalStudents}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              {calculatedCount} calculated ({totalStudents - calculatedCount} pending calculation)
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex items-center gap-4">
-          <div className="h-12 w-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 shadow-inner">
-            <CheckCircle className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid Status</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">{paidCount}</h3>
-            <p className="text-[10px] text-green-600 font-bold mt-0.5">
-              ₹{totalDisbursedPayout.toLocaleString("en-IN")} Disbursed
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex items-center gap-4">
-          <div className="h-12 w-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shadow-inner">
-            <Clock className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending & Approved</p>
-            <h3 className="text-xl font-black text-slate-900 mt-0.5">{pendingCount + approvedCount}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              {pendingCount} pending, {approvedCount} approved
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex items-center gap-4">
-          <div className="h-12 w-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner">
-            <IndianRupee className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Projected Payout</p>
-            <h3 className="text-xl font-black text-indigo-600 mt-0.5">₹{totalProjectedPayout.toLocaleString("en-IN")}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">For selected filters & query</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Reports Table */}
-      {error && (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3 text-red-700 text-sm">
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
-          <p className="font-semibold">{error}</p>
-        </div>
-      )}
-
-      <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <RefreshCw className="h-8 w-8 text-indigo-600 animate-spin" />
-            <p className="text-slate-400 text-sm font-semibold">Loading student report records...</p>
-          </div>
-        ) : filteredStudents.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700 whitespace-nowrap">
-              <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <tr>
-                  <th className="px-6 py-4">Student Name</th>
-                  <th className="px-6 py-4">Scholar ID / Roll</th>
-                  <th className="px-6 py-4 text-center">Class</th>
-                  <th className="px-6 py-4 text-center">Attendance Metric</th>
-                  <th className="px-6 py-4 text-center">Homework Metric</th>
-                  <th className="px-6 py-4 text-center">Guardian Rating</th>
-                  <th className="px-6 py-4 text-center">PTM Attendance</th>
-                  <th className="px-6 py-4 text-center">Adjustment</th>
-                  <th className="px-6 py-4 text-right">Total Payout</th>
-                  <th className="px-6 py-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 font-medium">
-                {filteredStudents.map((student) => {
-                  const scholarId = student.scholarNumber || student.metaScholarNumber || student.admissionNumber || student.entryNumber || "N/A";
-
-                  return (
-                    <tr key={student.admissionId} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <Link 
-                          href={`/office/scholarship/students/${student.admissionId}`}
-                          className="font-bold text-slate-900 hover:text-indigo-600 hover:underline transition-colors block"
-                        >
-                          {student.studentName || "N/A"}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-slate-500 font-bold">
-                        {scholarId}
-                      </td>
-                      <td className="px-6 py-4 text-center font-bold">
-                        {student.appliedClass || "N/A"}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {student.attendancePct !== null ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="text-slate-800 font-bold">{student.attendancePct}%</span>
-                            <span className="text-[10px] text-slate-400 font-bold">₹{student.attendanceAmount || 0}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {student.homeworkPct !== null ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="text-slate-800 font-bold">{student.homeworkPct}%</span>
-                            <span className="text-[10px] text-slate-400 font-bold">₹{student.homeworkAmount || 0}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {student.guardianRating !== null ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className="text-slate-800 font-bold">{student.guardianRating}/10</span>
-                            <span className="text-[10px] text-slate-400 font-bold">₹{student.guardianAmount || 0}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {student.ptmAttended !== null ? (
-                          <div className="inline-flex flex-col items-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                              student.ptmAttended 
-                                ? "bg-emerald-50 text-emerald-700" 
-                                : "bg-rose-50 text-rose-700"
-                            }`}>
-                              {student.ptmAttended ? "Attended" : "Missed"}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-bold mt-0.5">₹{student.ptmAmount || 0}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {student.adjustmentAmount ? (
-                          <div className="inline-flex flex-col items-center" title={student.adjustmentNote || ""}>
-                            <span className={`font-bold ${
-                              student.adjustmentAmount > 0 ? "text-emerald-600" : "text-rose-600"
-                            }`}>
-                              {student.adjustmentAmount > 0 ? "+" : ""}₹{student.adjustmentAmount}
-                            </span>
-                            {student.adjustmentNote && (
-                              <span className="text-[9px] text-slate-400 font-bold truncate max-w-[100px]">
-                                {student.adjustmentNote}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">₹0</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right font-black text-slate-900 text-sm">
-                        ₹{(student.totalAmount || 0).toLocaleString("en-IN")}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {student.recordId ? (
-                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                            student.status === "PAID"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : student.status === "APPROVED"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}>
-                            {student.status || "PENDING"}
-                          </span>
-                        ) : (
-                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-100 text-slate-400">
-                            NOT CALCULATED
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-20 space-y-2">
-            <Users className="h-10 w-10 text-slate-300 mx-auto" />
-            <h4 className="font-bold text-slate-700">No report data found</h4>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              We couldn't find any students matching your selected filters, class name, or search query.
-            </p>
-          </div>
-        )}
-      </div>
-        </>
-      )}
 
       {activeTab === 'ATTENDANCE' && (
         <div className="bg-white border border-slate-100 rounded-3xl p-20 text-center shadow-sm animate-in fade-in duration-300">

@@ -70,16 +70,49 @@ export default function HomeworkManagementClient({
   const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
 
   const { selectedInstitute } = useInstitute();
-  const instituteClasses = useMemo(() => {
-    return classes.filter((c: any) => selectedInstitute === "ALL" || !c.institute || c.institute === selectedInstitute);
-  }, [classes, selectedInstitute]);
 
-  const filteredPlans = plans.filter(plan => {
+  // Dynamically derive available classes filtered by the top bar selectedInstitute filter
+  const availableClasses = useMemo(() => {
+    const classSet = new Set<string>();
+    classes.forEach((c: any) => {
+      if (selectedInstitute === "ALL" || !c.institute || c.institute.toLowerCase() === selectedInstitute.toLowerCase()) {
+        if (c.name) classSet.add(c.name);
+      }
+    });
+    // Fallback to plans class names if classes array is empty
+    if (classSet.size === 0) {
+      plans.forEach((p: any) => {
+        if (selectedInstitute === "ALL" || !p.institute || p.institute.toLowerCase() === selectedInstitute.toLowerCase()) {
+          if (p.className) classSet.add(p.className);
+        }
+      });
+    }
+    return Array.from(classSet).sort();
+  }, [classes, plans, selectedInstitute]);
+
+  // Dynamically derive available subjects (filtered by class if selected)
+  const availableSubjects = useMemo(() => {
+    const subjectSet = new Set<string>();
+    subjects.forEach((s: any) => {
+      if (s.name) subjectSet.add(s.name);
+    });
+    if (subjectSet.size === 0) {
+      plans.forEach((p: any) => {
+        if (filterClass === "all" || p.className === filterClass) {
+          if (p.subjectName) subjectSet.add(p.subjectName);
+        }
+      });
+    }
+    return Array.from(subjectSet).sort();
+  }, [subjects, plans, filterClass]);
+
+  const filteredPlans = plans.filter((plan: any) => {
     const d = new Date(plan.date);
     const monthMatch = d.toLocaleString('en-US', { month: 'long' }) === selectedMonth;
     const classMatch = filterClass === "all" || plan.className === filterClass;
     const subjectMatch = filterSubject === "all" || plan.subjectName === filterSubject;
-    return monthMatch && classMatch && subjectMatch;
+    const instMatch = selectedInstitute === "ALL" || !plan.institute || plan.institute.toLowerCase() === selectedInstitute.toLowerCase() || availableClasses.includes(plan.className);
+    return monthMatch && classMatch && subjectMatch && instMatch;
   });
 
   useEffect(() => {
@@ -356,11 +389,14 @@ export default function HomeworkManagementClient({
         <select 
           className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           value={filterClass}
-          onChange={(e) => setFilterClass(e.target.value)}
+          onChange={(e) => {
+            setFilterClass(e.target.value);
+            setFilterSubject("all");
+          }}
         >
           <option value="all">All Classes</option>
-          {instituteClasses.map(c => (
-            <option key={c.id} value={c.name}>{c.name}</option>
+          {availableClasses.map(cName => (
+            <option key={cName} value={cName}>{cName}</option>
           ))}
         </select>
 
@@ -370,67 +406,95 @@ export default function HomeworkManagementClient({
           className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
         >
           <option value="all">All Subjects</option>
-          {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+          {availableSubjects.map(sName => (
+            <option key={sName} value={sName}>{sName}</option>
+          ))}
         </select>
       </div>
 
-      {/* Plan Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Homework Assignments Table View */}
+      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
         {filteredPlans.length === 0 ? (
-          <div className="col-span-full py-20 text-center space-y-4">
+          <div className="py-20 text-center space-y-4">
             <Search size={48} className="mx-auto text-slate-200" />
             <p className="text-slate-400 font-bold uppercase tracking-widest italic">No homework assignments found for this month</p>
           </div>
         ) : (
-          filteredPlans.map(plan => (
-            <div key={plan.id} className="group bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden hover:border-blue-200 transition-all flex flex-col">
-                <div className="p-6 space-y-4 flex-1">
-                    <div className="flex items-center justify-between">
-                        <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-100">
-                            {plan.className}
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-400">
-                            <Calendar size={12} />
-                            <span className="text-[10px] font-bold">{formatDate(plan.date)}</span>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight line-clamp-1">{plan.subjectName}</h4>
-                        <p className="text-[10px] text-slate-400 font-medium line-clamp-2 mt-1 italic uppercase tracking-tighter">
-                            {plan.homeworkPreview}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class & Subject</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Homework Assignment Details</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Submissions</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Pending Review</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPlans.map(plan => (
+                  <tr 
+                    key={plan.id} 
+                    onClick={() => setSelectedPlanId(plan.id)}
+                    className="hover:bg-slate-50/80 cursor-pointer transition-all group"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Calendar size={14} className="text-slate-400" />
+                        <span className="text-xs font-bold">{formatDate(plan.date)}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="space-y-1">
+                        <span className="px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-black uppercase tracking-wider border border-blue-100 inline-block">
+                          {plan.className}
+                        </span>
+                        <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+                          {plan.subjectName}
                         </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Class</p>
-                            <div className="flex items-center gap-2 text-slate-700 font-black">
-                                <Users size={12} />
-                                <span>{plan.submissionCount}</span>
-                            </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 max-w-md">
+                      <p className="text-xs text-slate-600 font-medium line-clamp-2 italic">
+                        "{plan.homeworkPreview || "No details provided"}"
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full text-xs font-bold text-slate-700">
+                        <Users size={13} className="text-slate-400" />
+                        <span>{plan.submissionCount}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {plan.pendingCount > 0 ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full text-xs font-black">
+                          <Clock size={13} className="text-amber-500" />
+                          <span>{plan.pendingCount} Pending</span>
                         </div>
-                        <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                            <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Pending</p>
-                            <div className="flex items-center gap-2 text-amber-700 font-black">
-                                <Clock size={12} />
-                                <span>{plan.pendingCount}</span>
-                            </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-xs font-bold">
+                          <CheckCircle2 size={13} className="text-emerald-500" />
+                          <span>All Reviewed</span>
                         </div>
-                    </div>
-                </div>
-
-                <div className="p-4 bg-slate-50 border-t border-slate-50 flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Action Required</span>
-                    <button 
-                        onClick={() => setSelectedPlanId(plan.id)}
-                        className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2"
-                    >
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPlanId(plan.id);
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-200 transition-all flex items-center gap-1.5 ml-auto group-hover:scale-105"
+                      >
                         Review Submissions <ChevronRight size={14} />
-                    </button>
-                </div>
-            </div>
-          ))
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

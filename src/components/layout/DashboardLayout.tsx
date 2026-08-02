@@ -23,6 +23,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
     "/office/home-visits",
     "/office/final-admissions", // Added just in case
     "/office/academy-management",
+    "/office/scholarship",
     "/office/timetable",
     "/teacher/timetable",
     "/profile",
@@ -71,17 +72,26 @@ export default function DashboardLayout({
     return false;
   });
 
+  // Clean pathname for matching
+  const cleanPath = pathname ? pathname.split("?")[0].replace(/\/$/, "") : "";
+
   // Override check
   let hasAccess = isStaticallyAllowed;
   if (permissions && permissions.items) {
-    const override = permissions.items[pathname];
+    let override = permissions.items[cleanPath] !== undefined ? permissions.items[cleanPath] : permissions.items[pathname];
+    if (cleanPath === "/office/academy-management/lesson-plan" && permissions.items["/office/academy-management/my-lesson-plans"]) {
+      override = true;
+    }
+    if (cleanPath === "/office/scholarship/reports/students" && userRole === "TEACHER") {
+      override = true;
+    }
     if (override !== undefined) {
       hasAccess = override;
     } else {
       // Check parent prefix paths (deepest matching path first)
       const matchingKey = Object.keys(permissions.items)
         .sort((a, b) => b.length - a.length)
-        .find(itemPath => pathname.startsWith(itemPath + "/"));
+        .find(itemPath => cleanPath.startsWith(itemPath + "/"));
       if (matchingKey !== undefined) {
         hasAccess = permissions.items[matchingKey];
       }

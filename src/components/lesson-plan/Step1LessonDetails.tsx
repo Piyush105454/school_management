@@ -127,26 +127,34 @@ export default function Step1LessonDetails({
     setFormData((prev: any) => {
       const updates: any = {};
       if (!prev.prepDate) updates.prepDate = today;
-      if (!prev.preparedBy && defaultTeacherName) updates.preparedBy = defaultTeacherName;
+      if (defaultTeacherName && (!prev.preparedBy || prev.preparedBy === "")) {
+        updates.preparedBy = defaultTeacherName;
+      }
       if (!prev.deliveryDate || isSunday(prev.deliveryDate) || prev.deliveryDate < deliveryMinStr || prev.deliveryDate > deliveryMaxStr) {
         updates.deliveryDate = deliveryMinStr;
       }
+      if (!prev.lessonType) updates.lessonType = "Explanation";
       
-      if (prev.pages && typeof prev.pages === "string" && !prev.pageFrom) {
-        const [pageFrom, pageTo] = prev.pages.split("-");
-        updates.pageFrom = pageFrom;
-        updates.pageTo = pageTo;
+      if (prev.pages && typeof prev.pages === "string" && (!prev.pageFrom || !prev.pageTo)) {
+        const parts = prev.pages.split("-");
+        if (parts.length === 2) {
+          if (!prev.pageFrom) updates.pageFrom = parts[0].trim();
+          if (!prev.pageTo) updates.pageTo = parts[1].trim();
+        }
       }
       
       if (Object.keys(updates).length === 0) return prev;
       return { ...prev, ...updates };
     });
-  }, [session, setFormData, today, defaultTeacherName]);
+  }, [session?.user, defaultTeacherName, today, deliveryMinStr, deliveryMaxStr, setFormData]);
 
   // Load class options on mount
   useEffect(() => {
     if (dbClasses && dbClasses.length > 0) {
-      setClassList(dbClasses);
+      const names = Array.from(
+        new Set(dbClasses.map((c: any) => (typeof c === "string" ? c : c.name)).filter(Boolean))
+      ) as string[];
+      setClassList(names);
     } else {
       fetch("/api/classes")
         .then((res) => res.json())
@@ -185,28 +193,26 @@ export default function Step1LessonDetails({
           setSubjectList(DEFAULT_SUBJECTS);
         }
 
-        if (data.approverName) {
-          setFormData((prev: any) => ({
-            ...prev,
-            approverName: data.approverName,
-          }));
-        } else {
-          setFormData((prev: any) => ({
-            ...prev,
-            approverName: prev.approverName || "Academic Committee",
-          }));
-        }
+        setFormData((prev: any) => {
+          const updates: any = {};
 
-        if (formData.subject) {
-          const reviewers = [];
-          if (data.reviewer1Name && data.reviewer1Name !== "NA") reviewers.push(data.reviewer1Name);
-          if (data.reviewer2Name && data.reviewer2Name !== "NA") reviewers.push(data.reviewer2Name);
-          const reviewerDisplay = reviewers.length > 0 ? reviewers.join(" | ") : "NA";
-          
-          setFormData((prev: any) => ({
-            ...prev,
-            reviewerName: reviewerDisplay,
-          }));
+          if (!prev.approverName || prev.approverName === "Academic Committee") {
+            updates.approverName = data.approverName || "Pending Approval";
+          }
+
+          if (formData.subject) {
+            const isPlanProcessed = ["REVIEWED", "APPROVED", "COMPLETED"].includes(prev.status);
+            if (!isPlanProcessed && (!prev.reviewerName || prev.reviewerName === "NA" || prev.reviewerName === "Specialist")) {
+              const reviewers = [];
+              if (data.reviewer1Name && data.reviewer1Name !== "NA") reviewers.push(data.reviewer1Name);
+              if (data.reviewer2Name && data.reviewer2Name !== "NA") reviewers.push(data.reviewer2Name);
+              updates.reviewerName = reviewers.length > 0 ? reviewers.join(" | ") : "NA";
+            }
+          }
+
+          if (Object.keys(updates).length === 0) return prev;
+          return { ...prev, ...updates };
+        });
 
           if (data.chapters && Array.isArray(data.chapters)) {
             setChapterList(data.chapters);
@@ -224,10 +230,6 @@ export default function Step1LessonDetails({
             setChapterList([]);
             setDivisionList([]);
           }
-        } else {
-          setChapterList([]);
-          setDivisionList([]);
-        }
       })
       .catch((error) => {
         console.error("Failed to fetch lesson plan form data:", error);
@@ -416,8 +418,8 @@ export default function Step1LessonDetails({
               />
             </div>
 
-            {divisionList.length > 0 && (
-              <div className="field col-3">
+            {divisionList.length > 0 || formData.chapterDivisionId ? (
+              <div className="field col-6">
                 <label className="required" htmlFor="chapterDivision">
                   Page Division
                 </label>
@@ -426,62 +428,69 @@ export default function Step1LessonDetails({
                   name="chapterDivision"
                   value={formData.chapterDivisionId || ""}
                   onChange={(e) => handleChange("chapterDivisionId", e.target.value)}
-                  disabled={!isEditable || isDivisionPreFilled || divisionList.length === 0}
+                  disabled={!isEditable || isDivisionPreFilled}
                   required
                 >
                   <option value="">Select division</option>
                   {divisionList.map((div) => (
                     <option key={div.id} value={div.id}>
-                      Pages {div.pageStart}-{div.pageEnd}
+                      Pages {div.pageStart}-{div.pageEnd} ({div.pageEnd - div.pageStart + 1} pages)
                     </option>
                   ))}
                 </select>
+                {formData.pageFrom && formData.pageTo && (
+                  <span className="text-[11px] text-blue-600 font-semibold block mt-1">
+                    ✓ Covering Pages {formData.pageFrom} — {formData.pageTo}
+                  </span>
+                )}
               </div>
+            ) : (
+              <>
+                <div className="field col-3">
+                  <label className="required" htmlFor="pageFrom">
+                    Page From
+                  </label>
+                  <input
+                    id="pageFrom"
+                    name="pageFrom"
+                    type="number"
+                    min="1"
+                    value={formData.pageFrom || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || parseInt(val) > 0) {
+                        handleChange("pageFrom", val);
+                      }
+                    }}
+                    placeholder="Enter page number"
+                    disabled={!isEditable}
+                    required
+                  />
+                </div>
+
+                <div className="field col-3">
+                  <label className="required" htmlFor="pageTo">
+                    Page To
+                  </label>
+                  <input
+                    id="pageTo"
+                    name="pageTo"
+                    type="number"
+                    min="1"
+                    value={formData.pageTo || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || parseInt(val) > 0) {
+                        handleChange("pageTo", val);
+                      }
+                    }}
+                    placeholder="Enter page number"
+                    disabled={!isEditable}
+                    required
+                  />
+                </div>
+              </>
             )}
-
-            <div className="field col-3">
-              <label className="required" htmlFor="pageFrom">
-                Page From
-              </label>
-              <input
-                id="pageFrom"
-                name="pageFrom"
-                type="number"
-                min="1"
-                value={formData.pageFrom || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || (parseInt(val) > 0)) {
-                    handleChange("pageFrom", val);
-                  }
-                }}
-                placeholder={formData.chapterDivisionId ? "Auto-filled from division" : "Enter page number"}
-                disabled={!!formData.chapterDivisionId}
-                required
-              />
-            </div>
-
-            <div className="field col-3">
-              <label className="required" htmlFor="pageTo">
-                Page To
-              </label>
-              <input
-                id="pageTo"
-                name="pageTo"
-                type="number"
-                min="1"
-                value={formData.pageTo || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || (parseInt(val) > 0)) {
-                    handleChange("pageTo", val);
-                  }
-                }}
-                placeholder={formData.chapterDivisionId ? "Auto-filled from division" : "Enter page number"}
-                disabled={!!formData.chapterDivisionId}
-                required
-              />
-            </div>
 
             <div className="field col-3">
               <label className="required" htmlFor="prepDate">

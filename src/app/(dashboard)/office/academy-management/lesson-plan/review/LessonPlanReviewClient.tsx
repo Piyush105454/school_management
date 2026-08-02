@@ -93,7 +93,7 @@ export default function LessonPlanReviewClient({
         setRemark(isApprover ? (res.data.principalRemark || "") : (res.data.reviewerRemark || ""));
         
         // Fetch class students for student lists
-        const className = res.data.class?.name || res.data.className;
+        const className = res.data.class?.name || (res.data as any).className;
         if (className) {
           fetch(`/api/lesson-plan/form-data?className=${encodeURIComponent(className)}`)
             .then((sRes) => sRes.json())
@@ -195,15 +195,27 @@ export default function LessonPlanReviewClient({
   const handleAction = async (status: "APPROVED" | "REJECTED" | "REVIEWED") => {
     if (!selectedPlan) return;
     if (status === "REJECTED" && !remark) {
-      alert("Please provide a remark for rejection.");
+      alert("Please provide feedback / remark explaining the reason for rejection.");
       return;
     }
+
+    let confirmMessage = "";
+    if (status === "REVIEWED") {
+      confirmMessage = "Are you sure you want to mark this lesson plan as REVIEWED and forward it for Principal approval?";
+    } else if (status === "APPROVED") {
+      confirmMessage = "Are you sure you want to APPROVE this lesson plan?";
+    } else if (status === "REJECTED") {
+      confirmMessage = "Are you sure you want to REJECT and send back this lesson plan to the teacher for revisions?";
+    }
+
+    if (confirmMessage && !window.confirm(confirmMessage)) return;
 
     setLoading(true);
     try {
       const res = await updateLessonPlanStatus(selectedPlan.id, status, remark, reviewerId, isApprover);
       if (res.success) {
-        alert(`Lesson Plan ${status.toLowerCase()} successfully!`);
+        const actionText = status === "REVIEWED" ? "marked as Reviewed" : status === "APPROVED" ? "Approved" : "Rejected & sent back";
+        alert(`Lesson Plan ${actionText} successfully!`);
         // Update the plan status and remark in local state in-place so it transitions tabs without disappearing
         setPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, status, ...(isApprover ? { principalRemark: remark } : { reviewerRemark: remark }) } : p));
         setSelectedPlan(null);
@@ -823,8 +835,6 @@ export default function LessonPlanReviewClient({
     prepDate: step1.prepDate || step2.prepDate || selectedPlan.date || "—",
     deliveryDate: step1.deliveryDate || step2.deliveryDate || selectedPlan.date || "—",
     preparedBy: step1.preparedBy || step2.preparedBy || selectedPlan.teacherProfile?.name || selectedPlan.teacherUser?.email?.split('@')[0] || "—",
-    reviewerName: getReviewerNames(),
-    approverName: (selectedPlan as any).principalProfile?.name || "Pending Approval",
     lessonType: selectedPlan.type === "QA" ? "Q&A" : (step1.lessonType || step2.lessonType || "Explanation"),
     ...step1,
     ...step2,
@@ -834,6 +844,8 @@ export default function LessonPlanReviewClient({
     principalRemark: selectedPlan.principalRemark || step2.principalRemark || step2.finalApprovalFeedback || "",
     approverNote: selectedPlan.principalRemark || step2.approverNote || step2.finalApprovalFeedback || "",
     finalApprovalFeedback: selectedPlan.principalRemark || step2.finalApprovalFeedback || step2.approverNote || "",
+    reviewerName: getReviewerNames(),
+    approverName: (selectedPlan as any).principalProfile?.name || "Pending Approval",
     status: selectedPlan.status,
   };
 

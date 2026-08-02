@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import StudentReportsClient from "./StudentReportsClient";
 
 export default async function StudentReportsPage() {
-  const session = await protectRoute(["OFFICE"], "/office/scholarship/reports/students");
+  const session = await protectRoute(["OFFICE", "TEACHER", "PRINCIPAL", "ADMIN"], "/office/scholarship/reports/students");
   
   let classesList = ["KG1", "KG2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
   let limitToClasses: string[] | undefined = undefined;
