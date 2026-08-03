@@ -7,6 +7,7 @@ import { createChapter } from "@/features/academy/actions/chapterActions";
 interface AddChapterModalProps {
   subjectId: number;
   nextOrderNo: number;
+  defaultPageStart?: number;
   showTrigger?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
@@ -15,6 +16,7 @@ interface AddChapterModalProps {
 export default function AddChapterModal({ 
   subjectId, 
   nextOrderNo,
+  defaultPageStart,
   showTrigger = true,
   isOpen: externalIsOpen,
   onClose: externalOnClose
@@ -26,18 +28,23 @@ export default function AddChapterModal({
   
   const [name, setName] = useState("");
   const [chapterNo, setChapterNo] = useState(nextOrderNo);
-  const [pageStart, setPageStart] = useState("");
+  const [pageStart, setPageStart] = useState(
+    defaultPageStart !== undefined && defaultPageStart !== null ? String(defaultPageStart) : "1"
+  );
   const [pageEnd, setPageEnd] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
   const [orderNo, setOrderNo] = useState(nextOrderNo);
 
-  // Sync state with prop when modal opens to ensure latest numbering
+  // Sync state with prop when modal opens to ensure latest numbering and page start
   React.useEffect(() => {
     if (isOpen) {
       setChapterNo(nextOrderNo);
       setOrderNo(nextOrderNo);
+      if (defaultPageStart !== undefined && defaultPageStart !== null) {
+        setPageStart(String(defaultPageStart));
+      }
     }
-  }, [isOpen, nextOrderNo]);
+  }, [isOpen, nextOrderNo, defaultPageStart]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -98,15 +98,25 @@ export default async function SubjectDetailsPage({ params }: SubjectDetailsPageP
         
         <div className="flex items-center gap-3">
           <ExcelImportModal subjectId={subjectId} />
-          <AddChapterModal 
-            subjectId={subjectId} 
-            nextOrderNo={
-              subjectChapters.length > 0
-                ? Math.max(...subjectChapters.map(c => c.chapterNo)) + 1
-                : 1
-            }
-            showTrigger={true}
-          />
+          {(() => {
+            const maxPageEnd = subjectChapters.length > 0
+              ? Math.max(...subjectChapters.map(c => c.pageEnd || 0))
+              : 0;
+            const defaultPageStart = maxPageEnd > 0 ? maxPageEnd + 1 : 1;
+
+            return (
+              <AddChapterModal 
+                subjectId={subjectId} 
+                nextOrderNo={
+                  subjectChapters.length > 0
+                    ? Math.max(...subjectChapters.map(c => c.chapterNo)) + 1
+                    : 1
+                }
+                defaultPageStart={defaultPageStart}
+                showTrigger={true}
+              />
+            );
+          })()}
         </div>
       </div>
       

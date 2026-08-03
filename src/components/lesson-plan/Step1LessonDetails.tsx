@@ -397,7 +397,7 @@ export default function Step1LessonDetails({
                 </option>
                 {chapterList.map((ch) => (
                   <option key={ch.id} value={ch.chapterNo}>
-                    Chapter {ch.chapterNo}: {ch.name}
+                    Chapter {ch.chapterNo}
                   </option>
                 ))}
               </select>
@@ -407,15 +407,39 @@ export default function Step1LessonDetails({
               <label className="required" htmlFor="chapterName">
                 Chapter Name
               </label>
-              <input
-                id="chapterName"
-                name="chapterName"
-                value={formData.chapterName || ""}
-                onChange={(e) => handleChange("chapterName", e.target.value)}
-                placeholder="Chapter name will auto-fill"
-                disabled={true}
-                required
-              />
+              {formData.chapterName ? (
+                <div
+                  id="chapterName"
+                  lang="hi"
+                  style={{
+                    padding: "10px 14px",
+                    background: "#f8fafc",
+                    border: "1.5px solid #e2e8f0",
+                    borderRadius: "10px",
+                    fontSize: "15px",
+                    fontWeight: 600,
+                    color: "#1e293b",
+                    lineHeight: "1.7",
+                    minHeight: "44px",
+                    wordBreak: "break-word",
+                    whiteSpace: "normal",
+                    fontFamily: "'Noto Sans Devanagari', 'Noto Sans', 'Mangal', 'Arial Unicode MS', sans-serif",
+                  }}
+                >
+                  {formData.chapterName}
+                </div>
+              ) : (
+                <input
+                  id="chapterName"
+                  name="chapterName"
+                  value=""
+                  onChange={() => {}}
+                  placeholder="Chapter name will auto-fill"
+                  disabled={true}
+                  required
+                />
+              )}
+
             </div>
 
             {divisionList.length > 0 || formData.chapterDivisionId ? (

@@ -22,6 +22,7 @@ interface LessonPlanData {
   teachingNotes?: string;
   references?: string;
   discussionPlan?: string;
+  knowledgeBuildingPlan?: string;
   quieterStudentSupport?: string;
   activityTitle?: string;
   activityMode?: string;
@@ -228,7 +229,9 @@ export default function Step10ReviewUI({
   };
 
   const renderDiscussionContent = (data: LessonPlanData) => {
-    const plan = data.discussionPlan || data.knowledgeBuilding;
+    // Use dedicated knowledgeBuildingPlan field; fall back to legacy knowledgeBuilding
+    // Never use discussionPlan here — that belongs to Inspection & Support (Q&A) or Step 4 inspection
+    const plan = data.knowledgeBuildingPlan || data.knowledgeBuilding;
     const quieter = data.quieterStudentSupport;
 
     if (!plan && !quieter) return emDash;

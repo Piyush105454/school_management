@@ -216,7 +216,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
       const recordObj = kpiRes.data.record;
       setPtmAttended(kpiRes.data.ptm?.attended ?? (recordObj ? recordObj.ptmAmount > 0 : false));
-      setAttendee((kpiRes.data.ptm as any)?.attendee || (recordObj?.ptmAmount > 0 ? "Parent" : ""));
+      setAttendee((kpiRes.data.ptm as any)?.attendee || ((recordObj?.ptmAmount ?? 0) > 0 ? "Parent" : ""));
       setGuardianName((kpiRes.data.ptm as any)?.guardianName || "");
       setGuardianRelation((kpiRes.data.ptm as any)?.guardianRelation || "");
       

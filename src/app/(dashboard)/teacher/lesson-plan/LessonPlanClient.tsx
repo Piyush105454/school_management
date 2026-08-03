@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { CheckCircle, ChevronLeft, ChevronRight, Save, Loader2, Printer } from "lucide-react";
 import Step1LessonDetails from "@/components/lesson-plan/Step1LessonDetails";
 import Step2Objective from "@/components/lesson-plan/Step2Objective";
@@ -41,6 +42,7 @@ export default function LessonPlanClient({
   const searchParams = useSearchParams();
   const urlPlanId = searchParams ? (searchParams.get("edit") || searchParams.get("id")) : null;
 
+  const { data: session } = useSession();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<any>({ selectedInstitute });
   const [loading, setLoading] = useState(false);
@@ -112,7 +114,7 @@ export default function LessonPlanClient({
       0: ["className", "subject", "chapterNo", "chapterName", "pageFrom", "pageTo", "prepDate", "deliveryDate", "preparedBy", "lessonType"],
       1: ["objectiveVerb", "objectiveText"],
       2: ["teacherOwnNotes"],
-      3: ["discussionPlan"],
+      3: ["discussionPlan", "knowledgeBuildingPlan"],
       4: ["activitySteps"],
       5: ["lessonHook"],
       6: ["indicator1"],

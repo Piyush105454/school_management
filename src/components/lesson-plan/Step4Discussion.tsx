@@ -7,6 +7,7 @@ interface Step4DiscussionProps {
   formData: {
     lessonType?: string;
     discussionPlan?: string;
+    knowledgeBuildingPlan?: string;
     quieterStudentSupport?: string;
   };
   setFormData: (data: any) => void;
@@ -35,7 +36,7 @@ export default function Step4Discussion({
     <section className="step-page active" data-step="3">
       <div className="hero">
         <div>
-          <div className="eyebrow">Step 4 · Discussion & Participation</div>
+          <div className="eyebrow">Step 4 · Discussion &amp; Participation</div>
           <h2>
             {isQALesson
               ? "How will you inspect, support and involve every student during Q&A?"
@@ -67,6 +68,7 @@ export default function Step4Discussion({
       </div>
 
       <div className="card">
+        {/* Field 1: Inspection & Support Plan (Q&A) OR Discussion Plan (Explanation) */}
         <div className="field">
           <label className="required" htmlFor="discussionPlan">
             {isQALesson ? "Inspection & support plan" : "Discussion plan"}
@@ -85,6 +87,28 @@ export default function Step4Discussion({
           />
         </div>
 
+        {/* Field 2: Knowledge Building · Discussion Plan (separate from Field 1) */}
+        <div className="field" style={{ marginTop: "20px" }}>
+          <label className="required" htmlFor="knowledgeBuildingPlan">
+            {isQALesson
+              ? "Knowledge building & discussion plan"
+              : "Knowledge building & discussion"}
+          </label>
+          <RichTextEditor
+            id="knowledgeBuildingPlan"
+            value={formData.knowledgeBuildingPlan || ""}
+            onChange={(val) => handleChange("knowledgeBuildingPlan", val)}
+            placeholder={
+              isQALesson
+                ? "Describe how you will consolidate student understanding through group discussion, peer explanation or key question sequences after the Q&A activity."
+                : "Describe how students will build on what they have learned — e.g. pair discussion, class debate, student-led summary or question-and-answer to deepen understanding."
+            }
+            disabled={!isEditable}
+            minHeight="120px"
+          />
+        </div>
+
+        {/* Field 3: Quieter / Struggling Students */}
         <div className="field" style={{ marginTop: "20px" }}>
           <label className="required" htmlFor="quieterStudentSupport">
             How will you involve quieter or struggling students?
@@ -111,4 +135,3 @@ export default function Step4Discussion({
     </section>
   );
 }
-
