@@ -253,6 +253,7 @@ export const scholarshipCriteriaSettings = pgTable("scholarship_criteria_setting
   id: uuid("id").defaultRandom().primaryKey(),
   academicYear: text("academic_year").notNull(),
   admissionId: uuid("admission_id").references(() => admissionMeta.id, { onDelete: 'cascade' }),
+  institute: text("institute"), // null = global fallback, set = institute-level default
   attendanceThreshold: integer("attendance_threshold").default(90).notNull(),
   attendanceAmount: integer("attendance_amount").default(750).notNull(),
   homeworkThreshold: integer("homework_threshold").default(90).notNull(),
@@ -262,10 +263,6 @@ export const scholarshipCriteriaSettings = pgTable("scholarship_criteria_setting
   ptmAmount: integer("ptm_amount").default(750).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => {
-  return {
-    academicYearAdmissionIdx: uniqueIndex("academic_year_admission_idx").on(table.academicYear, table.admissionId),
-  };
 });
 
 export const scholarshipAttendance = pgTable("scholarship_attendance", {
@@ -821,11 +818,12 @@ export const examSchedulesRelations = relations(examSchedules, ({ one }) => ({
 
 export const holidays = pgTable("holidays", {
   id: serial("id").primaryKey(),
-  date: text("date").notNull().unique(), // "YYYY-MM-DD"
+  date: text("date").notNull(), // "YYYY-MM-DD"
   title: text("title").notNull(),
   type: text("type").default("FULL_DAY").notNull(),
   startTime: text("start_time"),
   endTime: text("end_time"),
+  institute: text("institute"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

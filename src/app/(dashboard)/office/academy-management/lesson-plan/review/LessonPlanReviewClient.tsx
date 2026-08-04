@@ -35,13 +35,17 @@ export default function LessonPlanReviewClient({
   reviewerId, 
   isTeacher = false, 
   isApprover = false,
-  isAdmin = false 
+  isAdmin = false,
+  specialization,
+  teacherId
 }: { 
   initialPlans: any[], 
   reviewerId: string, 
   isTeacher?: boolean, 
   isApprover?: boolean,
-  isAdmin?: boolean 
+  isAdmin?: boolean,
+  specialization?: string,
+  teacherId?: string
 }) {
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
     if (el) {
@@ -50,6 +54,7 @@ export default function LessonPlanReviewClient({
     }
   };
   const [plans, setPlans] = useState(initialPlans);
+  const [loadingPlans, setLoadingPlans] = useState(initialPlans.length === 0);
   const [searchTerm, setSearchTerm] = useState("");
   const { dbClasses } = useInstitute();
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -64,6 +69,25 @@ export default function LessonPlanReviewClient({
   const [filterSubject, setFilterSubject] = useState("ALL");
   const [filterDateRange, setFilterDateRange] = useState("ALL");
   const [customDate, setCustomDate] = useState("");
+
+  useEffect(() => {
+    async function loadPlans() {
+      if (initialPlans.length > 0) return;
+      setLoadingPlans(true);
+      try {
+        const { getLessonPlansForReview } = await import("@/features/academy/actions/lessonPlanActions");
+        const res = await getLessonPlansForReview(specialization, isTeacher, teacherId);
+        if (res.success && res.data) {
+          setPlans(res.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingPlans(false);
+      }
+    }
+    loadPlans();
+  }, [specialization, isTeacher, teacherId, initialPlans]);
   const [classListStudents, setClassListStudents] = useState<any[]>([]);
   const ITEMS_PER_PAGE = 10;
 
@@ -587,7 +611,16 @@ export default function LessonPlanReviewClient({
                 </tr>
               </thead>
               <tbody>
-                {paginatedPlans.length === 0 ? (
+                {loadingPlans ? (
+                  <tr>
+                    <td colSpan={9} className="py-20 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest animate-pulse">Loading review ledger...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedPlans.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="p-20 text-center">
                       <div className="space-y-3">
@@ -610,7 +643,15 @@ export default function LessonPlanReviewClient({
                   </tr>
                 ) : (
                   paginatedPlans.map(plan => (
-                    <tr key={plan.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                    <tr 
+                      key={plan.id} 
+                      className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors group ${plan.status !== "DRAFT" ? "cursor-pointer" : ""}`}
+                      onClick={() => {
+                        if (plan.status !== "DRAFT") {
+                          selectPlanForReview(plan);
+                        }
+                      }}
+                    >
                       <td className="px-6 py-4">
                         <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">
                           {plan.id}
@@ -732,8 +773,11 @@ export default function LessonPlanReviewClient({
                         <div className="flex items-center justify-end gap-2">
                           {plan.status !== "DRAFT" ? (
                             <button
-                              onClick={() => selectPlanForReview(plan)}
-                              className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-colors active:scale-95 shadow-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                selectPlanForReview(plan);
+                              }}
+                              className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-colors active:scale-95 shadow-sm border-0"
                             >
                               {isApprover ? "Approve Plan" : "Review Plan"}
                             </button>
@@ -745,15 +789,21 @@ export default function LessonPlanReviewClient({
                           {isAdmin && (
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => handleUndoStatus(plan)}
-                                className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUndoStatus(plan);
+                                }}
+                                className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border-0"
                                 title="Undo / Revert Status"
                               >
                                 <RotateCcw className="h-4 w-4" />
                               </button>
                               <button
-                                onClick={() => handleDelete(plan.id)}
-                                className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(plan.id);
+                                }}
+                                className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border-0"
                                 title="Delete Lesson Plan"
                               >
                                 <Trash2 className="h-4 w-4" />

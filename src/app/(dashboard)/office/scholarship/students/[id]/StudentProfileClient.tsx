@@ -135,10 +135,6 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
     "Other"
   ];
 
-  useEffect(() => {
-    loadOverview();
-  }, [year]);
-
   // Check URL parameters on mount
   useEffect(() => {
     const monthParam = searchParams.get("month");
@@ -649,7 +645,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             const calcAttendancePct = data?.attendance?.percentage ?? data?.calculatedAttendance?.percentage ?? 0;
             const attendanceReward = calcAttendancePct >= (criteria?.attendanceThreshold || 90)
               ? (criteria?.attendanceAmount || 750)
-              : 0;
+              : Math.round((calcAttendancePct / 100) * (criteria?.attendanceAmount || 750));
 
             const watchHwGiven = watch("homework.totalGiven");
             const watchHwDone = watch("homework.totalDone");
@@ -679,6 +675,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
             // Use database values for consistency
             const schoolFee = record?.schoolFee ?? maxTotal;
             const pendingFromDB = record?.pendingAmount ?? (maxTotal - totalEarned);
+
 
             return (
               <div className="space-y-6">
@@ -725,8 +722,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       </div>
                     </div>
                     {calcAttendancePct < (criteria?.attendanceThreshold || 90) && calcAttendancePct > 0 && (
-                      <p className="text-[10px] text-rose-500 font-bold mt-2 text-center italic">
-                        Criteria not met for reward
+                      <p className="text-[10px] text-blue-500 font-bold mt-2 text-center italic">
+                        Proportional reward applied (below threshold)
                       </p>
                     )}
                   </KpiCard>
@@ -1062,7 +1059,27 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                       </div>
                       <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
                         <span>Scholarship Earned</span>
-                        <span>- ₹{record?.totalAmount ?? totalEarned}</span>
+                        <span>- ₹{record ? record.totalAmount : totalEarned}</span>
+                      </div>
+
+                      {/* Detailed Breakdown of Scholarship Earned */}
+                      <div className="pl-4 border-l-2 border-slate-100 py-1 space-y-1 my-2 text-[11px] font-semibold text-slate-500 bg-slate-50/50 p-2 rounded-xl border border-slate-100">
+                        <div className="flex justify-between">
+                          <span>• Attendance Reward</span>
+                          <span>₹{record ? record.attendanceAmount : attendanceReward}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>• Homework Reward</span>
+                          <span>₹{record ? record.homeworkAmount : homeworkReward}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>• Guardian Rating Reward</span>
+                          <span>₹{record ? record.guardianAmount : guardianReward}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>• PTM Reward</span>
+                          <span>₹{record ? record.ptmAmount : ptmReward}</span>
+                        </div>
                       </div>
                       
                       {(() => {
@@ -1072,8 +1089,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                         
                         // Calculate base pending WITHOUT adjustments (schoolFee - scholarship earned)
                         // Then apply CURRENT form adjustments
-                        const basePending = schoolFee - (record?.totalAmount ?? totalEarned);
-                        const finalPending = isRecordPaid ? 0 : Math.max(0, basePending - discount + additional);
+                        const basePending = schoolFee - (record ? record.totalAmount : totalEarned);
+                        const finalPending = isRecordPaid ? 0 : (record ? record.pendingAmount : Math.max(0, basePending - discount + additional));
                         
                         return (
                           <>
@@ -1092,7 +1109,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                             {isRecordPaid && (
                               <div className="flex justify-between items-center text-sm font-bold text-blue-600">
                                 <span>Amount Paid Online</span>
-                                <span>- ₹{schoolFee - (record?.totalAmount ?? totalEarned)}</span>
+                                <span>- ₹{schoolFee - (record ? record.totalAmount : totalEarned)}</span>
                               </div>
                             )}
                             <div className="flex justify-between items-center font-black text-lg text-rose-600 border-t border-dashed border-slate-200 pt-3">
@@ -1144,12 +1161,12 @@ function KpiCard({ title, percentage, amount, success, requiredThreshold, maxAmo
             </p>
           )}
         </div>
-        {success ? <CheckCircle2 className="text-green-500 h-5 w-5" /> : <XCircle className="text-slate-300 h-5 w-5" />}
+        {(success || amount > 0) ? <CheckCircle2 className="text-green-500 h-5 w-5" /> : <XCircle className="text-slate-300 h-5 w-5" />}
       </div>
       <div className="flex-1 py-1">{children}</div>
       <div className="border-t pt-2 mt-2 flex justify-between items-center border-slate-100">
         <span className="text-xs text-slate-500">Reward</span>
-        <span className={`font-bold text-sm ${success ? "text-green-600" : "text-slate-400"}`}>₹{amount}</span>
+        <span className={`font-bold text-sm ${(success || amount > 0) ? "text-emerald-600 font-black" : "text-slate-400"}`}>₹{amount}</span>
       </div>
     </div>
   );

@@ -63,19 +63,51 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
   guardianLocked?: boolean;
 }) {
   try {
-    // 1. Get Criteria Settings (Try student override first, then global)
+    // Resolve student's institute for criteria lookup
+    let studentInstitute: string | undefined;
+    const metaForInstitute = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.id, admissionId),
+      columns: { entryNumber: true },
+    });
+    if (metaForInstitute?.entryNumber) {
+      const studentRow = await db.query.students.findFirst({
+        where: eq(students.studentId, metaForInstitute.entryNumber),
+        columns: { classId: true },
+      });
+      if (studentRow?.classId) {
+        const { classes } = await import("@/db/schema");
+        const classRow = await db.query.classes.findFirst({
+          where: eq(classes.id, studentRow.classId),
+          columns: { institute: true },
+        });
+        studentInstitute = classRow?.institute ?? undefined;
+      }
+    }
+
+    // 1. Get Criteria Settings: student override → institute default → global fallback
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
       where: and(
-        eq(scholarshipCriteriaSettings.academicYear, "2025-26"), // Fixed or derived
+        eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
         eq(scholarshipCriteriaSettings.admissionId, admissionId)
       ),
     });
+
+    if (!criteria && studentInstitute) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          isNull(scholarshipCriteriaSettings.admissionId),
+          eq(scholarshipCriteriaSettings.institute, studentInstitute)
+        ),
+      });
+    }
 
     if (!criteria) {
       criteria = await db.query.scholarshipCriteriaSettings.findFirst({
         where: and(
           eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
-          isNull(scholarshipCriteriaSettings.admissionId)
+          isNull(scholarshipCriteriaSettings.admissionId),
+          isNull(scholarshipCriteriaSettings.institute)
         ),
       });
     }
@@ -88,11 +120,10 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     const attendancePct = data.attendance.totalDays > 0 ? (data.attendance.presentDays / data.attendance.totalDays) * 100 : 0;
     const homeworkPct = data.homework.totalGiven > 0 ? (data.homework.totalDone / data.homework.totalGiven) * 100 : 0;
 
-    // Calculate Amounts (Hybrid Logic: Threshold or All/Nothing)
-    // 1. Attendance: Full amount if >= threshold, otherwise 0 (all or nothing)
+    // 1. Attendance: Full amount if >= threshold, otherwise proportional
     const attendanceAmount = attendancePct >= criteria.attendanceThreshold 
       ? criteria.attendanceAmount 
-      : 0;
+      : Math.round((attendancePct / 100) * criteria.attendanceAmount);
 
     // 2. Homework: Full amount if >= threshold, otherwise proportional
     const homeworkAmount = homeworkPct >= criteria.homeworkThreshold 
@@ -346,91 +377,85 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       });
     }
 
-    // --- NEW: Fetch Real Academy Attendance Data ---
+    // --- NEW: Fetch Real Academy Attendance & Homework Data ---
     const meta = await db.query.admissionMeta.findFirst({
       where: inArray(admissionMeta.id, validAdmissionIds),
       columns: { entryNumber: true }
     });
 
-    let realAttendance = null;
+    let student = null;
     if (meta?.entryNumber) {
-      const student = await db.query.students.findFirst({
+      student = await db.query.students.findFirst({
         where: eq(students.studentId, meta.entryNumber)
       });
-
-      if (student) {
-        const stats = await db.select({
-          total: sql`count(case when status in ('P', 'A', 'ML', 'HD', 'L') then 1 end)`,
-          present: sql`count(case when status in ('P', 'ML', 'HD') then 1 end)`,
-          absent: sql`count(case when status = 'A' then 1 end)`,
-          ml: sql`count(case when status = 'ML' then 1 end)`,
-          hd: sql`count(case when status = 'HD' then 1 end)`,
-          leave: sql`count(case when status = 'L' then 1 end)`,
-        })
-        .from(studentAttendance)
-        .where(and(
-          eq(studentAttendance.studentId, student.id),
-          student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
-          sql`LOWER(${studentAttendance.month}) = LOWER(${month})`
-        ));
-
-        const total = Number(stats[0]?.total || 0);
-        const present = Number(stats[0]?.present || 0);
-        
-        realAttendance = {
-          totalDays: total,
-          presentDays: present,
-          absentDays: Number(stats[0]?.absent || 0),
-          mlDays: Number(stats[0]?.ml || 0),
-          halfDays: Number(stats[0]?.hd || 0),
-          leaveDays: Number(stats[0]?.leave || 0),
-          percentage: total > 0 ? (present / total) * 100 : 0
-        };
-      }
     }
 
-    // --- NEW: Fetch Real Academy Homework Data ---
+    let realAttendance = null;
+    if (student) {
+      const stats = await db.select({
+        total: sql`count(case when status in ('P', 'A', 'ML', 'HD', 'L') then 1 end)`,
+        present: sql`count(case when status in ('P', 'ML', 'HD') then 1 end)`,
+        absent: sql`count(case when status = 'A' then 1 end)`,
+        ml: sql`count(case when status = 'ML' then 1 end)`,
+        hd: sql`count(case when status = 'HD' then 1 end)`,
+        leave: sql`count(case when status = 'L' then 1 end)`,
+      })
+      .from(studentAttendance)
+      .where(and(
+        eq(studentAttendance.studentId, student.id),
+        student.classId ? eq(studentAttendance.classId, student.classId) : undefined,
+        sql`LOWER(${studentAttendance.month}) = LOWER(${month})`
+      ));
+
+      const total = Number(stats[0]?.total || 0);
+      const present = Number(stats[0]?.present || 0);
+      
+      realAttendance = {
+        totalDays: total,
+        presentDays: present,
+        absentDays: Number(stats[0]?.absent || 0),
+        mlDays: Number(stats[0]?.ml || 0),
+        halfDays: Number(stats[0]?.hd || 0),
+        leaveDays: Number(stats[0]?.leave || 0),
+        percentage: total > 0 ? (present / total) * 100 : 0
+      };
+    }
+
     let realHomework = null;
-    if (meta?.entryNumber) {
-      const student = await db.query.students.findFirst({
-        where: eq(students.studentId, meta.entryNumber)
-      });
+    if (student) {
+      // Convert month name to 2-digit number string (e.g. "April" -> "04")
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthIndex = monthNames.indexOf(month);
+      const monthStr = monthIndex >= 0 ? String(monthIndex + 1).padStart(2, '0') : null;
 
-      if (student) {
-        // Convert month name to 2-digit number string (e.g. "April" -> "04")
-        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const monthIndex = monthNames.indexOf(month);
-        const monthStr = monthIndex >= 0 ? String(monthIndex + 1).padStart(2, '0') : null;
+      if (monthStr) {
+        // Total homeworks assigned to this class in this month
+        const totalAssignedResult = await db.select({ count: sql`count(*)` })
+          .from(lessonPlans)
+          .where(and(
+            eq(lessonPlans.classId, student.classId as number),
+            sql`${lessonPlans.date} LIKE ${`%-${monthStr}-%`}`
+          ));
 
-        if (monthStr) {
-          // Total homeworks assigned to this class in this month
-          const totalAssignedResult = await db.select({ count: sql`count(*)` })
-            .from(lessonPlans)
-            .where(and(
-              eq(lessonPlans.classId, student.classId as number),
-              sql`${lessonPlans.date} LIKE ${`%-${monthStr}-%`}`
-            ));
+        // Total completed homeworks by this student in this month
+        const totalCompletedResult = await db.select({ count: sql`count(*)` })
+          .from(homeworkSubmissions)
+          .innerJoin(lessonPlans, eq(homeworkSubmissions.lessonPlanId, lessonPlans.id))
+          .where(and(
+            eq(homeworkSubmissions.studentId, student.id),
+            eq(homeworkSubmissions.status, "COMPLETED"),
+            eq(lessonPlans.classId, student.classId as number),
+            sql`${lessonPlans.date} LIKE ${`%-${monthStr}-%`}`
+          ));
 
-          // Total completed homeworks by this student in this month
-          const totalCompletedResult = await db.select({ count: sql`count(*)` })
-            .from(homeworkSubmissions)
-            .innerJoin(lessonPlans, eq(homeworkSubmissions.lessonPlanId, lessonPlans.id))
-            .where(and(
-              eq(homeworkSubmissions.studentId, student.id),
-              eq(homeworkSubmissions.status, "COMPLETED"),
-              eq(lessonPlans.classId, student.classId as number),
-              sql`${lessonPlans.date} LIKE ${`%-${monthStr}-%`}`
-            ));
+        const totalGiven = Number(totalAssignedResult[0]?.count || 0);
+        const totalDone = Number(totalCompletedResult[0]?.count || 0);
 
-          const totalGiven = Number(totalAssignedResult[0]?.count || 0);
-          const totalDone = Number(totalCompletedResult[0]?.count || 0);
-
-          realHomework = {
-            totalGiven,
-            totalDone,
-            percentage: totalGiven > 0 ? (totalDone / totalGiven) * 100 : 0
-          };
-        }
+        realHomework = {
+          totalGiven,
+          totalDone,
+          percentage: totalGiven > 0 ? (totalDone / totalGiven) * 100 : 0
+        };
       }
     }
 
@@ -530,55 +555,83 @@ export async function getStudentMonthlyOverview(admissionId: string, year: strin
       columns: { entryNumber: true }
     });
 
-    const realAttendanceMap: Record<string, any> = {};
+    let student = null;
+    let studentInstitute: string | undefined;
+
     if (meta?.entryNumber) {
-      const student = await db.query.students.findFirst({
+      student = await db.query.students.findFirst({
         where: eq(students.studentId, meta.entryNumber)
       });
-      if (student) {
-        const stats = await db.select({
-          month: studentAttendance.month,
-          total: sql`count(case when status in ('P', 'A', 'ML', 'HD', 'L') then 1 end)`,
-          present: sql`count(case when status in ('P', 'ML', 'HD') then 1 end)`,
-          absent: sql`count(case when status = 'A' then 1 end)`,
-          ml: sql`count(case when status = 'ML' then 1 end)`,
-          hd: sql`count(case when status = 'HD' then 1 end)`,
-          leave: sql`count(case when status = 'L' then 1 end)`,
-        })
-        .from(studentAttendance)
-        .where(and(
-          eq(studentAttendance.studentId, student.id),
-          student.classId ? eq(studentAttendance.classId, student.classId) : undefined
-        ))
-        .groupBy(studentAttendance.month);
-
-        stats.forEach(s => {
-          const tot = Number(s.total || 0);
-          const pres = Number(s.present || 0);
-          if (s.month) {
-            realAttendanceMap[s.month] = {
-              totalDays: tot,
-              presentDays: pres,
-              absentDays: Number(s.absent || 0),
-              mlDays: Number(s.ml || 0),
-              halfDays: Number(s.hd || 0),
-              leaveDays: Number(s.leave || 0),
-              percentage: tot > 0 ? (pres / tot) * 100 : 0
-            };
-          }
+      
+      if (student?.classId) {
+        const { classes } = await import("@/db/schema");
+        const classRowForCriteria = await db.query.classes.findFirst({
+          where: eq(classes.id, student.classId),
+          columns: { institute: true },
         });
+        studentInstitute = classRowForCriteria?.institute ?? undefined;
       }
+    }
+
+    const realAttendanceMap: Record<string, any> = {};
+    if (student) {
+      const stats = await db.select({
+        month: studentAttendance.month,
+        total: sql`count(case when status in ('P', 'A', 'ML', 'HD', 'L') then 1 end)`,
+        present: sql`count(case when status in ('P', 'ML', 'HD') then 1 end)`,
+        absent: sql`count(case when status = 'A' then 1 end)`,
+        ml: sql`count(case when status = 'ML' then 1 end)`,
+        hd: sql`count(case when status = 'HD' then 1 end)`,
+        leave: sql`count(case when status = 'L' then 1 end)`,
+      })
+      .from(studentAttendance)
+      .where(and(
+        eq(studentAttendance.studentId, student.id),
+        student.classId ? eq(studentAttendance.classId, student.classId) : undefined
+      ))
+      .groupBy(studentAttendance.month);
+
+      stats.forEach(s => {
+        const tot = Number(s.total || 0);
+        const pres = Number(s.present || 0);
+        if (s.month) {
+          realAttendanceMap[s.month] = {
+            totalDays: tot,
+            presentDays: pres,
+            absentDays: Number(s.absent || 0),
+            mlDays: Number(s.ml || 0),
+            halfDays: Number(s.hd || 0),
+            leaveDays: Number(s.leave || 0),
+            percentage: tot > 0 ? (pres / tot) * 100 : 0
+          };
+        }
+      });
     }
 
     // Fetch criteria to compute financial columns
     const currentYear = new Date().getFullYear();
     const academicYear = `${currentYear}-${String(currentYear + 1).slice(-2)}`;
+
+    // Criteria: student override → institute default → global fallback
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
       where: and(eq(scholarshipCriteriaSettings.admissionId, admissionId), eq(scholarshipCriteriaSettings.academicYear, academicYear))
     });
+    if (!criteria && studentInstitute) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          isNull(scholarshipCriteriaSettings.admissionId),
+          eq(scholarshipCriteriaSettings.institute, studentInstitute),
+          eq(scholarshipCriteriaSettings.academicYear, academicYear)
+        )
+      });
+    }
     if (!criteria) {
       criteria = await db.query.scholarshipCriteriaSettings.findFirst({
-        where: and(isNull(scholarshipCriteriaSettings.admissionId), eq(scholarshipCriteriaSettings.academicYear, academicYear))
+        where: and(
+          isNull(scholarshipCriteriaSettings.admissionId),
+          isNull(scholarshipCriteriaSettings.institute),
+          eq(scholarshipCriteriaSettings.academicYear, academicYear)
+        )
       });
     }
     const maxAttendance = criteria?.attendanceAmount ?? 750;

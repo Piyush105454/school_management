@@ -337,8 +337,33 @@ async function getCachedTeachers() {
 
 export async function getLessonPlansForReview(specialization?: string, isTeacher: boolean = false, teacherId?: string) {
   try {
+    let canApproveAcademy = false;
+    if (isTeacher && teacherId) {
+      const perms = await getTeacherCommitteePermissions(teacherId);
+      canApproveAcademy = perms.canApproveAcademy;
+    }
+
+    let whereClause: any = undefined;
+    if (isTeacher) {
+      if (canApproveAcademy) {
+        whereClause = ne(lessonPlans.status, 'DRAFT');
+      } else if (teacherId) {
+        // Only fetch plans for subjects where the teacher is reviewer1 or reviewer2
+        whereClause = and(
+          ne(lessonPlans.status, 'DRAFT'),
+          sql`${lessonPlans.subjectId} IN (
+            SELECT id FROM subjects 
+            WHERE reviewer_id_1 = ${teacherId} 
+            OR reviewer_id_2 = ${teacherId}
+          )`
+        );
+      } else {
+        whereClause = ne(lessonPlans.status, 'DRAFT');
+      }
+    }
+
     const plans = await db.query.lessonPlans.findMany({
-      where: isTeacher ? ne(lessonPlans.status, 'DRAFT') : undefined,
+      where: whereClause,
       with: {
         class: true,
         subject: {
@@ -369,30 +394,6 @@ export async function getLessonPlansForReview(specialization?: string, isTeacher
         principalProfile: approverProfile
       };
     });
-
-    if (isTeacher) {
-      let canApproveAcademy = false;
-      if (teacherId) {
-        const perms = await getTeacherCommitteePermissions(teacherId);
-        canApproveAcademy = perms.canApproveAcademy;
-      }
-
-      if (canApproveAcademy) {
-        // If they are an academy approver, they can see EVERYTHING (like a Principal)
-        return { success: true, data: plansWithProfiles };
-      } else {
-        // Normal specialist teacher or explicitly assigned reviewer logic
-        return { 
-          success: true, 
-          data: plansWithProfiles.filter(p => 
-            p.subject?.name && (
-              p.subject?.reviewerId1 === teacherId ||
-              p.subject?.reviewerId2 === teacherId
-            )
-          ) 
-        };
-      }
-    }
 
     return { success: true, data: plansWithProfiles };
   } catch (error: any) {

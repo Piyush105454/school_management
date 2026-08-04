@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Download, Search, X, ArrowLeft, IndianRupee, ChevronRight } from "lucide-react";
+import { Download, Search, X, ArrowLeft, IndianRupee, ChevronRight, Printer } from "lucide-react";
 import { useInstitute } from "@/providers/InstituteProvider";
 import Link from "next/link";
 
@@ -183,6 +183,7 @@ export default function RecordsClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<RecordRow | null>(null);
+  const [selectedInvoiceRecord, setSelectedInvoiceRecord] = useState<RecordRow | null>(null);
 
   const [filters, setFilters] = useState(() => {
     const currentMonthIndex = new Date().getMonth();
@@ -511,16 +512,27 @@ export default function RecordsClient() {
                         ₹{r.paidOnline.toLocaleString()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
-                        r.status === "PAID"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : (r.status === "SCHOLARSHIP FULL AWARDED" || r.status === "APPROVED")
-                          ? "bg-green-100 text-green-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}>
-                        {r.status === "APPROVED" ? "SCHOLARSHIP FULL AWARDED" : r.status}
-                      </span>
+                     <td className="px-4 py-3 text-center">
+                      {r.status === "PAID" ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInvoiceRecord(r);
+                          }}
+                          className="px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider bg-emerald-100 text-emerald-700 hover:bg-emerald-250 transition duration-150 flex items-center gap-1 mx-auto cursor-pointer border-0"
+                          title="Click to view/print receipt"
+                        >
+                          ✓ PAID 📄
+                        </button>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
+                          (r.status === "SCHOLARSHIP FULL AWARDED" || r.status === "APPROVED")
+                            ? "bg-green-100 text-green-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {r.status === "APPROVED" ? "SCHOLARSHIP FULL AWARDED" : r.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -548,6 +560,263 @@ export default function RecordsClient() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Invoice Modal for Printable Receipt */}
+      {selectedInvoiceRecord && (
+        <InvoiceModal 
+          record={selectedInvoiceRecord} 
+          onClose={() => setSelectedInvoiceRecord(null)} 
+        />
+      )}
+    </div>
+  );
+}
+
+function InvoiceModal({
+  record,
+  onClose,
+}: {
+  record: any;
+  onClose: () => void;
+}) {
+  const schoolName = record.className?.startsWith("WES") ? "WES Academy" : "Dhanpuri Public School";
+  const receiptNo = `REC-2026-${record.id.slice(0, 8).toUpperCase()}`;
+
+  // Breakdown calculations
+  const attendanceAmt = record.attendanceAmount ?? 750;
+  const homeworkAmt = record.homeworkAmount ?? 750;
+  const guardianAmt = record.guardianAmount ?? 750;
+  const ptmAmt = record.ptmAmount ?? 750;
+  const totalEarned = record.scholarshipEarned ?? (attendanceAmt + homeworkAmt + guardianAmt + ptmAmt);
+  const schoolFee = record.totalSchoolFee ?? 3000;
+  
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200 print-backdrop-transparent">
+      <style jsx global>{`
+        @media print {
+          /* Hide all other body elements */
+          body * {
+            visibility: hidden !important;
+          }
+          /* Show print target and its children */
+          #invoice-print-area, #invoice-print-area * {
+            visibility: visible !important;
+          }
+          #invoice-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 24px !important;
+            background: white !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .print-backdrop-transparent {
+            background: transparent !important;
+            position: absolute !important;
+            padding: 0 !important;
+            inset: 0 !important;
+          }
+        }
+      `}</style>
+      
+      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh] print-only-full">
+        {/* Header toolbar */}
+        <div className="flex justify-between items-center px-6 py-4 bg-slate-50 border-b border-slate-100 no-print">
+          <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            📄 Payment Receipt / Invoice
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1 shadow-sm transition active:scale-95 cursor-pointer border-0"
+            >
+              Print Receipt
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-lg transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Invoice Scrollable Content */}
+        <div className="p-8 overflow-y-auto flex-1 space-y-6 relative" id="invoice-print-area">
+
+          {/* School Details & Invoice Info */}
+          <div className="flex justify-between items-start border-b border-slate-150 pb-6">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{schoolName}</h1>
+              <p className="text-xs text-slate-500 font-semibold mt-1">Official Fee Receipt & Scholarship Adjustment Ledger</p>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Dhanpuri, Madhya Pradesh, India</p>
+            </div>
+            <div className="text-right">
+              <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+                PAID RECEIPT
+              </span>
+              <p className="text-xs font-black text-slate-800 mt-3">{receiptNo}</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Billing Month: <span className="text-slate-800">{record.month} {record.year}</span></p>
+            </div>
+          </div>
+
+          {/* Student Billing info */}
+          <div className="grid grid-cols-2 gap-6 bg-slate-50 border border-slate-100 p-5 rounded-2xl">
+            <div className="space-y-1">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill To Student</h3>
+              <p className="text-sm font-black text-slate-800">{record.name}</p>
+              <p className="text-xs text-slate-600 font-semibold">Class: {record.className}</p>
+              <p className="text-xs text-slate-500 font-medium">Scholar No: {record.scholarNo}</p>
+            </div>
+            <div className="space-y-1 text-right">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction Details</h3>
+              <p className="text-xs text-slate-600 font-semibold">Payment Status: <span className="text-emerald-600 font-black">PAID ONLINE</span></p>
+              <p className="text-xs text-slate-500 font-medium">Amount Paid: <span className="text-slate-800 font-bold">₹{record.paidOnline.toLocaleString()}</span></p>
+              <p className="text-xs text-slate-400 font-medium">Auto-Settled through Net Banking / Card</p>
+            </div>
+          </div>
+
+          {/* Ledger Table */}
+          <div className="space-y-2">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ledger Details</h3>
+            
+            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100/80 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3 text-right">Debit (Charge)</th>
+                    <th className="px-4 py-3 text-right">Credit (Waiver / Award)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {/* Base school fee */}
+                  <tr className="font-semibold text-slate-800">
+                    <td className="px-4 py-3 font-bold">Base Academic School Fee</td>
+                    <td className="px-4 py-3 text-right">₹{schoolFee.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">—</td>
+                  </tr>
+
+                  {/* Attendance Scholarship */}
+                  {attendanceAmt > 0 && (
+                    <tr className="text-slate-600 font-medium">
+                      <td className="px-4 py-3">Attendance Scholarship Reward</td>
+                      <td className="px-4 py-3 text-right text-slate-300">—</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">-₹{attendanceAmt.toLocaleString()}</td>
+                    </tr>
+                  )}
+
+                  {/* Homework Scholarship */}
+                  {homeworkAmt > 0 && (
+                    <tr className="text-slate-600 font-medium">
+                      <td className="px-4 py-3">Homework Completion Reward</td>
+                      <td className="px-4 py-3 text-right text-slate-300">—</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">-₹{homeworkAmt.toLocaleString()}</td>
+                    </tr>
+                  )}
+
+                  {/* Guardian Rating Scholarship */}
+                  {guardianAmt > 0 && (
+                    <tr className="text-slate-600 font-medium">
+                      <td className="px-4 py-3">Guardian Engagement Rating Reward</td>
+                      <td className="px-4 py-3 text-right text-slate-300">—</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">-₹{guardianAmt.toLocaleString()}</td>
+                    </tr>
+                  )}
+
+                  {/* PTM Scholarship */}
+                  {ptmAmt > 0 && (
+                    <tr className="text-slate-600 font-medium">
+                      <td className="px-4 py-3">PTM Attendance Reward</td>
+                      <td className="px-4 py-3 text-right text-slate-300">—</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">-₹{ptmAmt.toLocaleString()}</td>
+                    </tr>
+                  )}
+
+                  {/* Scholarship waiver */}
+                  {record.waiverGiven > 0 && (
+                    <tr className="text-slate-600 font-medium">
+                      <td className="px-4 py-3">Scholarship Waiver / Discount</td>
+                      <td className="px-4 py-3 text-right text-slate-300">—</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">-₹{record.waiverGiven.toLocaleString()}</td>
+                    </tr>
+                  )}
+
+                  {/* Additional Charge */}
+                  {record.additionalCharge > 0 && (
+                    <tr className="text-slate-600 font-medium">
+                      <td className="px-4 py-3">Additional Academic Charge</td>
+                      <td className="px-4 py-3 text-right text-amber-600">₹{record.additionalCharge.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-slate-300">—</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Summary calculations */}
+          <div className="flex justify-end pt-2">
+            <div className="w-64 space-y-2 text-xs font-semibold">
+              <div className="flex justify-between text-slate-500">
+                <span>Net School Fee:</span>
+                <span>₹{schoolFee.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-emerald-600">
+                <span>Total Scholarship Credit:</span>
+                <span>-₹{totalEarned.toLocaleString()}</span>
+              </div>
+              {record.waiverGiven > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Waiver Discount:</span>
+                  <span>-₹{record.waiverGiven.toLocaleString()}</span>
+                </div>
+              )}
+              {record.additionalCharge > 0 && (
+                <div className="flex justify-between text-amber-600">
+                  <span>Additional Charges:</span>
+                  <span>+₹{record.additionalCharge.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="border-t border-slate-200 pt-2 flex justify-between text-sm font-black text-slate-900 bg-slate-50 px-2 py-1 rounded-lg">
+                <span>Net Payable:</span>
+                <span>₹{record.finalDue.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+                <span>Paid Online Amount:</span>
+                <span>₹{record.paidOnline.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Signatures & Seal section */}
+          <div className="flex justify-between items-end pt-12 text-[10px] text-slate-400 font-medium">
+            <div>
+              <p>Generated by: System Administrator</p>
+              <p>IP Address logged during online payment verification</p>
+            </div>
+            <div className="text-center border-t border-slate-300 pt-1.5 w-40 text-slate-500 relative flex flex-col items-center">
+              {/* PAID Watermark Badge */}
+              <div className="absolute top-[-26px] pointer-events-none select-none border-2 border-emerald-500/50 text-emerald-600 text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-md -rotate-12 bg-emerald-50/90 z-20">
+                PAID
+              </div>
+              <p className="font-bold">Authorized Seal</p>
+              <p className="text-[8px] text-slate-400">Digital Verification Token Active</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

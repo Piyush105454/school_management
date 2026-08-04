@@ -215,6 +215,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // Academy Management Category
     { type: "section", name: "Academic Management" },
+    { href: "/office/academy-management/calendar", icon: CalendarDays, roleNames: { OFFICE: "Calendar", PRINCIPAL: "Calendar", ADMIN: "Calendar" } },
     { href: "/office/academy-management/my-lesson-plans", icon: BookOpen, roleNames: { TEACHER: "My Lesson Plans" } },
     { href: "/office/academy-management/attendance", icon: CalendarCheck, roleNames: { OFFICE: "Attendance Management", PRINCIPAL: "Attendance Management", TEACHER: "Attendance" } },
     { href: "/office/academy-management/classes", icon: School, roleNames: { OFFICE: "Class Management", PRINCIPAL: "Class Management", TEACHER: "My Classes" } },
@@ -316,6 +317,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/scholarship/settings",
         "/office/academy-management/attendance",
         "/office/academy-management/classes",
+        "/office/academy-management/calendar",
         "/office/academy-management/lesson-plan",
         "/office/academy-management/lesson-plan/review",
         "/office/academy-management/homework",

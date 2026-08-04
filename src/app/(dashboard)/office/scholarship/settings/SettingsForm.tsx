@@ -32,8 +32,8 @@ export default function SettingsForm({
   // Step 1: Institute
   const [selectedInstitute, setSelectedInstitute] = useState("");
 
-  // Step 2: Segment — default to "specific"
-  const [isAllStudents, setIsAllStudents] = useState(false);
+  // Step 2: Segment — default to global default
+  const [isAllStudents, setIsAllStudents] = useState(true);
 
   // Step 3: Student selector
   const [selectedClass, setSelectedClass] = useState("");
@@ -55,16 +55,24 @@ export default function SettingsForm({
     }
   }, [selectedClass, selectedInstitute]);
 
-  // Load criteria when segment / student changes
+  // Load criteria whenever institute or segment or student changes
   useEffect(() => {
     if (!selectedInstitute) return;
 
     if (isAllStudents) {
-      // Fetch global default (no admissionId)
+      // Fetch institute-level default (with institute fallback to global)
       (async () => {
-        const res = await getCriteriaSettings(academicYear);
+        const res = await getCriteriaSettings(academicYear, undefined, selectedInstitute);
         if (res.success && res.data) {
-          reset(res.data);
+          reset({
+            attendanceThreshold: res.data.attendanceThreshold,
+            attendanceAmount: res.data.attendanceAmount,
+            homeworkThreshold: res.data.homeworkThreshold,
+            homeworkAmount: res.data.homeworkAmount,
+            guardianRatingThreshold: res.data.guardianRatingThreshold,
+            guardianAmount: res.data.guardianAmount,
+            ptmAmount: res.data.ptmAmount,
+          });
         } else {
           reset(DEFAULT_CRITERIA);
         }
@@ -89,10 +97,19 @@ export default function SettingsForm({
 
   const fetchOverride = async (admissionId: string) => {
     setLoading(true);
-    const res = await getCriteriaSettings(academicYear, admissionId);
+    // For a specific student: check student override first, then institute default
+    const res = await getCriteriaSettings(academicYear, admissionId, selectedInstitute);
     setLoading(false);
     if (res.success && res.data) {
-      reset(res.data);
+      reset({
+        attendanceThreshold: res.data.attendanceThreshold,
+        attendanceAmount: res.data.attendanceAmount,
+        homeworkThreshold: res.data.homeworkThreshold,
+        homeworkAmount: res.data.homeworkAmount,
+        guardianRatingThreshold: res.data.guardianRatingThreshold,
+        guardianAmount: res.data.guardianAmount,
+        ptmAmount: res.data.ptmAmount,
+      });
     } else {
       reset(DEFAULT_CRITERIA);
     }
@@ -110,6 +127,7 @@ export default function SettingsForm({
 
     setLoading(true);
     setMessage("");
+
     const admissionId = !isAllStudents ? selectedStudent : undefined;
 
     const res = await updateCriteriaSettings(
@@ -123,12 +141,18 @@ export default function SettingsForm({
         guardianAmount: Number(data.guardianAmount),
         ptmAmount: Number(data.ptmAmount),
       },
-      admissionId
+      admissionId,
+      // Pass institute only for global rows (not for student overrides)
+      admissionId ? undefined : selectedInstitute
     );
 
     setLoading(false);
     if (res.success) {
-      setMessage("Settings updated successfully!");
+      setMessage(
+        isAllStudents
+          ? `✅ Criteria saved for ${selectedInstitute} — All Students`
+          : `✅ Override saved for selected student`
+      );
     } else {
       setMessage("Error: " + res.error);
     }
@@ -153,6 +177,7 @@ export default function SettingsForm({
             setSelectedStudent("");
             setStudents([]);
             setMessage("");
+            setIsAllStudents(true);
           }}
           className="w-full border border-slate-300 rounded-md p-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
@@ -161,6 +186,11 @@ export default function SettingsForm({
             <option key={inst} value={inst}>{inst}</option>
           ))}
         </select>
+        {selectedInstitute && (
+          <p className="text-[11px] text-blue-600 font-semibold">
+            📌 Criteria saved here will only apply to <strong>{selectedInstitute}</strong> students.
+          </p>
+        )}
       </div>
 
       {/* ── Step 2: Target Segment ── */}
@@ -176,7 +206,7 @@ export default function SettingsForm({
               onChange={() => { setIsAllStudents(true); setSelectedClass(""); setSelectedStudent(""); }}
               className="accent-blue-600"
             />
-            <span className="font-medium">All Students (Global Default)</span>
+            <span className="font-medium">All Students (Institute Default)</span>
           </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input
@@ -234,10 +264,10 @@ export default function SettingsForm({
       >
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
           Step 3 — Configure Criteria
-          {!isAllStudents && selectedStudent
+          {isAllStudents && selectedInstitute
+            ? ` (${selectedInstitute} — All Students Default)`
+            : !isAllStudents && selectedStudent
             ? ` (Override for selected student)`
-            : isAllStudents
-            ? ` (Global Default — all students)`
             : ""}
         </p>
 
@@ -289,7 +319,7 @@ export default function SettingsForm({
           disabled={loading || saveLocked}
           className="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 disabled:bg-slate-300 font-bold transition-colors"
         >
-          {loading ? "Saving..." : "Save Settings"}
+          {loading ? "Saving..." : `Save Settings${selectedInstitute && isAllStudents ? ` for ${selectedInstitute}` : ""}`}
         </button>
       </form>
     </div>
