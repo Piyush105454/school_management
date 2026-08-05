@@ -1109,3 +1109,49 @@ export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// School Events & Milestones
+export const schoolEvents = pgTable("school_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: text("title").notNull(),
+  detail: text("detail"),
+  meetLink: text("meet_link"),
+  date: text("date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const schoolEventsRelations = relations(schoolEvents, ({ many }) => ({
+  owners: many(schoolEventOwners),
+  milestones: many(schoolEventMilestones),
+}));
+
+export const schoolEventOwners = pgTable("school_event_owners", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").references(() => schoolEvents.id, { onDelete: 'cascade' }).notNull(),
+  teacherId: uuid("teacher_id").references(() => teachers.id, { onDelete: 'cascade' }).notNull(),
+});
+
+export const schoolEventOwnersRelations = relations(schoolEventOwners, ({ one }) => ({
+  event: one(schoolEvents, {
+    fields: [schoolEventOwners.eventId],
+    references: [schoolEvents.id],
+  }),
+  teacher: one(teachers, {
+    fields: [schoolEventOwners.teacherId],
+    references: [teachers.id],
+  }),
+}));
+
+export const schoolEventMilestones = pgTable("school_event_milestones", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").references(() => schoolEvents.id, { onDelete: 'cascade' }).notNull(),
+  title: text("title").notNull(),
+  date: text("date").notNull(),
+});
+
+export const schoolEventMilestonesRelations = relations(schoolEventMilestones, ({ one }) => ({
+  event: one(schoolEvents, {
+    fields: [schoolEventMilestones.eventId],
+    references: [schoolEvents.id],
+  }),
+}));

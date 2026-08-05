@@ -25,6 +25,4 @@ const client = globalForDb.client ?? postgres(connectionString, {
 
 if (process.env.NODE_ENV !== "production") globalForDb.client = client;
 
-export const db = globalForDb.db ?? drizzle(client, { schema });
-
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+export const db = drizzle(client, { schema });

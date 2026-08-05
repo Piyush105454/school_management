@@ -228,6 +228,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     { href: "/student/homework", icon: ClipboardList, roleNames: { STUDENT_PARENT: "My Homework" } },
     { href: "/student/attendance", icon: CalendarCheck, roleNames: { STUDENT_PARENT: "My Attendance" } },
     { href: "/student/exams", icon: ScrollText, roleNames: { STUDENT_PARENT: "My Exam Schedule" } },
+    { href: "/student/calendar", icon: CalendarDays, roleNames: { STUDENT_PARENT: "School Calendar" } },
 
 
     // Time Table Management Category try
@@ -442,7 +443,8 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/student/attendance",
         "/student/exams",
         "/student/leave",
-        "/student/transport"
+        "/student/transport",
+        "/student/calendar"
       ].includes(href);
     }
     return false;
