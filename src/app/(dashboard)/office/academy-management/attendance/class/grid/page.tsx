@@ -18,6 +18,7 @@ export default function ClassAttendanceGrid() {
   const [classes, setClasses] = useState<any[]>([]);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const daysInMonth = 31; // Simplified for grid header
@@ -60,12 +61,33 @@ export default function ClassAttendanceGrid() {
     if (!classId) return;
     const fetchGridData = async () => {
       setIsLoading(true);
+      setErrorMsg("");
       try {
         const res = await fetch(`/api/attendance/class?class_id=${classId}&month=${month}&year=${year}`);
-        const data = await res.json();
-        setAttendanceData(data);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setAttendanceData(data);
+          } else {
+            console.error("Invalid grid data format:", data);
+            setAttendanceData([]);
+            setErrorMsg("Invalid attendance data format received.");
+          }
+        } else {
+          let msg = "Failed to fetch grid data.";
+          try {
+            const errData = await res.json();
+            if (errData && errData.error) {
+              msg = errData.error;
+            }
+          } catch (_) {}
+          setAttendanceData([]);
+          setErrorMsg(msg);
+        }
       } catch (err) {
         console.error(err);
+        setAttendanceData([]);
+        setErrorMsg("An error occurred while loading grid data.");
       } finally {
         setIsLoading(false);
       }
@@ -125,6 +147,14 @@ export default function ClassAttendanceGrid() {
             <div className="p-20 flex flex-col items-center justify-center gap-4">
               <div className="h-10 w-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
               <p className="text-sm font-bold text-slate-400">Loading Grid...</p>
+            </div>
+          ) : errorMsg ? (
+            <div className="p-20 text-center space-y-2">
+              <div className="h-12 w-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+                <Filter className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-bold text-slate-800">{errorMsg}</p>
+              <p className="text-xs text-slate-500">Please select an assigned class or contact support if you believe this is an error.</p>
             </div>
           ) : attendanceData.length === 0 ? (
             <div className="p-20 text-center space-y-2">

@@ -12,6 +12,7 @@ import {
 import { eq, and, isNull, sql, or, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { studentAttendance, students, admissionMeta, lessonPlans, homeworkSubmissions } from "@/db/schema";
+import { logActivity } from "@/lib/activity-log";
 
 async function resolveCandidateAdmissionIds(admissionId: string): Promise<string[]> {
   // scholarshipRecords.admissionId is a UUID FK -> admissionMeta.id
@@ -63,12 +64,15 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
   guardianLocked?: boolean;
 }) {
   try {
-    // Resolve student's institute for criteria lookup
     let studentInstitute: string | undefined;
+    let academicYear = "2025-26";
     const metaForInstitute = await db.query.admissionMeta.findFirst({
       where: eq(admissionMeta.id, admissionId),
-      columns: { entryNumber: true },
+      columns: { entryNumber: true, academicYear: true },
     });
+    if (metaForInstitute?.academicYear) {
+      academicYear = metaForInstitute.academicYear;
+    }
     if (metaForInstitute?.entryNumber) {
       const studentRow = await db.query.students.findFirst({
         where: eq(students.studentId, metaForInstitute.entryNumber),
@@ -87,7 +91,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     // 1. Get Criteria Settings: student override → institute default → global fallback
     let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
       where: and(
-        eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+        eq(scholarshipCriteriaSettings.academicYear, academicYear),
         eq(scholarshipCriteriaSettings.admissionId, admissionId)
       ),
     });
@@ -95,7 +99,7 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     if (!criteria && studentInstitute) {
       criteria = await db.query.scholarshipCriteriaSettings.findFirst({
         where: and(
-          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          eq(scholarshipCriteriaSettings.academicYear, academicYear),
           isNull(scholarshipCriteriaSettings.admissionId),
           eq(scholarshipCriteriaSettings.institute, studentInstitute)
         ),
@@ -105,15 +109,45 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
     if (!criteria) {
       criteria = await db.query.scholarshipCriteriaSettings.findFirst({
         where: and(
-          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          eq(scholarshipCriteriaSettings.academicYear, academicYear),
           isNull(scholarshipCriteriaSettings.admissionId),
           isNull(scholarshipCriteriaSettings.institute)
         ),
       });
     }
 
+    // --- FALLBACK TO 2025-26 IF CURRENT YEAR IS NOT YET CONFIGURED ---
+    if (!criteria && academicYear !== "2025-26") {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          eq(scholarshipCriteriaSettings.admissionId, admissionId)
+        ),
+      });
+
+      if (!criteria && studentInstitute) {
+        criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+          where: and(
+            eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+            isNull(scholarshipCriteriaSettings.admissionId),
+            eq(scholarshipCriteriaSettings.institute, studentInstitute)
+          ),
+        });
+      }
+
+      if (!criteria) {
+        criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+          where: and(
+            eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+            isNull(scholarshipCriteriaSettings.admissionId),
+            isNull(scholarshipCriteriaSettings.institute)
+          ),
+        });
+      }
+    }
+
     if (!criteria) {
-      return { success: false, error: "Scholarship criteria settings not found for this year." };
+      return { success: false, error: "Scholarship criteria settings not found." };
     }
 
     // Calculate Percentages
@@ -145,9 +179,10 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       }
     }
 
-    // If rating is >= threshold (e.g., 4 out of 5), then full money. Otherwise, proportional.
-    // guardianRatingThreshold is stored as /10 in DB, but guardianRating is /5, so convert: threshold/10 * 5 = threshold/2
-    const guardianThresholdOutOf5 = (criteria.guardianRatingThreshold || 8) / 2; // 8/10 = 4/5
+    // If rating is >= threshold, then full money. Otherwise, proportional.
+    const guardianThresholdOutOf5 = criteria.guardianRatingThreshold
+      ? (criteria.guardianRatingThreshold > 5 ? criteria.guardianRatingThreshold / 2 : criteria.guardianRatingThreshold)
+      : 4; // Default fallback to 4 out of 5
     const guardianAmount = guardianRating >= guardianThresholdOutOf5
       ? criteria.guardianAmount
       : Math.round((guardianRating / 5) * criteria.guardianAmount);
@@ -305,6 +340,12 @@ export async function saveKpiData(admissionId: string, month: string, year: stri
       await db.insert(scholarshipRecords).values({ admissionId, month, year, ...recordData });
     }
 
+    await logActivity({
+      action: "UPDATE",
+      module: "Scholarship",
+      details: `Filled/saved scholarship KPI scores for candidate (ID: ${admissionId}) for ${month} ${year}`
+    });
+
     revalidatePath("/office/scholarship/students", "page");
     return { success: true, totalAmount, ptmAmount, guardianAmount };
   } catch (error: any) {
@@ -360,34 +401,86 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       ) 
     });
 
-    // Fetch Criteria (Override first, then global)
-    let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
-      where: and(
-        eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
-        inArray(scholarshipCriteriaSettings.admissionId, validAdmissionIds)
-      ),
-    });
-
-    if (!criteria) {
-      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
-        where: and(
-          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
-          isNull(scholarshipCriteriaSettings.admissionId)
-        ),
-      });
-    }
-
-    // --- NEW: Fetch Real Academy Attendance & Homework Data ---
+    // --- NEW: Fetch Student and School/Institute Context first ---
     const meta = await db.query.admissionMeta.findFirst({
       where: inArray(admissionMeta.id, validAdmissionIds),
-      columns: { entryNumber: true }
+      columns: { entryNumber: true, academicYear: true }
     });
 
+    let academicYear = meta?.academicYear || "2025-26";
     let student = null;
+    let studentInstitute: string | undefined;
+
     if (meta?.entryNumber) {
       student = await db.query.students.findFirst({
         where: eq(students.studentId, meta.entryNumber)
       });
+      if (student?.classId) {
+        const { classes } = await import("@/db/schema");
+        const classRow = await db.query.classes.findFirst({
+          where: eq(classes.id, student.classId),
+          columns: { institute: true }
+        });
+        studentInstitute = classRow?.institute ?? undefined;
+      }
+    }
+
+    // Fetch Criteria (Override first, then institute default, then global default)
+    let criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+      where: and(
+        eq(scholarshipCriteriaSettings.academicYear, academicYear),
+        inArray(scholarshipCriteriaSettings.admissionId, validAdmissionIds)
+      ),
+    });
+
+    if (!criteria && studentInstitute) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, academicYear),
+          isNull(scholarshipCriteriaSettings.admissionId),
+          eq(scholarshipCriteriaSettings.institute, studentInstitute)
+        ),
+      });
+    }
+
+    if (!criteria) {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, academicYear),
+          isNull(scholarshipCriteriaSettings.admissionId),
+          isNull(scholarshipCriteriaSettings.institute)
+        ),
+      });
+    }
+
+    // --- FALLBACK TO 2025-26 IF CURRENT YEAR IS NOT YET CONFIGURED ---
+    if (!criteria && academicYear !== "2025-26") {
+      criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+        where: and(
+          eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+          inArray(scholarshipCriteriaSettings.admissionId, validAdmissionIds)
+        ),
+      });
+
+      if (!criteria && studentInstitute) {
+        criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+          where: and(
+            eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+            isNull(scholarshipCriteriaSettings.admissionId),
+            eq(scholarshipCriteriaSettings.institute, studentInstitute)
+          ),
+        });
+      }
+
+      if (!criteria) {
+        criteria = await db.query.scholarshipCriteriaSettings.findFirst({
+          where: and(
+            eq(scholarshipCriteriaSettings.academicYear, "2025-26"),
+            isNull(scholarshipCriteriaSettings.admissionId),
+            isNull(scholarshipCriteriaSettings.institute)
+          ),
+        });
+      }
     }
 
     let realAttendance = null;

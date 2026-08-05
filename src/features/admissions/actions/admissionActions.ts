@@ -21,6 +21,7 @@ import {
 } from "@/db/schema";
 import { eq, desc, and, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activity-log";
 import { uploadToS3, uploadFileToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
 
 function sanitizeBioData(data: any) {
@@ -418,6 +419,12 @@ export async function verifyAdmission(admissionId: string) {
       .set({ admissionStep: 11 })
       .where(eq(studentProfiles.admissionMetaId, admissionId));
 
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Verified documents & affidavit for candidate (ID: ${admissionId})`
+    });
+
     revalidatePath("/office/inquiries");
     revalidatePath("/student/dashboard");
     return { success: true };
@@ -499,6 +506,12 @@ export async function finalizeFinalAdmission(admissionId: string, appliedScholar
         }
       }
 
+      await logActivity({
+        action: "UPDATE",
+        module: "Admissions",
+        details: `Approved final enrollment for candidate (ID: ${admissionId}). Scholarship awarded: ${awardedScholarship ? `Yes (₹${amount})` : "No"}`
+      });
+
       revalidatePath("/office/inquiries");
       revalidatePath("/student/dashboard");
       revalidatePath("/office/final-admissions");
@@ -516,6 +529,12 @@ export async function awardScholarshipDirect(admissionId: string, amount: number
       .set({ awardedScholarship: true, scholarshipAmount: amount, updatedAt: new Date() })
       .where(eq(admissionMeta.id, admissionId));
 
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Awarded scholarship of ₹${amount} to candidate (ID: ${admissionId})`
+    });
+
     revalidatePath("/student/dashboard");
     revalidatePath("/office/inquiries");
     revalidatePath("/office/scholarship/award");
@@ -530,6 +549,12 @@ export async function revokeScholarshipDirect(admissionId: string) {
     await db.update(admissionMeta)
       .set({ awardedScholarship: false, scholarshipAmount: 0, updatedAt: new Date() })
       .where(eq(admissionMeta.id, admissionId));
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Revoked scholarship for candidate (ID: ${admissionId})`
+    });
 
     revalidatePath("/student/dashboard");
     revalidatePath("/office/scholarship/award");
@@ -583,6 +608,12 @@ export async function undoAdmissionStep(admissionId: string) {
           eq(homeVisits.admissionId, admissionId),
           or(eq(homeVisits.status, "PASS"), eq(homeVisits.status, "FAIL"))
         ));
+    });
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Rolled back admission step for candidate (ID: ${admissionId}) to step ${newStep}`
     });
 
     revalidatePath("/office/inquiries");
@@ -865,21 +896,17 @@ export async function getAdmissionData(admissionId: string, lite: boolean = fals
 
   while (attempt < maxAttempts) {
     try {
-      const [bio, address, academic, parents, bank, documents, declaration, siblings, checklist, entranceTest, homeVisit] = await Promise.all([
-        db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) }),
-        db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) }),
-        db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) }),
-        db.query.parentGuardianDetails.findMany({ where: eq(parentGuardianDetails.admissionId, admissionId) }),
-        db.query.studentBankDetails.findFirst({ where: eq(studentBankDetails.admissionId, admissionId) }),
-        db.query.studentDocuments.findFirst({ 
-          where: eq(studentDocuments.admissionId, admissionId),
-        }),
-        db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) }),
-        db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) }),
-        db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) }),
-        db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) }),
-        db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) })
-      ]);
+      const bio = await db.query.studentBio.findFirst({ where: eq(studentBio.admissionId, admissionId) });
+      const address = await db.query.studentAddress.findFirst({ where: eq(studentAddress.admissionId, admissionId) });
+      const academic = await db.query.previousAcademic.findFirst({ where: eq(previousAcademic.admissionId, admissionId) });
+      const parents = await db.query.parentGuardianDetails.findMany({ where: eq(parentGuardianDetails.admissionId, admissionId) });
+      const bank = await db.query.studentBankDetails.findFirst({ where: eq(studentBankDetails.admissionId, admissionId) });
+      const documents = await db.query.studentDocuments.findFirst({ where: eq(studentDocuments.admissionId, admissionId) });
+      const declaration = await db.query.declarations.findFirst({ where: eq(declarations.admissionId, admissionId) });
+      const siblings = await db.query.siblingDetails.findMany({ where: eq(siblingDetails.admissionId, admissionId) });
+      const checklist = await db.query.documentChecklists.findFirst({ where: eq(documentChecklists.admissionId, admissionId) });
+      const entranceTest = await db.query.entranceTests.findFirst({ where: eq(entranceTests.admissionId, admissionId) });
+      const homeVisit = await db.query.homeVisits.findFirst({ where: eq(homeVisits.admissionId, admissionId) });
 
     const sanitizedDocs = documents;
 

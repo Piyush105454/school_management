@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { entranceTests, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activity-log";
 import { uploadToS3, getSignedDownloadUrl, deleteFromS3 } from "@/lib/s3-service";
 import { getS3UploadContext } from "./admissionActions";
 
@@ -47,6 +48,12 @@ export async function scheduleEntranceTest(admissionId: string, data: any) {
         status: sanitizedData.status || "PENDING",
       });
     }
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Scheduled/updated entrance test schedule for candidate (ID: ${admissionId})`
+    });
 
     revalidatePath("/office/entrance-tests", "page");
     revalidatePath("/student/entrance-test", "page");
@@ -129,6 +136,12 @@ export async function updateTestResult(
         .where(eq(studentProfiles.admissionMetaId, admissionId));
     }
 
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Updated entrance test results for candidate (ID: ${admissionId}). Marks: ${marks}, Grace: ${grace}, Status: ${status}`
+    });
 
     revalidatePath("/office/entrance-tests", "page");
     revalidatePath("/student/entrance-test", "page");

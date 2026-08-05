@@ -5,6 +5,7 @@ import { inquiries, users, studentProfiles, admissionMeta, students, classes } f
 import { eq, sql, count, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
+import { logActivity } from "@/lib/activity-log";
 
 export async function createInquiry(data: any) {
   try {
@@ -99,6 +100,12 @@ export async function createInquiry(data: any) {
         admissionStep: 1,
       });
 
+      await logActivity({
+        action: "CREATE",
+        module: "Admissions",
+        details: `Created new inquiry for student: ${data.firstName} ${data.lastName} (Aadhaar: ${data.aadhaarNumber})`
+      });
+
       revalidatePath("/office/inquiries");
       return { success: true, data: inquiry };
     });
@@ -158,6 +165,12 @@ export async function shortlistInquiry(id: string) {
         .set({ status: "SHORTLISTED", passwordPlain: password })
         .where(eq(inquiries.id, inquiry.id));
 
+      await logActivity({
+        action: "UPDATE",
+        module: "Admissions",
+        details: `Shortlisted inquiry (ID: ${id}) for candidate profile creation`
+      });
+
       revalidatePath("/office/inquiries");
       return { 
         success: true, 
@@ -188,6 +201,12 @@ export async function resetStudentPassword(email: string) {
     await db.update(inquiries)
       .set({ passwordPlain: newPassword })
       .where(eq(inquiries.email, email));
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Reset password for candidate email: ${email}`
+    });
 
     return { 
       success: true, 
@@ -226,6 +245,12 @@ export async function deleteInquiry(id: string) {
 
     // 4. Delete the inquiry (cascades to admissionMeta & forms)
     await db.delete(inquiries).where(eq(inquiries.id, id));
+
+    await logActivity({
+      action: "DELETE",
+      module: "Admissions",
+      details: `Deleted inquiry (ID: ${id}) and cascaded profile deletions`
+    });
 
     revalidatePath("/office/inquiries");
     return { success: true, message: "Inquiry deleted successfully" };
@@ -276,6 +301,12 @@ export async function updateInquiry(id: string, data: any) {
         }
       }
     }
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Updated details for inquiry (ID: ${id})`
+    });
 
     revalidatePath("/office/inquiries");
     return { success: true };

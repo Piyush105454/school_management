@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { studentAttendance, students, classes } from "@/db/schema";
+import { studentAttendance, students, classes, teachers, timetable, subjects } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -20,7 +20,17 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     let teacherInstitute = "";
-    let assignedClassNames: string[] = [];
+    const assignedClassIds = new Set<number>();
+    const assignedClassNames = new Set<string>();
+
+    const normalizeName = (name: string) => {
+      if (!name) return "";
+      const n = name.trim();
+      if (/^kg\s*ii$/i.test(n)) return "kg2";
+      if (/^kg\s*i$/i.test(n)) return "kg1";
+      return n.toLowerCase().replace(/^class\s+/i, "").trim();
+    };
+
     if (session.user.role === "TEACHER") {
       const teacherProfile = await db.query.teachers.findFirst({
         where: (t, { eq }) => eq(t.userId, session.user.id)
@@ -28,33 +38,55 @@ export async function GET(req: NextRequest) {
       if (!teacherProfile) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       
       teacherInstitute = teacherProfile.institute || "";
-      assignedClassNames = teacherProfile.classAssigned 
-        ? teacherProfile.classAssigned.split(",").map(c => c.trim()) 
-        : [];
+
+      // Source 1: Subjects
+      const assignedSubjects = await db.query.subjects.findMany({
+        where: eq(subjects.assignedTeacherId, teacherProfile.id),
+        columns: { classId: true }
+      });
+      for (const s of assignedSubjects) {
+        if (s.classId) assignedClassIds.add(s.classId);
+      }
+
+      // Source 2: Timetable
+      const teacherTimetable = await db.query.timetable.findMany({
+        where: eq(timetable.teacherId, teacherProfile.id),
+        columns: { classId: true, className: true }
+      });
+      for (const t of teacherTimetable) {
+        if (t.classId) assignedClassIds.add(t.classId);
+        if (t.className) assignedClassNames.add(normalizeName(t.className));
+      }
+
+      // Source 3: Profile classAssigned
+      if (teacherProfile.classAssigned) {
+        const profileClasses = teacherProfile.classAssigned
+          .split(",")
+          .map(s => normalizeName(s))
+          .filter(Boolean);
+        for (const pc of profileClasses) {
+          assignedClassNames.add(pc);
+        }
+      }
     }
 
     // 1. Fetch the class to check institute and assignment
-
     const academyClass = await db.query.classes.findFirst({
-      where: (c, { and, eq, inArray }) => {
-        const conditions = [eq(c.id, classId)];
-        if (session.user.role === "TEACHER") {
-          if (teacherInstitute) conditions.push(eq(c.institute, teacherInstitute));
-          
-          const allPotentialNames = [
-            ...assignedClassNames,
-            ...assignedClassNames.map(n => `Class ${n}`),
-            ...assignedClassNames.map(n => `CLASS ${n}`),
-            ...assignedClassNames.map(n => n.replace(/^Class\s+/i, ""))
-          ];
-          conditions.push(inArray(c.name, allPotentialNames));
-        }
-        return and(...conditions);
-      }
+      where: (c, { eq }) => eq(c.id, classId)
     });
 
     if (!academyClass) {
-      return NextResponse.json({ error: "Class not found or access denied" }, { status: 404 });
+      return NextResponse.json({ error: "Class not found" }, { status: 404 });
+    }
+
+    if (session.user.role === "TEACHER") {
+      const matchId = assignedClassIds.has(academyClass.id);
+      const matchName = assignedClassNames.has(normalizeName(academyClass.name));
+      const instituteMatch = !teacherInstitute || academyClass.institute === teacherInstitute;
+
+      if (!(matchId || (matchName && instituteMatch))) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
     }
 
     // 2. Fetch ALL students in this class

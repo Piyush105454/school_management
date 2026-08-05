@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { schoolEvents, schoolEventOwners, schoolEventMilestones } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { logActivity } from "@/lib/activity-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -78,6 +79,11 @@ export async function POST(req: NextRequest) {
       }
 
       await db.delete(schoolEvents).where(eq(schoolEvents.id, eventId));
+      await logActivity({
+        action: "DELETE",
+        module: "Academy Management",
+        details: `Deleted school event (ID: ${eventId})`
+      });
       return NextResponse.json({ success: true, message: "Event deleted successfully" });
     }
 
@@ -117,6 +123,12 @@ export async function POST(req: NextRequest) {
       }
 
       return newEvent;
+    });
+
+    await logActivity({
+      action: "CREATE",
+      module: "Academy Management",
+      details: `Created new school event: "${title}" scheduled on ${date}`
     });
 
     return NextResponse.json({ success: true, data: result });

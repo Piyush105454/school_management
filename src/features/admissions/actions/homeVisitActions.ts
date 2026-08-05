@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { homeVisits, studentProfiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activity-log";
 import { uploadToS3, getSignedDownloadUrl, deleteFromS3 } from "@/lib/s3-service";
 import { getS3UploadContext } from "./admissionActions";
 
@@ -28,6 +29,12 @@ export async function scheduleHomeVisit(admissionId: string, data: any) {
         status: data.status || "PENDING",
       });
     }
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Scheduled/updated home visit schedule for candidate (ID: ${admissionId})`
+    });
 
     revalidatePath("/office/home-visits", "page");
     revalidatePath("/student/dashboard", "page");
@@ -150,6 +157,12 @@ export async function updateHomeVisitStatus(
 
 
 
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Updated home visit results for candidate (ID: ${admissionId}). Status: ${status}`
+    });
 
     revalidatePath("/office/home-visits", "page");
     revalidatePath("/student/dashboard", "page");

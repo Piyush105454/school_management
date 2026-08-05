@@ -1,25 +1,73 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { google } from "googleapis";
+import { Readable } from "stream";
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "ap-south-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
+// Re-use Google Drive credentials
+const SCOPES = ["https://www.googleapis.com/auth/drive"];
+
+async function getDriveClient() {
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+  if (!clientEmail || !privateKey) {
+    throw new Error("Missing Google Drive credentials in environment variables.");
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey,
+    },
+    scopes: SCOPES,
+  });
+
+  const authClient = await auth.getClient();
+  return google.drive({ version: "v3", auth: authClient as any });
+}
+
+// Cache to speed up repeat lookups of the same documents
+const driveUrlCache = new Map<string, string>();
 
 export interface UploadOptions {
-  fileName: string;
+  fileName?: string;
   academicYear?: string;
   category?: string;
-  admissionId?: string; // UUID (fallback)
-  studentId?: string;   // Human readable ID (e.g. ADM-2627-0077)
-  appliedClass?: string; // e.g. "Class 3"
+  admissionId?: string;
+  studentId?: string;
+  appliedClass?: string;
+  key?: string;
+}
+
+async function getOrCreateFolder(drive: any, folderName: string, parentId: string): Promise<string> {
+  const query = `mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "\\'")}' and '${parentId}' in parents and trashed=false`;
+  const response = await drive.files.list({
+    q: query,
+    fields: "files(id, name)",
+    spaces: "drive",
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+
+  if (response.data.files && response.data.files.length > 0) {
+    return response.data.files[0].id!;
+  }
+
+  const fileMetadata = {
+    name: folderName,
+    mimeType: "application/vnd.google-apps.folder",
+    parents: [parentId],
+  };
+
+  const folder = await drive.files.create({
+    requestBody: fileMetadata,
+    fields: "id",
+    supportsAllDrives: true,
+  });
+
+  return folder.data.id!;
 }
 
 /**
- * Uploads a raw Buffer/File to S3 directly from the server
+ * Uploads a raw Buffer/File to Google Drive mimicking S3's path keys
  */
 export async function uploadFileToS3(
   fileData: Buffer | ArrayBuffer,
@@ -27,42 +75,81 @@ export async function uploadFileToS3(
   options: UploadOptions
 ) {
   try {
-    const academicYear = options.academicYear || "2026-27";
-    const category = options.category || "student-documents";
-    const studentFolder = options.studentId || options.admissionId || "unknown";
-
-    // Determine extension
-    let extension = options.fileName.split('.').pop() || "";
-    if (!extension || extension === options.fileName) {
-      if (contentType === "application/pdf") extension = "pdf";
-      else if (contentType.startsWith("image/")) extension = contentType.split('/')[1] || "jpg";
+    const rootFolderId = process.env.GOOGLE_DRIVE_HOMEWORK_FOLDER_ID;
+    if (!rootFolderId) {
+      throw new Error("Missing GOOGLE_DRIVE_HOMEWORK_FOLDER_ID in environment variables.");
     }
 
-    const cleanFileName = options.fileName.split('.')[0].replace(/[^a-z0-9]/gi, '_');
-    const finalKey = `dps/${academicYear}/${category}/${studentFolder}/${cleanFileName}.${extension}`;
+    const drive = await getDriveClient();
+    
+    // Determine the key to use
+    const finalKey = options.key || (() => {
+      const academicYear = options.academicYear || "2026-27";
+      const category = options.category || "student-documents";
+      const studentFolder = options.studentId || options.admissionId || "unknown";
+      const fileName = options.fileName || "file";
+      
+      let extension = fileName.split('.').pop() || "";
+      if (!extension || extension === fileName) {
+        if (contentType === "application/pdf") extension = "pdf";
+        else if (contentType.startsWith("image/")) extension = contentType.split('/')[1] || "jpg";
+      }
 
-    const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: finalKey,
-      Body: Buffer.from(fileData as ArrayBuffer),
-      ContentType: contentType,
+      const cleanFileName = fileName.split('.')[0].replace(/[^a-z0-9]/gi, '_');
+      return `dps/${academicYear}/${category}/${studentFolder}/${cleanFileName}.${extension}`;
+    })();
+
+    // Replicate S3 path in Google Drive folders
+    const parts = finalKey.split('/');
+    const fileName = parts.pop()!;
+    
+    let currentParentId = rootFolderId;
+    for (const folderName of parts) {
+      currentParentId = await getOrCreateFolder(drive, folderName, currentParentId);
+    }
+
+    const fileMetadata = {
+      name: fileName,
+      parents: [currentParentId],
+    };
+
+    const media = {
+      mimeType: contentType,
+      body: Readable.from(Buffer.from(fileData as ArrayBuffer)),
+    };
+
+    const file = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: "id, webViewLink",
+      supportsAllDrives: true,
     });
 
-    await s3Client.send(command);
-    
-    // Construct public URL
-    const regionSuffix = process.env.AWS_REGION ? `s3.${process.env.AWS_REGION}` : 's3';
-    const publicUrl = `https://${process.env.S3_BUCKET_NAME}.${regionSuffix}.amazonaws.com/${finalKey}`;
-    return publicUrl;
+    if (file.data.id) {
+      await drive.permissions.create({
+        fileId: file.data.id,
+        requestBody: {
+          role: "reader",
+          type: "anyone",
+        },
+        supportsAllDrives: true,
+      });
+
+      const driveUrl = `https://drive.google.com/uc?export=view&id=${file.data.id}`;
+      // Seed cache
+      driveUrlCache.set(finalKey, driveUrl);
+    }
+
+    // Return virtual S3 URL to keep database strings fully backward compatible
+    return `https://school-admissions.s3.amazonaws.com/${finalKey}`;
   } catch (error) {
-    console.error("S3 Proxy Upload Error:", error);
+    console.error("Drive upload proxy Error:", error);
     throw error;
   }
 }
 
 /**
- * Uploads a base64 document/image to S3
- * Pipeline uses the raw buffer uploader above
+ * Uploads base64 document/image to S3-alternative (Drive)
  */
 export async function uploadToS3(
   base64Data: string, 
@@ -80,107 +167,145 @@ export async function uploadToS3(
     
     return await uploadFileToS3(buffer, contentType, options);
   } catch (error) {
-    console.error("S3 Base64 Upload Error:", error);
+    console.error("Drive base64 upload proxy Error:", error);
     throw error;
   }
 }
 
 /**
- * Generates a temporary secure link for a private S3 file
+ * Resolves virtual S3 URL/Key to direct Google Drive view link
  */
 export async function getSignedDownloadUrl(s3UrlOrKey: string) {
   if (!s3UrlOrKey) return null;
-  // If it's already a base64 string, return it as is
   if (s3UrlOrKey.startsWith("data:")) return s3UrlOrKey;
 
-  try {
-    let key = s3UrlOrKey;
-    // Extract key from full URL if provided
-    if (s3UrlOrKey.startsWith("http")) {
-      try {
-        const url = new URL(s3UrlOrKey);
-        // Handle various S3 URL formats:
-        // 1. https://bucket.s3.region.amazonaws.com/key
-        // 2. https://bucket.s3.amazonaws.com/key
-        if (url.hostname.includes("amazonaws.com")) {
-           // Standard format: bucket.s3.region.amazonaws.com/key OR s3.region.amazonaws.com/bucket/key
-           let rawKey = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
-           
-           // If the bucket name is in the path (s3.amazonaws.com/bucket/key), strip it
-           const bucketName = process.env.S3_BUCKET_NAME;
-           if (bucketName && rawKey.startsWith(bucketName + "/")) {
-             rawKey = rawKey.replace(bucketName + "/", "");
-           }
+  // Extract key
+  let key = s3UrlOrKey;
+  if (s3UrlOrKey.includes("amazonaws.com/")) {
+    key = decodeURIComponent(s3UrlOrKey.split("amazonaws.com/")[1]);
+  }
 
-           key = decodeURIComponent(rawKey);
-        }
-      } catch (e) {
-        console.error("URL Parsing failed for key extraction:", e);
+  // Check cache
+  if (driveUrlCache.has(key)) {
+    return driveUrlCache.get(key)!;
+  }
+
+  try {
+    const rootFolderId = process.env.GOOGLE_DRIVE_HOMEWORK_FOLDER_ID;
+    if (!rootFolderId) return s3UrlOrKey;
+
+    const drive = await getDriveClient();
+    const parts = key.split('/');
+    const fileName = parts.pop()!;
+
+    let currentParentId = rootFolderId;
+    let found = true;
+
+    for (const folderName of parts) {
+      const query = `mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "\\'")}' and '${currentParentId}' in parents and trashed=false`;
+      const res = await drive.files.list({
+        q: query,
+        fields: "files(id)",
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
+
+      if (res.data.files && res.data.files.length > 0) {
+        currentParentId = res.data.files[0].id!;
+      } else {
+        found = false;
+        break;
       }
     }
 
-    const command = new GetObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: key,
-    });
+    if (found) {
+      const fileQuery = `name='${fileName.replace(/'/g, "\\'")}' and '${currentParentId}' in parents and trashed=false`;
+      const fileRes = await drive.files.list({
+        q: fileQuery,
+        fields: "files(id)",
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
 
-    // Link valid for 3600 seconds (1 hour)
-    return await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      if (fileRes.data.files && fileRes.data.files.length > 0) {
+        const driveUrl = `https://drive.google.com/uc?export=view&id=${fileRes.data.files[0].id}`;
+        driveUrlCache.set(key, driveUrl);
+        return driveUrl;
+      }
+    }
+    
+    return s3UrlOrKey;
   } catch (error) {
-    console.error("Error generating signed URL:", error);
-    return s3UrlOrKey; // Fallback to original
+    console.error("Error resolving Google Drive file URL:", error);
+    return s3UrlOrKey;
   }
 }
 
 /**
- * Generates a presigned URL for the browser to upload directly to S3
+ * Returns a server upload proxy endpoint URL
  */
 export async function getPresignedUploadUrl(key: string, contentType: string) {
-  try {
-    const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: key,
-      // We remove ContentType from signature to avoid strict matching issues on mobile
-      // ContentType: contentType,
-    });
-
-    // Link valid for 15 minutes
-    return await getSignedUrl(s3Client, command, { expiresIn: 900 });
-  } catch (error) {
-    console.error("Error generating presigned upload URL:", error);
-    throw error;
-  }
+  return `/api/upload/proxy?key=${encodeURIComponent(key)}&contentType=${encodeURIComponent(contentType)}`;
 }
 
 /**
- * Permanently deletes a file from S3
+ * Deletes file from Google Drive
  */
-export async function deleteFromS3(urlOrKey: string) {
-  if (!urlOrKey || urlOrKey.startsWith("data:")) return;
+export async function deleteFromS3(s3UrlOrKey: string) {
+  if (!s3UrlOrKey) return;
+  
+  let key = s3UrlOrKey;
+  if (s3UrlOrKey.includes("amazonaws.com/")) {
+    key = decodeURIComponent(s3UrlOrKey.split("amazonaws.com/")[1]);
+  }
 
   try {
-    let key = urlOrKey;
-    // Extract key if it's a full URL
-    if (urlOrKey.startsWith("http")) {
-      try {
-        const url = new URL(urlOrKey);
-        if (url.hostname.includes("amazonaws.com") && url.hostname.includes(".s3")) {
-          const rawKey = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
-          key = decodeURIComponent(rawKey);
-        }
-      } catch (e) {
-        console.error("URL Parsing failed for delete key extraction:", e);
+    const rootFolderId = process.env.GOOGLE_DRIVE_HOMEWORK_FOLDER_ID;
+    if (!rootFolderId) return;
+
+    const drive = await getDriveClient();
+    const parts = key.split('/');
+    const fileName = parts.pop()!;
+
+    let currentParentId = rootFolderId;
+    let found = true;
+
+    for (const folderName of parts) {
+      const query = `mimeType='application/vnd.google-apps.folder' and name='${folderName.replace(/'/g, "\\'")}' and '${currentParentId}' in parents and trashed=false`;
+      const res = await drive.files.list({
+        q: query,
+        fields: "files(id)",
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
+
+      if (res.data.files && res.data.files.length > 0) {
+        currentParentId = res.data.files[0].id!;
+      } else {
+        found = false;
+        break;
       }
     }
 
-    const command = new DeleteObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: key,
-    });
+    if (found) {
+      const fileQuery = `name='${fileName.replace(/'/g, "\\'")}' and '${currentParentId}' in parents and trashed=false`;
+      const fileRes = await drive.files.list({
+        q: fileQuery,
+        fields: "files(id)",
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
 
-    await s3Client.send(command);
-    console.log(`[S3] Deleted object: ${key}`);
+      if (fileRes.data.files && fileRes.data.files.length > 0) {
+        const fileId = fileRes.data.files[0].id!;
+        await drive.files.delete({
+          fileId,
+          supportsAllDrives: true
+        });
+        driveUrlCache.delete(key);
+      }
+    }
   } catch (error) {
-    console.error(`[S3] Error deleting object from S3:`, error);
+    console.error("Error deleting from Google Drive:", error);
   }
 }

@@ -17,7 +17,9 @@ const globalForDb = globalThis as unknown as {
 const client = globalForDb.client ?? postgres(connectionString, {
   prepare: false,
   ssl: "require",
-  max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 10,
+  max: process.env.NODE_ENV === "production"
+    ? (process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 10)
+    : 2, // Limit to 2 in dev to avoid EMAXCONNSESSION
   idle_timeout: 20,
   connect_timeout: 30,
   onnotice: () => {},

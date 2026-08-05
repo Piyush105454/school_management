@@ -658,7 +658,10 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
 
             const maxGuardian = criteria?.guardianAmount ?? 750;
             const guardianScore = calculatedGuardianRating;
-            const guardianReward = guardianScore >= 4 
+            const guardianThresholdOutOf5 = criteria?.guardianRatingThreshold
+              ? (criteria.guardianRatingThreshold > 5 ? criteria.guardianRatingThreshold / 2 : criteria.guardianRatingThreshold)
+              : 4;
+            const guardianReward = guardianScore >= guardianThresholdOutOf5 
               ? maxGuardian 
               : Math.round((guardianScore / 5) * maxGuardian);
 
@@ -780,8 +783,8 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   <KpiCard 
                     title="Guardian Rating"
                     amount={guardianReward}
-                    success={calculatedGuardianRating >= 4}
-                    requiredThreshold={4}
+                    success={calculatedGuardianRating >= guardianThresholdOutOf5}
+                    requiredThreshold={guardianThresholdOutOf5}
                     maxAmount={criteria?.guardianAmount}
                     scoreDisplay={`${calculatedGuardianRating.toFixed(1)}/5`}
                   >
