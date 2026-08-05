@@ -45,7 +45,8 @@ import {
   Apple,
   Cog,
   Key,
-  Network
+  Network,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -279,16 +280,28 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     // Committee Management Category
     { type: "section", name: "Committee Management" },
     { href: "/office/committees", icon: Network, roleNames: { OFFICE: "Manage Committees", PRINCIPAL: "Manage Committees" } },
+
+    // Admin Section — restricted to OFFICE and ADMIN only (not PRINCIPAL)
+    { type: "section", name: "Admin Section" },
+    { href: "/office/activity-logs", icon: ShieldCheck, roleNames: { OFFICE: "Activity Logs", ADMIN: "Activity Logs" } },
   ];
 
   const isDefaultSectionForRole = (r: string, name: string): boolean => {
-    if (r === "OFFICE" || r === "PRINCIPAL" || r === "ADMIN") {
+    if (r === "OFFICE" || r === "ADMIN") {
+      return [
+        "Admissions", "Scholarship", "Academy Management", "Leave Management",
+        "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
+        "Transport Management", "People Management", "Access Module Management",
+        "Committee Management", "Reports", "Task Management", "Admin Section"
+      ].includes(name);
+    }
+    if (r === "PRINCIPAL") {
       return [
         "Admissions", "Scholarship", "Academy Management", "Leave Management",
         "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
         "Transport Management", "People Management", "Access Module Management",
         "Committee Management", "Reports", "Task Management"
-      ].includes(name);
+      ].includes(name); // PRINCIPAL deliberately excluded from Admin Section
     }
     if (r === "TEACHER") {
       return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports", "Time Table Management", "Task Management"].includes(name);
@@ -300,7 +313,54 @@ export function Sidebar({ role, onClose }: SidebarProps) {
   };
 
   const isDefaultForItem = (r: string, href: string): boolean => {
-    if (r === "OFFICE" || r === "PRINCIPAL" || r === "ADMIN") {
+    if (r === "OFFICE" || r === "ADMIN") {
+      return [
+        "/office/dashboard",
+        "/office/inquiries",
+        "/office/admissions-progress",
+        "/office/document-verification",
+        "/office/entrance-tests",
+        "/office/home-visits",
+        "/office/final-admissions",
+        "/office/scholarship/award",
+        "/office/scholarship/students",
+        "/office/scholarship/records",
+        "/office/scholarship/reports",
+        "/office/scholarship/reports/students",
+        "/office/scholarship/settings",
+        "/office/academy-management/attendance",
+        "/office/academy-management/classes",
+        "/office/academy-management/calendar",
+        "/office/academy-management/lesson-plan",
+        "/office/academy-management/lesson-plan/review",
+        "/office/academy-management/homework",
+        "/office/academy-management/exams",
+        "/office/academy-management/leaves",
+        "/office/labs",
+        "/office/academy-management/library",
+        "/office/resources",
+        "/office/leaver-management/tc",
+        "/office/incident-management",
+        "/office/school-health/dashboard",
+        "/office/school-health/records",
+        "/office/school-health/daily-check",
+        "/office/school-health/wellness",
+        "/office/school-health/settings",
+        "/office/timetable",
+        "/office/transport",
+        "/office/transport/students",
+        "/office/admin-management",
+        "/office/school-management/teachers",
+        "/office/school-management/principal",
+        "/office/access-management",
+        "/office/committees",
+        "/office/activity-logs",
+        "/tasks", "/tasks/projects", "/tasks/my-tasks", "/tasks/team-tasks", "/tasks/board",
+        "/teacher/scholarship-criteria/ptm",
+        "/teacher/scholarship-criteria/guardian"
+      ].includes(href);
+    }
+    if (r === "PRINCIPAL") {
       return [
         "/office/dashboard",
         "/office/inquiries",
@@ -344,7 +404,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/tasks", "/tasks/projects", "/tasks/my-tasks", "/tasks/team-tasks", "/tasks/board",
         "/teacher/scholarship-criteria/ptm",
         "/teacher/scholarship-criteria/guardian"
-      ].includes(href);
+      ].includes(href); // PRINCIPAL deliberately excluded from activity-logs
     }
     if (r === "TEACHER") {
       return [

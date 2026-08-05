@@ -71,6 +71,7 @@ function getSubjectCode(subjectName: string): string {
   return clean.slice(0, 4) || "SUB";
 }
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activity-log";
 
 function matchesSpecialization(specialization: string | null | undefined, className: string | null | undefined, subjectName: string | null | undefined): boolean {
   if (!specialization || !subjectName) return false;
@@ -437,6 +438,14 @@ export async function updateLessonPlanStatus(
         console.error("Async revalidation failed:", err);
       }
     }, 0);
+
+    // Log activity for audit trail
+    await logActivity({
+      action: "UPDATE",
+      module: "Lesson Plans",
+      details: `Lesson plan (ID: ${id}) status updated to "${status}"${remark ? ` — Remark: "${remark}"` : ""}${isPrincipal ? " (Principal review)" : ""}`,
+    });
+
     return { success: true };
   } catch (error: any) {
     console.error('updateLessonPlanStatus error:', error);
@@ -639,6 +648,14 @@ export async function getLessonPlanById(id: string) {
 export async function deleteLessonPlan(id: string) {
   try {
     await db.delete(lessonPlans).where(eq(lessonPlans.id, id));
+
+    // Log activity for audit trail
+    await logActivity({
+      action: "DELETE",
+      module: "Lesson Plans",
+      details: `Lesson plan deleted (ID: ${id})`,
+    });
+
     return { success: true };
   } catch (error: any) {
     console.error("deleteLessonPlan error:", error);

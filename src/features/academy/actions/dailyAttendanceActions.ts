@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { studentAttendance } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activity-log";
 
 export async function saveDailyAttendanceAction(data: {
   classId: number;
@@ -70,6 +71,14 @@ export async function saveDailyAttendanceAction(data: {
     });
 
     revalidatePath("/office/academy-management/attendance");
+
+    // Log activity for audit trail
+    await logActivity({
+      action: "UPDATE",
+      module: "Attendance",
+      details: `Daily attendance saved for class (ID: ${data.classId}) on ${data.date} — ${data.attendance.length} student records updated`,
+    });
+
     return { success: true };
   } catch (error: any) {
     console.error("Daily Attendance Error:", error);

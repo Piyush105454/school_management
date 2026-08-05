@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { scholarshipCriteriaSettings } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activity-log";
 
 /**
  * Lookup priority:
@@ -98,6 +99,14 @@ export async function updateCriteriaSettings(
     }
 
     revalidatePath("/office/scholarship/settings", "page");
+
+    // Log activity for audit trail
+    await logActivity({
+      action: "UPDATE",
+      module: "Scholarship",
+      details: `Scholarship criteria settings updated for academic year ${academicYear}${institute ? ` (Institute: ${institute})` : ""}`,
+    });
+
     return { success: true };
   } catch (error: any) {
     console.error("updateCriteriaSettings error:", error);

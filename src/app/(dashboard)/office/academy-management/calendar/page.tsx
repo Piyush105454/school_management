@@ -343,15 +343,15 @@ export default function CalendarPage() {
                           key={hol.id} 
                           title={`${hol.title} (${hol.type}) - ${hol.institute || "All Schools"}`}
                           className={cn(
-                            "text-[10px] font-bold p-1 rounded border leading-snug truncate shadow-2xs flex justify-between items-center",
+                            "text-[10px] font-bold p-1 rounded border leading-tight shadow-2xs flex justify-between items-start gap-1 break-words whitespace-normal",
                             isFullDay 
                               ? "bg-rose-50 text-rose-700 border-rose-100" 
                               : "bg-amber-50 text-amber-700 border-amber-100"
                           )}
                         >
-                          <span className="truncate flex-1 mr-1">{hol.title}</span>
+                          <span className="flex-1 min-w-0 break-words whitespace-normal">{hol.title}</span>
                           <span className={cn(
-                            "px-1 py-0.25 text-[8px] font-black rounded uppercase flex-shrink-0 scale-90",
+                            "px-1 py-0.25 text-[8px] font-black rounded uppercase flex-shrink-0 scale-90 mt-0.5",
                             isFullDay 
                               ? "bg-rose-100 text-rose-800" 
                               : "bg-amber-100 text-amber-800"

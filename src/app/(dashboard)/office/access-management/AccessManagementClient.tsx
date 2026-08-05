@@ -93,16 +93,28 @@ const MASTER_STRUCTURE = [
   // Committee Management Category
   { type: "section", name: "Committee Management" },
   { href: "/office/committees", roleNames: { OFFICE: "Manage Committees", PRINCIPAL: "Manage Committees" } },
+
+  // Admin Section — restricted to OFFICE and ADMIN only
+  { type: "section", name: "Admin Section" },
+  { href: "/office/activity-logs", roleNames: { OFFICE: "Activity Logs", ADMIN: "Activity Logs" } },
 ];
 
 const isDefaultSectionForRole = (role: string, name: string): boolean => {
-  if (role === "OFFICE" || role === "PRINCIPAL" || role === "ADMIN") {
+  if (role === "OFFICE" || role === "ADMIN") {
+    return [
+      "Admissions", "Scholarship", "Academy Management", "Leave Management",
+      "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
+      "Transport Management", "People Management", "Access Module Management",
+      "Committee Management", "Reports", "Admin Section"
+    ].includes(name);
+  }
+  if (role === "PRINCIPAL") {
     return [
       "Admissions", "Scholarship", "Academy Management", "Leave Management",
       "Lab, Library & Resource Management", "Incident Management", "School Health Program", "Time Table Management",
       "Transport Management", "People Management", "Access Module Management",
       "Committee Management", "Reports"
-    ].includes(name);
+    ].includes(name); // PRINCIPAL excluded from Admin Section
   }
   if (role === "TEACHER") {
     return ["Admissions", "Academy Management", "Incident Management", "Scholarship", "Reports"].includes(name);
@@ -114,7 +126,47 @@ const isDefaultSectionForRole = (role: string, name: string): boolean => {
 };
 
 const isDefaultForItem = (role: string, href: string): boolean => {
-  if (role === "OFFICE" || role === "PRINCIPAL" || role === "ADMIN") {
+  if (role === "OFFICE" || role === "ADMIN") {
+    return [
+      "/office/dashboard",
+      "/office/inquiries",
+      "/office/admissions-progress",
+      "/office/document-verification",
+      "/office/entrance-tests",
+      "/office/home-visits",
+      "/office/final-admissions",
+      "/office/scholarship/award",
+      "/office/scholarship/students",
+      "/office/scholarship/reports",
+      "/office/scholarship/reports/students",
+      "/office/scholarship/settings",
+      "/office/academy-management/attendance",
+      "/office/academy-management/classes",
+      "/office/academy-management/lesson-plan",
+      "/office/academy-management/lesson-plan/review",
+      "/office/academy-management/homework",
+      "/office/academy-management/exams",
+      "/office/academy-management/leaves",
+      "/office/academy-management/library",
+      "/office/labs",
+      "/office/leaver-management/tc",
+      "/office/incident-management",
+      "/office/school-health/dashboard",
+      "/office/school-health/records",
+      "/office/school-health/daily-check",
+      "/office/school-health/wellness",
+      "/office/school-health/settings",
+      "/office/timetable",
+      "/office/transport/students",
+      "/office/admin-management",
+      "/office/school-management/teachers",
+      "/office/school-management/principal",
+      "/office/access-management",
+      "/office/committees",
+      "/office/activity-logs"
+    ].includes(href);
+  }
+  if (role === "PRINCIPAL") {
     return [
       "/office/dashboard",
       "/office/inquiries",
@@ -151,7 +203,7 @@ const isDefaultForItem = (role: string, href: string): boolean => {
       "/office/school-management/principal",
       "/office/access-management",
       "/office/committees"
-    ].includes(href);
+    ].includes(href); // PRINCIPAL excluded from activity-logs
   }
   if (role === "TEACHER") {
     return [

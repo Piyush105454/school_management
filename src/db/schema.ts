@@ -1089,3 +1089,23 @@ export const adminProfilesRelations = relations(adminProfiles, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// Activity Logs — audit trail for all platform actions (admin/office view only)
+export const activityLogs = pgTable("activity_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: 'set null' }),
+  userEmail: text("user_email"),
+  userName: text("user_name"),
+  userRole: text("user_role"),
+  action: text("action").notNull(), // CREATE, UPDATE, DELETE, ADD, LOGIN, SQL, SYSTEM
+  module: text("module").notNull(), // e.g. Lesson Plans, Attendance, Scholarship, etc.
+  details: text("details").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [activityLogs.userId],
+    references: [users.id],
+  }),
+}));
