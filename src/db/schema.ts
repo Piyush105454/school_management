@@ -65,6 +65,7 @@ export const admissionMeta = pgTable("admission_meta", {
   appliedScholarship: boolean("applied_scholarship"),
   awardedScholarship: boolean("awarded_scholarship").default(false).notNull(),
   scholarshipAmount: integer("scholarship_amount").default(0).notNull(),
+  rollNumber: text("roll_number"),
   officeRemarks: text("office_remarks"),
   documentRemarks: text("document_remarks"),
   verificationRemarks: text("verification_remarks"),

@@ -23,6 +23,8 @@ import { eq, desc, and, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/activity-log";
 import { uploadToS3, uploadFileToS3, getSignedDownloadUrl, getPresignedUploadUrl, deleteFromS3 } from "@/lib/s3-service";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 function sanitizeBioData(data: any) {
   if (!data) return data;
@@ -494,12 +496,14 @@ export async function finalizeFinalAdmission(admissionId: string, appliedScholar
             studentId: meta.entryNumber,
             name: studentName,
             classId: matchedClass.id,
+            rollNumber: meta.rollNumber || null,
             scholarNumber: meta.scholarNumber || null,
           }).onConflictDoUpdate({
             target: students.studentId,
             set: { 
               name: studentName,
               classId: matchedClass.id,
+              rollNumber: meta.rollNumber || null,
               scholarNumber: meta.scholarNumber || null 
             }
           });
@@ -1243,5 +1247,54 @@ export async function getAdmissionsForList() {
   } catch (error: any) {
     console.error("getAdmissionsForList error:", error);
     return { success: false, error: error.message, data: [] };
+  }
+}
+
+export async function updateStudentRollNumber(admissionMetaId: string, rollNumber: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const role = session.user.role;
+    if (role !== "ADMIN" && role !== "OFFICE") {
+      return { success: false, error: "Forbidden: Only admins can edit roll numbers" };
+    }
+
+    // 1. Fetch admissionMeta
+    const meta = await db.query.admissionMeta.findFirst({
+      where: eq(admissionMeta.id, admissionMetaId)
+    });
+
+    if (!meta) {
+      return { success: false, error: "Admission record not found" };
+    }
+
+    // 2. Wrap updates in transaction
+    await db.transaction(async (tx) => {
+      // Update in admissionMeta
+      await tx
+        .update(admissionMeta)
+        .set({ rollNumber: rollNumber.trim() || null })
+        .where(eq(admissionMeta.id, admissionMetaId));
+
+      // Update in students (if exists)
+      await tx
+        .update(students)
+        .set({ rollNumber: rollNumber.trim() || null })
+        .where(eq(students.studentId, meta.entryNumber));
+    });
+
+    await logActivity({
+      action: "UPDATE",
+      module: "Admissions",
+      details: `Updated roll number for candidate (ID: ${admissionMetaId}, Entry: ${meta.entryNumber}) to: ${rollNumber.trim() || "N/A"}`
+    });
+
+    revalidatePath("/office/admissions-progress");
+    return { success: true };
+  } catch (error: any) {
+    console.error("updateStudentRollNumber error:", error);
+    return { success: false, error: error.message };
   }
 }

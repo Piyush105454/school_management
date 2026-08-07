@@ -183,11 +183,13 @@ export async function bulkImportStudentsAction(formData: FormData) {
           const nextMetaNumStr = nextMetaVal.toString().padStart(4, '0');
           const entryNumberADM = `ADM-${yearSuffix}-${nextMetaNumStr}`;
 
+          const rollNumberVal = String(row["Roll No"] || row["Roll Number"] || row["Roll"] || "").trim();
           const [meta] = await tx.insert(admissionMeta).values({
             inquiryId: inquiry.id,
             academicYear,
             entryNumber: entryNumberADM,
             scholarNumber,
+            rollNumber: rollNumberVal || null,
             admissionType: "NEW",
           }).returning();
 

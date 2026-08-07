@@ -21,7 +21,8 @@ import {
   Check,
   ExternalLink,
   Loader2,
-  FileText
+  FileText,
+  Hash
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { resetStudentPassword } from "../actions/inquiryActions";
@@ -39,9 +40,27 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
   const [selectedAdm, setSelectedAdm] = useState<any | null>(null);
 
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showRollModal, setShowRollModal] = useState(false);
+  const [rollNumberInput, setRollNumberInput] = useState("");
+  const [updatingRoll, setUpdatingRoll] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [newCredentials, setNewCredentials] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const handleSaveRollNumber = async () => {
+    if (!selectedAdm) return;
+    setUpdatingRoll(true);
+    const { updateStudentRollNumber } = await import("../actions/admissionActions");
+    const res = await updateStudentRollNumber(selectedAdm.id, rollNumberInput);
+    setUpdatingRoll(false);
+    if (res.success) {
+      alert("Roll number updated successfully!");
+      setShowRollModal(false);
+      router.refresh();
+    } else {
+      alert("Error: " + res.error);
+    }
+  };
 
   const getStepBadge = (adm: any) => {
     const computedStep = getComputedStep(adm);
@@ -167,7 +186,7 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 min-w-[40px] inline-block">
-                      {adm.academyStudent?.rollNumber || "--"}
+                      {adm.academyStudent?.rollNumber || adm.rollNumber || "--"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -237,6 +256,21 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
                               <span>View Credentials</span>
                             </button>
 
+                            {(role === "OFFICE" || role === "ADMIN") && (
+                              <button 
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setSelectedAdm(adm);
+                                  setRollNumberInput(adm.academyStudent?.rollNumber || adm.rollNumber || "");
+                                  setShowRollModal(true);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors text-left cursor-pointer border-t border-slate-50"
+                              >
+                                <Hash size={14} className="text-emerald-600" />
+                                <span>Edit Roll Number</span>
+                              </button>
+                            )}
+
 
                           </div>
                         </>
@@ -249,6 +283,55 @@ export function AdmissionProcessList({ admissions, role }: AdmissionProcessListP
           </table>
         </div>
       </div>
+
+      <Modal 
+        isOpen={showRollModal} 
+        onClose={() => setShowRollModal(false)}
+        title="Edit Roll Number"
+      >
+        {selectedAdm && (
+          <div className="space-y-5">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Student</p>
+              <p className="text-sm font-black text-slate-800">{selectedAdm.inquiry?.studentName}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Entry ID: {selectedAdm.entryNumber}</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                Roll Number
+              </label>
+              <input 
+                type="text"
+                placeholder="e.g. 01, 02, DPS-03"
+                value={rollNumberInput}
+                onChange={(e) => setRollNumberInput(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                This roll number will be synchronized across all academic, attendance, and scholarship records.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button 
+                onClick={() => setShowRollModal(false)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveRollNumber}
+                disabled={updatingRoll}
+                className="px-6 py-2 bg-indigo-600 disabled:bg-indigo-300 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-100 hover:bg-indigo-700 transition"
+              >
+                {updatingRoll && <Loader2 size={12} className="animate-spin" />}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal 
         isOpen={showAccountModal} 
