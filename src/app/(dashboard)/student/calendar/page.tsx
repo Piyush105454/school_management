@@ -106,13 +106,25 @@ export default function StudentCalendarPage() {
   // Filter holidays by calendar days (YYYY-MM-DD check)
   const getHolidaysForDate = (year: number, monthIdx: number, dayNum: number) => {
     const formattedDate = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-    return holidays.filter(h => h.date === formattedDate);
+    return holidays.filter(h => {
+      if (h.date !== formattedDate) return false;
+      if (selectedInstitute && selectedInstitute !== "ALL") {
+        return !h.institute || h.institute === "ALL" || h.institute === selectedInstitute;
+      }
+      return true;
+    });
   };
 
   // Filter events for cell date
   const getEventsForDate = (year: number, monthIdx: number, dayNum: number) => {
     const formattedDate = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-    return events.filter(e => e.date === formattedDate);
+    return events.filter(e => {
+      if (e.date !== formattedDate) return false;
+      if (selectedInstitute && selectedInstitute !== "ALL") {
+        return !(e as any).institute || (e as any).institute === "BOTH" || (e as any).institute === selectedInstitute;
+      }
+      return true;
+    });
   };
 
   // Check if a date string is today

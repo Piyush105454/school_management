@@ -36,7 +36,7 @@ export function LandingPage() {
             <div className="bg-blue-600 p-1.5 md:p-2 rounded-lg text-white">
               <GraduationCap size={20} className="md:w-6 md:h-6" />
             </div>
-            <span className="text-lg md:text-xl font-bold tracking-tight uppercase text-slate-900">DPS Dhanpuri</span>
+            <span className="text-lg md:text-xl font-bold tracking-tight uppercase text-slate-900">Dhanpuri Public School</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {['Vision', 'Mission', 'Infrastructure', 'About'].map((item) => (
@@ -220,7 +220,7 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-2 text-slate-400">
             <GraduationCap size={20} />
-            <span className="text-sm font-bold uppercase tracking-widest">DPS Dhanpuri</span>
+            <span className="text-sm font-bold uppercase tracking-widest">Dhanpuri Public School</span>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center md:text-left">© 2026 Dhanpuri Public School. Transforming society through learning.</p>
           <div className="flex gap-6">

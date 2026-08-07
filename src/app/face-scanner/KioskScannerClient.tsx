@@ -506,7 +506,7 @@ export default function KioskScannerClient({ classes, isKioskOnly = false }: Kio
               Autonomous Kiosk Attendance
             </h1>
             <p className="text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-black">
-              DPS DHANPURI AI SCANNER
+              DHANPURI PUBLIC SCHOOL AI SCANNER
             </p>
           </div>
         </div>

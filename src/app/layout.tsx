@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "@/providers/SessionProvider";
 
 export const metadata: Metadata = {
-  title: "SchoolFlow | Modern School Management",
-  description: "Advanced school management platform built with Next.js",
+  title: "Dhanpuri Public School | School Management Platform",
+  description: "Advanced school management platform for Dhanpuri Public School",
 };
 
 export default function RootLayout({

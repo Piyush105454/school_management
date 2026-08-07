@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/db";
 import { eq, desc, and, or } from "drizzle-orm";
-import { studentProfiles, admissionMeta, lessonPlans, classes, subjects, students, teachers, homeworkSubmissions } from "@/db/schema";
+import { studentProfiles, admissionMeta, lessonPlans, classes, subjects, students, teachers, homeworkSubmissions, scholarshipHomework } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { ClipboardList, BookOpen, Calendar, Clock, GraduationCap, ArrowRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -147,6 +147,19 @@ export default async function StudentHomeworkPage() {
 
   const filteredHomeworkItems = homeworkItems.filter(item => item.homework && item.homework.trim() !== "");
 
+  const scholarshipStats = meta?.id
+    ? await db
+        .select({
+          month: scholarshipHomework.month,
+          year: scholarshipHomework.year,
+          totalGiven: scholarshipHomework.totalGiven,
+          totalDone: scholarshipHomework.totalDone,
+          percentage: scholarshipHomework.percentage
+        })
+        .from(scholarshipHomework)
+        .where(eq(scholarshipHomework.admissionId, meta.id))
+    : [];
+
   return (
     <div className="space-y-6">
       {/* Homework Dashboard Client */}
@@ -155,6 +168,7 @@ export default async function StudentHomeworkPage() {
         className={studentEntry.class?.name || "No Class"} 
         studentId={studentEntry.id}
         studentRoll={studentEntry.studentId}
+        scholarshipStats={scholarshipStats}
       />
     </div>
   );

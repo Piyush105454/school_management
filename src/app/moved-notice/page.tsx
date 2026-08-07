@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Globe, Lock, ShieldAlert } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Application Moved | SchoolFlow",
+  title: "Application Moved | Dhanpuri Public School",
   description: "The school management platform has been moved to our official domain.",
 };
 

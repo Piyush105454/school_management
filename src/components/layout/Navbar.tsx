@@ -39,7 +39,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const schoolName = teacherInstitute || "DPS Dhanpuri";
+  const schoolName = teacherInstitute || "Dhanpuri Public School";
   const userInitials = session?.user?.name ? session.user.name.substring(0, 2).toUpperCase() : "ST";
   const userEmail = session?.user?.email || "demo-fellow@gmail.com";
 

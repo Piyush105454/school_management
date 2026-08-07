@@ -27,16 +27,24 @@ const MASTER_STRUCTURE = [
   { type: "section", name: "Scholarship" },
   { href: "/office/scholarship/award", roleNames: { OFFICE: "Award Scholarship", PRINCIPAL: "Award Scholarship", TEACHER: "Award Scholarship" } },
   { href: "/office/scholarship/students", roleNames: { OFFICE: "Student Scholarships", PRINCIPAL: "Student Scholarships", TEACHER: "Student Scholarships" } },
+  { href: "/office/scholarship/records", roleNames: { OFFICE: "Scholarship Records", PRINCIPAL: "Scholarship Records", ADMIN: "Scholarship Records", TEACHER: "Scholarship Records" } },
   { href: "/office/scholarship/settings", roleNames: { OFFICE: "Criteria Settings", PRINCIPAL: "Criteria Settings", TEACHER: "Criteria Settings" } },
   { href: "/student/scholarship", roleNames: { STUDENT_PARENT: "My Scholarship", TEACHER: "Student Scholarship View" } },
-  { href: "/teacher/scholarship-criteria", roleNames: { TEACHER: "PTM & Guardian Ratings" } },
+  { href: "/teacher/scholarship-criteria/ptm", roleNames: { TEACHER: "PTM Attendance", OFFICE: "PTM Attendance", PRINCIPAL: "PTM Attendance" } },
+  { href: "/teacher/scholarship-criteria/guardian", roleNames: { TEACHER: "Guardian Ratings", OFFICE: "Guardian Ratings", PRINCIPAL: "Guardian Ratings" } },
 
   // Reports Category
   { type: "section", name: "Reports" },
   { href: "/office/scholarship/reports/students", roleNames: { OFFICE: "Student Reports", PRINCIPAL: "Student Reports", TEACHER: "Student Reports" } },
 
-  // Academy Management Category
-  { type: "section", name: "Academy Management" },
+  // Task Management Category
+  { type: "section", name: "Task Management" },
+  { href: "/tasks", roleNames: { OFFICE: "Task Dashboard", PRINCIPAL: "Task Dashboard", ADMIN: "Task Dashboard", TEACHER: "Task Dashboard" } },
+  { href: "/tasks/board", roleNames: { OFFICE: "Board View", PRINCIPAL: "Board View", ADMIN: "Board View", TEACHER: "Board View" } },
+
+  // Academic Management Category
+  { type: "section", name: "Academic Management" },
+  { href: "/office/academy-management/calendar", roleNames: { OFFICE: "Calendar", PRINCIPAL: "Calendar", ADMIN: "Calendar", TEACHER: "School Calendar" } },
   { href: "/office/academy-management/attendance", roleNames: { OFFICE: "Attendance Management", PRINCIPAL: "Attendance Management", TEACHER: "Attendance" } },
   { href: "/office/academy-management/classes", roleNames: { OFFICE: "Class Management", PRINCIPAL: "Class Management", TEACHER: "My Classes" } },
   { href: "/office/academy-management/lesson-plan", roleNames: { OFFICE: "Lesson Plan Management", PRINCIPAL: "Lesson Plan Management" } },
@@ -45,6 +53,8 @@ const MASTER_STRUCTURE = [
   { href: "/office/academy-management/exams", roleNames: { OFFICE: "Test & Exam Management", PRINCIPAL: "Test & Exam Management" } },
   { href: "/student/homework", roleNames: { STUDENT_PARENT: "My Homework" } },
   { href: "/student/attendance", roleNames: { STUDENT_PARENT: "My Attendance" } },
+  { href: "/student/calendar", roleNames: { STUDENT_PARENT: "School Calendar" } },
+  { href: "/student/exams", roleNames: { STUDENT_PARENT: "My Exam Schedule" } },
 
   // Time Table Management Category
   { type: "section", name: "Time Table Management" },
@@ -79,10 +89,11 @@ const MASTER_STRUCTURE = [
   // Transport Management Category
   { type: "section", name: "Transport Management" },
   { href: "/office/transport/students", roleNames: { OFFICE: "Student Transport", PRINCIPAL: "Student Transport" } },
+  { href: "/student/transport", roleNames: { STUDENT_PARENT: "My Transport" } },
 
   // People Management Category
   { type: "section", name: "People Management" },
-  { href: "/office/admin-management", roleNames: { OFFICE: "Admin Management", PRINCIPAL: "Admin Management" } },
+  { href: "/office/admin-management", roleNames: { OFFICE: "Office Staff", PRINCIPAL: "Office Staff" } },
   { href: "/office/school-management/teachers", roleNames: { OFFICE: "Teacher Management", PRINCIPAL: "Teacher Management" } },
   { href: "/office/school-management/principal", roleNames: { OFFICE: "Principal Management", PRINCIPAL: "Principal Management" } },
 
@@ -507,8 +518,8 @@ export default function AccessManagementClient() {
           {[
             { id: "TEACHER", label: "Teachers" },
             { id: "PRINCIPAL", label: "Principals" },
-            { id: "OFFICE", label: "Office Staff" },
-            { id: "ADMIN", label: "Administrators" },
+            { id: "OFFICE", label: "Administration" },
+            { id: "ADMIN", label: "Office Staff" },
             { id: "STUDENT_PARENT", label: "Students" },
           ].map((roleObj) => (
             <button
@@ -685,9 +696,9 @@ export default function AccessManagementClient() {
                             : activeRole === "PRINCIPAL" 
                             ? "Principal" 
                             : activeRole === "OFFICE" 
-                            ? "Office Staff" 
+                            ? "Administration" 
                             : activeRole === "ADMIN" 
-                            ? "Administrator" 
+                            ? "Office Staff" 
                             : "Student"
                         } --`}
                   </option>
@@ -698,10 +709,10 @@ export default function AccessManagementClient() {
                     <option value="ALL_PRINCIPALS">-- All Principals --</option>
                   )}
                   {activeRole === "OFFICE" && (
-                    <option value="ALL_OFFICE">-- All Office Staff --</option>
+                    <option value="ALL_OFFICE">-- All Administration --</option>
                   )}
                   {activeRole === "ADMIN" && (
-                    <option value="ALL_ADMINS">-- All Administrators --</option>
+                    <option value="ALL_ADMINS">-- All Office Staff --</option>
                   )}
                   {usersList.map((user, idx) => (
                     <option key={user.userId || idx} value={user.userId || ""}>

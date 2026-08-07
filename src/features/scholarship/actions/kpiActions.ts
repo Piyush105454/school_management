@@ -565,27 +565,31 @@ export async function getStudentKpiData(admissionId: string, month: string, year
       locked: record.locked 
     } : null);
 
-    // For attendance: prefer real academy data, then sub-table, then record fallback
-    // Note: attendanceAmount is in rupees (e.g. 750), NOT a percentage
-    const effectiveAttendance = (realAttendance && realAttendance.totalDays > 0) 
-      ? realAttendance 
-      : (attendance || (record ? { 
-          totalDays: 0, 
-          presentDays: 0,
-          absentDays: 0,
-          mlDays: 0,
-          halfDays: 0,
-          leaveDays: 0,
-          percentage: 0  // No real data available - user must fill in manually
-        } : null));
+    // For attendance: prefer manually saved/edited sub-table record first, then real academy data, then record fallback
+    const effectiveAttendance = attendance 
+      ? attendance 
+      : ((realAttendance && realAttendance.totalDays > 0) 
+        ? realAttendance 
+        : (record ? { 
+            totalDays: 0, 
+            presentDays: 0,
+            absentDays: 0,
+            mlDays: 0,
+            halfDays: 0,
+            leaveDays: 0,
+            percentage: 0  // No real data available - user must fill in manually
+          } : null));
 
-    const effectiveHomework = (realHomework && realHomework.totalGiven > 0) 
-      ? realHomework 
-      : (homework || (record ? { 
-          totalGiven: 0, 
-          totalDone: 0, 
-          percentage: 0  // No real data - user must fill manually
-        } : null));
+    // For homework: prefer manually saved/edited sub-table record first, then real academy data, then record fallback
+    const effectiveHomework = homework 
+      ? homework 
+      : ((realHomework && realHomework.totalGiven > 0) 
+        ? realHomework 
+        : (record ? { 
+            totalGiven: 0, 
+            totalDone: 0, 
+            percentage: 0  // No real data - user must fill manually
+          } : null));
 
     return { 
       success: true, 

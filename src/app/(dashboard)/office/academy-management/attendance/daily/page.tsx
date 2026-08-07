@@ -115,6 +115,31 @@ export default async function DailyAttendancePage({
   .from(students)
   .where(eq(students.classId, academyClass.id));
 
+  // Sort students numerically/alphabetically by roll number
+  const sortedStudents = [...classStudents].sort((a, b) => {
+    const rollA = a.rollNumber ? parseInt(a.rollNumber) : NaN;
+    const rollB = b.rollNumber ? parseInt(b.rollNumber) : NaN;
+    
+    if (!isNaN(rollA) && !isNaN(rollB)) {
+      if (rollA !== rollB) return rollA - rollB;
+    } else if (!isNaN(rollA)) {
+      return -1;
+    } else if (!isNaN(rollB)) {
+      return 1;
+    } else {
+      const strA = (a.rollNumber || "").trim();
+      const strB = (b.rollNumber || "").trim();
+      if (strA && strB) {
+        if (strA !== strB) return strA.localeCompare(strB);
+      } else if (strA) {
+        return -1;
+      } else if (strB) {
+        return 1;
+      }
+    }
+    return (a.name || "").localeCompare(b.name || "");
+  });
+
   return (
     <div className="p-6 md:p-10 space-y-6">
       <div className="flex items-center gap-4">
@@ -131,7 +156,7 @@ export default async function DailyAttendancePage({
       <DailyAttendanceMarker 
         classId={academyClass.id}
         className={academyClass.name}
-        students={classStudents}
+        students={sortedStudents}
         isAdmin={!teacherProfile?.classAssigned}
       />
     </div>

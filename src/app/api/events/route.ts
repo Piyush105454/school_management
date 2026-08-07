@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
           detail: event.detail,
           meetLink: event.meetLink,
           date: event.date,
+          institute: event.institute,
           createdAt: event.createdAt,
           owners: [],
           milestones: []
@@ -88,7 +89,8 @@ export async function POST(req: NextRequest) {
     }
 
     // CREATE ACTION
-    const { title, detail, date, meetLink, owners, milestones } = body;
+    // CREATE ACTION
+    const { title, detail, date, meetLink, owners, milestones, institute } = body;
     if (!title || !date) {
       return NextResponse.json({ success: false, error: "Title and Date are required" }, { status: 400 });
     }
@@ -101,6 +103,7 @@ export async function POST(req: NextRequest) {
         detail: detail || null,
         date,
         meetLink: meetLink || null,
+        institute: institute || null,
       }).returning();
 
       // 2. Insert owners (teachers) if selected

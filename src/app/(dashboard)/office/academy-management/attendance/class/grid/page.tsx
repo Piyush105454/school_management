@@ -185,7 +185,29 @@ export default function ClassAttendanceGrid() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {attendanceData.map((row) => {
+                  {[...attendanceData].sort((a, b) => {
+                    const rollA = a.rollNumber ? parseInt(a.rollNumber) : NaN;
+                    const rollB = b.rollNumber ? parseInt(b.rollNumber) : NaN;
+                    
+                    if (!isNaN(rollA) && !isNaN(rollB)) {
+                      if (rollA !== rollB) return rollA - rollB;
+                    } else if (!isNaN(rollA)) {
+                      return -1;
+                    } else if (!isNaN(rollB)) {
+                      return 1;
+                    } else {
+                      const strA = (a.rollNumber || "").trim();
+                      const strB = (b.rollNumber || "").trim();
+                      if (strA && strB) {
+                        if (strA !== strB) return strA.localeCompare(strB);
+                      } else if (strA) {
+                        return -1;
+                      } else if (strB) {
+                        return 1;
+                      }
+                    }
+                    return (a.name || "").localeCompare(b.name || "");
+                  }).map((row) => {
                     const attendanceValues = Object.values(row.attendance) as string[];
                     const presentCount = attendanceValues.filter(v => v === "P").length;
                     const absentCount = attendanceValues.filter(v => v === "A").length;

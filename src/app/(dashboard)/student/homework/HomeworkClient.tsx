@@ -5,6 +5,9 @@ import { formatDate } from "@/lib/utils";
 import { BookOpen, Calendar, ChevronRight, Search, ClipboardList, Filter, Upload, CheckCircle2, Eye, Clock, AlertCircle } from "lucide-react";
 import { submitHomeworkAction } from "@/features/academy/actions/homeworkActions";
 
+const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const years = ["2024", "2025", "2026", "2027"];
+
 interface HomeworkItem {
   id: string;
   date: string;
@@ -23,12 +26,20 @@ export default function HomeworkClient({
   initialItems, 
   className,
   studentId,
-  studentRoll
+  studentRoll,
+  scholarshipStats = []
 }: { 
   initialItems: HomeworkItem[], 
   className: string,
   studentId: number,
-  studentRoll: string
+  studentRoll: string,
+  scholarshipStats?: Array<{
+    month: string;
+    year: string;
+    totalGiven: number;
+    totalDone: number;
+    percentage: number;
+  }>
 }) {
   const [items, setItems] = useState<HomeworkItem[]>(initialItems);
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toLocaleString('en-US', { month: 'long' }));
@@ -76,6 +87,36 @@ export default function HomeworkClient({
       })
       .sort((a, b) => b.localeCompare(a));
   }, [items, selectedMonth, selectedYear]);
+
+  // Monthly homework stats (Given, Completed, %) for the selected month/year
+  const monthlyStats = useMemo(() => {
+    // 1. Try to find a saved database record first
+    const dbRecord = scholarshipStats?.find(
+      r => r.month.trim().toLowerCase() === selectedMonth.trim().toLowerCase() && 
+           r.year.trim() === selectedYear.trim()
+    );
+
+    if (dbRecord) {
+      return {
+        given: dbRecord.totalGiven,
+        completed: dbRecord.totalDone,
+        percentage: dbRecord.percentage.toFixed(1)
+      };
+    }
+
+    // 2. Fall back to live calculated data if database record is missing
+    const monthIndex = months.indexOf(selectedMonth);
+    const monthlyHomeworks = items.filter(item => {
+      const d = new Date(item.date);
+      const itemMonth = d.getMonth();
+      const itemYear = d.getFullYear().toString();
+      return itemMonth === monthIndex && itemYear === selectedYear;
+    });
+    const givenCount = monthlyHomeworks.length;
+    const completedCount = monthlyHomeworks.filter(item => item.status === "COMPLETED").length;
+    const percentage = givenCount > 0 ? ((completedCount / givenCount) * 100).toFixed(1) : "0.0";
+    return { given: givenCount, completed: completedCount, percentage };
+  }, [items, selectedMonth, selectedYear, scholarshipStats]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(
     availableDates.length > 0 ? availableDates[0] : (items.length > 0 ? items[0].date : null)
@@ -180,8 +221,6 @@ export default function HomeworkClient({
     }
   };
 
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const years = ["2024", "2025", "2026", "2027"];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -197,7 +236,25 @@ export default function HomeworkClient({
             </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Monthly KPI Stats Card */}
+          <div className="flex items-center bg-slate-50 border border-slate-200/60 rounded-2xl p-2 px-4 gap-6 select-none shrink-0 shadow-xs">
+            <div className="text-center">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">Given</span>
+              <span className="text-sm font-black text-slate-800">{monthlyStats.given}</span>
+            </div>
+            <div className="h-6 w-px bg-slate-200"></div>
+            <div className="text-center">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">Complete</span>
+              <span className="text-sm font-black text-emerald-600">{monthlyStats.completed}</span>
+            </div>
+            <div className="h-6 w-px bg-slate-200"></div>
+            <div className="text-center">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">%</span>
+              <span className="text-sm font-black text-blue-600">{monthlyStats.percentage}%</span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
             <select 
               value={selectedMonth} 

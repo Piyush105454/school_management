@@ -16,10 +16,12 @@ import {
   Video,
   User2,
   Flag,
-  Info
+  Info,
+  Search
 } from "lucide-react";
 import { useInstitute } from "@/providers/InstituteProvider";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 
 interface Holiday {
   id: number;
@@ -41,6 +43,8 @@ interface Milestone {
 interface Teacher {
   id: string;
   name: string;
+  institute?: string | null;
+  assignedRole?: string | null;
 }
 
 interface SchoolEvent {
@@ -49,6 +53,7 @@ interface SchoolEvent {
   detail: string | null;
   meetLink: string | null;
   date: string;
+  institute?: string | null;
   createdAt: string;
   owners: Teacher[];
   milestones: Milestone[];
@@ -63,6 +68,8 @@ const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
   const { selectedInstitute } = useInstitute();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "OFFICE";
   
   // Date states for the currently displayed month
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -94,10 +101,13 @@ export default function CalendarPage() {
   const [eventMeetLink, setEventMeetLink] = useState<string>("");
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
   const [eventMilestones, setEventMilestones] = useState<Array<{ title: string; date: string }>>([]);
+  const [eventSchool, setEventSchool] = useState<string>("Dhanpuri Public School");
+  const [teacherSearch, setTeacherSearch] = useState<string>("");
 
   // View Details Modal states
   const [selectedEventForView, setSelectedEventForView] = useState<SchoolEvent | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
+  const [selectedMilestoneForView, setSelectedMilestoneForView] = useState<Milestone | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -175,6 +185,12 @@ export default function CalendarPage() {
     setEventMeetLink("");
     setSelectedOwners([]);
     setEventMilestones([]);
+    if (selectedInstitute && selectedInstitute !== "ALL") {
+      setEventSchool(selectedInstitute);
+    } else {
+      setEventSchool("Dhanpuri Public School");
+    }
+    setTeacherSearch("");
     setActionError(null);
     setActionSuccess(null);
     setIsEventModalOpen(true);
@@ -225,6 +241,14 @@ export default function CalendarPage() {
       return;
     }
 
+    // Validation: Event Date must be BEFORE/ON Milestone Dates (i.e. Milestone Date >= Event Date)
+    for (const ms of eventMilestones) {
+      if (ms.date && new Date(ms.date) < new Date(eventDate)) {
+        setActionError(`Milestone "${ms.title}" date cannot be earlier than the Event Date.`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
@@ -239,7 +263,8 @@ export default function CalendarPage() {
           date: eventDate,
           meetLink: eventMeetLink.trim(),
           owners: selectedOwners,
-          milestones: eventMilestones.filter(m => m.title.trim() && m.date)
+          milestones: eventMilestones.filter(m => m.title.trim() && m.date),
+          institute: eventSchool
         })
       });
 
@@ -307,13 +332,23 @@ export default function CalendarPage() {
   // Filter events and milestones for cell date
   const getEventsForDate = (year: number, monthIdx: number, dayNum: number) => {
     const formattedDate = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-    return events.filter(e => e.date === formattedDate);
+    return events.filter(e => {
+      if (e.date !== formattedDate) return false;
+      if (selectedInstitute && selectedInstitute !== "ALL") {
+        return !e.institute || e.institute === "BOTH" || e.institute === selectedInstitute;
+      }
+      return true;
+    });
   };
 
   const getMilestonesForDate = (year: number, monthIdx: number, dayNum: number) => {
     const formattedDate = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     const allMilestones: Array<{ milestone: Milestone; event: SchoolEvent }> = [];
     events.forEach(event => {
+      if (selectedInstitute && selectedInstitute !== "ALL") {
+        const isVisible = !event.institute || event.institute === "BOTH" || event.institute === selectedInstitute;
+        if (!isVisible) return;
+      }
       if (event.milestones) {
         event.milestones.forEach(m => {
           if (m.date === formattedDate) {
@@ -364,6 +399,14 @@ export default function CalendarPage() {
       year: currentMonthIdx === 11 ? currentYear + 1 : currentYear
     });
   }
+  const filteredTeachers = teachers.filter(t => {
+    // If BOTH is selected, show all users. Otherwise, match the teacher's institute to the selected school.
+    const matchSchool = eventSchool === "BOTH" || 
+                        (t.institute || "Dhanpuri Public School") === eventSchool;
+
+    const matchSearch = t.name.toLowerCase().includes(teacherSearch.toLowerCase());
+    return matchSchool && matchSearch;
+  });
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -386,20 +429,24 @@ export default function CalendarPage() {
           >
             Today
           </button>
-          <button 
-            onClick={() => handleOpenHolidayModal("")}
-            className="px-4 py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-sm border-0 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Set Holiday
-          </button>
-          <button 
-            onClick={() => handleOpenEventModal("")}
-            className="px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition flex items-center gap-1.5 shadow-sm border-0 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Add Event
-          </button>
+          {isAdmin && (
+            <>
+              <button 
+                onClick={() => handleOpenHolidayModal("")}
+                className="px-4 py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-sm border-0 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Set Holiday
+              </button>
+              <button 
+                onClick={() => handleOpenEventModal("")}
+                className="px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition flex items-center gap-1.5 shadow-sm border-0 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Add Event
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -469,9 +516,10 @@ export default function CalendarPage() {
               return (
                 <div 
                   key={`${cell.year}-${cell.monthIdx}-${cell.dayNum}-${idx}`} 
-                  onClick={() => handleOpenEventModal(cellDateStr)}
+                  onClick={isAdmin ? () => handleOpenEventModal(cellDateStr) : undefined}
                   className={cn(
-                    "min-h-[110px] p-2 hover:bg-slate-50/40 cursor-pointer flex flex-col justify-between transition duration-150 relative group",
+                    "min-h-[110px] p-2 flex flex-col justify-between transition duration-150 relative group",
+                    isAdmin ? "cursor-pointer hover:bg-slate-50/40" : "",
                     !isCurrentMonth && "bg-slate-50/30 text-slate-300"
                   )}
                 >
@@ -498,11 +546,14 @@ export default function CalendarPage() {
                           key={hol.id} 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenHolidayModal(hol.date);
+                            if (isAdmin) {
+                              handleOpenHolidayModal(hol.date);
+                            }
                           }}
                           title={`${hol.title} (${hol.type}) - ${hol.institute || "All Schools"}`}
                           className={cn(
-                            "text-[10px] font-bold p-1 rounded border leading-tight shadow-2xs flex justify-between items-start gap-1 break-words whitespace-normal cursor-pointer",
+                            "text-[10px] font-bold p-1 rounded border leading-tight shadow-2xs flex justify-between items-start gap-1 break-words whitespace-normal",
+                            isAdmin ? "cursor-pointer" : "",
                             isFullDay 
                               ? "bg-rose-50 text-rose-700 border-rose-100" 
                               : "bg-amber-50 text-amber-700 border-amber-100"
@@ -528,6 +579,7 @@ export default function CalendarPage() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedEventForView(evt);
+                          setSelectedMilestoneForView(null);
                           setIsViewModalOpen(true);
                         }}
                         title={`${evt.title} - Click to view details`}
@@ -536,7 +588,7 @@ export default function CalendarPage() {
                         <span className="flex-1 min-w-0 break-words whitespace-normal">📅 {evt.title}</span>
                       </div>
                     ))}
-
+ 
                     {/* 3. Milestones */}
                     {dayMilestones.map(dm => (
                       <div 
@@ -544,6 +596,7 @@ export default function CalendarPage() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedEventForView(dm.event);
+                          setSelectedMilestoneForView(dm.milestone);
                           setIsViewModalOpen(true);
                         }}
                         title={`Milestone: ${dm.milestone.title} (Event: ${dm.event.title})`}
@@ -767,6 +820,33 @@ export default function CalendarPage() {
               )}
 
               <form onSubmit={handleSaveEvent} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                    Event School
+                  </label>
+                  <select
+                    value={eventSchool}
+                    onChange={(e) => {
+                      setEventSchool(e.target.value);
+                      setSelectedOwners([]);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {selectedInstitute === "WES Academy" ? (
+                      <>
+                        <option value="WES Academy">WES Academy</option>
+                        <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Dhanpuri Public School">Dhanpuri Public School</option>
+                        <option value="WES Academy">WES Academy</option>
+                      </>
+                    )}
+                    <option value="BOTH">Both (Show All Staff)</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
@@ -824,26 +904,58 @@ export default function CalendarPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                    Event Owners (Teachers)
+                    Search Staff
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search by name..."
+                      value={teacherSearch}
+                      onChange={(e) => setTeacherSearch(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 pl-8 pr-3 py-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                    Event Owners ({filteredTeachers.length} shown)
                   </label>
                   <div className="border border-slate-200 rounded-xl p-3 max-h-[150px] overflow-y-auto bg-slate-50 space-y-1">
-                    {teachers.map(t => (
-                      <label key={t.id} className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100 p-1.5 rounded-lg transition">
-                        <input 
-                          type="checkbox" 
-                          checked={selectedOwners.includes(t.id)} 
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedOwners([...selectedOwners, t.id]);
-                            } else {
-                              setSelectedOwners(selectedOwners.filter(id => id !== t.id));
-                            }
-                          }}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
-                        />
-                        {t.name}
-                      </label>
-                    ))}
+                    {filteredTeachers.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic text-center py-2">No matching staff members found.</p>
+                    ) : (
+                      filteredTeachers.map(t => (
+                        <label key={t.id} className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100 p-1.5 rounded-lg transition">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedOwners.includes(t.id)} 
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedOwners([...selectedOwners, t.id]);
+                              } else {
+                                setSelectedOwners(selectedOwners.filter(id => id !== t.id));
+                              }
+                            }}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                          />
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span>{t.name}</span>
+                            {t.assignedRole && t.assignedRole !== 'TEACHER' && (
+                              <span className="text-[9px] px-1 py-0.25 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded font-black tracking-wider uppercase">
+                                {t.assignedRole}
+                              </span>
+                            )}
+                            {t.institute && (
+                              <span className="text-[9px] px-1 py-0.25 bg-slate-100 text-slate-500 rounded font-extrabold uppercase">
+                                {t.institute.includes("WES") ? "WES" : "DPS"}
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -931,8 +1043,17 @@ export default function CalendarPage() {
           <div className="bg-white rounded-3xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <h2 className="text-lg font-black text-slate-950 flex items-center gap-2">
-                <Info className="h-5 w-5 text-indigo-600" />
-                Event Details
+                {selectedMilestoneForView ? (
+                  <>
+                    <Flag className="h-5 w-5 text-purple-600" />
+                    Review Milestone Details
+                  </>
+                ) : (
+                  <>
+                    <Info className="h-5 w-5 text-indigo-600" />
+                    Event Details
+                  </>
+                )}
               </h2>
               <button 
                 onClick={() => setIsViewModalOpen(false)}
@@ -943,11 +1064,36 @@ export default function CalendarPage() {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              {selectedMilestoneForView ? (
+                <div className="bg-purple-50/70 border border-purple-100 p-4.5 rounded-2xl space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                      Milestone Date: {selectedMilestoneForView.date}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-purple-950">
+                    Review: {selectedMilestoneForView.title}
+                  </h3>
+                  <p className="text-[11px] font-semibold text-purple-500">
+                    This is an active checkpoint mapped to the calendar.
+                  </p>
+                </div>
+              ) : null}
+
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                  {selectedEventForView.date}
-                </span>
-                <h3 className="text-xl font-black text-slate-950 pt-1">
+                {selectedMilestoneForView ? (
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    Parent Event Details ({selectedEventForView.date})
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                    {selectedEventForView.date}
+                  </span>
+                )}
+                <h3 className={cn(
+                  "font-black text-slate-950 pt-1",
+                  selectedMilestoneForView ? "text-base text-slate-600" : "text-xl"
+                )}>
                   {selectedEventForView.title}
                 </h3>
               </div>
@@ -1021,15 +1167,17 @@ export default function CalendarPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  onClick={() => handleDeleteEvent(selectedEventForView.id)}
-                  className="px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-bold hover:bg-rose-100 hover:text-rose-700 transition flex items-center gap-1.5 cursor-pointer ml-auto"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete Event
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="flex gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => handleDeleteEvent(selectedEventForView.id)}
+                    className="px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-xs font-bold hover:bg-rose-100 hover:text-rose-700 transition flex items-center gap-1.5 cursor-pointer ml-auto"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Event
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

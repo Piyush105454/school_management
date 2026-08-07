@@ -1117,6 +1117,7 @@ export const schoolEvents = pgTable("school_events", {
   detail: text("detail"),
   meetLink: text("meet_link"),
   date: text("date").notNull(),
+  institute: text("institute"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

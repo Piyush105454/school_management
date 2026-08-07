@@ -86,23 +86,23 @@ export default function AdminManagementPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to create admin");
-      setSuccessMessage(`Admin created successfully: ${data.email}`);
+      if (!response.ok) throw new Error(data.error || "Failed to create staff member");
+      setSuccessMessage(`Office staff member created successfully: ${data.email}`);
       setShowAddAdminModal(false);
       setNewAdminEmail("");
       setNewAdminPassword("");
       fetchAdmins();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error: any) {
-      console.error("Error creating admin:", error);
-      setSuccessMessage(error.message || "Error creating admin");
+      console.error("Error creating staff member:", error);
+      setSuccessMessage(error.message || "Error creating staff member");
     } finally {
       setResettingId(null);
     }
   };
 
   const handleDeleteAdmin = async (adminId: string) => {
-    if (!confirm("Are you sure you want to delete this admin?")) return;
+    if (!confirm("Are you sure you want to delete this office staff member?")) return;
 
     try {
       setDeletingId(adminId);
@@ -116,8 +116,8 @@ export default function AdminManagementPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to delete admin");
-      setSuccessMessage("Admin deleted successfully");
+      if (!response.ok) throw new Error(data.error || "Failed to delete staff member");
+      setSuccessMessage("Office staff member deleted successfully");
       setOpenMenuId(null);
       
       // If the deleted admin is the current user, logout
@@ -131,8 +131,8 @@ export default function AdminManagementPage() {
       
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error: any) {
-      console.error("Error deleting admin:", error);
-      setSuccessMessage(error.message || "Error deleting admin");
+      console.error("Error deleting staff member:", error);
+      setSuccessMessage(error.message || "Error deleting staff member");
     } finally {
       setDeletingId(null);
     }
@@ -149,8 +149,8 @@ export default function AdminManagementPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Admin Management</h1>
-        <p className="text-slate-600">Manage administrator accounts and reset passwords</p>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Office Staff</h1>
+        <p className="text-slate-600">Manage office staff accounts and reset passwords</p>
       </div>
 
       <div className="mb-6 flex justify-end">
@@ -159,7 +159,7 @@ export default function AdminManagementPage() {
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
           <Plus size={18} />
-          Add New Admin
+          Add New Office Staff
         </button>
       </div>
 
@@ -223,7 +223,7 @@ export default function AdminManagementPage() {
                               className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                             >
                               <Trash2 size={16} />
-                              Delete Admin
+                              Delete Staff Member
                             </button>
                           </div>
                         )}
@@ -237,12 +237,12 @@ export default function AdminManagementPage() {
         )}
       </div>
 
-      {/* Add New Admin Modal */}
+      {/* Add New Office Staff Modal */}
       {showAddAdminModal && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-20 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">Add New Admin</h2>
+              <h2 className="text-lg font-bold text-slate-900">Add New Office Staff</h2>
               <button
                 onClick={() => {
                   setShowAddAdminModal(false);
@@ -256,27 +256,26 @@ export default function AdminManagementPage() {
             </div>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Email
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Email Address
               </label>
               <input
                 type="email"
                 value={newAdminEmail}
                 onChange={(e) => setNewAdminEmail(e.target.value)}
-                placeholder="Enter email"
+                placeholder="office.staff@dps.com"
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
                 Password
               </label>
               <input
-                type="text"
+                type="password"
                 value={newAdminPassword}
                 onChange={(e) => setNewAdminPassword(e.target.value)}
-                placeholder="Enter password"
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -297,7 +296,7 @@ export default function AdminManagementPage() {
                 disabled={resettingId === "adding"}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
               >
-                {resettingId === "adding" ? "Creating..." : "Create Admin"}
+                {resettingId === "adding" ? "Creating..." : "Create Staff Member"}
               </button>
             </div>
           </div>

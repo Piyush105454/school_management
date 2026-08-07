@@ -208,8 +208,9 @@ export default function ActivityLogsClient() {
   const [search, setSearch] = useState("");
   const [moduleFilter, setModuleFilter] = useState("All Modules");
   const [actionFilter, setActionFilter] = useState("All Actions");
+  const [limit, setLimit] = useState(50);
 
-  const fetchLogs = useCallback(async (isRefresh = false) => {
+  const fetchLogs = useCallback(async (isRefresh = false, currentLimit = limit) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
@@ -219,7 +220,7 @@ export default function ActivityLogsClient() {
       if (search) params.set("search", search);
       if (moduleFilter !== "All Modules") params.set("module", moduleFilter);
       if (actionFilter !== "All Actions") params.set("action", actionFilter);
-      params.set("limit", "100");
+      params.set("limit", String(currentLimit));
 
       const res = await fetch(`/api/activity-logs?${params.toString()}`, { cache: "no-store" });
       if (!res.ok) {
@@ -238,18 +239,23 @@ export default function ActivityLogsClient() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, moduleFilter, actionFilter]);
+  }, [search, moduleFilter, actionFilter, limit]);
 
   // Initial load
   useEffect(() => {
-    fetchLogs(false);
+    fetchLogs(false, 50);
   }, []);
 
-  // Re-fetch when filters change (debounced for search)
+  // Reset limit when filters change
   useEffect(() => {
-    const timer = setTimeout(() => fetchLogs(false), search ? 400 : 0);
-    return () => clearTimeout(timer);
+    setLimit(50);
   }, [search, moduleFilter, actionFilter]);
+
+  // Re-fetch when filters or limit change (debounced for search)
+  useEffect(() => {
+    const timer = setTimeout(() => fetchLogs(false, limit), search ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [search, moduleFilter, actionFilter, limit]);
 
   const hasActiveFilters = search || moduleFilter !== "All Modules" || actionFilter !== "All Actions";
 
@@ -257,6 +263,7 @@ export default function ActivityLogsClient() {
     setSearch("");
     setModuleFilter("All Modules");
     setActionFilter("All Actions");
+    setLimit(50);
   };
 
   return (
@@ -484,6 +491,26 @@ export default function ActivityLogsClient() {
                 </div>
               ))}
             </div>
+
+            {/* Load More Button */}
+            {logs.length === limit && (
+              <div className="px-6 py-4 flex justify-center border-t border-slate-100 bg-white">
+                <button
+                  onClick={() => setLimit((prev) => prev + 50)}
+                  disabled={loading || refreshing}
+                  className="flex items-center gap-2 px-5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {loading || refreshing ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Load More Actions"
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="px-6 py-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">

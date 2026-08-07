@@ -94,7 +94,7 @@ const officeItems = [
   { name: "Student Transport", href: "/office/transport", icon: Bus },
 
   { type: "section", name: "People Management" },
-  { name: "Admin Management", href: "/office/admin-management", icon: UserCog },
+  { name: "Office Staff", href: "/office/admin-management", icon: UserCog },
   { name: "Teacher Management", href: "/office/school-management/teachers", icon: Users },
   { name: "Principal Management", href: "/office/school-management/principal", icon: UserCog },
 
@@ -270,7 +270,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
 
     // People Management Category
     { type: "section", name: "People Management" },
-    { href: "/office/admin-management", icon: UserCog, roleNames: { OFFICE: "Admin Management", PRINCIPAL: "Admin Management" } },
+    { href: "/office/admin-management", icon: UserCog, roleNames: { OFFICE: "Office Staff", PRINCIPAL: "Office Staff" } },
     { href: "/office/school-management/teachers", icon: Users, roleNames: { OFFICE: "Teacher Management", PRINCIPAL: "Teacher Management" } },
     { href: "/office/school-management/principal", icon: UserCheck, roleNames: { OFFICE: "Principal Management", PRINCIPAL: "Principal Management" } },
 
@@ -370,12 +370,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/entrance-tests",
         "/office/home-visits",
         "/office/final-admissions",
-        "/office/scholarship/award",
-        "/office/scholarship/students",
-        "/office/scholarship/records",
-        "/office/scholarship/reports",
-        "/office/scholarship/reports/students",
-        "/office/scholarship/settings",
         "/office/academy-management/attendance",
         "/office/academy-management/classes",
         "/office/academy-management/calendar",
@@ -402,9 +396,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/school-management/principal",
         "/office/access-management",
         "/office/committees",
-        "/tasks", "/tasks/projects", "/tasks/my-tasks", "/tasks/team-tasks", "/tasks/board",
-        "/teacher/scholarship-criteria/ptm",
-        "/teacher/scholarship-criteria/guardian"
+        "/tasks", "/tasks/projects", "/tasks/my-tasks", "/tasks/team-tasks", "/tasks/board"
       ].includes(href); // PRINCIPAL deliberately excluded from activity-logs
     }
     if (r === "TEACHER") {
@@ -417,11 +409,6 @@ export function Sidebar({ role, onClose }: SidebarProps) {
         "/office/academy-management/lesson-plan/review",
         "/teacher/incident-management",
         "/teacher/exams",
-        "/office/inquiries",
-        "/office/admissions-progress",
-        "/office/document-verification",
-        "/office/entrance-tests",
-        "/office/home-visits",
         "/teacher/scholarship-criteria/ptm",
         "/teacher/scholarship-criteria/guardian",
         "/office/scholarship/reports",
@@ -581,7 +568,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
     return results;
   }, [role, permissions]);
 
-  const schoolName = teacherProfile?.institute || "DPS Dhanpuri";
+  const schoolName = teacherProfile?.institute || "Dhanpuri Public School";
 
   const toggleSection = (sectionName: string) => {
     setCollapsedSections(prev => ({
