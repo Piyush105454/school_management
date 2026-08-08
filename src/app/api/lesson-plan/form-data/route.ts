@@ -113,7 +113,19 @@ export async function GET(request: NextRequest) {
           }
 
           response.chapters = (subjectRecord.chapters || [])
-            .sort((a, b) => (parseInt(String(a.chapterNo)) || 0) - (parseInt(String(b.chapterNo)) || 0))
+            .sort((a, b) => {
+              const numA = parseInt(String(a.chapterNo)) || 0;
+              const numB = parseInt(String(b.chapterNo)) || 0;
+              if (numA !== numB) {
+                return numA - numB;
+              }
+              const aHasDivs = a.divisions && a.divisions.length > 0 ? 1 : 0;
+              const bHasDivs = b.divisions && b.divisions.length > 0 ? 1 : 0;
+              if (aHasDivs !== bHasDivs) {
+                return bHasDivs - aHasDivs;
+              }
+              return b.id - a.id;
+            })
             .map((ch) => ({
               id: ch.id,
               chapterNo: ch.chapterNo,

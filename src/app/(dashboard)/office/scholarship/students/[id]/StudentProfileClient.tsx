@@ -781,7 +781,7 @@ export default function StudentProfileClient({ id, student }: { id: string, stud
                   </KpiCard>
 
                   <KpiCard 
-                    title="Guardian Rating"
+                    title="Student's Gaurdian Rating"
                     amount={guardianReward}
                     success={calculatedGuardianRating >= guardianThresholdOutOf5}
                     requiredThreshold={guardianThresholdOutOf5}
@@ -1159,7 +1159,7 @@ function KpiCard({ title, percentage, amount, success, requiredThreshold, maxAmo
           {scoreDisplay && <p className="text-xs text-blue-600 font-black">{scoreDisplay}</p>}
           {(requiredThreshold !== undefined || maxAmount !== undefined) && (
             <p className="text-[10px] font-semibold text-slate-500 mt-0.5">
-              {requiredThreshold !== undefined ? `Req: ${requiredThreshold}${title === "Guardian Rating" ? "/5" : "%"}` : ""}
+              {requiredThreshold !== undefined ? `Req: ${requiredThreshold}${(title === "Guardian Rating" || title === "Student's Gaurdian Rating") ? "/5" : "%"}` : ""}
               {maxAmount !== undefined ? ` (Max: ₹${maxAmount})` : ""}
             </p>
           )}
